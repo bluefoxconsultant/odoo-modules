@@ -1,6 +1,6 @@
 # Blue Fox - Odoo 18 CE Modules
 
-Custom Odoo 18 Community Edition modules developed by [Blue Fox Inc.](https://bluefox.nz)
+Custom Odoo 18 Community Edition modules developed by [Blue Fox Inc.](https://bluefoxconsultant.com)
 
 ## Modules
 
