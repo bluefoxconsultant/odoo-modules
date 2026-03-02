@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!-- Tâche planifiée : Vérifier les expirations de services -->
+        <record id="ir_cron_hosting_check_expirations" model="ir.cron">
+            <field name="name">Hébergement : Vérifier les expirations</field>
+            <field name="model_id" ref="model_hosting_service"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_check_expirations()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="active">True</field>
+        </record>
+
+        <!-- Tâche planifiée : Expiration automatique des services -->
+        <record id="ir_cron_hosting_auto_expire" model="ir.cron">
+            <field name="name">Hébergement : Expiration automatique des services</field>
+            <field name="model_id" ref="model_hosting_service"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_auto_expire()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="active">True</field>
+        </record>
+
+        <!-- Tâche planifiée : Vérifier les versions logicielles -->
+        <record id="ir_cron_hosting_check_versions" model="ir.cron">
+            <field name="name">Hébergement : Vérifier les versions logicielles</field>
+            <field name="model_id" ref="model_hosting_software"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_check_versions()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="active">True</field>
+        </record>
+
+        <!-- Tâche planifiée : Vérification de santé -->
+        <record id="ir_cron_hosting_health_check" model="ir.cron">
+            <field name="name">Hébergement : Vérification de santé</field>
+            <field name="model_id" ref="model_hosting_service"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_health_check()</field>
+            <field name="interval_number">30</field>
+            <field name="interval_type">minutes</field>
+            <field name="active">True</field>
+        </record>
+
+        <!-- Tâche planifiée : Envoi des courriels récapitulatifs -->
+        <record id="ir_cron_hosting_digest" model="ir.cron">
+            <field name="name">Hébergement : Envoi des courriels récapitulatifs</field>
+            <field name="model_id" ref="model_hosting_digest"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_send_digests()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="active">True</field>
+        </record>
+
+        <!-- Tâche planifiée : Vérifier les versions des conteneurs Docker -->
+        <record id="ir_cron_hosting_check_docker_versions" model="ir.cron">
+            <field name="name">Hébergement : Vérifier les versions Docker</field>
+            <field name="model_id" ref="model_hosting_service"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_check_docker_versions()</field>
+            <field name="interval_number">6</field>
+            <field name="interval_type">hours</field>
+            <field name="active">True</field>
+        </record>
+
+    </data>
+</odoo>

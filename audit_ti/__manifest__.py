@@ -1,0 +1,33 @@
+{
+    "name": "Audit TI - Loi 25",
+    "summary": "Gestion des audits de sécurité informatique pour la conformité Loi 25",
+    "version": "18.0.1.16.0",
+    "category": "Services",
+    "website": "https://example.com",
+    "author": "PME Conforme / Blue Fox Inc.",
+    "license": "Other OSI approved licence",
+    "application": True,
+    "installable": True,
+    "depends": ["base", "mail", "project"],
+    "data": [
+        "security/audit_security.xml",
+        "security/ir.model.access.csv",
+        "data/mail_activity_type_data.xml",
+        "data/audit_element_data.xml",
+        "data/audit_supplier_alias_data.xml",
+        "views/audit_element_views.xml",
+        "views/audit_supplier_views.xml",
+        "views/audit_assessment_views.xml",
+        "views/audit_watchpoint_views.xml",
+        "views/audit_client_views.xml",
+        "views/audit_dashboard_views.xml",
+        "views/audit_menu.xml",
+        "report/audit_progress_report.xml",
+    ],
+    "assets": {
+        "web.assets_backend": [
+            "audit_ti/static/src/js/audit_dashboard.js",
+            "audit_ti/static/src/xml/audit_dashboard.xml",
+        ],
+    },
+}

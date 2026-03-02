@@ -1,0 +1,526 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <record id="mail_template_document_dashboard_report" model="mail.template">
+            <field name="name">Rapport de documentation - Tableau de bord</field>
+            <field name="model_id" ref="base.model_res_company"/>
+            <field name="subject">Rapport de documentation - {{ object.name }}</field>
+            <field name="email_from">{{ (object.email or user.email_formatted) }}</field>
+            <field name="email_to">{{ ctx.get('recipient_email', '') }}</field>
+            <field name="lang">{{ object.partner_id.lang }}</field>
+            <field name="body_html" type="html">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="box-sizing:border-box;border-collapse:collapse;background-color:#2E3132">
+    <tbody>
+        <tr>
+            <td align="center" style="padding:24px 16px">
+                <table cellspacing="0" cellpadding="0" border="0" width="600" align="center" role="presentation" style="border-collapse:collapse;width:600px;max-width:100%">
+                    <tbody>
+                        <tr>
+                            <td>
+                                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;background-color:#ffffff;border-radius:12px;overflow:hidden">
+                                    <tbody>
+                                        <!-- Header -->
+                                        <tr>
+                                            <td style="background-color:#22303B;padding:20px 24px">
+                                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse">
+                                                    <tbody>
+                                                        <tr>
+                                                            <td align="left">
+                                                                <a href="https://www.example.com" style="text-decoration:none">
+                                                                    <img src="/web/image/website/1/logo" alt="Blue Fox" style="display:block;border:0;height:44px;width:auto" height="44"/>
+                                                                </a>
+                                                            </td>
+                                                            <td align="right" style="color:#E6EDF3;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:20px;font-weight:700">
+                                                                Rapport documentaire
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </td>
+                                        </tr>
+
+                                        <!-- Accent bar -->
+                                        <tr>
+                                            <td style="height:4px;line-height:4px;background-color:#29ABE2">&amp;nbsp;</td>
+                                        </tr>
+
+                                        <!-- Content -->
+                                        <tr>
+                                            <td style="padding:24px">
+                                                <!-- Title & Date -->
+                                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;margin-bottom:20px">
+                                                    <tbody>
+                                                        <tr>
+                                                            <td>
+                                                                <h1 style="margin:0 0 4px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:22px;font-weight:600;color:#22303B">
+                                                                    Tableau de bord
+                                                                </h1>
+                                                                <p style="margin:0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:14px;color:#6B7280">
+                                                                    État au <t t-out="ctx.get('report_date', '')"/>
+                                                                </p>
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+
+                                                <!-- ATTENTION SECTION (if needed) -->
+                                                <t t-if="ctx.get('overdue_review', 0) > 0 or ctx.get('expired_documents', 0) > 0 or ctx.get('expiring_30d', 0) > 0 or ctx.get('overdue_acknowledgments', 0) > 0 or ctx.get('corp_overdue_compliance', 0) > 0 or ctx.get('decisions_high_impact', 0) > 0">
+                                                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;background-color:#fef2f2;border:1px solid #fecaca;border-radius:8px;margin-bottom:20px">
+                                                        <tbody>
+                                                            <tr>
+                                                                <td style="padding:16px">
+                                                                    <p style="margin:0 0 12px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:15px;font-weight:600;color:#dc2626">
+                                                                        ⚠️ Attention requise
+                                                                    </p>
+                                                                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse">
+                                                                        <tbody>
+                                                                            <t t-if="ctx.get('expired_documents', 0) > 0">
+                                                                                <tr>
+                                                                                    <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:14px;color:#6B7280;padding:4px 0">Documents expirés</td>
+                                                                                    <td align="right" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:14px;color:#dc2626;font-weight:600;padding:4px 0"><t t-out="ctx.get('expired_documents', 0)"/></td>
+                                                                                </tr>
+                                                                            </t>
+                                                                            <t t-if="ctx.get('overdue_review', 0) > 0">
+                                                                                <tr>
+                                                                                    <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:14px;color:#6B7280;padding:4px 0">Révisions en retard</td>
+                                                                                    <td align="right" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:14px;color:#dc2626;font-weight:600;padding:4px 0"><t t-out="ctx.get('overdue_review', 0)"/></td>
+                                                                                </tr>
+                                                                            </t>
+                                                                            <t t-if="ctx.get('expiring_30d', 0) > 0">
+                                                                                <tr>
+                                                                                    <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:14px;color:#6B7280;padding:4px 0">Expirent sous 30 jours</td>
+                                                                                    <td align="right" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:14px;color:#f59e0b;font-weight:600;padding:4px 0"><t t-out="ctx.get('expiring_30d', 0)"/></td>
+                                                                                </tr>
+                                                                            </t>
+                                                                            <t t-if="ctx.get('overdue_acknowledgments', 0) > 0">
+                                                                                <tr>
+                                                                                    <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:14px;color:#6B7280;padding:4px 0">Accusés en retard (+7 jours)</td>
+                                                                                    <td align="right" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:14px;color:#f59e0b;font-weight:600;padding:4px 0"><t t-out="ctx.get('overdue_acknowledgments', 0)"/></td>
+                                                                                </tr>
+                                                                            </t>
+                                                                            <t t-if="ctx.get('corp_overdue_compliance', 0) > 0">
+                                                                                <tr>
+                                                                                    <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:14px;color:#6B7280;padding:4px 0">Conformité corporative en retard</td>
+                                                                                    <td align="right" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:14px;color:#dc2626;font-weight:600;padding:4px 0"><t t-out="ctx.get('corp_overdue_compliance', 0)"/></td>
+                                                                                </tr>
+                                                                            </t>
+                                                                            <t t-if="ctx.get('decisions_high_impact', 0) > 0">
+                                                                                <tr>
+                                                                                    <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:14px;color:#6B7280;padding:4px 0">Décisions haute importance en attente</td>
+                                                                                    <td align="right" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:14px;color:#f59e0b;font-weight:600;padding:4px 0"><t t-out="ctx.get('decisions_high_impact', 0)"/></td>
+                                                                                </tr>
+                                                                            </t>
+                                                                        </tbody>
+                                                                    </table>
+                                                                </td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </t>
+
+                                                <!-- DOCUMENTS OVERVIEW -->
+                                                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;background-color:#f9fafb;border-radius:8px;margin-bottom:16px">
+                                                    <tbody>
+                                                        <tr>
+                                                            <td style="padding:16px 20px">
+                                                                <p style="margin:0 0 12px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:0.5px">
+                                                                    📄 Aperçu des documents
+                                                                </p>
+                                                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse">
+                                                                    <tbody>
+                                                                        <tr>
+                                                                            <td align="center" style="width:25%;padding:8px">
+                                                                                <div style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:28px;font-weight:700;color:#22303B"><t t-out="ctx.get('active_documents', 0)"/></div>
+                                                                                <div style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;color:#6B7280">Actifs</div>
+                                                                            </td>
+                                                                            <td align="center" style="width:25%;padding:8px">
+                                                                                <div style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:28px;font-weight:700;color:#29ABE2"><t t-out="ctx.get('internal_documents', 0)"/></div>
+                                                                                <div style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;color:#6B7280">Internes</div>
+                                                                            </td>
+                                                                            <td align="center" style="width:25%;padding:8px">
+                                                                                <div style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:28px;font-weight:700;color:#16a34a"><t t-out="ctx.get('client_documents', 0)"/></div>
+                                                                                <div style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;color:#6B7280">Clients</div>
+                                                                            </td>
+                                                                            <td align="center" style="width:25%;padding:8px">
+                                                                                <div style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:28px;font-weight:700;color:#6B7280"><t t-out="ctx.get('archived_documents', 0)"/></div>
+                                                                                <div style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;color:#6B7280">Archivés</div>
+                                                                            </td>
+                                                                        </tr>
+                                                                    </tbody>
+                                                                </table>
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+
+                                                <!-- CLIENT & INTERNAL - Side by side -->
+                                                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;margin-bottom:16px">
+                                                    <tbody>
+                                                        <tr>
+                                                            <!-- Clients -->
+                                                            <td style="width:50%;padding-right:8px;vertical-align:top">
+                                                                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;background-color:#ecfdf5;border-radius:8px;height:100%">
+                                                                    <tbody>
+                                                                        <tr>
+                                                                            <td style="padding:16px">
+                                                                                <p style="margin:0 0 10px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;color:#16a34a;text-transform:uppercase">
+                                                                                    👥 Documentation clients
+                                                                                </p>
+                                                                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse">
+                                                                                    <tbody>
+                                                                                        <tr>
+                                                                                            <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#374151;padding:3px 0">Distributions</td>
+                                                                                            <td align="right" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;font-weight:600;color:#374151;padding:3px 0"><t t-out="ctx.get('client_distributions', 0)"/></td>
+                                                                                        </tr>
+                                                                                        <tr>
+                                                                                            <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#374151;padding:3px 0">Taux d'accusé</td>
+                                                                                            <td align="right" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;font-weight:600;color:#16a34a;padding:3px 0"><t t-out="ctx.get('client_ack_rate', 0)"/>%</td>
+                                                                                        </tr>
+                                                                                        <tr>
+                                                                                            <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#374151;padding:3px 0">En attente</td>
+                                                                                            <td align="right" t-att-style="'font-family:Lexend,Segoe UI,Arial,sans-serif;font-size:13px;font-weight:600;padding:3px 0;color:' + ('#f59e0b' if ctx.get('client_pending', 0) > 0 else '#374151')"><t t-out="ctx.get('client_pending', 0)"/></td>
+                                                                                        </tr>
+                                                                                        <tr>
+                                                                                            <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#374151;padding:3px 0">Obsolètes</td>
+                                                                                            <td align="right" t-att-style="'font-family:Lexend,Segoe UI,Arial,sans-serif;font-size:13px;font-weight:600;padding:3px 0;color:' + ('#dc2626' if ctx.get('client_outdated', 0) > 0 else '#374151')"><t t-out="ctx.get('client_outdated', 0)"/></td>
+                                                                                        </tr>
+                                                                                    </tbody>
+                                                                                </table>
+                                                                            </td>
+                                                                        </tr>
+                                                                    </tbody>
+                                                                </table>
+                                                            </td>
+                                                            <!-- Internal -->
+                                                            <td style="width:50%;padding-left:8px;vertical-align:top">
+                                                                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;background-color:#f3f4f6;border-radius:8px;height:100%">
+                                                                    <tbody>
+                                                                        <tr>
+                                                                            <td style="padding:16px">
+                                                                                <p style="margin:0 0 10px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;color:#374151;text-transform:uppercase">
+                                                                                    🏢 Conformité interne
+                                                                                </p>
+                                                                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse">
+                                                                                    <tbody>
+                                                                                        <tr>
+                                                                                            <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#374151;padding:3px 0">Distributions</td>
+                                                                                            <td align="right" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;font-weight:600;color:#374151;padding:3px 0"><t t-out="ctx.get('internal_distributions', 0)"/></td>
+                                                                                        </tr>
+                                                                                        <tr>
+                                                                                            <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#374151;padding:3px 0">Taux de conformité</td>
+                                                                                            <td align="right" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;font-weight:600;color:#29ABE2;padding:3px 0"><t t-out="ctx.get('internal_compliance_rate', 0)"/>%</td>
+                                                                                        </tr>
+                                                                                        <tr>
+                                                                                            <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#374151;padding:3px 0">En attente</td>
+                                                                                            <td align="right" t-att-style="'font-family:Lexend,Segoe UI,Arial,sans-serif;font-size:13px;font-weight:600;padding:3px 0;color:' + ('#f59e0b' if ctx.get('internal_pending', 0) > 0 else '#374151')"><t t-out="ctx.get('internal_pending', 0)"/></td>
+                                                                                        </tr>
+                                                                                        <tr>
+                                                                                            <td colspan="2" style="padding:3px 0">&amp;nbsp;</td>
+                                                                                        </tr>
+                                                                                    </tbody>
+                                                                                </table>
+                                                                            </td>
+                                                                        </tr>
+                                                                    </tbody>
+                                                                </table>
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+
+                                                <!-- CREDENTIALS & ACTIVITY - Side by side -->
+                                                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;margin-bottom:16px">
+                                                    <tbody>
+                                                        <tr>
+                                                            <!-- Credentials -->
+                                                            <td style="width:50%;padding-right:8px;vertical-align:top">
+                                                                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;background-color:#fef3c7;border-radius:8px">
+                                                                    <tbody>
+                                                                        <tr>
+                                                                            <td style="padding:16px">
+                                                                                <p style="margin:0 0 10px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;color:#92400e;text-transform:uppercase">
+                                                                                    🔑 Identifiants
+                                                                                </p>
+                                                                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse">
+                                                                                    <tbody>
+                                                                                        <tr>
+                                                                                            <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#374151;padding:3px 0">Actifs</td>
+                                                                                            <td align="right" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;font-weight:600;color:#374151;padding:3px 0"><t t-out="ctx.get('credentials_total', 0)"/></td>
+                                                                                        </tr>
+                                                                                        <tr>
+                                                                                            <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#374151;padding:3px 0">Expirent sous 30j</td>
+                                                                                            <td align="right" t-att-style="'font-family:Lexend,Segoe UI,Arial,sans-serif;font-size:13px;font-weight:600;padding:3px 0;color:' + ('#f59e0b' if ctx.get('credentials_expiring', 0) > 0 else '#374151')"><t t-out="ctx.get('credentials_expiring', 0)"/></td>
+                                                                                        </tr>
+                                                                                        <tr>
+                                                                                            <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#374151;padding:3px 0">Expirés</td>
+                                                                                            <td align="right" t-att-style="'font-family:Lexend,Segoe UI,Arial,sans-serif;font-size:13px;font-weight:600;padding:3px 0;color:' + ('#dc2626' if ctx.get('credentials_expired', 0) > 0 else '#374151')"><t t-out="ctx.get('credentials_expired', 0)"/></td>
+                                                                                        </tr>
+                                                                                    </tbody>
+                                                                                </table>
+                                                                            </td>
+                                                                        </tr>
+                                                                    </tbody>
+                                                                </table>
+                                                            </td>
+                                                            <!-- Activity -->
+                                                            <td style="width:50%;padding-left:8px;vertical-align:top">
+                                                                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;background-color:#eff6ff;border-radius:8px">
+                                                                    <tbody>
+                                                                        <tr>
+                                                                            <td style="padding:16px">
+                                                                                <p style="margin:0 0 10px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;color:#1d4ed8;text-transform:uppercase">
+                                                                                    📊 Activité
+                                                                                </p>
+                                                                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse">
+                                                                                    <tbody>
+                                                                                        <tr>
+                                                                                            <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#374151;padding:3px 0">Distributions ce mois</td>
+                                                                                            <td align="right" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;font-weight:600;color:#1d4ed8;padding:3px 0"><t t-out="ctx.get('distributions_this_month', 0)"/></td>
+                                                                                        </tr>
+                                                                                        <tr>
+                                                                                            <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#374151;padding:3px 0">Mois dernier</td>
+                                                                                            <td align="right" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;font-weight:600;color:#6B7280;padding:3px 0"><t t-out="ctx.get('distributions_last_month', 0)"/></td>
+                                                                                        </tr>
+                                                                                        <tr>
+                                                                                            <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#374151;padding:3px 0">Docs sans version</td>
+                                                                                            <td align="right" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;font-weight:600;color:#6B7280;padding:3px 0"><t t-out="ctx.get('docs_without_versions', 0)"/></td>
+                                                                                        </tr>
+                                                                                    </tbody>
+                                                                                </table>
+                                                                            </td>
+                                                                        </tr>
+                                                                    </tbody>
+                                                                </table>
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+
+                                                <!-- REVIEW CALENDAR -->
+                                                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;background-color:#f9fafb;border-radius:8px;margin-bottom:16px">
+                                                    <tbody>
+                                                        <tr>
+                                                            <td style="padding:16px 20px">
+                                                                <p style="margin:0 0 12px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;color:#6B7280;text-transform:uppercase">
+                                                                    📅 Calendrier des révisions
+                                                                </p>
+                                                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse">
+                                                                    <tbody>
+                                                                        <tr>
+                                                                            <td align="center" style="width:33%;padding:8px">
+                                                                                <div t-att-style="'font-family:Lexend,Segoe UI,Arial,sans-serif;font-size:24px;font-weight:700;color:' + ('#dc2626' if ctx.get('review_0_30', 0) > 0 else '#6B7280')"><t t-out="ctx.get('review_0_30', 0)"/></div>
+                                                                                <div style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;color:#6B7280">0-30 jours</div>
+                                                                            </td>
+                                                                            <td align="center" style="width:33%;padding:8px">
+                                                                                <div t-att-style="'font-family:Lexend,Segoe UI,Arial,sans-serif;font-size:24px;font-weight:700;color:' + ('#f59e0b' if ctx.get('review_30_60', 0) > 0 else '#6B7280')"><t t-out="ctx.get('review_30_60', 0)"/></div>
+                                                                                <div style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;color:#6B7280">30-60 jours</div>
+                                                                            </td>
+                                                                            <td align="center" style="width:33%;padding:8px">
+                                                                                <div t-att-style="'font-family:Lexend,Segoe UI,Arial,sans-serif;font-size:24px;font-weight:700;color:' + ('#29ABE2' if ctx.get('review_60_90', 0) > 0 else '#6B7280')"><t t-out="ctx.get('review_60_90', 0)"/></div>
+                                                                                <div style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;color:#6B7280">60-90 jours</div>
+                                                                            </td>
+                                                                        </tr>
+                                                                    </tbody>
+                                                                </table>
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+
+                                                <!-- DOCUMENTS BY TYPE -->
+                                                <t t-if="ctx.get('documents_by_type', [])">
+                                                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;background-color:#f9fafb;border-radius:8px;margin-bottom:20px">
+                                                        <tbody>
+                                                            <tr>
+                                                                <td style="padding:16px 20px">
+                                                                    <p style="margin:0 0 12px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;color:#6B7280;text-transform:uppercase">
+                                                                        📁 Documents par type
+                                                                    </p>
+                                                                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse">
+                                                                        <tbody>
+                                                                            <t t-foreach="ctx.get('documents_by_type', [])[:8]" t-as="type_data">
+                                                                                <tr>
+                                                                                    <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#374151;padding:4px 0"><t t-out="type_data[0]"/></td>
+                                                                                    <td align="right" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;font-weight:600;color:#374151;padding:4px 0"><t t-out="type_data[1]"/></td>
+                                                                                </tr>
+                                                                            </t>
+                                                                        </tbody>
+                                                                    </table>
+                                                                </td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </t>
+
+                                                <!-- DECISION TRACKING (if decisions exist) -->
+                                                <t t-if="ctx.get('decisions_total', 0) > 0">
+                                                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;background-color:#f5f3ff;border-radius:8px;margin-bottom:16px">
+                                                        <tbody>
+                                                            <tr>
+                                                                <td style="padding:16px 20px">
+                                                                    <p style="margin:0 0 12px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;color:#6d28d9;text-transform:uppercase;letter-spacing:0.5px">
+                                                                        &#x2696; Suivi des décisions
+                                                                    </p>
+                                                                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse">
+                                                                        <tbody>
+                                                                            <tr>
+                                                                                <td align="center" style="width:20%;padding:8px">
+                                                                                    <div style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:24px;font-weight:700;color:#22303B"><t t-out="ctx.get('decisions_total', 0)"/></div>
+                                                                                    <div style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:11px;color:#6B7280">Total</div>
+                                                                                </td>
+                                                                                <td align="center" style="width:20%;padding:8px">
+                                                                                    <div style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:24px;font-weight:700;color:#16a34a"><t t-out="ctx.get('decisions_accepted', 0)"/></div>
+                                                                                    <div style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:11px;color:#6B7280">Acceptées</div>
+                                                                                </td>
+                                                                                <td align="center" style="width:20%;padding:8px">
+                                                                                    <div style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:24px;font-weight:700;color:#f59e0b"><t t-out="ctx.get('decisions_proposed', 0)"/></div>
+                                                                                    <div style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:11px;color:#6B7280">Proposées</div>
+                                                                                </td>
+                                                                                <td align="center" style="width:20%;padding:8px">
+                                                                                    <div style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:24px;font-weight:700;color:#6B7280"><t t-out="ctx.get('decisions_rejected', 0)"/></div>
+                                                                                    <div style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:11px;color:#6B7280">Rejetées</div>
+                                                                                </td>
+                                                                                <td align="center" style="width:20%;padding:8px">
+                                                                                    <div t-att-style="'font-family:Lexend,Segoe UI,Arial,sans-serif;font-size:24px;font-weight:700;color:' + ('#dc2626' if ctx.get('decisions_high_impact', 0) > 0 else '#6B7280')"><t t-out="ctx.get('decisions_high_impact', 0)"/></div>
+                                                                                    <div style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:11px;color:#6B7280">Haute importance</div>
+                                                                                </td>
+                                                                            </tr>
+                                                                        </tbody>
+                                                                    </table>
+                                                                </td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </t>
+
+                                                <!-- CORPORATE GOVERNANCE (if any data) -->
+                                                <t t-if="ctx.get('corp_active_directors', 0) > 0 or ctx.get('corp_active_officers', 0) > 0 or ctx.get('corp_adopted_resolutions', 0) > 0 or ctx.get('corp_overdue_compliance', 0) > 0 or ctx.get('corp_due_soon_compliance', 0) > 0">
+                                                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;margin-bottom:16px">
+                                                        <tbody>
+                                                            <tr>
+                                                                <!-- Registres -->
+                                                                <td style="width:50%;padding-right:8px;vertical-align:top">
+                                                                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;background-color:#e0e7ff;border-radius:8px">
+                                                                        <tbody>
+                                                                            <tr>
+                                                                                <td style="padding:16px">
+                                                                                    <p style="margin:0 0 10px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;color:#3730a3;text-transform:uppercase">
+                                                                                        &#x1F3DB; Gouvernance corporative
+                                                                                    </p>
+                                                                                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse">
+                                                                                        <tbody>
+                                                                                            <tr>
+                                                                                                <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#374151;padding:3px 0">Administrateurs actifs</td>
+                                                                                                <td align="right" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;font-weight:600;color:#374151;padding:3px 0"><t t-out="ctx.get('corp_active_directors', 0)"/></td>
+                                                                                            </tr>
+                                                                                            <tr>
+                                                                                                <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#374151;padding:3px 0">Dirigeants actifs</td>
+                                                                                                <td align="right" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;font-weight:600;color:#374151;padding:3px 0"><t t-out="ctx.get('corp_active_officers', 0)"/></td>
+                                                                                            </tr>
+                                                                                            <tr>
+                                                                                                <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#374151;padding:3px 0">Résolutions adoptées</td>
+                                                                                                <td align="right" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;font-weight:600;color:#3730a3;padding:3px 0"><t t-out="ctx.get('corp_adopted_resolutions', 0)"/></td>
+                                                                                            </tr>
+                                                                                        </tbody>
+                                                                                    </table>
+                                                                                </td>
+                                                                            </tr>
+                                                                        </tbody>
+                                                                    </table>
+                                                                </td>
+                                                                <!-- Compliance -->
+                                                                <td style="width:50%;padding-left:8px;vertical-align:top">
+                                                                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;background-color:#fef2f2;border-radius:8px">
+                                                                        <tbody>
+                                                                            <tr>
+                                                                                <td style="padding:16px">
+                                                                                    <p style="margin:0 0 10px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;color:#991b1b;text-transform:uppercase">
+                                                                                        &#x1F4C5; Conformité corporative
+                                                                                    </p>
+                                                                                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse">
+                                                                                        <tbody>
+                                                                                            <tr>
+                                                                                                <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#374151;padding:3px 0">En retard</td>
+                                                                                                <td align="right" t-att-style="'font-family:Lexend,Segoe UI,Arial,sans-serif;font-size:13px;font-weight:600;padding:3px 0;color:' + ('#dc2626' if ctx.get('corp_overdue_compliance', 0) > 0 else '#374151')"><t t-out="ctx.get('corp_overdue_compliance', 0)"/></td>
+                                                                                            </tr>
+                                                                                            <tr>
+                                                                                                <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#374151;padding:3px 0">Échéance proche</td>
+                                                                                                <td align="right" t-att-style="'font-family:Lexend,Segoe UI,Arial,sans-serif;font-size:13px;font-weight:600;padding:3px 0;color:' + ('#f59e0b' if ctx.get('corp_due_soon_compliance', 0) > 0 else '#374151')"><t t-out="ctx.get('corp_due_soon_compliance', 0)"/></td>
+                                                                                            </tr>
+                                                                                            <tr>
+                                                                                                <td colspan="2" style="padding:3px 0">&amp;nbsp;</td>
+                                                                                            </tr>
+                                                                                        </tbody>
+                                                                                    </table>
+                                                                                </td>
+                                                                            </tr>
+                                                                        </tbody>
+                                                                    </table>
+                                                                </td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </t>
+
+                                                <!-- CTA Button -->
+                                                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse">
+                                                    <tbody>
+                                                        <tr>
+                                                            <td align="center" style="padding:8px 0">
+                                                                <a t-att-href="ctx.get('dashboard_url', '#')" style="box-sizing:border-box;display:inline-block;background-color:#29abe2;text-decoration:none;font-family:Lexend,'Segoe UI',Arial,sans-serif;font-size:15px;font-weight:600;padding:14px 28px;border-radius:8px;color:#ffffff">
+                                                                    Accéder au tableau de bord
+                                                                </a>
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </td>
+                                        </tr>
+
+                                        <!-- Footer -->
+                                        <tr>
+                                            <td style="padding:16px 24px;background-color:#f9fafb;border-top:1px solid #e5e7eb">
+                                                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse">
+                                                    <tbody>
+                                                        <tr>
+                                                            <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;color:#6B7280">
+                                                                <strong style="color:#22303B">Blue Fox Inc</strong><br/>
+                                                                <span style="color:#9CA3AF">Rapport généré automatiquement</span>
+                                                            </td>
+                                                            <td align="right" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;color:#9CA3AF">
+                                                                <a href="mailto:service@example.com" style="color:#29abe2;text-decoration:none">Contact</a>
+                                                                <span style="color:#d1d5db"> · </span>
+                                                                <a href="https://www.example.com" style="color:#9CA3AF;text-decoration:none">example.com</a>
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </td>
+                                        </tr>
+
+                                    </tbody>
+                                </table>
+
+                                <!-- Bottom accent bars -->
+                                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top:12px;border-collapse:collapse">
+                                    <tbody>
+                                        <tr>
+                                            <td style="height:3px;line-height:3px;background-color:#29abe2;width:50%">&amp;nbsp;</td>
+                                            <td style="height:3px;line-height:3px;background-color:#22303b;width:50%">&amp;nbsp;</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </td>
+        </tr>
+    </tbody>
+</table>
+            </field>
+        </record>
+
+    </data>
+</odoo>

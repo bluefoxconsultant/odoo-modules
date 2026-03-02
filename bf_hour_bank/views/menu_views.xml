@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Top-level menu under Project -->
+    <menuitem id="menu_hour_bank_root"
+              name="Banque d'heures"
+              parent="project.menu_main_pm"
+              sequence="30"/>
+
+    <menuitem id="menu_hour_bank_clients"
+              name="Clients"
+              parent="menu_hour_bank_root"
+              action="action_hour_bank_client"
+              sequence="10"/>
+
+</odoo>

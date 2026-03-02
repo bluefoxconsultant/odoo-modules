@@ -1,0 +1,178 @@
+# Translation of Odoo Server.
+# This file contains the translation of the following modules:
+# 	* bf_universal_search
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 18.0-20260119\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-02-14 16:46+0000\n"
+"PO-Revision-Date: 2026-02-14 16:46+0000\n"
+"Last-Translator: Example Inc.\n"
+"Language-Team: French (Canada)\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: fr_CA\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#. module: bf_universal_search
+#: model:ir.model.fields,field_description:bf_universal_search.field_bf_universal_search_config__active
+msgid "Actif"
+msgstr "Actif"
+
+#. module: bf_universal_search
+#. odoo-javascript
+#: code:addons/bf_universal_search/static/src/js/universal_search_provider.js:0
+msgid "Aucun résultat trouvé"
+msgstr "Aucun résultat trouvé"
+
+#. module: bf_universal_search
+#. odoo-javascript
+#: code:addons/bf_universal_search/static/src/js/universal_search_provider.js:0
+msgid "Autres"
+msgstr "Autres"
+
+#. module: bf_universal_search
+#: model:ir.model.fields,field_description:bf_universal_search.field_bf_universal_search_config__category
+msgid "Catégorie"
+msgstr "Catégorie"
+
+#. module: bf_universal_search
+#: model:ir.model.fields,field_description:bf_universal_search.field_bf_universal_search_config__search_fields
+msgid "Champs de recherche"
+msgstr "Champs de recherche"
+
+#. module: bf_universal_search
+#: model:ir.model.fields,help:bf_universal_search.field_bf_universal_search_config__icon
+msgid "Classe CSS FontAwesome (ex: fa fa-users)"
+msgstr "Classe CSS FontAwesome (ex: fa fa-users)"
+
+#. module: bf_universal_search
+#: model:ir.model.fields,help:bf_universal_search.field_bf_universal_search_config__category
+msgid "Clé de catégorie pour le regroupement (ex: search_contacts)"
+msgstr "Clé de catégorie pour le regroupement (ex: search_contacts)"
+
+#. module: bf_universal_search
+#: model:ir.model,name:bf_universal_search.model_bf_universal_search_config
+msgid "Configuration de recherche universelle"
+msgstr "Configuration de recherche universelle"
+
+#. module: bf_universal_search
+#. odoo-javascript
+#: code:addons/bf_universal_search/static/src/js/universal_search_provider.js:0
+msgid "Contacts"
+msgstr "Contacts"
+
+#. module: bf_universal_search
+#: model:ir.model.fields,field_description:bf_universal_search.field_bf_universal_search_config__create_uid
+msgid "Created by"
+msgstr "Créé par"
+
+#. module: bf_universal_search
+#: model:ir.model.fields,field_description:bf_universal_search.field_bf_universal_search_config__create_date
+msgid "Created on"
+msgstr "Créé le"
+
+#. module: bf_universal_search
+#: model:ir.model.fields,field_description:bf_universal_search.field_bf_universal_search__display_name
+#: model:ir.model.fields,field_description:bf_universal_search.field_bf_universal_search_config__display_name
+msgid "Display Name"
+msgstr "Nom affiché"
+
+#. module: bf_universal_search
+#. odoo-javascript
+#: code:addons/bf_universal_search/static/src/js/universal_search_provider.js:0
+msgid "Documents"
+msgstr "Documents"
+
+#. module: bf_universal_search
+#. odoo-javascript
+#: code:addons/bf_universal_search/static/src/js/universal_search_provider.js:0
+msgid "Hébergement"
+msgstr "Hébergement"
+
+#. module: bf_universal_search
+#: model:ir.model.fields,field_description:bf_universal_search.field_bf_universal_search__id
+#: model:ir.model.fields,field_description:bf_universal_search.field_bf_universal_search_config__id
+msgid "ID"
+msgstr "ID"
+
+#. module: bf_universal_search
+#: model:ir.model.fields,field_description:bf_universal_search.field_bf_universal_search_config__icon
+msgid "Icône FontAwesome"
+msgstr "Icône FontAwesome"
+
+#. module: bf_universal_search
+#: model:ir.model.fields,field_description:bf_universal_search.field_bf_universal_search_config__write_uid
+msgid "Last Updated by"
+msgstr "Dernière mise à jour par"
+
+#. module: bf_universal_search
+#: model:ir.model.fields,field_description:bf_universal_search.field_bf_universal_search_config__write_date
+msgid "Last Updated on"
+msgstr "Dernière mise à jour le"
+
+#. module: bf_universal_search
+#: model:ir.model.fields,field_description:bf_universal_search.field_bf_universal_search_config__name
+msgid "Libellé"
+msgstr "Libellé"
+
+#. module: bf_universal_search
+#: model:ir.model.fields,field_description:bf_universal_search.field_bf_universal_search_config__limit
+msgid "Limite par modèle"
+msgstr "Limite par modèle"
+
+#. module: bf_universal_search
+#: model:ir.model.fields,field_description:bf_universal_search.field_bf_universal_search_config__model_id
+msgid "Modèle"
+msgstr "Modèle"
+
+#. module: bf_universal_search
+#: model:ir.model.fields,field_description:bf_universal_search.field_bf_universal_search_config__model_name
+msgid "Nom technique"
+msgstr "Nom technique"
+
+#. module: bf_universal_search
+#: model:ir.model.fields,help:bf_universal_search.field_bf_universal_search_config__limit
+msgid "Nombre maximum de résultats retournés par modèle"
+msgstr "Nombre maximum de résultats retournés par modèle"
+
+#. module: bf_universal_search
+#: model:ir.model.fields,help:bf_universal_search.field_bf_universal_search_config__search_fields
+msgid "Noms de champs séparés par des virgules (ex: name,email,phone)"
+msgstr "Noms de champs séparés par des virgules (ex: name,email,phone)"
+
+#. module: bf_universal_search
+#. odoo-javascript
+#: code:addons/bf_universal_search/static/src/js/universal_search_provider.js:0
+msgid "Projets"
+msgstr "Projets"
+
+#. module: bf_universal_search
+#: model:ir.model,name:bf_universal_search.model_bf_universal_search
+msgid "Recherche universelle"
+msgstr "Recherche universelle"
+
+#. module: bf_universal_search
+#. odoo-javascript
+#: code:addons/bf_universal_search/static/src/xml/universal_search.xml:0
+msgid "Recherche universelle (Ctrl+K puis *)"
+msgstr "Recherche universelle (Ctrl+K puis *)"
+
+#. module: bf_universal_search
+#. odoo-javascript
+#: code:addons/bf_universal_search/static/src/js/universal_search_provider.js:0
+msgid "Rechercher partout..."
+msgstr "Rechercher partout..."
+
+#. module: bf_universal_search
+#: model:ir.model.fields,field_description:bf_universal_search.field_bf_universal_search_config__sequence
+msgid "Séquence"
+msgstr "Séquence"
+
+#. module: bf_universal_search
+#. odoo-javascript
+#: code:addons/bf_universal_search/static/src/js/universal_search_provider.js:0
+msgid "enregistrements"
+msgstr "enregistrements"

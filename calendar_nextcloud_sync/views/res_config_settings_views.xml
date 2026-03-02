@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_nc_sync" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.nc.sync</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="calendar.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//app[@name='calendar']/block[@name='calendar']" position="inside">
+                <setting string="Nextcloud Calendar Sync"
+                    help="Synchronize calendars with Nextcloud via CalDAV"
+                    id="nc_sync_setting">
+                    <div class="content-group">
+                        <div class="row mt8">
+                            <label for="nc_sync_default_calendar_id" class="col-lg-4 o_light_label"/>
+                            <field name="nc_sync_default_calendar_id" class="col-lg-6"/>
+                        </div>
+                        <div class="row mt8">
+                            <label for="nc_sync_webhook_url" class="col-lg-4 o_light_label"/>
+                            <field name="nc_sync_webhook_url" class="col-lg-6"
+                                placeholder="https://n8n.example.com/webhook/bf-odoo-to-nc"/>
+                        </div>
+                        <div class="row mt8">
+                            <label for="nc_sync_webhook_secret" class="col-lg-4 o_light_label"/>
+                            <field name="nc_sync_webhook_secret" class="col-lg-6"
+                                password="True"/>
+                        </div>
+                    </div>
+                    <div class="content-group mt16">
+                        <field name="nc_sync_cron_enabled"/>
+                        <div class="row mt8" invisible="not nc_sync_cron_enabled">
+                            <label for="nc_sync_cron_interval" class="col-lg-4 o_light_label"/>
+                            <field name="nc_sync_cron_interval" class="col-lg-2"/>
+                        </div>
+                    </div>
+                    <div class="mt8">
+                        <button name="%(calendar_nextcloud_sync.action_nextcloud_sync_config)d"
+                            type="action" string="Configure Nextcloud Calendars"
+                            class="btn-link" icon="fa-arrow-right"/>
+                    </div>
+                </setting>
+            </xpath>
+        </field>
+    </record>
+</odoo>

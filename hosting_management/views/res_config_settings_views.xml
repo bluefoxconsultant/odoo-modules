@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="res_config_settings_view_form_hosting" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.hosting</field>
+        <field name="model">res.config.settings</field>
+        <field name="priority">50</field>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app data-string="Hébergement" string="Hébergement" name="hosting_management">
+                    <block title="Alertes de vérification de santé" name="health_check_alerts">
+                        <setting string="Courriel d'alerte" help="Adresse courriel pour recevoir les alertes de vérification de santé">
+                            <div class="content-group">
+                                <div class="row mt16">
+                                    <label for="hosting_health_alert_email" class="col-lg-3 o_light_label"/>
+                                    <field name="hosting_health_alert_email" class="oe_inline" placeholder="alertes@entreprise.com"/>
+                                </div>
+                            </div>
+                        </setting>
+                        <setting string="Seuil de temps de réponse" help="Les services répondant plus lentement que ce seuil déclencheront un avertissement">
+                            <div class="content-group">
+                                <div class="row mt16">
+                                    <label for="hosting_response_time_threshold_ms" class="col-lg-3 o_light_label"/>
+                                    <field name="hosting_response_time_threshold_ms" class="oe_inline"/> ms
+                                </div>
+                            </div>
+                        </setting>
+                        <setting string="Avertissement d'expiration" help="Créer des activités d'avertissement ce nombre de jours avant l'expiration du service">
+                            <div class="content-group">
+                                <div class="row mt16">
+                                    <label for="hosting_expiration_warning_days" class="col-lg-3 o_light_label"/>
+                                    <field name="hosting_expiration_warning_days" class="oe_inline"/> jours avant l'expiration
+                                </div>
+                            </div>
+                        </setting>
+                    </block>
+                    <block title="Domaines et SSL" name="domains_ssl">
+                        <setting string="Avertissement de domaine" help="Créer des activités d'avertissement ce nombre de jours avant l'expiration du domaine">
+                            <div class="content-group">
+                                <div class="row mt16">
+                                    <label for="hosting_domain_expiration_warning_days" class="col-lg-3 o_light_label"/>
+                                    <field name="hosting_domain_expiration_warning_days" class="oe_inline"/> jours avant l'expiration
+                                </div>
+                            </div>
+                        </setting>
+                        <setting string="Avertissement SSL" help="Créer des activités d'avertissement ce nombre de jours avant l'expiration du certificat SSL">
+                            <div class="content-group">
+                                <div class="row mt16">
+                                    <label for="hosting_ssl_expiration_warning_days" class="col-lg-3 o_light_label"/>
+                                    <field name="hosting_ssl_expiration_warning_days" class="oe_inline"/> jours avant l'expiration
+                                </div>
+                            </div>
+                        </setting>
+                    </block>
+                    <block title="Intégration Cloudflare Registrar" name="cloudflare_integration">
+                        <setting string="Identifiants Cloudflare" help="L'API Registrar exige la clé API globale (les tokens API ne fonctionnent pas pour ces endpoints).">
+                            <div class="content-group">
+                                <div class="row mt16">
+                                    <label for="hosting_cloudflare_email" class="col-lg-3 o_light_label"/>
+                                    <field name="hosting_cloudflare_email" class="oe_inline" placeholder="courriel@entreprise.com"/>
+                                </div>
+                                <div class="row mt8">
+                                    <label for="hosting_cloudflare_api_key" class="col-lg-3 o_light_label"/>
+                                    <field name="hosting_cloudflare_api_key" class="oe_inline" password="True"/>
+                                </div>
+                                <div class="row mt8">
+                                    <label for="hosting_cloudflare_account_id" class="col-lg-3 o_light_label"/>
+                                    <field name="hosting_cloudflare_account_id" class="oe_inline"/>
+                                </div>
+                            </div>
+                        </setting>
+                        <setting string="Synchronisation" help="Synchroniser manuellement les domaines enregistrés chez Cloudflare">
+                            <div class="content-group">
+                                <div class="row mt16">
+                                    <label for="hosting_last_cloudflare_sync" class="col-lg-3 o_light_label"/>
+                                    <field name="hosting_last_cloudflare_sync" class="oe_inline"/>
+                                </div>
+                                <div class="mt16">
+                                    <button name="action_sync_cloudflare_domains"
+                                            type="object"
+                                            string="Synchroniser Cloudflare"
+                                            class="btn-primary"
+                                            icon="fa-cloud-download"
+                                            confirm="Synchroniser les domaines depuis Cloudflare ?"/>
+                                </div>
+                            </div>
+                        </setting>
+                    </block>
+                    <block title="Notifications push (ntfy)" name="ntfy_push">
+                        <setting string="Serveur ntfy" help="Configurer le serveur ntfy pour recevoir des notifications push lors de pannes de service">
+                            <div class="content-group">
+                                <div class="row mt16">
+                                    <label for="hosting_ntfy_url" class="col-lg-3 o_light_label"/>
+                                    <field name="hosting_ntfy_url" class="oe_inline" placeholder="https://ntfy.example.com"/>
+                                </div>
+                                <div class="row mt8">
+                                    <label for="hosting_ntfy_token" class="col-lg-3 o_light_label"/>
+                                    <field name="hosting_ntfy_token" class="oe_inline" password="True"/>
+                                </div>
+                                <div class="row mt8">
+                                    <label for="hosting_ntfy_topic" class="col-lg-3 o_light_label"/>
+                                    <field name="hosting_ntfy_topic" class="oe_inline" placeholder="hosting-alerts"/>
+                                </div>
+                            </div>
+                        </setting>
+                    </block>
+                    <block title="Fenêtre de maintenance" name="maintenance_window">
+                        <setting string="Activer la fenêtre de maintenance" help="Lorsqu'activée, les alertes de santé sont supprimées pendant la fenêtre de maintenance. Les vérifications continuent mais les notifications ne sont pas envoyées.">
+                            <field name="hosting_maintenance_window_enabled"/>
+                        </setting>
+                        <setting string="Calendrier de maintenance" help="Définir la fenêtre de maintenance quotidienne pendant laquelle les alertes sont supprimées" invisible="not hosting_maintenance_window_enabled">
+                            <div class="content-group">
+                                <div class="row mt16">
+                                    <label for="hosting_maintenance_start_hour" string="Heure de début" class="col-lg-3 o_light_label"/>
+                                    <field name="hosting_maintenance_start_hour" widget="float_time" class="oe_inline"/>
+                                </div>
+                                <div class="row mt8">
+                                    <label for="hosting_maintenance_end_hour" string="Heure de fin" class="col-lg-3 o_light_label"/>
+                                    <field name="hosting_maintenance_end_hour" widget="float_time" class="oe_inline"/>
+                                </div>
+                                <div class="row mt8">
+                                    <label for="hosting_maintenance_timezone" string="Fuseau horaire" class="col-lg-3 o_light_label"/>
+                                    <field name="hosting_maintenance_timezone" class="oe_inline"/>
+                                </div>
+                                <div class="text-muted mt8">
+                                    Par défaut : 1h30 à 2h30. Pendant cette fenêtre, les vérifications de santé continuent mais les courriels d'alerte sont supprimés.
+                                </div>
+                            </div>
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Action to open hosting settings directly -->
+    <record id="action_hosting_config_settings" model="ir.actions.act_window">
+        <field name="name">Paramètres d'hébergement</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="target">inline</field>
+        <field name="context">{'module': 'hosting_management', 'bin_size': False}</field>
+    </record>
+
+</odoo>
