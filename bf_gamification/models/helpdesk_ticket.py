@@ -22,15 +22,20 @@ class HelpdeskTicket(models.Model):
                 'bf_gamification.gamification_enabled', 'True') == 'True':
             return
 
+        cr = self.env.cr
         try:
+            cr.execute("SAVEPOINT award_ticket_xp")
             new_stage = ticket.stage_id
             if not new_stage or not new_stage.fold:
+                cr.execute("RELEASE SAVEPOINT award_ticket_xp")
                 return
             if old_stage and old_stage.fold:
+                cr.execute("RELEASE SAVEPOINT award_ticket_xp")
                 return  # Already in a closed stage
 
             user = ticket.user_id or ticket.create_uid
             if not user:
+                cr.execute("RELEASE SAVEPOINT award_ticket_xp")
                 return
 
             Profile = self.env['bf.gamification.profile']
@@ -48,5 +53,8 @@ class HelpdeskTicket(models.Model):
                     'Ticket r\u00e9solu : %s' % ticket.name,
                     reference=ticket,
                 )
+            cr.execute("RELEASE SAVEPOINT award_ticket_xp")
         except Exception:
+            cr.execute("ROLLBACK TO SAVEPOINT award_ticket_xp")
+            self.env.clear()
             _logger.warning("Fox Quest: erreur XP ticket", exc_info=True)

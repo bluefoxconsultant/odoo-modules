@@ -22,7 +22,9 @@ class AccountAnalyticLine(models.Model):
                 'bf_gamification.gamification_enabled', 'True') == 'True':
             return
 
+        cr = self.env.cr
         try:
+            cr.execute("SAVEPOINT award_timesheet_xp")
             Profile = self.env['bf.gamification.profile']
             profile = Profile._get_or_create_profile(line.user_id or line.create_uid)
 
@@ -61,14 +63,17 @@ class AccountAnalyticLine(models.Model):
                     existing = self.env['bf.gamification.xp.transaction'].search([
                         ('user_id', '=', (line.user_id or line.create_uid).id),
                         ('source', '=', 'timesheet'),
-                        ('description', 'like', 'Journée productive'),
+                        ('description', 'like', 'Journ\u00e9e productive'),
                         ('date', '>=', str(today) + ' 00:00:00'),
                         ('date', '<=', str(today) + ' 23:59:59'),
                     ], limit=1)
                     if not existing:
                         profile._award_xp(
                             daily_rule.xp_amount, 'timesheet',
-                            'Journée productive (%.1fh)' % daily_hours,
+                            'Journ\u00e9e productive (%.1fh)' % daily_hours,
                         )
+            cr.execute("RELEASE SAVEPOINT award_timesheet_xp")
         except Exception:
+            cr.execute("ROLLBACK TO SAVEPOINT award_timesheet_xp")
+            self.env.clear()
             _logger.warning("Fox Quest: erreur lors de l'attribution XP timesheet", exc_info=True)

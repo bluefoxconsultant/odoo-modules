@@ -26,8 +26,10 @@ class MailActivity(models.Model):
                 'bf_gamification.gamification_enabled', 'True') == 'True':
             return res
 
+        cr = self.env.cr
         for user, summary in users_activities:
             try:
+                cr.execute("SAVEPOINT award_activity_xp")
                 Profile = self.env['bf.gamification.profile']
                 profile = Profile._get_or_create_profile(user)
                 Rule = self.env['bf.gamification.xp.rule']
@@ -42,7 +44,10 @@ class MailActivity(models.Model):
                         rule.xp_amount, 'activity',
                         'Activit\u00e9 compl\u00e9t\u00e9e : %s' % summary,
                     )
+                cr.execute("RELEASE SAVEPOINT award_activity_xp")
             except Exception:
+                cr.execute("ROLLBACK TO SAVEPOINT award_activity_xp")
+                self.env.clear()
                 _logger.warning("Fox Quest: erreur XP activit\u00e9", exc_info=True)
 
         return res
