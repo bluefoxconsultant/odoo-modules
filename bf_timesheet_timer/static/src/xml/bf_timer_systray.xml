@@ -9,7 +9,9 @@
                 </t>
                 <!-- Active timer(s): show primary timer inline -->
                 <t t-if="hasActiveTimers and primaryTimer">
-                    <span class="bf-timer-active-dot me-1"/>
+                    <!-- Green pulsing dot if at least one running, orange static if all paused -->
+                    <span t-if="hasRunningTimer" class="bf-timer-active-dot me-1"/>
+                    <span t-if="!hasRunningTimer" class="bf-timer-paused-dot me-1"/>
                     <span t-att-class="getTimerClass(primaryTimer)"
                           class="bf-timer-navbar">
                         <t t-esc="primaryTimer.task_name"/>
@@ -17,6 +19,11 @@
                     <span t-att-class="getTimerClass(primaryTimer)"
                           class="bf-timer-navbar fw-bold ms-1">
                         <t t-esc="formatTime(getElapsed(primaryTimer))"/>
+                    </span>
+                    <span t-if="primaryTimer.is_paused"
+                          class="badge rounded-pill bg-warning text-dark bf-timer-badge ms-1"
+                          title="En pause">
+                        <i class="fa fa-pause" style="font-size: 0.7em;"/>
                     </span>
                     <span t-if="timerCount > 1"
                           class="badge rounded-pill bg-primary bf-timer-badge ms-1">
@@ -35,6 +42,9 @@
                                      t-on-click="() => this.onClickTaskName(timer.task_id)">
                                     <div class="text-truncate fw-semibold">
                                         <t t-esc="timer.task_name"/>
+                                        <span t-if="timer.is_paused"
+                                              class="badge bg-warning text-dark ms-1"
+                                              style="font-size: 0.65em;">Pause</span>
                                     </div>
                                     <div class="text-muted small text-truncate">
                                         <t t-esc="timer.project_name"/>
@@ -44,9 +54,23 @@
                                     <span t-att-class="getTimerClass(timer)" class="fw-bold small">
                                         <t t-esc="formatTime(getElapsed(timer))"/>
                                     </span>
+                                    <!-- Pause button (visible when running) -->
+                                    <button t-if="!timer.is_paused"
+                                            class="bf-timer-btn btn btn-sm btn-outline-warning"
+                                            t-on-click="() => this.onPauseTimer(timer.id)"
+                                            title="Pause">
+                                        <i class="fa fa-pause"/>
+                                    </button>
+                                    <!-- Resume button (visible when paused) -->
+                                    <button t-if="timer.is_paused"
+                                            class="bf-timer-btn btn btn-sm btn-outline-success"
+                                            t-on-click="() => this.onResumeTimer(timer.id)"
+                                            title="Reprendre">
+                                        <i class="fa fa-play"/>
+                                    </button>
                                     <button class="bf-timer-btn btn btn-sm btn-outline-danger"
                                             t-on-click="() => this.onStopTimer(timer.id)"
-                                            title="Arrêter">
+                                            title="Arr&#234;ter">
                                         <i class="fa fa-stop"/>
                                     </button>
                                 </div>
@@ -66,7 +90,7 @@
 
                     <!-- Recent tasks (Top 10) with search -->
                     <div class="d-flex align-items-center justify-content-between mb-1">
-                        <span class="fw-bold text-muted small">Tâches récentes</span>
+                        <span class="fw-bold text-muted small">T&#226;ches r&#233;centes</span>
                     </div>
                     <div class="mb-2">
                         <input type="text" class="form-control form-control-sm"
@@ -75,7 +99,7 @@
                                t-on-input="onSearchInput"/>
                     </div>
                     <t t-if="filteredRecentTasks.length === 0">
-                        <div class="text-muted small py-1">Aucune tâche trouvée</div>
+                        <div class="text-muted small py-1">Aucune t&#226;che trouv&#233;e</div>
                     </t>
                     <t t-foreach="filteredRecentTasks" t-as="task" t-key="task.task_id">
                         <div t-att-class="'d-flex align-items-center justify-content-between py-1' + (task.is_closed ? ' bf-task-closed' : '')">
@@ -97,7 +121,7 @@
                                         <t t-esc="task.project_name"/>
                                     </span>
                                     <span t-if="task.date_label" class="text-muted ms-1">
-                                        · <t t-esc="task.date_label"/>
+                                        &#183; <t t-esc="task.date_label"/>
                                     </span>
                                 </div>
                             </div>
@@ -106,20 +130,20 @@
                                 <button t-if="task.is_pinned"
                                         class="bf-pin-btn btn btn-sm"
                                         t-on-click.stop="() => this.onUnpinTask(task.task_id)"
-                                        title="Désépingler">
+                                        title="D&#233;s&#233;pingler">
                                     <i class="fa fa-star text-warning"/>
                                 </button>
                                 <button t-if="!task.is_pinned"
                                         class="bf-pin-btn btn btn-sm"
                                         t-on-click.stop="() => this.onPinTask(task.task_id)"
-                                        title="Épingler">
+                                        title="&#201;pingler">
                                     <i class="fa fa-star-o text-muted"/>
                                 </button>
                                 <!-- Stop button if timer active for this task -->
                                 <button t-if="isTaskTimerActive(task.task_id)"
                                         class="bf-timer-btn btn btn-sm btn-outline-danger"
                                         t-on-click="() => this.onStopTaskTimer(task.task_id)"
-                                        title="Arrêter">
+                                        title="Arr&#234;ter">
                                     <i class="fa fa-stop"/>
                                 </button>
                                 <!-- Play button if no timer active for this task -->

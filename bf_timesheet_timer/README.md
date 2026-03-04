@@ -11,8 +11,15 @@ MIT License - see [LICENSE](#license-text) below. Free to use, modify, and redis
 ### Global Systray Timer
 - Live-updating timer displayed directly in the Odoo navbar, visible from any screen
 - Hourglass icon when idle; pulsing green dot + task name + elapsed time when active
+- Orange static dot when all timers are paused
 - Click anywhere on the widget to open the dropdown (including when a timer is active)
 - Timer counter is computed client-side from the start time (no RPC per second)
+
+### Pause / Resume
+- Pause a running timer without stopping it — elapsed time freezes
+- Resume picks up where it left off (accumulated seconds preserved across multiple pause/resume cycles)
+- Pause button (orange) and Resume button (green) next to each timer in the dropdown
+- "Pause" badge displayed on paused timers in the dropdown and navbar
 
 ### Multi-Timer Support
 - Track time on multiple tasks simultaneously
@@ -30,7 +37,7 @@ MIT License - see [LICENSE](#license-text) below. Free to use, modify, and redis
 - Both dialogs show:
   - Project and task info
   - Raw elapsed time
-  - Editable hours and minutes (pre-rounded up to nearest 5 minutes, minimum 5 min)
+  - Editable hours and minutes (pre-rounded based on configurable rounding settings)
   - Clickable **description presets** (configurable chips)
   - Pre-filled description (task name)
 - Three actions:
@@ -70,7 +77,7 @@ MIT License - see [LICENSE](#license-text) below. Free to use, modify, and redis
 ## Requirements
 
 - Odoo 18.0 (Community or Enterprise)
-- Modules: `hr_timesheet`, `project`
+- Modules: `hr_timesheet`, `project`, `base_setup`
 - Optional: `sh_task_time_adv` (buttons will be hidden if installed; module works without it)
 
 ## Installation
@@ -96,6 +103,16 @@ MIT License - see [LICENSE](#license-text) below. Free to use, modify, and redis
 No configuration is required. The module works out of the box for any user in the **Timesheets / User** group (`hr_timesheet.group_hr_timesheet_user`).
 
 The module automatically resolves the employee record using the same logic as Odoo's native timesheet creation: it first checks `self.env.user.employee_id`, then searches across all companies the user has access to (`self.env.companies`). No manual employee configuration is needed beyond what Odoo already requires for timesheets.
+
+### Rounding Settings
+
+Configurable via **Settings > Feuilles de temps** (visible to Timesheets managers):
+
+| Setting | Options | Default | Description |
+|---------|---------|---------|-------------|
+| **Mode d'arrondi** | Aucun / Arrondir toujours / Arrondir sous un seuil | Arrondir toujours | Controls when rounding is applied |
+| **Increment d'arrondi** | 1 / 5 / 10 / 15 minutes | 5 minutes | Rounding granularity |
+| **Seuil d'arrondi** | Integer (minutes) | 30 | Only visible in "Arrondir sous un seuil" mode; durations above this threshold are not rounded |
 
 ### Description Presets
 
@@ -159,6 +176,8 @@ Temporary records tracking active and pending timers. Records are deleted after 
 | `task_id` | Many2one (project.task) | Task being timed |
 | `start_time` | Datetime | UTC start time |
 | `is_active` | Boolean | `True` = running, `False` = stopped/pending |
+| `is_paused` | Boolean | `True` = paused (elapsed frozen), `False` = running |
+| `accumulated_seconds` | Float | Total elapsed seconds from previous run segments (before current start_time) |
 | `description` | Char | Pre-filled with task name |
 | `claimed_at` | Datetime | Set when a wizard claims the timer; prevents multi-window dialogs |
 
@@ -226,6 +245,16 @@ env["bf.timer"].start_timer(task_id)
 # Stop a timer (returns data for confirmation dialog, sets claimed_at)
 env["bf.timer"].stop_timer(timer_id)
 
+# Pause a running timer (freezes elapsed, accumulates seconds)
+env["bf.timer"].pause_timer(timer_id)
+
+# Resume a paused timer (resets start_time to now, keeps accumulated_seconds)
+env["bf.timer"].resume_timer(timer_id)
+
+# Get rounding configuration
+env["bf.timer"].get_rounding_settings()
+# Returns: {"mode": "round_all", "increment": 5, "threshold": 30}
+
 # Confirm and create timesheet
 env["bf.timer"].confirm_timesheet(timer_id, duration_hours, description)
 
@@ -250,17 +279,9 @@ env["bf.timer"].unpin_task(task_id)
 
 ## Customization
 
-### Changing the Rounding Interval
+### Changing Rounding Behavior
 
-The minimum and rounding interval is 5 minutes, defined in `models/bf_timer.py`:
-
-```python
-# In stop_timer() and get_pending_timers():
-if elapsed_minutes < 5:
-    suggested_minutes = 5
-else:
-    suggested_minutes = math.ceil(elapsed_minutes / 5.0) * 5
-```
+Rounding is now configurable via **Settings > Feuilles de temps** (no code changes needed). See [Rounding Settings](#rounding-settings) above.
 
 ### Changing the Number of Recent Tasks
 
@@ -326,7 +347,8 @@ bf_timesheet_timer/
 │   ├── __init__.py
 │   ├── bf_timer.py                      # bf.timer model + project.task extension
 │   ├── bf_timer_description_preset.py   # Description preset model
-│   └── bf_timer_pinned_task.py          # Pinned task model
+│   ├── bf_timer_pinned_task.py          # Pinned task model
+│   └── res_config_settings.py           # Rounding settings
 ├── wizard/
 │   ├── __init__.py
 │   ├── bf_timer_stop_wizard.py          # Stop wizard TransientModel
@@ -346,7 +368,8 @@ bf_timesheet_timer/
 │           └── bf_timer.scss            # Animations, colors, layout
 ├── views/
 │   ├── project_task_views.xml           # Form + kanban buttons
-│   └── bf_timer_description_preset_views.xml  # Preset management views
+│   ├── bf_timer_description_preset_views.xml  # Preset management views
+│   └── res_config_settings_views.xml    # Rounding settings UI
 └── docs/
     ├── SERVICE_NOTE_2026-02-12.md       # Initial release note
     ├── SERVICE_NOTE_2026-02-13.md       # v1.3.0 release note
@@ -354,6 +377,12 @@ bf_timesheet_timer/
 ```
 
 ## Changelog
+
+### 18.0.1.6.0 (2026-03-04)
+- **Pause / Resume**: Pause a running timer without stopping it; elapsed time freezes and resumes from where it left off. Pause/resume buttons in the systray dropdown, orange dot indicator when all timers paused.
+- **Configurable rounding**: Settings > Feuilles de temps lets managers choose rounding increment (1/5/10/15 min) and mode (none / round all / round below threshold).
+- **Selective rounding**: "Round below threshold" mode only rounds durations shorter than a configurable threshold (default 30 min); longer durations pass through unrounded.
+- **Dynamic stop dialog**: Minimum rounding message now reflects the configured increment instead of hardcoded 5 minutes.
 
 ### 18.0.1.5.0 (2026-02-18)
 - **Employee lookup fix**: Aligned employee resolution with Odoo's native timesheet logic. Now uses `self.env.user.employee_id` first, then falls back to searching across all accessible companies (`self.env.companies.ids`) instead of only the current company. Fixes "Aucun employe associe" error for users whose employee record is in a different company.
@@ -394,14 +423,14 @@ bf_timesheet_timer/
 
 ## Credits
 
-Developed with AI assistance (Claude, Anthropic).
+Developed by [Blue Fox Inc.](https://bluefoxconsultant.com) with AI assistance (Claude, Anthropic).
 
 ## License Text
 
 ```
 MIT License
 
-Copyright (c) 2026 Your Company
+Copyright (c) 2026 Blue Fox Inc.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -424,4 +453,4 @@ SOFTWARE.
 
 ## Support
 
-For issues and feature requests, please open an issue on the project repository.
+For issues and feature requests, please contact Blue Fox Inc. or open an issue on the project repository.

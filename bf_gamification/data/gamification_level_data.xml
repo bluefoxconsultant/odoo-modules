@@ -5,7 +5,7 @@
             <field name="name">Renardeau</field>
             <field name="sequence">1</field>
             <field name="min_xp">0</field>
-            <field name="title">Louveteau</field>
+            <field name="title">Goupil</field>
             <field name="color">1</field>
             <field name="css_class">level-bronze</field>
         </record>
@@ -28,7 +28,7 @@
         <record id="level_argent_2" model="bf.gamification.level">
             <field name="name">Renard Argent&#233;</field>
             <field name="sequence">4</field>
-            <field name="min_xp">750</field>
+            <field name="min_xp">700</field>
             <field name="title">Chasseur</field>
             <field name="color">10</field>
             <field name="css_class">level-silver</field>
@@ -36,7 +36,7 @@
         <record id="level_or" model="bf.gamification.level">
             <field name="name">Renard Arctique</field>
             <field name="sequence">5</field>
-            <field name="min_xp">1500</field>
+            <field name="min_xp">1200</field>
             <field name="title">Gardien</field>
             <field name="color">3</field>
             <field name="css_class">level-gold</field>
@@ -44,7 +44,7 @@
         <record id="level_or_2" model="bf.gamification.level">
             <field name="name">Renard Dor&#233;</field>
             <field name="sequence">6</field>
-            <field name="min_xp">3000</field>
+            <field name="min_xp">2000</field>
             <field name="title">Alpha</field>
             <field name="color">3</field>
             <field name="css_class">level-gold</field>
@@ -52,7 +52,7 @@
         <record id="level_platine" model="bf.gamification.level">
             <field name="name">Renard Mystique</field>
             <field name="sequence">7</field>
-            <field name="min_xp">5000</field>
+            <field name="min_xp">3500</field>
             <field name="title">Sage</field>
             <field name="color">4</field>
             <field name="css_class">level-platinum</field>
@@ -60,7 +60,7 @@
         <record id="level_platine_2" model="bf.gamification.level">
             <field name="name">Esprit Renard</field>
             <field name="sequence">8</field>
-            <field name="min_xp">8000</field>
+            <field name="min_xp">6000</field>
             <field name="title">Oracle</field>
             <field name="color">4</field>
             <field name="css_class">level-platinum</field>
@@ -68,7 +68,7 @@
         <record id="level_diamant" model="bf.gamification.level">
             <field name="name">Renard C&#233;leste</field>
             <field name="sequence">9</field>
-            <field name="min_xp">12000</field>
+            <field name="min_xp">10000</field>
             <field name="title">L&#233;gende</field>
             <field name="color">5</field>
             <field name="css_class">level-diamond</field>
@@ -76,8 +76,8 @@
         <record id="level_diamant_2" model="bf.gamification.level">
             <field name="name">Kitsune</field>
             <field name="sequence">10</field>
-            <field name="min_xp">20000</field>
-            <field name="title">Kitsune</field>
+            <field name="min_xp">15000</field>
+            <field name="title">Ma&#238;tre Renard</field>
             <field name="color">5</field>
             <field name="css_class">level-diamond</field>
         </record>

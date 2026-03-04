@@ -6,14 +6,14 @@
             <field name="name">Heure de feuille de temps</field>
             <field name="source">timesheet</field>
             <field name="trigger">create</field>
-            <field name="xp_amount">1</field>
+            <field name="xp_amount">2</field>
             <field name="condition_description">Par heure valid&#233;e</field>
         </record>
         <record id="xp_rule_timesheet_daily" model="bf.gamification.xp.rule">
             <field name="name">Journ&#233;e productive</field>
             <field name="source">timesheet</field>
             <field name="trigger">daily</field>
-            <field name="xp_amount">5</field>
+            <field name="xp_amount">8</field>
             <field name="min_value">6</field>
             <field name="condition_description">&gt;= 6h facturables/jour</field>
         </record>
@@ -23,7 +23,7 @@
             <field name="name">Streak quotidien</field>
             <field name="source">streak</field>
             <field name="trigger">daily</field>
-            <field name="xp_amount">10</field>
+            <field name="xp_amount">3</field>
             <field name="condition_description">Par jour cons&#233;cutif d'activit&#233;</field>
         </record>
 
@@ -32,7 +32,7 @@
             <field name="name">T&#226;che compl&#233;t&#233;e</field>
             <field name="source">task</field>
             <field name="trigger">complete</field>
-            <field name="xp_amount">5</field>
+            <field name="xp_amount">8</field>
             <field name="min_value">0</field>
             <field name="condition_description">Passage en &quot;Termin&#233;&quot;</field>
         </record>
@@ -40,7 +40,7 @@
             <field name="name">T&#226;che avant deadline</field>
             <field name="source">task</field>
             <field name="trigger">complete</field>
-            <field name="xp_amount">10</field>
+            <field name="xp_amount">12</field>
             <field name="min_value">1</field>
             <field name="condition_description">Compl&#233;t&#233;e avant &#233;ch&#233;ance</field>
         </record>
@@ -66,7 +66,7 @@
             <field name="name">Maintenance compl&#233;t&#233;e</field>
             <field name="source">hosting</field>
             <field name="trigger">complete</field>
-            <field name="xp_amount">2</field>
+            <field name="xp_amount">3</field>
             <field name="condition_description">Maintenance planifi&#233;e termin&#233;e</field>
         </record>
 
@@ -84,7 +84,7 @@
             <field name="name">Ticket r&#233;solu</field>
             <field name="source">helpdesk</field>
             <field name="trigger">complete</field>
-            <field name="xp_amount">3</field>
+            <field name="xp_amount">5</field>
             <field name="condition_description">Ticket pass&#233; en &#171; R&#233;solu &#187;</field>
         </record>
 
@@ -93,7 +93,7 @@
             <field name="name">Activit&#233; compl&#233;t&#233;e</field>
             <field name="source">activity</field>
             <field name="trigger">complete</field>
-            <field name="xp_amount">1</field>
+            <field name="xp_amount">2</field>
             <field name="condition_description">Activit&#233; planifi&#233;e termin&#233;e</field>
         </record>
     </data>

@@ -1,9 +1,9 @@
 {
     "name": "Fox Quest",
     "summary": "Syst\u00e8me de gamification avec XP, niveaux, badges et r\u00e9compenses",
-    "version": "18.0.2.0.0",
+    "version": "18.0.2.1.0",
     "category": "Human Resources",
-    "website": "https://example.com",
+    "website": "https://bluefox.ca",
     "author": "Blue Fox Inc.",
     "license": "Other OSI approved licence",  # MIT — see README.md
     "application": True,

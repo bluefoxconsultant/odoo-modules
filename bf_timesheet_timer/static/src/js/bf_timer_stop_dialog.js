@@ -20,6 +20,8 @@ export class BfTimerStopDialog extends Component {
         this.notification = useService("notification");
         const data = this.props.timerData;
         const suggestedMinutes = data.suggested_minutes || 5;
+        this.roundingIncrement = data.rounding_increment || 5;
+        this.roundingMode = data.rounding_mode || "round_all";
         this.state = useState({
             hours: Math.floor(suggestedMinutes / 60),
             minutes: Math.round(suggestedMinutes % 60),
@@ -42,12 +44,12 @@ export class BfTimerStopDialog extends Component {
 
     onChangeHours(ev) {
         this.state.hours = Math.max(0, parseInt(ev.target.value) || 0);
-        this.state.belowMinimum = this.totalMinutes < 5;
+        this.state.belowMinimum = this.roundingMode !== "none" && this.totalMinutes < this.roundingIncrement;
     }
 
     onChangeMinutes(ev) {
         this.state.minutes = Math.max(0, Math.min(59, parseInt(ev.target.value) || 0));
-        this.state.belowMinimum = this.totalMinutes < 5;
+        this.state.belowMinimum = this.roundingMode !== "none" && this.totalMinutes < this.roundingIncrement;
     }
 
     onChangeDescription(ev) {
@@ -60,8 +62,8 @@ export class BfTimerStopDialog extends Component {
 
     async onConfirm() {
         let totalMin = this.totalMinutes;
-        if (totalMin < 5) {
-            totalMin = 5;
+        if (this.roundingMode !== "none" && totalMin < this.roundingIncrement) {
+            totalMin = this.roundingIncrement;
         }
         const durationHours = Math.round((totalMin / 60) * 100) / 100;
         await this.props.onConfirm(

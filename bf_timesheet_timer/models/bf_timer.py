@@ -25,6 +25,8 @@ class BfTimer(models.Model):
     claimed_at = fields.Datetime(
         help="Set when a stop wizard claims this timer. Prevents other browser windows from showing the dialog.",
     )
+    is_paused = fields.Boolean(default=False, index=True)
+    accumulated_seconds = fields.Float(default=0)
 
     # -------------------------------------------------------------------------
     # RPC methods called from JS
@@ -40,7 +42,10 @@ class BfTimer(models.Model):
         now = fields.Datetime.now()
         result = []
         for t in timers:
-            elapsed = (now - t.start_time).total_seconds()
+            if t.is_paused:
+                elapsed = t.accumulated_seconds
+            else:
+                elapsed = t.accumulated_seconds + (now - t.start_time).total_seconds()
             result.append({
                 "id": t.id,
                 "project_name": t.project_id.name,
@@ -50,6 +55,8 @@ class BfTimer(models.Model):
                 "start_time_iso": fields.Datetime.to_string(t.start_time),
                 "elapsed_seconds": max(0, elapsed),
                 "description": t.description or t.task_id.name,
+                "is_paused": t.is_paused,
+                "accumulated_seconds": t.accumulated_seconds,
             })
         return result
 
@@ -200,6 +207,8 @@ class BfTimer(models.Model):
             "start_time_iso": fields.Datetime.to_string(timer.start_time),
             "elapsed_seconds": 0,
             "description": timer.description,
+            "is_paused": False,
+            "accumulated_seconds": 0,
         }
 
     @api.model
@@ -209,15 +218,14 @@ class BfTimer(models.Model):
         if not timer.exists() or timer.user_id.id != self.env.uid:
             raise UserError("Timer introuvable.")
         now = fields.Datetime.now()
-        timer.write({"is_active": False, "claimed_at": now})
-        elapsed = (now - timer.start_time).total_seconds()
-        # Round up to nearest 5 minutes, minimum 5 minutes
-        elapsed_minutes = elapsed / 60.0
-        if elapsed_minutes < 5:
-            suggested_minutes = 5
+        if timer.is_paused:
+            elapsed = timer.accumulated_seconds
         else:
-            suggested_minutes = math.ceil(elapsed_minutes / 5.0) * 5
+            elapsed = timer.accumulated_seconds + (now - timer.start_time).total_seconds()
+        timer.write({"is_active": False, "claimed_at": now, "is_paused": False})
+        suggested_minutes = self._compute_suggested_minutes(elapsed)
         suggested_hours = round(suggested_minutes / 60.0, 4)
+        rounding = self.get_rounding_settings()
         return {
             "timer_id": timer.id,
             "task_name": timer.task_id.name,
@@ -228,6 +236,8 @@ class BfTimer(models.Model):
             "suggested_hours": suggested_hours,
             "suggested_minutes": suggested_minutes,
             "description": timer.description or timer.task_id.name,
+            "rounding_increment": rounding["increment"],
+            "rounding_mode": rounding["mode"],
         }
 
     @api.model
@@ -266,14 +276,11 @@ class BfTimer(models.Model):
             ("claimed_at", "<", cutoff),
         ])
         now = fields.Datetime.now()
+        rounding = self.get_rounding_settings()
         result = []
         for t in timers:
-            elapsed = (now - t.start_time).total_seconds()
-            elapsed_minutes = elapsed / 60.0
-            if elapsed_minutes < 5:
-                suggested_minutes = 5
-            else:
-                suggested_minutes = math.ceil(elapsed_minutes / 5.0) * 5
+            elapsed = t.accumulated_seconds + (now - t.start_time).total_seconds()
+            suggested_minutes = self._compute_suggested_minutes(elapsed)
             result.append({
                 "timer_id": t.id,
                 "task_name": t.task_id.name,
@@ -284,6 +291,8 @@ class BfTimer(models.Model):
                 "suggested_hours": round(suggested_minutes / 60.0, 4),
                 "suggested_minutes": suggested_minutes,
                 "description": t.description or t.task_id.name,
+                "rounding_increment": rounding["increment"],
+                "rounding_mode": rounding["mode"],
             })
         return result
 
@@ -293,7 +302,7 @@ class BfTimer(models.Model):
         timer = self.browse(timer_id)
         if not timer.exists() or timer.user_id.id != self.env.uid:
             raise UserError("Timer introuvable.")
-        timer.write({"is_active": True, "claimed_at": False})
+        timer.write({"is_active": True, "claimed_at": False, "is_paused": False})
         return True
 
     @api.model
@@ -359,6 +368,70 @@ class BfTimer(models.Model):
         return True
 
 
+    @api.model
+    def pause_timer(self, timer_id):
+        """Pause a running timer, accumulating elapsed seconds."""
+        timer = self.browse(timer_id)
+        if not timer.exists() or timer.user_id.id != self.env.uid:
+            raise UserError("Timer introuvable.")
+        if timer.is_paused:
+            raise UserError("Ce timer est d\u00e9j\u00e0 en pause.")
+        now = fields.Datetime.now()
+        segment = (now - timer.start_time).total_seconds()
+        timer.write({
+            "is_paused": True,
+            "accumulated_seconds": timer.accumulated_seconds + max(0, segment),
+        })
+        return True
+
+    @api.model
+    def resume_timer(self, timer_id):
+        """Resume a paused timer."""
+        timer = self.browse(timer_id)
+        if not timer.exists() or timer.user_id.id != self.env.uid:
+            raise UserError("Timer introuvable.")
+        if not timer.is_paused:
+            raise UserError("Ce timer n'est pas en pause.")
+        timer.write({
+            "is_paused": False,
+            "start_time": fields.Datetime.now(),
+        })
+        return True
+
+    @api.model
+    def get_rounding_settings(self):
+        """Return rounding configuration for JS."""
+        ICP = self.env["ir.config_parameter"].sudo()
+        return {
+            "mode": ICP.get_param("bf_timer.rounding_mode", "round_all"),
+            "increment": int(ICP.get_param("bf_timer.rounding_increment", "5")),
+            "threshold": int(ICP.get_param("bf_timer.rounding_threshold", "30")),
+        }
+
+    def _compute_suggested_minutes(self, elapsed_seconds):
+        """Compute suggested minutes from raw elapsed seconds using rounding config."""
+        ICP = self.env["ir.config_parameter"].sudo()
+        mode = ICP.get_param("bf_timer.rounding_mode", "round_all")
+        increment = int(ICP.get_param("bf_timer.rounding_increment", "5"))
+        threshold = int(ICP.get_param("bf_timer.rounding_threshold", "30"))
+        elapsed_minutes = elapsed_seconds / 60.0
+
+        if mode == "none":
+            return max(1, math.ceil(elapsed_minutes))
+
+        should_round = (
+            mode == "round_all"
+            or (mode == "round_below_threshold" and elapsed_minutes < threshold)
+        )
+        if should_round:
+            if elapsed_minutes < increment:
+                return increment
+            return math.ceil(elapsed_minutes / increment) * increment
+
+        # Above threshold in round_below_threshold mode — just ceil to whole minute
+        return max(1, math.ceil(elapsed_minutes))
+
+
 class ProjectTask(models.Model):
     _inherit = "project.task"
 
@@ -394,13 +467,13 @@ class ProjectTask(models.Model):
         if not timer:
             raise UserError("Aucun timer actif pour cette tâche.")
         now = fields.Datetime.now()
-        timer.write({"is_active": False, "claimed_at": now})
-        elapsed = (now - timer.start_time).total_seconds()
-        elapsed_minutes = elapsed / 60.0
-        if elapsed_minutes < 5:
-            suggested_minutes = 5
+        if timer.is_paused:
+            elapsed = timer.accumulated_seconds
         else:
-            suggested_minutes = math.ceil(elapsed_minutes / 5.0) * 5
+            elapsed = timer.accumulated_seconds + (now - timer.start_time).total_seconds()
+        timer.write({"is_active": False, "claimed_at": now, "is_paused": False})
+        BfTimer = self.env["bf.timer"]
+        suggested_minutes = BfTimer._compute_suggested_minutes(elapsed)
         h = int(suggested_minutes // 60)
         m = int(suggested_minutes % 60)
         elapsed_h = int(elapsed // 3600)

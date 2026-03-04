@@ -2,11 +2,11 @@
 <odoo noupdate="1">
     <record id="param_webmail_url" model="ir.config_parameter">
         <field name="key">bf_webmail.webmail_url</field>
-        <field name="value"></field>
+        <field name="value">https://nextcloud.bluefoxconsultant.com/index.php/apps/snappymail/</field>
     </record>
     <record id="param_imap_host" model="ir.config_parameter">
         <field name="key">bf_webmail.imap_host</field>
-        <field name="value"></field>
+        <field name="value">imap.migadu.com</field>
     </record>
     <record id="param_imap_port" model="ir.config_parameter">
         <field name="key">bf_webmail.imap_port</field>

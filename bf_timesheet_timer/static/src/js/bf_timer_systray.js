@@ -129,11 +129,23 @@ export class BfTimerSystray extends Component {
         return "bf-timer-normal";
     }
 
+    get hasRunningTimer() {
+        return this.timers.some((t) => !t.is_paused);
+    }
+
+    get allTimersPaused() {
+        return this.timers.length > 0 && this.timers.every((t) => t.is_paused);
+    }
+
     _tick() {
         const now = Date.now() / 1000;
         for (const timer of this.timers) {
-            const startTs = new Date(timer.start_time_iso + "Z").getTime() / 1000;
-            this.state.elapsed[timer.id] = Math.max(0, now - startTs);
+            if (timer.is_paused) {
+                this.state.elapsed[timer.id] = timer.accumulated_seconds || 0;
+            } else {
+                const startTs = new Date(timer.start_time_iso + "Z").getTime() / 1000;
+                this.state.elapsed[timer.id] = Math.max(0, (timer.accumulated_seconds || 0) + (now - startTs));
+            }
         }
         // Refresh service data every 5 seconds to catch pending timers quickly
         // (e.g. when Stop is clicked from kanban/form buttons)
@@ -249,6 +261,14 @@ export class BfTimerSystray extends Component {
         const data = await this.timerService.stopTimer(timerId);
         this._shownPendingDialogs.add(data.timer_id);
         await this._showStopDialog(data);
+    }
+
+    async onPauseTimer(timerId) {
+        await this.timerService.pauseTimer(timerId);
+    }
+
+    async onResumeTimer(timerId) {
+        await this.timerService.resumeTimer(timerId);
     }
 
     async onPinTask(taskId) {

@@ -44,7 +44,7 @@
                         </div>
                     </div>
                     <div t-if="state.belowMinimum" class="text-info small mt-1">
-                        <i class="fa fa-info-circle me-1"/>Arrondi à 5 minutes minimum
+                        <i class="fa fa-info-circle me-1"/>Arrondi &#224; <t t-esc="roundingIncrement"/> minutes minimum
                     </div>
                 </div>
 

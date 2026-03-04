@@ -7,6 +7,7 @@ ALLOWED_CONDITION_MODELS = {
     'mail.message',
     'project.task',
     'helpdesk.ticket',
+    'hosting.maintenance.schedule',
 }
 
 
@@ -36,6 +37,15 @@ class GamificationBadge(models.Model):
     condition_model = fields.Char(string="Modèle surveillé")
     condition_domain = fields.Char(string="Domaine de filtrage")
     condition_threshold = fields.Integer(string="Seuil")
+    condition_user_field = fields.Char(
+        string="Champ utilisateur", default='create_uid',
+        help="Champ du modèle surveillé lié à l'utilisateur (ex: create_uid, user_id, user_ids)")
+    threshold_field = fields.Selection([
+        ('total_xp', 'XP total'),
+        ('longest_streak', 'Meilleur streak'),
+        ('current_streak', 'Streak actuel'),
+    ], string="Champ de seuil", default='total_xp',
+        help="Champ du profil à comparer au seuil (badges de type seuil)")
     unique = fields.Boolean(string="Unique", default=True,
                             help="Ne peut être obtenu qu'une seule fois")
     active = fields.Boolean(string="Actif", default=True)
@@ -94,7 +104,8 @@ class GamificationBadge(models.Model):
         if self.condition_type == 'threshold' and self.condition_threshold:
             profile = self.env['bf.gamification.profile'].search(
                 [('user_id', '=', user.id)], limit=1)
-            current = profile.total_xp if profile else 0
+            check_field = self.threshold_field or 'total_xp'
+            current = getattr(profile, check_field, 0) if profile else 0
             target = self.condition_threshold
             return {
                 'current': min(current, target),
@@ -108,7 +119,8 @@ class GamificationBadge(models.Model):
             try:
                 import ast
                 domain = ast.literal_eval(self.condition_domain)
-                domain.append(('create_uid', '=', user.id))
+                user_field = self.condition_user_field or 'create_uid'
+                domain.append((user_field, '=', user.id))
                 count = self.env[self.condition_model].sudo().search_count(domain)
                 target = self.condition_threshold or 1
                 return {

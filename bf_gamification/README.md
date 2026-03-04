@@ -5,7 +5,7 @@ motivates teams through XP, levels, badges, streaks, and redeemable rewards. It 
 timesheets, project tasks, knowledge documentation, hosting management, chatter messages, helpdesk
 tickets, and scheduled activities to reward daily work with a progression system inspired by RPGs.
 
-Built for Odoo 18 Community Edition.
+Built for [Blue Fox Inc.](https://bluefox.ca)
 
 ---
 
@@ -564,7 +564,7 @@ This module is released under the **MIT License**.
 ```
 MIT License
 
-Copyright (c) 2026 Your Company
+Copyright (c) 2026 Blue Fox Inc.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -591,6 +591,6 @@ SOFTWARE.
 
 This module was developed with substantial assistance from AI tools (Claude by Anthropic),
 used for code generation, architecture design, and documentation. All output was reviewed,
-tested, and validated by the development team.
+tested, and validated by the Blue Fox Inc. development team.
 
 Built with Odoo 18 Community Edition and the OWL framework.

@@ -30,12 +30,7 @@ class ProjectDocument(models.Model):
                 'bf_gamification.gamification_enabled', 'True') == 'True':
             return
 
-        # Use a savepoint so that any SQL error during XP awarding
-        # does not corrupt the main transaction (which would cause
-        # InFailedSqlTransaction errors during subsequent flushes).
-        cr = self.env.cr
         try:
-            cr.execute("SAVEPOINT award_document_xp")
             Profile = self.env['bf.gamification.profile']
             profile = Profile._get_or_create_profile(doc.create_uid)
             Rule = self.env['bf.gamification.xp.rule']
@@ -52,8 +47,5 @@ class ProjectDocument(models.Model):
                     desc % doc.name,
                     reference=doc,
                 )
-            cr.execute("RELEASE SAVEPOINT award_document_xp")
         except Exception:
-            cr.execute("ROLLBACK TO SAVEPOINT award_document_xp")
-            self.env.clear()
             _logger.warning("Fox Quest: erreur XP document", exc_info=True)

@@ -225,8 +225,9 @@ class GamificationProfile(models.Model):
 
             awarded = False
             if badge.condition_type == 'threshold' and badge.condition_threshold:
-                # Check XP threshold
-                if self.total_xp >= badge.condition_threshold:
+                check_field = badge.threshold_field or 'total_xp'
+                value = getattr(self, check_field, 0)
+                if value >= badge.condition_threshold:
                     awarded = True
             elif (badge.condition_type == 'automatic' and badge.condition_model
                   and badge.condition_domain
@@ -234,7 +235,8 @@ class GamificationProfile(models.Model):
                 try:
                     import ast
                     domain = ast.literal_eval(badge.condition_domain)
-                    domain.append(('create_uid', '=', self.user_id.id))
+                    user_field = badge.condition_user_field or 'create_uid'
+                    domain.append((user_field, '=', self.user_id.id))
                     count = self.env[badge.condition_model].sudo().search_count(domain)
                     if count >= (badge.condition_threshold or 1):
                         awarded = True

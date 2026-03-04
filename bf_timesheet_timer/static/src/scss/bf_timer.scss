@@ -24,6 +24,18 @@
     }
 }
 
+// Static orange dot for paused timer
+.bf-timer-paused-dot {
+    width: 8px;
+    height: 8px;
+    min-width: 8px;
+    min-height: 8px;
+    background: #fd7e14;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
 // Timer color coding by duration
 .bf-timer-normal {
     color: inherit;

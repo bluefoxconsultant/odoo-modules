@@ -22,20 +22,15 @@ class ProjectTask(models.Model):
                 'bf_gamification.gamification_enabled', 'True') == 'True':
             return
 
-        cr = self.env.cr
         try:
-            cr.execute("SAVEPOINT award_task_xp")
             new_stage = task.stage_id
             if not new_stage or not new_stage.fold:
-                cr.execute("RELEASE SAVEPOINT award_task_xp")
                 return
             if old_stage and old_stage.fold:
-                cr.execute("RELEASE SAVEPOINT award_task_xp")
                 return  # Was already in a done stage
 
             user = task.user_ids[:1] if task.user_ids else task.create_uid
             if not user:
-                cr.execute("RELEASE SAVEPOINT award_task_xp")
                 return
 
             Profile = self.env['bf.gamification.profile']
@@ -72,8 +67,5 @@ class ProjectTask(models.Model):
                             'Tâche complétée avant échéance : %s' % task.name,
                             reference=task,
                         )
-            cr.execute("RELEASE SAVEPOINT award_task_xp")
         except Exception:
-            cr.execute("ROLLBACK TO SAVEPOINT award_task_xp")
-            self.env.clear()
             _logger.warning("Fox Quest: erreur lors de l'attribution XP tâche", exc_info=True)

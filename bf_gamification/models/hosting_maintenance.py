@@ -21,9 +21,7 @@ class HostingMaintenanceSchedule(models.Model):
                 'bf_gamification.gamification_enabled', 'True') == 'True':
             return
 
-        cr = self.env.cr
         try:
-            cr.execute("SAVEPOINT award_maintenance_xp")
             Profile = self.env['bf.gamification.profile']
             profile = Profile._get_or_create_profile(self.env.user)
             Rule = self.env['bf.gamification.xp.rule']
@@ -38,8 +36,5 @@ class HostingMaintenanceSchedule(models.Model):
                     rule.xp_amount, 'hosting',
                     'Maintenance complétée : %s' % schedule.display_name,
                 )
-            cr.execute("RELEASE SAVEPOINT award_maintenance_xp")
         except Exception:
-            cr.execute("ROLLBACK TO SAVEPOINT award_maintenance_xp")
-            self.env.clear()
             _logger.warning("Fox Quest: erreur XP maintenance", exc_info=True)

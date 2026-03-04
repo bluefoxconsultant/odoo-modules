@@ -7,7 +7,7 @@
         <field name="arch" type="xml">
             <xpath expr="//form" position="inside">
                 <app data-string="Fox Quest" string="Fox Quest"
-                     data-key="bf_gamification"
+                     name="bf_gamification"
                      groups="bf_gamification.group_gamification_manager">
                     <block title="G&#233;n&#233;ral">
                         <setting id="gamification_enabled"
@@ -43,6 +43,17 @@
                                  string="R&#233;initialisation du streak"
                                  help="Nombre de jours d'inactivit&#233; avant r&#233;initialisation">
                             <field name="gamification_streak_reset_days"/>
+                        </setting>
+                    </block>
+                    <block title="Maintenance">
+                        <setting id="gamification_reset"
+                                 string="R&#233;initialiser la progression"
+                                 help="Supprimer toutes les donn&#233;es XP, badges, streaks et r&#233;clamations pour tous les utilisateurs. Cette action est irr&#233;versible.">
+                            <button name="action_reset_all_progress"
+                                    type="object"
+                                    string="R&#233;initialiser toute la progression"
+                                    class="btn-secondary"
+                                    confirm="&#202;tes-vous s&#251;r ? Cette action supprimera TOUTE la progression de TOUS les utilisateurs. Cette action est irr&#233;versible."/>
                         </setting>
                     </block>
                 </app>

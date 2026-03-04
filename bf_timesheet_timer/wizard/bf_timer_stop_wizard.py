@@ -28,8 +28,11 @@ class BfTimerStopWizard(models.TransientModel):
         """Create timesheet and delete timer."""
         self.ensure_one()
         total_minutes = self.hours * 60 + self.minutes
-        if total_minutes < 5:
-            total_minutes = 5
+        ICP = self.env["ir.config_parameter"].sudo()
+        mode = ICP.get_param("bf_timer.rounding_mode", "round_all")
+        increment = int(ICP.get_param("bf_timer.rounding_increment", "5"))
+        if mode != "none" and total_minutes < increment:
+            total_minutes = increment
         duration_hours = round(total_minutes / 60.0, 2)
         timer = self.timer_id
         if not timer.exists():

@@ -55,6 +55,16 @@ export const bfTimerService = {
             await refresh();
         }
 
+        async function pauseTimer(timerId) {
+            await orm.call("bf.timer", "pause_timer", [timerId]);
+            await refresh();
+        }
+
+        async function resumeTimer(timerId) {
+            await orm.call("bf.timer", "resume_timer", [timerId]);
+            await refresh();
+        }
+
         async function reactivateTimer(timerId) {
             await orm.call("bf.timer", "reactivate_timer", [timerId]);
             await refresh();
@@ -86,6 +96,8 @@ export const bfTimerService = {
             refresh,
             startTimer,
             stopTimer,
+            pauseTimer,
+            resumeTimer,
             confirmTimesheet,
             discardTimer,
             reactivateTimer,

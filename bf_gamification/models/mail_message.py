@@ -22,15 +22,12 @@ class MailMessage(models.Model):
                 'bf_gamification.gamification_enabled', 'True') == 'True':
             return
 
-        cr = self.env.cr
         try:
-            cr.execute("SAVEPOINT award_message_xp")
             user = self.env['res.users'].sudo().search([
                 ('partner_id', '=', msg.author_id.id),
                 ('active', '=', True),
             ], limit=1)
             if not user:
-                cr.execute("RELEASE SAVEPOINT award_message_xp")
                 return
 
             Profile = self.env['bf.gamification.profile']
@@ -52,8 +49,5 @@ class MailMessage(models.Model):
                     desc,
                     reference=msg,
                 )
-            cr.execute("RELEASE SAVEPOINT award_message_xp")
         except Exception:
-            cr.execute("ROLLBACK TO SAVEPOINT award_message_xp")
-            self.env.clear()
             _logger.warning("Fox Quest: erreur XP message", exc_info=True)
