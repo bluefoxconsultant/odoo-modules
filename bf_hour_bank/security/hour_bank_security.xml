@@ -34,5 +34,17 @@
             <field name="perm_unlink" eval="False"/>
         </record>
 
+        <!-- Portal users can only read adjustments for their own hour banks -->
+        <record id="rule_hour_bank_adjustment_portal" model="ir.rule">
+            <field name="name">Ajustement : Lecture portail client</field>
+            <field name="model_id" ref="model_hour_bank_adjustment"/>
+            <field name="domain_force">[('hour_bank_id.partner_id', '=', user.commercial_partner_id.id)]</field>
+            <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="False"/>
+            <field name="perm_create" eval="False"/>
+            <field name="perm_unlink" eval="False"/>
+        </record>
+
     </data>
 </odoo>

@@ -4,6 +4,8 @@ import logging
 from collections import defaultdict
 from datetime import datetime
 
+from markupsafe import escape as html_escape
+
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 
@@ -545,13 +547,13 @@ class HourBankClient(models.Model):
             '<p style="font-size:16px;line-height:26px;color:#374151;'
             'margin:0 0 20px 0;">Veuillez trouver ci-joint '
             "l'&#233;tat des banques d'heures pour "
-            "<strong>%s</strong>.</p>"
+            "<strong>%s</strong>.</p>"  # noqa: S001
             '<p style="font-size:16px;line-height:26px;color:#374151;'
             'margin:0 0 20px 0;">Les fichiers PDF et Excel sont '
             "en pi&#232;ces jointes.</p>"
             '<p style="font-size:16px;line-height:26px;color:#374151;'
             'margin:0;">Cordialement,<br/>Blue Fox</p>'
-        ) % self.partner_id.name
+        ) % html_escape(self.partner_id.name)
 
         body_html = WizardModel.new({})._wrap_branded_body(inner_body)
 

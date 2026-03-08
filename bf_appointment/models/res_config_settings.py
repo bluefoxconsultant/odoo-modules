@@ -1,6 +1,8 @@
 import logging
+import os
 
 from odoo import fields, models
+from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
 
@@ -58,20 +60,35 @@ class ResConfigSettings(models.TransientModel):
             res["bf_appointment_nc_talk_password"] = "********"
         return res
 
-    def _encrypt_value(self, value):
-        if not value:
-            return False
-        if not Fernet:
-            _logger.warning("Fernet not available, storing value as-is")
-            return value
+    def _get_encryption_key(self):
+        """Get Fernet key: env var > odoo.conf > ir.config_parameter (fallback)."""
+        key = os.environ.get("BF_APPOINTMENT_FERNET_KEY")
+        if key:
+            return key
+        from odoo.tools import config
+        key = config.get("bf_appointment_fernet_key")
+        if key:
+            return key
         ICP = self.env["ir.config_parameter"].sudo()
         key = ICP.get_param("bf_appointment.encryption_key")
         if not key:
             key = Fernet.generate_key().decode()
             ICP.set_param("bf_appointment.encryption_key", key)
-        try:
-            f = Fernet(key.encode())
-            return f.encrypt(value.encode()).decode()
-        except Exception as e:
-            _logger.error("Encryption failed: %s", e)
-            return value
+            _logger.warning(
+                "bf_appointment: encryption key auto-generated in database. "
+                "For better security, set BF_APPOINTMENT_FERNET_KEY env var."
+            )
+        return key
+
+    def _encrypt_value(self, value):
+        if not value:
+            return False
+        if not Fernet:
+            raise UserError(
+                "Le paquet 'cryptography' est requis pour stocker "
+                "les identifiants de manière sécurisée. "
+                "Installez-le avec: pip install cryptography"
+            )
+        key = self._get_encryption_key()
+        f = Fernet(key.encode())
+        return f.encrypt(value.encode()).decode()

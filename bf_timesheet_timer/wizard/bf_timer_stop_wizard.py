@@ -24,19 +24,28 @@ class BfTimerStopWizard(models.TransientModel):
         if self.preset_id:
             self.description = self.preset_id.text
 
+    def _check_timer_ownership(self):
+        """Verify the current user owns the timer."""
+        timer = self.timer_id
+        if not timer.exists():
+            raise ValidationError("Timer introuvable.")
+        if timer.user_id.id != self.env.uid:
+            raise ValidationError("Vous ne pouvez pas modifier le timer d'un autre utilisateur.")
+        return timer
+
     def action_confirm(self):
         """Create timesheet and delete timer."""
         self.ensure_one()
+        timer = self._check_timer_ownership()
         total_minutes = self.hours * 60 + self.minutes
+        if total_minutes <= 0:
+            raise ValidationError("La durée doit être supérieure à 0.")
         ICP = self.env["ir.config_parameter"].sudo()
         mode = ICP.get_param("bf_timer.rounding_mode", "round_all")
         increment = int(ICP.get_param("bf_timer.rounding_increment", "5"))
         if mode != "none" and total_minutes < increment:
             total_minutes = increment
         duration_hours = round(total_minutes / 60.0, 2)
-        timer = self.timer_id
-        if not timer.exists():
-            raise ValidationError("Timer introuvable.")
         self.env["account.analytic.line"].create({
             "name": self.description or timer.task_id.name,
             "date": timer.start_time.date(),
@@ -51,13 +60,13 @@ class BfTimerStopWizard(models.TransientModel):
     def action_discard(self):
         """Delete timer without creating a timesheet."""
         self.ensure_one()
-        if self.timer_id.exists():
-            self.timer_id.unlink()
+        timer = self._check_timer_ownership()
+        timer.unlink()
         return {"type": "ir.actions.act_window_close"}
 
     def action_cancel(self):
         """Reactivate the timer (user changed their mind)."""
         self.ensure_one()
-        if self.timer_id.exists():
-            self.timer_id.write({"is_active": True, "claimed_at": False})
+        timer = self._check_timer_ownership()
+        timer.write({"is_active": True, "claimed_at": False})
         return {"type": "ir.actions.act_window_close"}

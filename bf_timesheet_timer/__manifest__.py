@@ -7,6 +7,7 @@
     "license": "Other OSI approved licence",  # MIT — see README.md
     "depends": ["hr_timesheet", "project", "sh_task_time_adv", "base_setup"],
     "data": [
+        "security/bf_timer_security.xml",
         "security/ir.model.access.csv",
         "wizard/bf_timer_stop_wizard_views.xml",
         "data/bf_timer_preset_data.xml",

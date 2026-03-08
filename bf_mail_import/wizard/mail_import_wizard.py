@@ -2,14 +2,16 @@ import base64
 import email
 import email.policy
 import logging
+import os
 from email.utils import parseaddr
 
-from markupsafe import Markup
-
 from odoo import api, fields, models, _
+from odoo.tools import html_sanitize
 from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
+
+_EML_EXTENSIONS = {".eml", ".msg"}
 
 
 class MailImportWizard(models.TransientModel):
@@ -80,6 +82,14 @@ class MailImportWizard(models.TransientModel):
         email_msg = email.message_from_bytes(raw_bytes, policy=email.policy.default)
         return self.env["mail.thread"].message_parse(email_msg, save_original=False)
 
+    def _validate_extension(self, filename):
+        """Check that the file has a valid email extension."""
+        ext = os.path.splitext(filename or "")[1].lower()
+        if ext not in _EML_EXTENSIONS:
+            raise UserError(
+                _("Le fichier '%s' n'est pas un fichier .eml valide.", filename)
+            )
+
     def _get_target(self):
         """Return the target record, validated."""
         self.ensure_one()
@@ -92,6 +102,17 @@ class MailImportWizard(models.TransientModel):
             )
         return target
 
+    def _validate_parent_id(self, parent_id):
+        """Ensure parent_id belongs to the same thread. Return False if not."""
+        if not parent_id:
+            return False
+        parent = self.env["mail.message"].browse(parent_id).exists()
+        if not parent:
+            return False
+        if parent.model != self.res_model or parent.res_id != self.res_id:
+            return False
+        return parent_id
+
     def action_import(self):
         self.ensure_one()
         target = self._get_target()
@@ -100,15 +121,40 @@ class MailImportWizard(models.TransientModel):
                 _("Veuillez s\u00e9lectionner au moins un fichier .eml.")
             )
 
-        imported = 0
-        skipped = 0
+        # Phase 1: parse all files and validate extensions
+        parsed = []  # [(attachment, msg_dict)]
         errors = []
-
         for att in self.eml_files:
             try:
+                self._validate_extension(att.name)
                 raw = base64.b64decode(att.datas)
                 msg_dict = self._parse_eml(raw)
+                parsed.append((att, msg_dict))
+            except Exception as e:
+                _logger.exception("Error parsing %s", att.name)
+                errors.append(f"{att.name} : {e}")
 
+        # Phase 2: sort by date ascending so that IDs match chronological
+        # order (chatter displays messages by id DESC)
+        def _sort_key(item):
+            date_str = item[1].get("date", "")
+            return date_str or "9999-12-31 23:59:59"
+
+        parsed.sort(key=_sort_key)
+
+        # Phase 3: import in chronological order
+        imported = []
+        skipped = []
+        ctx_target = target.with_context(
+            mail_create_nosubscribe=True,
+            mail_create_nolog=True,
+            mail_notify_force_send=False,
+            mail_auto_subscribe_no_notify=True,
+            tracking_disable=True,
+        )
+
+        for att, msg_dict in parsed:
+            try:
                 # Duplicate check via message_id
                 message_id = msg_dict.get("message_id")
                 if message_id:
@@ -116,7 +162,7 @@ class MailImportWizard(models.TransientModel):
                         [("message_id", "=", message_id)], limit=1
                     )
                     if existing:
-                        skipped += 1
+                        skipped.append(att.name)
                         continue
 
                 # Resolve author
@@ -124,7 +170,6 @@ class MailImportWizard(models.TransientModel):
                 partner_ids = msg_dict.get("partner_ids", [])
                 email_from = msg_dict.get("email_from", "")
                 if email_from:
-                    # Extract bare email from "Name <email>" format
                     _name, bare_email = parseaddr(email_from)
                     author = self.env["res.partner"].search(
                         [("email", "=ilike", bare_email or email_from)],
@@ -137,37 +182,31 @@ class MailImportWizard(models.TransientModel):
                     if author:
                         author_id = author.id
 
-                # Prepare attachments as (name, raw_content) tuples
                 post_attachments = list(msg_dict.get("attachments", []))
 
-                # Build kwargs for message_post
+                # Validate parent_id belongs to the same thread
+                parent_id = self._validate_parent_id(
+                    msg_dict.get("parent_id", False)
+                )
+
                 post_kwargs = {
-                    "body": Markup(msg_dict.get("body", "")),
+                    "body": html_sanitize(msg_dict.get("body", "")),
                     "subject": msg_dict.get("subject", ""),
                     "message_type": "email",
                     "email_from": email_from,
                     "author_id": author_id,
-                    "parent_id": msg_dict.get("parent_id", False),
+                    "parent_id": parent_id,
                     "subtype_xmlid": "mail.mt_comment",
                     "attachments": post_attachments,
                 }
-                # Pass message_id and date as kwargs — they map to
-                # mail.message columns via message_post's **kwargs
                 if message_id:
                     post_kwargs["message_id"] = message_id
                 date = msg_dict.get("date")
                 if date:
                     post_kwargs["date"] = date
 
-                target.with_context(
-                    mail_create_nosubscribe=True,
-                    mail_create_nolog=True,
-                    mail_notify_force_send=False,
-                    mail_auto_subscribe_no_notify=True,
-                    tracking_disable=True,
-                ).message_post(**post_kwargs)
-
-                imported += 1
+                ctx_target.message_post(**post_kwargs)
+                imported.append(att.name)
 
             except Exception as e:
                 _logger.exception("Error importing %s", att.name)
@@ -175,18 +214,23 @@ class MailImportWizard(models.TransientModel):
 
         _logger.info(
             "EML import on %s,%s: %d imported, %d skipped, %d errors",
-            self.res_model, self.res_id, imported, skipped, len(errors),
+            self.res_model, self.res_id,
+            len(imported), len(skipped), len(errors),
         )
 
-        # Build result summary
+        # Build detailed result summary
         parts = []
         if imported:
-            parts.append(_("%d courriel(s) import\u00e9(s).", imported))
+            parts.append(_("%d courriel(s) import\u00e9(s) :", len(imported)))
+            for name in imported:
+                parts.append(f"  + {name}")
         if skipped:
-            parts.append(_("%d doublon(s) ignor\u00e9(s).", skipped))
+            parts.append(_("%d doublon(s) ignor\u00e9(s) :", len(skipped)))
+            for name in skipped:
+                parts.append(f"  - {name}")
         if errors:
             parts.append(_("Erreurs :"))
-            parts.extend(errors)
+            parts.extend(f"  ! {e}" for e in errors)
 
         self.import_result = "\n".join(str(p) for p in parts)
         self.state = "done"

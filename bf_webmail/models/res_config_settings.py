@@ -1,6 +1,8 @@
 import logging
+import os
 
 from odoo import api, fields, models
+from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
 
@@ -11,7 +13,7 @@ except ImportError:
     InvalidToken = Exception
     _logger.warning(
         "cryptography package not installed. "
-        "IMAP password will be stored unencrypted."
+        "IMAP password encryption will not be available."
     )
 
 
@@ -45,28 +47,42 @@ class ResConfigSettings(models.TransientModel):
 
     @staticmethod
     def _get_imap_encryption_key(env):
-        """Get or generate Fernet key for IMAP password encryption."""
+        """Get Fernet key: env var > odoo.conf > ir.config_parameter (fallback)."""
         if not Fernet:
             return None
+        # Priority 1: environment variable
+        key = os.environ.get("BF_WEBMAIL_FERNET_KEY")
+        if key:
+            return key.encode()
+        # Priority 2: odoo.conf
+        from odoo.tools import config
+        key = config.get("bf_webmail_fernet_key")
+        if key:
+            return key.encode()
+        # Priority 3: ir.config_parameter (auto-generate, log warning)
         ICP = env["ir.config_parameter"].sudo()
         key = ICP.get_param("bf_webmail.encryption_key")
         if not key:
             key = Fernet.generate_key().decode()
             ICP.set_param("bf_webmail.encryption_key", key)
+            _logger.warning(
+                "bf_webmail: encryption key auto-generated in database. "
+                "For better security, set BF_WEBMAIL_FERNET_KEY env var."
+            )
         return key.encode()
 
     @staticmethod
     def _encrypt_imap_password(env, value):
         if not value:
             return ""
+        if not Fernet:
+            raise UserError(
+                "Le paquet 'cryptography' est requis pour stocker "
+                "le mot de passe IMAP de manière sécurisée. "
+                "Installez-le avec: pip install cryptography"
+            )
         key = ResConfigSettings._get_imap_encryption_key(env)
-        if not key:
-            return value
-        try:
-            return Fernet(key).encrypt(value.encode()).decode()
-        except Exception:
-            _logger.exception("IMAP password encryption failed")
-            return value
+        return Fernet(key).encrypt(value.encode()).decode()
 
     @staticmethod
     def _decrypt_imap_password(env, encrypted):
@@ -74,15 +90,16 @@ class ResConfigSettings(models.TransientModel):
             return ""
         key = ResConfigSettings._get_imap_encryption_key(env)
         if not key:
-            return encrypted
+            _logger.warning("bf_webmail: cannot decrypt — Fernet not available")
+            return ""
         try:
             return Fernet(key).decrypt(encrypted.encode()).decode()
         except InvalidToken:
-            # Legacy unencrypted value — migrate it on next save
+            _logger.warning("bf_webmail: decryption failed (key rotation or legacy value)")
             return encrypted
         except Exception:
             _logger.exception("IMAP password decryption failed")
-            return encrypted
+            return ""
 
     # --- Computed field ---
 

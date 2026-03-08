@@ -1,3 +1,4 @@
+import hmac
 import logging
 import re
 from datetime import datetime, timedelta, timezone
@@ -313,7 +314,7 @@ class AppointmentController(Controller):
         if (
             not booking_sudo.exists()
             or not booking_sudo.access_token
-            or booking_sudo.access_token != access_token
+            or not hmac.compare_digest(booking_sudo.access_token, access_token)
         ):
             return False
         return booking_sudo.with_context(

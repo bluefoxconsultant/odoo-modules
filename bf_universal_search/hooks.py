@@ -13,7 +13,7 @@ _SEARCH_CONFIGS = [
     ("domains", "Domaines", "hosting.domain", "name", "fa fa-globe", "search_hosting", 60, 5),
     ("documents", "Documents", "project.document", "name,code", "fa fa-file-text", "search_documents", 70, 5),
     ("knowledge", "Connaissances", "project.knowledge.item", "name", "fa fa-lightbulb-o", "search_documents", 80, 5),
-    ("credentials", "Identifiants", "project.credential", "name", "fa fa-key", "search_documents", 90, 5),
+    # ("credentials", ...) — removed for security: credential names should not be globally searchable
     ("tickets", "Tickets", "helpdesk.ticket", "name", "fa fa-ticket", "search_other", 100, 5),
     ("software", "Logiciels", "hosting.software", "name", "fa fa-cube", "search_hosting", 110, 5),
     ("calendar", "Événements", "calendar.event", "name", "fa fa-calendar", "search_other", 120, 5),

@@ -1,3 +1,4 @@
+import hmac
 import imaplib
 import logging
 
@@ -29,14 +30,20 @@ class BfWebmailController(http.Controller):
         if not all([host, user, password]):
             return {"unread": 0, "configured": False}
 
+        mail = None
         try:
             mail = imaplib.IMAP4_SSL(host, port, timeout=5)
             mail.login(user, password)
             mail.select("INBOX", readonly=True)
             _, data = mail.search(None, "UNSEEN")
             unread = len(data[0].split()) if data[0] else 0
-            mail.logout()
             return {"unread": unread, "configured": True}
         except Exception as e:
             _logger.warning("bf_webmail: IMAP check failed: %s", e)
-            return {"unread": 0, "configured": True, "error": str(e)}
+            return {"unread": 0, "configured": True, "error": True}
+        finally:
+            if mail:
+                try:
+                    mail.logout()
+                except Exception:
+                    pass
