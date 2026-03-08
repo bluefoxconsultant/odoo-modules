@@ -128,6 +128,10 @@ docker compose exec odoo odoo -d <database> -u bf_mail_import --stop-after-init
 
 LGPL-3
 
+## Disclaimer
+
+This module is provided as-is, without warranty of any kind. Use at your own risk. Blue Fox Inc. assumes no liability for any damages arising from the use of this software.
+
 ## Remerciements
 
 Ce module a &#233;t&#233; d&#233;velopp&#233; avec l'assistance de Claude (Anthropic) pour l'architecture, l'impl&#233;mentation et la documentation technique.

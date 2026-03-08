@@ -126,6 +126,10 @@ bf_task_unblock_notify/
 ### 18.0.1.0.0 (2026-02-14)
 - Initial release: `write()` override detecting blocker completion
 
+## Disclaimer
+
+This module is provided as-is, without warranty of any kind. Use at your own risk. Blue Fox Inc. assumes no liability for any damages arising from the use of this software.
+
 ## Credits
 
 Developed with AI assistance (Claude, Anthropic).

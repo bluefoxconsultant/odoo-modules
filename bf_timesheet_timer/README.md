@@ -451,6 +451,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+## Disclaimer
+
+This module is provided as-is, without warranty of any kind. Use at your own risk. Blue Fox Inc. assumes no liability for any damages arising from the use of this software.
+
 ## Support
 
 For issues and feature requests, please contact Blue Fox Inc. or open an issue on the project repository.

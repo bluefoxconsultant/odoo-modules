@@ -128,6 +128,9 @@ Le cron `Banque d'heures : Envoi automatique des rapports` s'ex\u00e9cute quotid
 docker exec <container> odoo -d <db> -i bf_hour_bank --stop-after-init --no-http
 ```
 
+## Disclaimer
+
+This module is provided as-is, without warranty of any kind. Use at your own risk. Blue Fox Inc. assumes no liability for any damages arising from the use of this software.
 
 ---
 
