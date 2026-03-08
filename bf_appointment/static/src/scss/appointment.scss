@@ -1,0 +1,353 @@
+// bf_appointment - Sleek public appointment page styles
+// Blue Fox Inc brand: #2E3132 (anthracite), #29ABE2 (blue), #22303B (dark)
+
+$bf-anthracite: #2E3132;
+$bf-blue: #29ABE2;
+$bf-dark: #22303B;
+$bf-radius: 12px;
+$bf-radius-sm: 8px;
+
+// ---- Section Headers ----
+
+.bf-section-header {
+    background-color: $bf-anthracite;
+    color: #fff;
+    padding: 1.25rem 1.5rem;
+    border-radius: $bf-radius;
+    margin-bottom: 1.5rem;
+
+    h2, h3 {
+        margin: 0;
+        font-weight: 600;
+        color: #fff;
+    }
+
+    p {
+        margin: 0.5rem 0 0;
+        opacity: 0.8;
+        font-size: 0.95rem;
+    }
+}
+
+// ---- Badges ----
+
+.bf-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.3rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    background-color: #f1f3f5;
+    color: #495057;
+}
+
+.bf-badge-video {
+    background-color: $bf-blue;
+    color: #fff;
+}
+
+.bf-badge-inperson {
+    background-color: #40c057;
+    color: #fff;
+}
+
+.bf-badge-light {
+    background-color: rgba(#fff, 0.2);
+    color: #fff;
+}
+
+// ---- Landing Page ----
+
+.bf-appointment-landing {
+    padding: 1.5rem 0 3rem;
+}
+
+.bf-appointment-card {
+    border: none;
+    border-radius: $bf-radius;
+    overflow: hidden;
+    background-color: $bf-anthracite;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+    &:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1) !important;
+    }
+
+    .card-body {
+        padding: 1.25rem;
+        color: rgba(#fff, 0.85);
+    }
+
+    .card-title {
+        color: #fff;
+        margin-bottom: 0.5rem;
+    }
+
+    .text-muted {
+        color: rgba(#fff, 0.65) !important;
+    }
+
+    .bf-badge {
+        background-color: rgba(#fff, 0.15);
+        color: rgba(#fff, 0.9);
+    }
+}
+
+.bf-appointment-card-img {
+    height: 180px;
+    object-fit: cover;
+}
+
+.bf-appointment-card-placeholder {
+    height: 160px;
+}
+
+// ---- Buttons ----
+
+.bf-btn-accent {
+    color: #fff;
+    border: none;
+    border-radius: $bf-radius-sm;
+    font-weight: 500;
+    padding: 0.5rem 1.25rem;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+
+    &:hover {
+        opacity: 0.9;
+        color: #fff;
+        transform: translateY(-1px);
+    }
+}
+
+.bf-btn-reserve {
+    color: #fff;
+    border: none;
+    border-radius: $bf-radius-sm;
+    font-weight: 600;
+    font-size: 1.1rem;
+    padding: 0.7rem 2rem;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+
+    &:hover {
+        opacity: 0.9;
+        color: #fff;
+        transform: translateY(-1px);
+    }
+}
+
+.bf-btn-nav {
+    background-color: $bf-anthracite;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 0.35rem 0.65rem;
+
+    &:hover {
+        background-color: lighten($bf-anthracite, 10%);
+        color: #fff;
+    }
+}
+
+// ---- Detail Page ----
+
+.bf-appointment-detail {
+    padding: 1.5rem 0 3rem;
+
+    .bf-section-header h2 {
+        font-size: 1.4rem;
+    }
+}
+
+.bf-description {
+    color: #495057;
+    line-height: 1.7;
+}
+
+// ---- Form Card ----
+
+.bf-form-card {
+    border: none;
+    border-radius: $bf-radius;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+}
+
+.bf-form-card-header {
+    padding: 1rem 1.25rem;
+    border-bottom: none;
+}
+
+.bf-form-card .form-control,
+.bf-form-card .form-select {
+    border-radius: $bf-radius-sm;
+    border-color: #dee2e6;
+    padding: 0.6rem 0.85rem;
+
+    &:focus {
+        border-color: $bf-blue;
+        box-shadow: 0 0 0 3px rgba($bf-blue, 0.15);
+    }
+}
+
+// ---- Schedule Page ----
+
+.bf-appointment-schedule {
+    padding: 1.5rem 0 3rem;
+}
+
+// ---- Schedule: Slot List ----
+
+.bf-schedule-nav {
+    h4 {
+        color: $bf-anthracite;
+    }
+}
+
+.bf-slot-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.bf-slot-day {
+    background: transparent;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #e9ecef;
+
+    &:last-child {
+        border-bottom: none;
+    }
+}
+
+.bf-slot-day-header {
+    padding: 0.75rem 0 0.35rem;
+    border-left: 3px solid $bf-blue;
+    padding-left: 0.75rem;
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+}
+
+.bf-slot-day-name {
+    font-weight: 600;
+    color: #868e96;
+    font-size: 1.05rem;
+}
+
+.bf-slot-day-date {
+    color: #adb5bd;
+    font-size: 0.95rem;
+}
+
+.bf-slot-bubbles {
+    padding: 0.35rem 0 0 0.75rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.bf-slot-bubble {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 1.15rem;
+    border: 2px solid $bf-blue;
+    border-radius: $bf-radius-sm;
+    background-color: rgba($bf-blue, 0.08);
+    color: $bf-blue;
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+
+    &:hover {
+        background-color: $bf-blue;
+        color: #fff;
+    }
+}
+
+// ---- Confirmation Modal ----
+
+.bf-modal {
+    border: none;
+    border-radius: $bf-radius;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+.bf-modal-header {
+    background-color: $bf-anthracite;
+    color: #fff;
+    border-bottom: none;
+    padding: 1rem 1.25rem;
+
+    h5 {
+        color: #fff;
+    }
+}
+
+// ---- Confirmation Page ----
+
+.bf-appointment-confirmation {
+    padding: 2rem 0 3rem;
+}
+
+.bf-status-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.75rem;
+}
+
+.bf-status-success {
+    background-color: #d3f9d8;
+    color: #2b8a3e;
+}
+
+.bf-status-pending {
+    background-color: #fff3bf;
+    color: #e67700;
+}
+
+.bf-status-cancelled {
+    background-color: #ffe3e3;
+    color: #c92a2a;
+}
+
+.bf-status-info {
+    background-color: rgba($bf-blue, 0.15);
+    color: $bf-blue;
+}
+
+.bf-confirmation-card {
+    max-width: 560px;
+    border: none;
+    border-radius: $bf-radius;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.bf-info-icon {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    border-radius: 10px;
+    background-color: #f1f3f5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+    color: #868e96;
+    font-size: 0.9rem;
+}
+
+// ---- Cancelled Page ----
+
+.bf-appointment-cancelled {
+    padding: 3rem 0;
+}

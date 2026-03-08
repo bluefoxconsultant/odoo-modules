@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_inherit" model="ir.ui.view">
+        <field name="name">res.config.settings.form.inherit.bf_appointment</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app data-string="Rendez-vous" string="Rendez-vous"
+                     name="bf_appointment"
+                     groups="resource_booking.group_manager">
+                    <block title="Vid&#233;oconf&#233;rence">
+                        <setting string="Jitsi Meet"
+                                 help="Domaine du serveur Jitsi Meet pour les vid&#233;oconf&#233;rences.">
+                            <div class="content-group mt16">
+                                <field name="bf_appointment_jitsi_domain"
+                                       placeholder="meet.jit.si"/>
+                            </div>
+                        </setting>
+                        <setting string="Nextcloud Talk"
+                                 help="Cr&#233;ation automatique de salles Nextcloud Talk.">
+                            <div class="content-group mt16">
+                                <div class="row">
+                                    <label for="bf_appointment_nc_talk_base_url"
+                                           class="col-3 col-lg-4"/>
+                                    <field name="bf_appointment_nc_talk_base_url"
+                                           placeholder="https://cloud.example.com"
+                                           class="col-9 col-lg-8"/>
+                                </div>
+                                <div class="row mt8">
+                                    <label for="bf_appointment_nc_talk_user"
+                                           class="col-3 col-lg-4"/>
+                                    <field name="bf_appointment_nc_talk_user"
+                                           class="col-9 col-lg-8"/>
+                                </div>
+                                <div class="row mt8">
+                                    <label for="bf_appointment_nc_talk_password"
+                                           class="col-3 col-lg-4"/>
+                                    <field name="bf_appointment_nc_talk_password"
+                                           password="True"
+                                           class="col-9 col-lg-8"/>
+                                </div>
+                            </div>
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Confirmation/details page after booking -->
+    <template id="appointment_confirmation_page" name="Appointment Confirmation Page">
+        <t t-call="portal.portal_layout">
+            <t t-set="breadcrumbs_searchbar" t-value="False"/>
+            <div class="bf-appointment-confirmation">
+                <t t-if="booking_sudo.state == 'confirmed'">
+                    <div class="text-center mb-4">
+                        <div class="bf-status-icon bf-status-success mx-auto mb-3">
+                            <i class="fa fa-check"/>
+                        </div>
+                        <h3 class="fw-semibold">Rendez-vous confirm&#233;</h3>
+                        <p class="text-muted">Un courriel de confirmation vous a &#233;t&#233; envoy&#233;.</p>
+                    </div>
+                </t>
+                <t t-elif="booking_sudo.state == 'pending'">
+                    <div class="text-center mb-4">
+                        <div class="bf-status-icon bf-status-pending mx-auto mb-3">
+                            <i class="fa fa-clock-o"/>
+                        </div>
+                        <h3 class="fw-semibold">En attente de confirmation</h3>
+                        <a t-attf-href="/appointment/b/#{booking_sudo.id}/#{access_token}/schedule"
+                           class="btn bf-btn-accent text-white mt-2"
+                           style="background-color: #29ABE2;">
+                            <i class="fa fa-calendar me-2"/>
+                            Choisir un cr&#233;neau
+                        </a>
+                    </div>
+                </t>
+                <t t-elif="booking_sudo.state == 'canceled'">
+                    <div class="text-center mb-4">
+                        <div class="bf-status-icon bf-status-cancelled mx-auto mb-3">
+                            <i class="fa fa-times"/>
+                        </div>
+                        <h3 class="fw-semibold">Rendez-vous annul&#233;</h3>
+                    </div>
+                </t>
+                <t t-else="">
+                    <div class="text-center mb-4">
+                        <div class="bf-status-icon bf-status-info mx-auto mb-3">
+                            <i class="fa fa-calendar-check-o"/>
+                        </div>
+                        <h3 class="fw-semibold">Rendez-vous planifi&#233;</h3>
+                    </div>
+                </t>
+
+                <div class="card bf-confirmation-card mx-auto">
+                    <div class="card-body p-4">
+                        <h5 class="fw-semibold mb-4" style="color: #ffffff;">
+                            <t t-esc="booking_sudo.type_id.name"/>
+                        </h5>
+                        <div class="d-flex flex-column gap-3">
+                            <t t-if="booking_sudo.start">
+                                <div class="d-flex align-items-center">
+                                    <div class="bf-info-icon">
+                                        <i class="fa fa-calendar"/>
+                                    </div>
+                                    <div>
+                                        <div class="small text-muted">Date</div>
+                                        <strong t-field="booking_sudo.start"
+                                                t-options='{"format": "EEEE d MMMM yyyy"}'/>
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center">
+                                    <div class="bf-info-icon">
+                                        <i class="fa fa-clock-o"/>
+                                    </div>
+                                    <div>
+                                        <div class="small text-muted">Heure</div>
+                                        <strong t-field="booking_sudo.start"
+                                                t-options='{"format": "HH:mm"}'/>
+                                    </div>
+                                </div>
+                            </t>
+                            <div class="d-flex align-items-center">
+                                <div class="bf-info-icon">
+                                    <i class="fa fa-hourglass-half"/>
+                                </div>
+                                <div>
+                                    <div class="small text-muted">Dur&#233;e</div>
+                                    <strong t-esc="booking_sudo.get_duration_display()"/>
+                                </div>
+                            </div>
+                            <t t-if="booking_sudo.location">
+                                <div class="d-flex align-items-center">
+                                    <div class="bf-info-icon">
+                                        <i class="fa fa-map-marker"/>
+                                    </div>
+                                    <div>
+                                        <div class="small text-muted">Lieu</div>
+                                        <strong t-esc="booking_sudo.location"/>
+                                    </div>
+                                </div>
+                            </t>
+                            <t t-if="booking_sudo.videocall_location">
+                                <div class="d-flex align-items-center">
+                                    <div class="bf-info-icon">
+                                        <i class="fa fa-video-camera"/>
+                                    </div>
+                                    <div>
+                                        <div class="small text-muted">Vid&#233;oconf&#233;rence</div>
+                                        <a t-att-href="booking_sudo.videocall_location"
+                                           target="_blank"
+                                           class="btn btn-sm bf-btn-accent text-white mt-1"
+                                           style="background-color: #29ABE2;">
+                                            <i class="fa fa-external-link me-1"/>
+                                            Rejoindre la r&#233;union
+                                        </a>
+                                    </div>
+                                </div>
+                            </t>
+                            <div class="d-flex align-items-center">
+                                <div class="bf-info-icon">
+                                    <i class="fa fa-globe"/>
+                                </div>
+                                <div>
+                                    <div class="small text-muted">Fuseau horaire</div>
+                                    <strong t-esc="tz_name"/>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <t t-if="booking_sudo.state in ('confirmed', 'scheduled')">
+                        <div class="card-footer bg-transparent text-center border-top py-3">
+                            <form t-attf-action="/appointment/b/#{booking_sudo.id}/#{access_token}/cancel"
+                                  method="post" class="d-inline"
+                                  onsubmit="return confirm('&#202;tes-vous certain de vouloir annuler ce rendez-vous ?');">
+                                <input type="hidden" name="csrf_token"
+                                       t-att-value="request.csrf_token()"/>
+                                <button type="submit" class="btn btn-outline-danger btn-sm">
+                                    <i class="fa fa-times me-1"/>
+                                    Annuler le rendez-vous
+                                </button>
+                            </form>
+                        </div>
+                    </t>
+                </div>
+
+                <div class="text-center mt-4">
+                    <a href="/appointment" class="text-muted text-decoration-none">
+                        <i class="fa fa-arrow-left me-1"/>
+                        Retour aux types de rendez-vous
+                    </a>
+                </div>
+            </div>
+        </t>
+    </template>
+</odoo>
