@@ -67,7 +67,7 @@ $bf-radius-sm: 8px;
     border: none;
     border-radius: $bf-radius;
     overflow: hidden;
-    background-color: $bf-anthracite;
+    background-color: darken($bf-anthracite, 4%);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 
