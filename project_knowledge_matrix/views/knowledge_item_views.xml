@@ -88,7 +88,8 @@
                         </group>
                     </group>
                     <notebook>
-                        <page string="Détails" name="details">
+                        <page string="Détails" name="details"
+                              invisible="item_type == 'content'">
                             <group>
                                 <group string="Source">
                                     <field name="questionnaire_location"
@@ -150,6 +151,11 @@
                                 <field name="supersedes_id"/>
                                 <field name="superseded_by_id"/>
                             </group>
+                        </page>
+                        <page string="Contenu" name="content"
+                              invisible="item_type != 'content'">
+                            <field name="content_html" nolabel="1"
+                                   placeholder="Rédigez le contenu de cette section..."/>
                         </page>
                         <page string="Tâches et dépendances" name="tasks">
                             <group>
@@ -363,6 +369,8 @@
                 <!-- Filtres de décision -->
                 <filter string="Décisions" name="decisions"
                         domain="[('item_type', '=', 'decision')]"/>
+                <filter string="Contenu" name="content_items"
+                        domain="[('item_type', '=', 'content')]"/>
                 <filter string="Décisions acceptées" name="accepted_decisions"
                         domain="[('state', '=', 'accepted')]"/>
                 <filter string="Décisions proposées" name="pending_decisions"

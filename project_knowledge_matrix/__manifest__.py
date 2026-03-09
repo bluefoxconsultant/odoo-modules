@@ -1,6 +1,6 @@
 {
     'name': 'Project Knowledge Matrix',
-    'version': '18.0.9.7.0',
+    'version': '18.0.9.8.0',
     'category': 'Services/Project',
     'summary': 'Base de connaissances projets, politiques et documentation',
     'description': """

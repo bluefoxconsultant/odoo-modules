@@ -97,6 +97,7 @@ class KnowledgeItem(models.Model):
         selection=[
             ('info', 'Information'),
             ('decision', 'Décision'),
+            ('content', 'Contenu'),
         ],
         string='Type',
         default='info',
@@ -150,6 +151,13 @@ class KnowledgeItem(models.Model):
     consequences = fields.Html(
         string='Conséquences',
         help='Impacts positifs et négatifs',
+    )
+
+    # Contenu de document (politique, procédure, rapport)
+    content_html = fields.Html(
+        string='Contenu',
+        sanitize_style=True,
+        help='Corps du contenu pour les sections de documents (politique, procédure, rapport)',
     )
 
     # Parties prenantes de la décision
