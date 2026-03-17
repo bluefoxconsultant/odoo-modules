@@ -1,3 +1,5 @@
+# License LGPL-3.0 or later (https://www.gnu.org/licenses/lgpl).
+
 import logging
 import re
 import uuid
@@ -511,7 +513,7 @@ class NextcloudCalendarSyncConfig(models.Model):
             vals = {}
             if not event.x_nc_uid:
                 vals["x_nc_uid"] = (
-                    f"{uuid.uuid4()}@odoo.example.com"
+                    f"{uuid.uuid4()}@odoo"
                 )
             if not event.x_sync_source:
                 vals["x_sync_source"] = "odoo"
@@ -684,7 +686,13 @@ class NextcloudCalendarSyncConfig(models.Model):
                         continue
 
             try:
-                result = CalendarEvent.create_from_nextcloud(ev_data, self.id)
+                with self.env.cr.savepoint():
+                    result = CalendarEvent.create_from_nextcloud(ev_data, self.id)
+                    # Flush inside savepoint so deferred recomputes
+                    # (e.g. resource_booking state) raise here, not in
+                    # the cron's final flush_all() where they'd crash
+                    # the entire job.
+                    self.env.flush_all()
                 if result.get("error"):
                     _logger.warning(
                         "Sync error for UID %s: %s", uid, result["error"]
@@ -715,7 +723,14 @@ class NextcloudCalendarSyncConfig(models.Model):
                 if not orphan.exists():
                     continue
                 try:
-                    CalendarEvent.delete_from_nextcloud(orphan.x_nc_uid, self.id)
+                    with self.env.cr.savepoint():
+                        CalendarEvent.delete_from_nextcloud(
+                            orphan.x_nc_uid, self.id
+                        )
+                        # Flush inside savepoint so deferred recomputes
+                        # (e.g. resource_booking state) raise here, not
+                        # in the cron's final flush_all().
+                        self.env.flush_all()
                     deleted += 1
                 except Exception as e:
                     _logger.error(
@@ -793,7 +808,7 @@ class NextcloudCalendarSyncConfig(models.Model):
             vals = {}
             if not event.x_nc_uid:
                 vals["x_nc_uid"] = (
-                    f"{uuid.uuid4()}@odoo.example.com"
+                    f"{uuid.uuid4()}@odoo"
                 )
             if not event.x_sync_source:
                 vals["x_sync_source"] = "odoo"
@@ -993,7 +1008,9 @@ class NextcloudCalendarSyncConfig(models.Model):
                 errors += 1
                 continue
             try:
-                res = CalendarEvent.create_from_nextcloud(ev_data, self.id)
+                with self.env.cr.savepoint():
+                    res = CalendarEvent.create_from_nextcloud(ev_data, self.id)
+                    self.env.flush_all()
                 if res.get("error"):
                     _logger.warning(
                         "Incremental sync error for UID %s: %s",
@@ -1016,7 +1033,11 @@ class NextcloudCalendarSyncConfig(models.Model):
             ], limit=1)
             if event:
                 try:
-                    CalendarEvent.delete_from_nextcloud(event.x_nc_uid, self.id)
+                    with self.env.cr.savepoint():
+                        CalendarEvent.delete_from_nextcloud(
+                            event.x_nc_uid, self.id
+                        )
+                        self.env.flush_all()
                     deleted += 1
                 except Exception as e:
                     _logger.error(
@@ -1271,7 +1292,13 @@ class NextcloudCalendarSyncConfig(models.Model):
         # Format for Odoo
         if allday:
             start_str = start_dt.strftime("%Y-%m-%d")
-            end_str = end_dt.strftime("%Y-%m-%d") if end_dt else start_str
+            # RFC 5545: DTEND for VALUE=DATE is exclusive (the day after
+            # the last day).  Odoo stop_date is inclusive, so subtract 1d.
+            if end_dt:
+                end_inclusive = end_dt - timedelta(days=1)
+                end_str = end_inclusive.strftime("%Y-%m-%d")
+            else:
+                end_str = start_str
         else:
             start_str = fields.Datetime.to_string(start_dt)
             end_str = fields.Datetime.to_string(end_dt) if end_dt else start_str

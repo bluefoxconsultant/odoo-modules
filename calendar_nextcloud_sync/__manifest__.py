@@ -1,11 +1,12 @@
+# License LGPL-3.0 or later (https://www.gnu.org/licenses/lgpl).
 {
     "name": "Calendar Nextcloud Sync",
     "summary": "Bidirectional calendar synchronization between Odoo and Nextcloud via n8n",
-    "version": "18.0.1.20.0",
+    "version": "18.0.1.23.0",
     "category": "Calendar",
-    "website": "https://example.com",
+    "website": "https://bluefox.ca",
     "author": "Blue Fox Inc.",
-    "license": "Other OSI approved licence",
+    "license": "LGPL-3",
     "application": False,
     "installable": True,
     "depends": [

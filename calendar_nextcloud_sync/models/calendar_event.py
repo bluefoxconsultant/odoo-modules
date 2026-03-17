@@ -1,3 +1,5 @@
+# License LGPL-3.0 or later (https://www.gnu.org/licenses/lgpl).
+
 import json
 import logging
 import uuid
@@ -219,7 +221,7 @@ class CalendarEvent(models.Model):
                 vals["x_sync_source"] = "odoo"
             # Generate NC UID if not provided
             if "x_nc_uid" not in vals and "x_nc_calendar_id" in vals:
-                vals["x_nc_uid"] = str(uuid.uuid4())
+                vals["x_nc_uid"] = f"{uuid.uuid4()}@odoo"
             # Inherit color from calendar config
             cal_id = vals.get("x_nc_calendar_id")
             if cal_id and "color" not in vals:
@@ -252,7 +254,7 @@ class CalendarEvent(models.Model):
             for record in self:
                 extras = {}
                 if not record.x_nc_uid and "x_nc_uid" not in vals:
-                    extras["x_nc_uid"] = f"{uuid.uuid4()}@odoo.example.com"
+                    extras["x_nc_uid"] = f"{uuid.uuid4()}@odoo"
                 if not record.x_sync_source and "x_sync_source" not in vals:
                     extras["x_sync_source"] = "odoo"
                 if extras:
@@ -375,9 +377,14 @@ class CalendarEvent(models.Model):
         if config.sync_direction == "odoo_to_nc":
             return {"error": "Sync direction does not allow NC → Odoo"}
 
-        # Look for existing event by NC UID
+        # Look for existing event by NC UID within this calendar config
+        # (scoped to config to avoid ping-pong when the same UID appears
+        # in multiple Nextcloud calendars)
         nc_uid = data.get("uid")
-        existing = self.search([("x_nc_uid", "=", nc_uid)], limit=1) if nc_uid else None
+        existing = self.search([
+            ("x_nc_uid", "=", nc_uid),
+            ("x_nc_calendar_id", "=", config_id),
+        ], limit=1) if nc_uid else None
 
         # Prepare values
         vals = {
@@ -510,7 +517,10 @@ class CalendarEvent(models.Model):
         if config.sync_direction == "odoo_to_nc":
             return {"error": "Sync direction does not allow NC → Odoo"}
 
-        event = self.search([("x_nc_uid", "=", nc_uid)], limit=1)
+        event = self.search([
+            ("x_nc_uid", "=", nc_uid),
+            ("x_nc_calendar_id", "=", config_id),
+        ], limit=1)
         if event:
             event_name = event.name
             if event.recurrence_id:

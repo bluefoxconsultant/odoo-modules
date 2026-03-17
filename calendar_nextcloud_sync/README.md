@@ -9,7 +9,8 @@ Bidirectional calendar synchronization between Odoo 18 and Nextcloud via CalDAV 
 - **Incremental sync**: RFC 6578 sync-token support — after the first full pull, the cron only fetches changes (creates/updates/deletes) since the last sync
 - **Push pending events**: "Push to Nextcloud" button sends locally-created events to Nextcloud via n8n webhook
 - **Webhook push sync**: Real-time event propagation via n8n webhooks on create/update/delete
-- **Catch-up cron**: Configurable scheduled sync (default 1 min) as safety net for missed webhooks
+- **Catch-up cron**: Configurable scheduled sync (default 15 min) as safety net for missed webhooks
+- **Full resync cron**: Periodic consistency safety net (every 6 hours) clears sync tokens and re-pulls all events
 - **Multi-calendar support**: Configure multiple Nextcloud calendars with independent sync settings
 - **Calendar coloring**: Each Nextcloud calendar can be assigned an Odoo color (0-11 palette) applied to its events
 - **ETag change detection**: Skips unchanged events during pull sync to avoid unnecessary writes
@@ -22,7 +23,9 @@ Bidirectional calendar synchronization between Odoo 18 and Nextcloud via CalDAV 
 - **VALARM filtering**: Skips nested VALARM/VTIMEZONE blocks in ICS to prevent property collisions
 - **Calendar owner**: Explicit `calendar_owner_id` on config ensures synced events appear in the correct user's calendar
 - **Windows timezone normalization**: Maps Windows-style TZ names (e.g., "Eastern Standard Time") to IANA
-- **RFC 5545 ICS parsing**: Line folding, timezone handling (TZID + pytz), all-day events, DURATION fallback
+- **RFC 5545 ICS parsing**: Line folding, timezone handling (TZID + pytz), all-day events (exclusive DTEND → inclusive stop_date), DURATION fallback
+- **Savepoint isolation**: Each event sync is wrapped in a DB savepoint so failures (e.g., `resource_booking` validation) don't crash the cron
+- **Per-config UID scoping**: Event lookups in `create_from_nextcloud` and `delete_from_nextcloud` are scoped to the calendar config, preventing ping-pong when events appear in multiple Nextcloud calendars
 
 ## Architecture
 
@@ -34,7 +37,7 @@ Bidirectional calendar synchronization between Odoo 18 and Nextcloud via CalDAV 
   CalDAV REPORT  |  /remote.php/dav/     |<-- pull ------| Pull from Nextcloud (manual)     |
   (full pull)    |  calendars/user/cal/  |               | action_pull_from_nextcloud()     |
                  |                       |               |                       |
-  sync-collection|                       |<-- incr. -----| Cron (every 1 min)               |
+  sync-collection|                       |<-- incr. -----| Cron (every 15 min)               |
   (incremental)  |                       |               | _pull_incremental() + sync-token |
                  |                       |               |                       |
                  |  webhook_listeners    |--- push ----->|                       |
@@ -55,7 +58,7 @@ Bidirectional calendar synchronization between Odoo 18 and Nextcloud via CalDAV 
 | Direction | Mechanism | Trigger |
 |-----------|-----------|---------|
 | NC &rarr; Odoo (full pull) | CalDAV REPORT (calendar-query) + ICS parsing | Manual "Pull from Nextcloud" button, or cron when no sync-token |
-| NC &rarr; Odoo (incremental) | sync-collection REPORT with sync-token (RFC 6578) | Cron every 1 min (when sync-token available) |
+| NC &rarr; Odoo (incremental) | sync-collection REPORT with sync-token (RFC 6578) | Cron every 15 min (when sync-token available) |
 | NC &rarr; Odoo (push) | Nextcloud webhook &rarr; n8n &rarr; Odoo JSON-RPC | Automatic on NC event change |
 | Odoo &rarr; NC (push) | Odoo model override &rarr; n8n webhook &rarr; CalDAV PUT | Automatic on Odoo event change |
 | Odoo &rarr; NC (manual) | "Push to Nextcloud" button &rarr; n8n webhook | Manual, for events pending push |
@@ -79,7 +82,7 @@ calendar_nextcloud_sync/
 |   +-- res_config_settings_views.xml    # Calendar Settings page
 +-- data/
 |   +-- ir_actions_server.xml       # Automated actions for sync logging
-|   +-- nextcloud_sync_cron.xml     # Catch-up cron (1 min, incremental via sync-token)
+|   +-- nextcloud_sync_cron.xml     # Catch-up cron (15 min) + full resync cron (6h)
 +-- security/
 |   +-- ir.model.access.csv         # ACL: read for users, full for admins
 +-- migrations/
@@ -109,7 +112,7 @@ Under **Settings > Calendar > Nextcloud Calendar Sync**:
 | n8n Webhook URL | Default URL applied to new calendar configs |
 | Webhook Secret | Default secret applied to new calendar configs (password field) |
 | Enable Catch-up Sync | Toggle the cron job on/off |
-| Sync Interval (minutes) | Cron frequency (default: 1 min) |
+| Sync Interval (minutes) | Cron frequency (default: 15 min) |
 | Configure Nextcloud Calendars | Link to the calendar config list |
 
 Set the webhook URL and secret here once — they will auto-populate when creating new calendar configurations.
@@ -120,10 +123,10 @@ Go to **Settings > Technical > Nextcloud Calendar Sync** (or use the link in Cal
 
 | Field | Description | Example |
 |-------|-------------|---------|
-| Calendar Name | Display name | `My Calendar` |
+| Calendar Name | Display name | `Blue Fox` |
 | Nextcloud URL | Base URL | `https://nextcloud.example.com` |
 | CalDAV Path | Calendar path | `/remote.php/dav/calendars/user/personal/` |
-| Nextcloud User | Calendar owner | `user` |
+| Nextcloud User | Calendar owner | `olivier` |
 | App Password | Nextcloud app password (encrypted at rest) | *(from Nextcloud > Settings > Security)* |
 | Odoo Color | Color picker (0-11 palette) for events in calendar views | *(click to pick)* |
 | Sync Direction | `Bidirectional`, `NC -> Odoo`, or `Odoo -> NC` | `Bidirectional` |
@@ -147,8 +150,8 @@ Then:
 
 ### n8n Credentials
 
-1. **Odoo API** (HTTP Header Auth): `Authorization: Bearer <api_key>`
-2. **Nextcloud CalDAV** (HTTP Basic Auth): username + app password
+1. **Blue Fox Odoo API** (HTTP Header Auth): `Authorization: Bearer <api_key>`
+2. **Blue Fox Nextcloud CalDAV** (HTTP Basic Auth): username + app password
 
 ### Nextcloud Webhook Registration
 
@@ -185,7 +188,8 @@ Configuration for each Nextcloud calendar connection.
 | `action_test_connection()` | PROPFIND to verify CalDAV endpoint is reachable |
 | `action_view_events()` | Opens calendar events (colored by `odoo_color`) |
 | `update_sync_status(status, msg)` | Updates last_sync fields (called by webhook handler) |
-| `_cron_sync_all()` | Cron entry point: tries incremental sync if token available, falls back to full pull |
+| `_cron_sync_all()` | Cron entry point (15 min): tries incremental sync if token available, falls back to full pull |
+| `_cron_full_resync()` | Full resync cron (6h): clears sync tokens and re-pulls all events as consistency safety net |
 | `_pull_incremental()` | RFC 6578 sync-collection REPORT with stored token; processes only changes since last sync |
 | `_store_sync_token()` | PROPFIND Depth:0 to fetch and store the current sync-token |
 | `_parse_sync_collection_response()` | Parse sync-collection 207 response into changed events + deleted hrefs + new token |
@@ -213,7 +217,7 @@ Configuration for each Nextcloud calendar connection.
 
 **Cron (`_cron_sync_all`):**
 
-Runs every 1 minute (configurable in Settings). Searches for configs where:
+Runs every 15 minutes (configurable in Settings). Searches for configs where:
 - `active = True`
 - `sync_direction` is `both` or `nc_to_odoo`
 - `nextcloud_app_password_encrypted` is set
@@ -222,7 +226,9 @@ For each config:
 - If `caldav_sync_token` is set &rarr; `_pull_incremental()` (lightweight, only delta)
 - Otherwise &rarr; `action_pull_from_nextcloud()` (full pull, stores token for next time)
 
-Per-config error handling so one failure doesn't block others. The 1-minute interval is practical because incremental sync is a single HTTP request returning only changes (often zero).
+Per-config error handling so one failure doesn't block others. Each event sync is wrapped in a `cr.savepoint()` with `flush_all()` so deferred validation errors (e.g., `resource_booking._compute_state`) are caught per-event instead of crashing the entire cron.
+
+A separate **full resync cron** runs every 6 hours, clearing sync tokens and performing a full CalDAV pull for all configs. This acts as a consistency safety net against drift.
 
 **ICS Date Parsing:**
 
@@ -377,6 +383,7 @@ Falls back to matching `nextcloud_user` against Odoo login if `calendar_owner_id
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 18.0.1.23.0 | 2026-03-16 | Fix cron crash (savepoint isolation for resource_booking ValidationError), fix all-day events spanning 2 days (RFC 5545 exclusive DTEND), fix cron vs button inconsistency (scope UID search per calendar config), add full resync cron (6h safety net), fix cron intervals (15 min catch-up, 6h full resync) |
 | 18.0.1.18.0 | 2026-02-15 | Fix VALARM property collision: skip nested ICS components (VALARM, VTIMEZONE) during parsing |
 | 18.0.1.17.0 | 2026-02-15 | Add `calendar_owner_id` field for explicit calendar owner resolution (fixes invisible events for shared calendars) |
 | 18.0.1.16.0 | 2026-02-15 | RRULE recurring event support (NC→Odoo): RRULE/EXDATE parsing, `calendar.recurrence` creation, instance post-processing, Windows TZ mapping |
@@ -394,11 +401,3 @@ Falls back to matching `nextcloud_user` against Odoo login if `calendar_owner_id
 ## License
 
 LGPL-3.0
-
-## Disclaimer
-
-This module is provided as-is, without warranty of any kind. Use at your own risk. Blue Fox Inc. assumes no liability for any damages arising from the use of this software.
-
----
-
-*Developed with AI assistance (Claude, Anthropic).*
