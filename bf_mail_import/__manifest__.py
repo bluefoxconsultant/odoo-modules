@@ -1,11 +1,10 @@
 {
     "name": "BF Import courriel (.eml)",
-    "version": "18.0.1.1.0",
+    "version": "18.0.1.2.0",
     "category": "Productivity/Email",
     "summary": "Importer des fichiers .eml dans le chatter Odoo",
     "author": "Blue Fox",
-    "website": "https://example.com",
-    "license": "Other OSI approved licence",
+    "license": "LGPL-3",
     "depends": ["mail"],
     "data": [
         "security/ir.model.access.csv",

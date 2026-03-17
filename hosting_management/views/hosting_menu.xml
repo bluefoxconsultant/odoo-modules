@@ -108,6 +108,27 @@
         action="hosting_domain_action_expiring"
         sequence="25"/>
 
+    <!-- Security Menu -->
+    <menuitem
+        id="hosting_menu_security"
+        name="Sécurité"
+        parent="hosting_menu_root"
+        sequence="25"/>
+
+    <menuitem
+        id="hosting_menu_audit_log"
+        name="Journal d'audit"
+        parent="hosting_menu_security"
+        action="hosting_audit_log_action"
+        sequence="10"/>
+
+    <menuitem
+        id="hosting_menu_security_events"
+        name="Événements de sécurité"
+        parent="hosting_menu_security"
+        action="hosting_security_event_action"
+        sequence="20"/>
+
     <!-- Software Catalog Menu -->
     <menuitem
         id="hosting_menu_software"

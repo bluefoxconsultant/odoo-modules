@@ -7,7 +7,7 @@ msgstr ""
 "Project-Id-Version: Odoo Server 18.0-20260119\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-02-16 00:00+0000\n"
-"PO-Revision-Date: 2026-02-16 00:00+0000\n"
+"PO-Revision-Date: 2026-02-28 00:00+0000\n"
 "Last-Translator: Example Inc.\n"
 "Language-Team: French (Canada)\n"
 "MIME-Version: 1.0\n"
@@ -19,14 +19,14 @@ msgstr ""
 #. module: bf_mail_import
 #. odoo-python
 #: code:addons/bf_mail_import/wizard/mail_import_wizard.py:0
-msgid "%d courriel(s) importé(s)."
-msgstr "%d courriel(s) importé(s)."
+msgid "%d courriel(s) importé(s) :"
+msgstr "%d courriel(s) importé(s) :"
 
 #. module: bf_mail_import
 #. odoo-python
 #: code:addons/bf_mail_import/wizard/mail_import_wizard.py:0
-msgid "%d doublon(s) ignoré(s)."
-msgstr "%d doublon(s) ignoré(s)."
+msgid "%d doublon(s) ignoré(s) :"
+msgstr "%d doublon(s) ignoré(s) :"
 
 #. module: bf_mail_import
 #. odoo-javascript
@@ -183,6 +183,12 @@ msgstr "Sélectionnez un ou plusieurs fichiers .eml à importer."
 #: model:ir.model.fields.selection,name:bf_mail_import.selection__bf_mail_import_wizard__state__done
 msgid "Terminé"
 msgstr "Terminé"
+
+#. module: bf_mail_import
+#. odoo-python
+#: code:addons/bf_mail_import/wizard/mail_import_wizard.py:0
+msgid "Le fichier '%s' n'est pas un fichier .eml valide."
+msgstr "Le fichier '%s' n'est pas un fichier .eml valide."
 
 #. module: bf_mail_import
 #. odoo-python

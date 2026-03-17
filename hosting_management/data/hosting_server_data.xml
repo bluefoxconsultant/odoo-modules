@@ -2,17 +2,18 @@
 <odoo>
     <data noupdate="1">
 
-        <!-- Example Production Server -->
-        <record id="server_example1" model="hosting.server">
-            <field name="name">Serveur exemple</field>
-            <field name="code">EX1</field>
+        <!-- Primary Production Server -->
+        <record id="server_server1" model="hosting.server">
+            <field name="name">Primetime 1</field>
+            <field name="code">PT1</field>
             <field name="hostname">server1.example.com</field>
             <field name="server_type">production</field>
-            <field name="provider">cloud</field>
+            <field name="provider">ovh</field>
             <field name="location">Canada</field>
-            <field name="ssh_user">admin</field>
+            <field name="ssh_user">root</field>
             <field name="ssh_port">22</field>
             <field name="state">active</field>
+            <field name="notes">&lt;p&gt;Serveur de production principal hébergeant tous les services clients.&lt;/p&gt;</field>
         </record>
 
     </data>

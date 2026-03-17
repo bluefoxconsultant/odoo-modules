@@ -354,6 +354,47 @@
                     </div>
                 </div>
 
+                <!-- Security / Audit Row -->
+                <div t-if="state.data.security" class="row mb-4">
+                    <div class="col-12">
+                        <h5 class="text-uppercase text-muted mb-3">
+                            <i class="fa fa-shield me-2"/>Sécurité et audit
+                        </h5>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <div class="card h-100 cursor-pointer" t-on-click="openAuditLog24h">
+                            <div class="card-body text-center">
+                                <h2 class="text-primary mb-0" t-esc="state.data.security.audit_24h"/>
+                                <small class="text-muted">Audit (24h)</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <div class="card h-100 cursor-pointer" t-on-click="openAuditLog7d">
+                            <div class="card-body text-center">
+                                <h2 class="text-muted mb-0" t-esc="state.data.security.audit_7d"/>
+                                <small class="text-muted">Audit (7j)</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <div t-attf-class="card h-100 cursor-pointer {{state.data.security.critical_7d > 0 ? 'border-danger' : ''}}" t-on-click="openAuditCritical7d">
+                            <div class="card-body text-center">
+                                <h2 t-attf-class="mb-0 {{state.data.security.critical_7d > 0 ? 'text-danger' : 'text-muted'}}" t-esc="state.data.security.critical_7d"/>
+                                <small class="text-muted">Critiques (7j)</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <div t-attf-class="card h-100 cursor-pointer {{state.data.security.incidents_open > 0 ? 'border-warning' : ''}}" t-on-click="openSecurityEventsOpen">
+                            <div class="card-body text-center">
+                                <h2 t-attf-class="mb-0 {{state.data.security.incidents_open > 0 ? 'text-warning' : 'text-muted'}}" t-esc="state.data.security.incidents_open"/>
+                                <small class="text-muted">Incidents ouverts</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Services Row -->
                 <div class="row mb-4">
                     <div class="col-12">

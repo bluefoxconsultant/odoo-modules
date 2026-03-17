@@ -9,6 +9,16 @@
         <field name="arch" type="xml">
             <xpath expr="//form" position="inside">
                 <app data-string="Hébergement" string="Hébergement" name="hosting_management">
+                    <block title="Journal d'audit" name="audit_log">
+                        <setting string="Rétention" help="Durée de conservation des entrées du journal d'audit. Les entrées plus anciennes sont supprimées mensuellement.">
+                            <div class="content-group">
+                                <div class="row mt16">
+                                    <label for="hosting_audit_log_retention_months" class="col-lg-3 o_light_label"/>
+                                    <field name="hosting_audit_log_retention_months" class="oe_inline"/> mois
+                                </div>
+                            </div>
+                        </setting>
+                    </block>
                     <block title="Alertes de vérification de santé" name="health_check_alerts">
                         <setting string="Courriel d'alerte" help="Adresse courriel pour recevoir les alertes de vérification de santé">
                             <div class="content-group">

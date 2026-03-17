@@ -16,3 +16,5 @@ from . import hosting_digest
 from . import res_partner
 from . import res_config_settings
 from . import hosting_backup_log
+from . import hosting_audit_log
+from . import hosting_security_event

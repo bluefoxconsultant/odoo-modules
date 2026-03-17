@@ -29,6 +29,7 @@ class HostingDashboard(models.Model):
             "backups": self._get_backups(),
             "services": self._get_services(),
             "domains": self._get_domains(),
+            "security": self._get_security(),
         }
 
     # ------------------------------------------------------------------
@@ -38,6 +39,12 @@ class HostingDashboard(models.Model):
     @api.model
     def action_refresh_all(self):
         """Run health checks + version checks + Docker checks, return summary."""
+        self.env["hosting.audit.log"]._log_event(
+            action_type="health_check",
+            category="ops",
+            description="Actualisation complète du tableau de bord (santé + versions + Docker)",
+            res_model=self._name,
+        )
         health_check_count = 0
         health_check_errors = []
         version_check_count = 0
@@ -152,6 +159,12 @@ class HostingDashboard(models.Model):
     @api.model
     def action_run_health_checks(self):
         """Run health checks on all active services with URLs."""
+        self.env["hosting.audit.log"]._log_event(
+            action_type="health_check",
+            category="ops",
+            description="Vérification de santé manuelle lancée depuis le tableau de bord",
+            res_model=self._name,
+        )
         Service = self.env["hosting.service"]
         services_to_check = Service.search([
             ("state", "=", "active"),
@@ -721,6 +734,31 @@ class HostingDashboard(models.Model):
             ]),
         }
 
+    @api.model
+    def _get_security(self):
+        """Audit log and security event counts for dashboard."""
+        AuditLog = self.env["hosting.audit.log"]
+        SecurityEvent = self.env["hosting.security.event"]
+        now = fields.Datetime.now()
+        day_ago = now - timedelta(hours=24)
+        week_ago = now - timedelta(days=7)
+
+        return {
+            "audit_24h": AuditLog.sudo().search_count([
+                ("event_date", ">=", day_ago),
+            ]),
+            "audit_7d": AuditLog.sudo().search_count([
+                ("event_date", ">=", week_ago),
+            ]),
+            "critical_7d": AuditLog.sudo().search_count([
+                ("event_date", ">=", week_ago),
+                ("severity", "=", "critical"),
+            ]),
+            "incidents_open": SecurityEvent.search_count([
+                ("state", "not in", ("resolved", "false_positive")),
+            ]),
+        }
+
     # Domain navigation actions
     @api.model
     def action_view_domains(self):
@@ -773,4 +811,57 @@ class HostingDashboard(models.Model):
                 ("state", "in", ("active", "expiring_soon")),
                 ("auto_renew", "=", False),
             ],
+        }
+
+    # Security / Audit navigation actions
+    @api.model
+    def action_view_audit_log(self):
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Journal d'audit",
+            "res_model": "hosting.audit.log",
+            "views": [[False, "list"], [False, "form"]],
+        }
+
+    @api.model
+    def action_view_audit_log_24h(self):
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Audit (24h)",
+            "res_model": "hosting.audit.log",
+            "views": [[False, "list"], [False, "form"]],
+            "context": {"search_default_filter_today": 1},
+        }
+
+    @api.model
+    def action_view_audit_log_7d(self):
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Audit (7 jours)",
+            "res_model": "hosting.audit.log",
+            "views": [[False, "list"], [False, "form"]],
+            "context": {"search_default_filter_week": 1},
+        }
+
+    @api.model
+    def action_view_audit_critical_7d(self):
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Critiques (7 jours)",
+            "res_model": "hosting.audit.log",
+            "views": [[False, "list"], [False, "form"]],
+            "context": {
+                "search_default_filter_week": 1,
+                "search_default_filter_critical": 1,
+            },
+        }
+
+    @api.model
+    def action_view_security_events_open(self):
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Incidents ouverts",
+            "res_model": "hosting.security.event",
+            "views": [[False, "list"], [False, "form"]],
+            "context": {"search_default_filter_active": 1},
         }

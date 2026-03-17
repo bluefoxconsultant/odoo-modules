@@ -6,6 +6,14 @@ from odoo import api, fields, models, _
 class ResConfigSettings(models.TransientModel):
     _inherit = "res.config.settings"
 
+    # Paramètres du journal d'audit
+    hosting_audit_log_retention_months = fields.Integer(
+        string="Rétention du journal d'audit (mois)",
+        config_parameter="hosting.audit_log_retention_months",
+        default=24,
+        help="Nombre de mois de conservation des entrées du journal d'audit. Les entrées plus anciennes sont supprimées automatiquement.",
+    )
+
     # Paramètres d'alerte de santé
     hosting_health_alert_email = fields.Char(
         string="Courriel d'alerte de santé",

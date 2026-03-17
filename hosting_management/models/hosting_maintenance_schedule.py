@@ -203,7 +203,24 @@ class HostingMaintenanceSchedule(models.Model):
             raise_if_not_found=False,
         )
 
+        AuditLog = self.env["hosting.audit.log"]
         for record in self:
+            AuditLog._log_event(
+                action_type="maintenance",
+                category="ops",
+                description=(
+                    f"Maintenance complétée : {record.name} "
+                    f"(service : {record.service_id.name})"
+                ),
+                res_model=self._name,
+                res_id=record.id,
+                res_name=record.display_name,
+                service_id=record.service_id.id,
+                server_id=(
+                    record.service_id.server_id.id
+                    if record.service_id.server_id else None
+                ),
+            )
             record.last_performed = today
             # Marquer les activités de maintenance existantes comme terminées
             if activity_type:

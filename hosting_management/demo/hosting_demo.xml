@@ -102,10 +102,10 @@
             <field name="notes">&lt;p&gt;LibreOffice Online for collaborative document editing.&lt;/p&gt;</field>
         </record>
 
-        <!-- ExampleMail (SaaS) -->
-        <record id="software_examplemail" model="hosting.software">
-            <field name="name">ExampleMail</field>
-            <field name="code">EM</field>
+        <!-- Migadu (SaaS) -->
+        <record id="software_migadu" model="hosting.software">
+            <field name="name">Migadu</field>
+            <field name="code">MG</field>
             <field name="software_type">saas</field>
             <field name="notes">&lt;p&gt;Email hosting service (SaaS).&lt;/p&gt;</field>
         </record>

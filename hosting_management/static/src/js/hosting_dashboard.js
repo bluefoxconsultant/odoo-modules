@@ -179,6 +179,12 @@ export class HostingDashboard extends Component {
     openSslExpiring() { this._doAction("action_view_ssl_expiring"); }
     openDomainsNoAutoRenew() { this._doAction("action_view_domains_no_auto_renew"); }
 
+    // Security / Audit
+    openAuditLog24h() { this._doAction("action_view_audit_log_24h"); }
+    openAuditLog7d() { this._doAction("action_view_audit_log_7d"); }
+    openAuditCritical7d() { this._doAction("action_view_audit_critical_7d"); }
+    openSecurityEventsOpen() { this._doAction("action_view_security_events_open"); }
+
     // Health checks list
     openHealthChecks() { this._doAction("action_view_health_checks"); }
 

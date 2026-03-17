@@ -53,13 +53,13 @@ A comprehensive Odoo 18 module for managing hosting services, including version 
 - **Refresh All**: Button to run all checks (health, versions, Docker) and update all computed fields
 
 ### Client Email Templates
-- **Branded Communications**: 5 sleek, client-facing email templates with corporate branding
+- **Branded Communications**: 5 sleek, client-facing email templates with full Blue Fox branding
 - **Generic Template**: Multipurpose template for any client communication via `ctx.message_body`
 - **Monthly Report**: Service summary with KPI grid (services count, uptime, backups, updates) and next maintenance callout
 - **Maintenance Notice**: Amber-accented notification with structured details (date, duration, affected services, impact)
 - **Intervention Report**: Green-accented post-intervention summary (work done, duration, result, recommendations)
 - **Welcome / Onboarding**: Warm welcome with gradient accent, activated services list, contact info, and CTA button
-- **Design System**: Light background (`#F8FAFC`), 600px card with `border-radius: 16px`, Lexend typography, variable accent bars, enriched footer with tagline and full contact details
+- **Design System**: Light background (`#F8FAFC`), 600px card with `border-radius: 16px`, Lexend typography, variable accent bars, enriched footer with contiGNU tagline and full contact details
 
 ### Scheduled Digests
 - **Email Summaries**: Configurable email digests with service status summaries
@@ -333,7 +333,7 @@ The module provides a REST API endpoint for receiving backup reports from extern
    - Key: `hosting.backup_api_token`
    - Value: A secure random token (e.g., generate with `openssl rand -hex 32`)
 
-2. Store the same token on your backup server (e.g., `/home/user/secrets/backup-api-token`)
+2. Store the same token on your backup server (e.g., `/home/livv/secrets/backup-api-token`)
 
 #### Request Payload
 
@@ -416,7 +416,7 @@ The companion script `backup-all-services.sh` supports two modes:
 - `--no-webhook` - Run backups but don't send report to Odoo/n8n
 - `--no-downtime` - Skip backups that cause service downtime (e.g., Nextcloud maintenance mode)
 
-The token is loaded from `/home/user/secrets/backup-api-token` or the `ODOO_BACKUP_TOKEN` environment variable.
+The token is loaded from `/home/livv/secrets/backup-api-token` or the `ODOO_BACKUP_TOKEN` environment variable.
 
 ### Setting Up Email Digests
 
@@ -610,7 +610,7 @@ Hosting
 
 ### Version 18.0.2.18.0 (2026-02-13)
 - **NEW: Client Email Templates**
-  - 5 sleek, client-facing email templates with corporate branding
+  - 5 sleek, client-facing email templates with full Blue Fox branding
   - New data file `hosting_client_email_templates.xml` with `noupdate="0"` for easy iteration
   - All templates use `res.partner` as model, data passed via `ctx` dictionary
   - **Template 1 — Generic**: Multipurpose template for any client communication; accepts `email_subject` and `message_body` via ctx
@@ -622,11 +622,11 @@ Hosting
 - **Design System (Client-Facing)**
   - Light background `#F8FAFC` (vs internal dark `#2E3132`)
   - Card: 600px, `border-radius: 16px`, `box-shadow: 0 4px 24px rgba(0,0,0,0.08)`
-  - Header: `#22303B` with company logo + contextual title
+  - Header: `#22303B` with Blue Fox logo + contextual title
   - Variable accent bars: blue (generic/monthly), amber (maintenance), green (intervention), gradient (welcome)
   - Typography: Lexend, `font-weight: 300` body, `font-weight: 500-700` headings
-  - Enriched footer: company tagline, full contact (email, phone, website), privacy/terms links
-  - Double accent bottom bar maintained (brand signature)
+  - Enriched footer: contiGNU tagline, full contact (email, phone, website), privacy/terms links
+  - Double accent bottom bar maintained (Blue Fox signature)
   - All accented characters encoded as HTML entities for email client safety
 
 ### Version 18.0.2.17.0 (2026-02-10)
@@ -662,7 +662,7 @@ Hosting
   - New `hosting.backup.file` model for individual backup files with checksums
   - REST API endpoint `/api/hosting/backup/report/public` for receiving reports
   - Token-based authentication via `X-Backup-Token` header
-  - Automatic email notifications with corporate template
+  - Automatic email notifications with Blue Fox corporate template
   - "Backup Runs" menu under Reporting section
   - Visual status indicators (success/partial/failed)
   - File verification tracking with SHA256 checksums
@@ -714,7 +714,7 @@ Hosting
 - Digest email integration
 
 ### Version 18.0.2.3.0
-- Updated email templates with corporate branding
+- Updated email templates with Blue Fox branding
 
 ### Version 18.0.2.2.0
 - Added maintenance window feature to suppress alerts during scheduled maintenance
@@ -747,7 +747,7 @@ Contributions are welcome! Please:
 
 MIT License
 
-Copyright (c) 2025-2026 Your Company
+Copyright (c) 2025-2026 Blue Fox Inc.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -767,13 +767,9 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-## Disclaimer
-
-This module is provided as-is, without warranty of any kind. Use at your own risk. Blue Fox Inc. assumes no liability for any damages arising from the use of this software.
-
 ## Support
 
-For support, please open an issue in the repository.
+For support, please contact Blue Fox Inc. or open an issue in the repository.
 
 ---
 

@@ -134,7 +134,7 @@ class HostingService(models.Model):
     )
     docker_container = fields.Char(
         string="Nom du conteneur",
-        help="Nom du conteneur Docker (ex. : vaultwarden-client)",
+        help="Nom du conteneur Docker (ex. : vaultwarden-alvea)",
     )
 
     # Stockage
@@ -321,7 +321,69 @@ class HostingService(models.Model):
                 vals["code"] = self.env["ir.sequence"].next_by_code(
                     "hosting.service"
                 ) or "New"
-        return super().create(vals_list)
+        records = super().create(vals_list)
+        AuditLog = self.env["hosting.audit.log"]
+        for rec in records:
+            AuditLog._log_event(
+                action_type="create",
+                category="ops",
+                description=f"Service créé : {rec.name} ({rec.code})",
+                res_model=self._name,
+                res_id=rec.id,
+                res_name=rec.display_name,
+                service_id=rec.id,
+                server_id=rec.server_id.id if rec.server_id else None,
+            )
+        return records
+
+    def write(self, vals):
+        # Capture state changes before write
+        if "state" in vals:
+            state_labels = dict(self._fields["state"].selection)
+            for rec in self:
+                old_state = rec.state
+                new_state = vals["state"]
+                if old_state != new_state:
+                    severity = (
+                        "warning"
+                        if new_state in ("suspended", "expired", "cancelled")
+                        else "info"
+                    )
+                    self.env["hosting.audit.log"]._log_event(
+                        action_type="state_change",
+                        category="ops",
+                        description=(
+                            f"État du service {rec.name} : "
+                            f"{state_labels.get(old_state, old_state)} → "
+                            f"{state_labels.get(new_state, new_state)}"
+                        ),
+                        res_model=self._name,
+                        res_id=rec.id,
+                        res_name=rec.display_name,
+                        service_id=rec.id,
+                        server_id=rec.server_id.id if rec.server_id else None,
+                        field_name="state",
+                        old_value=old_state,
+                        new_value=new_state,
+                        severity=severity,
+                    )
+        return super().write(vals)
+
+    def unlink(self):
+        AuditLog = self.env["hosting.audit.log"]
+        for rec in self:
+            AuditLog._log_event(
+                action_type="unlink",
+                category="ops",
+                description=f"Service supprimé : {rec.name} ({rec.code})",
+                res_model=self._name,
+                res_id=rec.id,
+                res_name=rec.display_name,
+                service_id=rec.id,
+                server_id=rec.server_id.id if rec.server_id else None,
+                severity="warning",
+            )
+        return super().unlink()
 
     @api.depends("installed_version_id", "software_id.latest_version", "version_policy")
     def _compute_update_available(self):
@@ -381,7 +443,9 @@ class HostingService(models.Model):
             latest_padded = latest_parsed + (0,) * (max_len - len(latest_parsed))
             return installed_padded < latest_padded
 
-        return installed != latest
+        # If either version can't be parsed, we can't determine update status
+        # Don't flag as needing update based on string inequality alone
+        return False
 
     @api.depends("storage_quota_gb", "storage_used_gb")
     def _compute_storage_percent(self):

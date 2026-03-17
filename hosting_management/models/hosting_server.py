@@ -104,6 +104,42 @@ class HostingServer(models.Model):
         ("hostname_uniq", "UNIQUE(hostname)", "Le nom d'hôte doit être unique !"),
     ]
 
+    _AUDIT_FIELDS = {"hostname", "ip_address", "state", "provider", "server_type"}
+
+    def write(self, vals):
+        tracked = self._AUDIT_FIELDS & set(vals)
+        if tracked:
+            AuditLog = self.env["hosting.audit.log"]
+            state_labels = dict(self._fields["state"].selection)
+            for rec in self:
+                for fname in tracked:
+                    old_val = getattr(rec, fname)
+                    new_val = vals[fname]
+                    if old_val != new_val:
+                        severity = "info"
+                        if fname == "state":
+                            old_val = state_labels.get(old_val, old_val)
+                            new_val = state_labels.get(new_val, new_val)
+                            if vals["state"] in ("maintenance", "decommissioned"):
+                                severity = "warning"
+                        AuditLog._log_event(
+                            action_type="config_change",
+                            category="config",
+                            description=(
+                                f"Serveur {rec.name} : {fname} "
+                                f"'{old_val}' → '{new_val}'"
+                            ),
+                            res_model=self._name,
+                            res_id=rec.id,
+                            res_name=rec.display_name,
+                            server_id=rec.id,
+                            field_name=fname,
+                            old_value=str(old_val) if old_val else "",
+                            new_value=str(new_val) if new_val else "",
+                            severity=severity,
+                        )
+        return super().write(vals)
+
     @api.depends("service_ids")
     def _compute_service_count(self):
         for record in self:

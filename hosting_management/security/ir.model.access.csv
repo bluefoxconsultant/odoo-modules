@@ -30,3 +30,7 @@ access_hosting_backup_file_user,hosting.backup.file.user,model_hosting_backup_fi
 access_hosting_backup_file_manager,hosting.backup.file.manager,model_hosting_backup_file,group_hosting_manager,1,1,1,1
 access_hosting_domain_user,hosting.domain.user,model_hosting_domain,group_hosting_user,1,0,0,0
 access_hosting_domain_manager,hosting.domain.manager,model_hosting_domain,group_hosting_manager,1,1,1,1
+access_hosting_audit_log_user,hosting.audit.log.user,model_hosting_audit_log,group_hosting_user,1,0,0,0
+access_hosting_audit_log_manager,hosting.audit.log.manager,model_hosting_audit_log,group_hosting_manager,1,0,0,0
+access_hosting_security_event_user,hosting.security.event.user,model_hosting_security_event,group_hosting_user,1,0,1,0
+access_hosting_security_event_manager,hosting.security.event.manager,model_hosting_security_event,group_hosting_manager,1,1,1,1

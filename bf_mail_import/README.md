@@ -11,11 +11,14 @@ Lorsque des courriels sont re&#231;us ou envoy&#233;s hors d'Odoo (client de mes
 - **Bouton `.eml` dans le chatter** -- visible sur tout enregistrement h&#233;ritant de `mail.thread`
 - **Import multi-fichiers** -- t&#233;l&#233;versement de plusieurs `.eml` en une seule op&#233;ration
 - **Import direct** -- un seul clic pour importer (pas d'&#233;tape d'aper&#231;u)
+- **Ordre chronologique** -- les fichiers sont pr&#233;-tri&#233;s par date d'envoi avant import, garantissant un affichage chronologique dans le chatter
+- **Validation d'extension** -- seuls les fichiers `.eml` et `.msg` sont accept&#233;s
 - **D&#233;tection des doublons** -- v&#233;rification du `Message-ID` RFC 2822 avant insertion
 - **R&#233;solution automatique de l'auteur** -- recherche du `res.partner` correspondant &#224; l'adresse courriel de l'exp&#233;diteur
-- **Pr&#233;servation du threading** -- `parent_id` r&#233;solu via les en-t&#234;tes `In-Reply-To` / `References`
+- **Pr&#233;servation du threading** -- `parent_id` r&#233;solu via les en-t&#234;tes `In-Reply-To` / `References`, avec validation que le parent appartient au m&#234;me fil
 - **Z&#233;ro notification** -- l'import ne d&#233;clenche aucun courriel sortant ni auto-abonnement
 - **Pi&#232;ces jointes inline uniquement** -- seules les pi&#232;ces jointes contenues dans le courriel sont import&#233;es (pas de duplication du `.eml` original)
+- **Rapport d&#233;taill&#233;** -- le r&#233;sum&#233; d'import liste chaque fichier individuellement (import&#233;, doublon ignor&#233;, erreur)
 
 ## Architecture technique
 
@@ -64,7 +67,13 @@ Le dict retourn&#233; par `message_parse` contient : `message_id`, `subject`, `e
 | &#201;tat | Action utilisateur | Comportement |
 |------|-------------------|-------------|
 | `draft` | S&#233;lection de fichiers `.eml` + clic Importer | Widget `many2many_binary` li&#233; &#224; `ir.attachment`, import direct |
-| `done` | R&#233;sultat affich&#233; | R&#233;sum&#233; des imports, doublons, erreurs |
+| `done` | R&#233;sultat affich&#233; | R&#233;sum&#233; d&#233;taill&#233; par fichier : import&#233;s (+), doublons (-), erreurs (!) |
+
+**Pipeline d'import en 3 phases :**
+
+1. **Parse** -- validation d'extension + parsing de chaque fichier via `message_parse()`
+2. **Tri** -- tri par date d'envoi croissante (le chatter affiche par `id DESC`, donc les IDs auto-incr&#233;ment&#233;s refl&#232;tent l'ordre chronologique)
+3. **Import** -- cr&#233;ation des messages via `message_post()` dans l'ordre tri&#233;
 
 **Appel `message_post` :**
 
@@ -103,8 +112,10 @@ Le bouton est inject&#233; via le pattern standard de patch Odoo 18 :
 
 | Cas | Comportement |
 |-----|-------------|
-| Fichier corrompu / non-.eml | Erreur captur&#233;e, ajout&#233;e au r&#233;sum&#233;, les autres fichiers continuent |
-| `Message-ID` d&#233;j&#224; pr&#233;sent dans `mail.message` | Fichier ignor&#233;, compteur "doublons" incr&#233;ment&#233; |
+| Extension non `.eml`/`.msg` | `UserError` avec nom du fichier, ajout&#233; aux erreurs, les autres fichiers continuent |
+| Fichier corrompu | Erreur captur&#233;e, ajout&#233;e au r&#233;sum&#233;, les autres fichiers continuent |
+| `Message-ID` d&#233;j&#224; pr&#233;sent dans `mail.message` | Fichier ignor&#233;, list&#233; dans les doublons |
+| `parent_id` d'un autre thread | Ignor&#233; silencieusement (mis &#224; `False`) pour &#233;viter les liens crois&#233;s |
 | Exp&#233;diteur sans `res.partner` | `email_from` affich&#233; tel quel dans le chatter (comportement natif Odoo) |
 | `.eml` sans corps | Message post&#233; avec body vide, sujet et PJ pr&#233;serv&#233;s |
 | Encodage non-UTF-8 | G&#233;r&#233; par `email.message_from_bytes()` + `message_parse()` |
@@ -127,10 +138,6 @@ docker compose exec odoo odoo -d <database> -u bf_mail_import --stop-after-init
 ## Licence
 
 LGPL-3
-
-## Disclaimer
-
-This module is provided as-is, without warranty of any kind. Use at your own risk. Blue Fox Inc. assumes no liability for any damages arising from the use of this software.
 
 ## Remerciements
 
