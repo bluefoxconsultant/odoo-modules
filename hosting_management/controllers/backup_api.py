@@ -113,11 +113,11 @@ class BackupAPIController(http.Controller):
                 "message": "Backup report created and email sent",
             })
 
-        except Exception as e:
+        except Exception:
             _logger.exception("Error processing backup report")
             return request.make_json_response({
                 "success": False,
-                "error": str(e),
+                "error": "Internal server error",
             }, status=500)
 
     @http.route(
@@ -141,7 +141,7 @@ class BackupAPIController(http.Controller):
                 .get_param("hosting.backup_api_token", "")
             )
 
-            if not expected_token:
+            if not expected_token or expected_token == "CHANGE_ME_TO_SECURE_TOKEN":
                 return request.make_json_response(
                     {"success": False, "error": "API token not configured"},
                     status=500
@@ -156,9 +156,9 @@ class BackupAPIController(http.Controller):
             # Process the report using the same logic
             return self.receive_backup_report(**kwargs)
 
-        except Exception as e:
+        except Exception:
             _logger.exception("Error processing backup report (public)")
             return request.make_json_response({
                 "success": False,
-                "error": str(e),
+                "error": "Internal server error",
             }, status=500)

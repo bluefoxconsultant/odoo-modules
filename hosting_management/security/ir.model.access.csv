@@ -34,3 +34,5 @@ access_hosting_audit_log_user,hosting.audit.log.user,model_hosting_audit_log,gro
 access_hosting_audit_log_manager,hosting.audit.log.manager,model_hosting_audit_log,group_hosting_manager,1,0,0,0
 access_hosting_security_event_user,hosting.security.event.user,model_hosting_security_event,group_hosting_user,1,0,1,0
 access_hosting_security_event_manager,hosting.security.event.manager,model_hosting_security_event,group_hosting_manager,1,1,1,1
+access_hosting_accepted_http_code_user,hosting.accepted.http.code.user,model_hosting_accepted_http_code,group_hosting_user,1,0,0,0
+access_hosting_accepted_http_code_manager,hosting.accepted.http.code.manager,model_hosting_accepted_http_code,group_hosting_manager,1,1,1,1

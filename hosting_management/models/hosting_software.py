@@ -341,15 +341,25 @@ class HostingSoftware(models.Model):
         if self.version_prefix and tag_name.startswith(self.version_prefix):
             tag_name = tag_name[len(self.version_prefix):]
 
-        # Apply regex if configured
+        # Apply regex if configured (with timeout to prevent ReDoS)
         if self.version_regex:
             try:
-                match = re.search(self.version_regex, tag_name)
-                if match:
-                    # Return first capture group if exists, else full match
-                    return match.group(1) if match.groups() else match.group(0)
-            except re.error:
-                _logger.warning("Invalid version regex for %s: %s", self.name, self.version_regex)
+                import signal
+
+                def _timeout_handler(signum, frame):
+                    raise TimeoutError("Regex evaluation timed out")
+
+                old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
+                signal.alarm(2)  # 2-second timeout
+                try:
+                    match = re.search(self.version_regex, tag_name[:500])
+                    if match:
+                        return match.group(1) if match.groups() else match.group(0)
+                finally:
+                    signal.alarm(0)
+                    signal.signal(signal.SIGALRM, old_handler)
+            except (re.error, TimeoutError) as exc:
+                _logger.warning("Regex error for %s (%s): %s", self.name, self.version_regex, exc)
 
         return tag_name
 

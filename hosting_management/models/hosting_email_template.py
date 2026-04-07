@@ -62,8 +62,8 @@ def get_email_wrapper(title, content, alert_type=None):
                                                     <tbody>
                                                         <tr>
                                                             <td align="left" style="color:#FFFFFF; font-family:'Lexend','Segoe UI',Arial,sans-serif; font-size:16px; font-weight:600;">
-                                                                <a href="https://www.example.com" style="text-decoration:none;">
-                                                                    <img src="https://www.example.com/web/image/website/1/logo/Blue%20Fox?unique=803cc14" alt="Blue Fox" style="height:48px; width:auto; display:block; border:0;"/>
+                                                                <a href="https://www.bluefoxconsultant.com" style="text-decoration:none;">
+                                                                    <img src="https://www.bluefoxconsultant.com/web/image/website/1/logo/Blue%20Fox?unique=803cc14" alt="Blue Fox" style="height:48px; width:auto; display:block; border:0;"/>
                                                                 </a>
                                                             </td>
                                                             <td align="right" style="color:#E6EDF3; font-family:'Lexend','Segoe UI',Arial,sans-serif; font-size:22px; font-weight:800; letter-spacing:0.2px;">
@@ -103,9 +103,9 @@ def get_email_wrapper(title, content, alert_type=None):
                                                                 Solutions éthiques et souveraines pour vos données.
                                                             </td>
                                                             <td align="right" style="font-family:'Lexend','Segoe UI',Arial,sans-serif; font-size:12px; color:#9CA3AF;">
-                                                                <a href="https://www.example.com/r/politique-de-confidentialite" style="color:#9CA3AF; text-decoration:underline;">Politique de confidentialité</a>
+                                                                <a href="https://www.bluefoxconsultant.com/r/politique-de-confidentialite" style="color:#9CA3AF; text-decoration:underline;">Politique de confidentialité</a>
                                                                 <span style="color:#9CA3AF;"> | </span>
-                                                                <a href="https://www.example.com/r/termes-et-conditions" style="color:#9CA3AF; text-decoration:underline;">Conditions</a>
+                                                                <a href="https://www.bluefoxconsultant.com/r/termes-et-conditions" style="color:#9CA3AF; text-decoration:underline;">Conditions</a>
                                                             </td>
                                                         </tr>
                                                     </tbody>
@@ -289,7 +289,7 @@ def get_contact_footer():
     return '''
     <p style="font-family:'Lexend','Segoe UI',Arial,sans-serif; font-size:13px; line-height:20px; color:#6B7280; margin:16px 0 0 0;">
         Pour toute assistance, contactez-nous à
-        <a href="mailto:service@example.com" style="color:#29abe2; text-decoration:none;">service@example.com</a>
+        <a href="mailto:service@bluefoxconsultant.com" style="color:#29abe2; text-decoration:none;">service@bluefoxconsultant.com</a>
         ou appelez le
-        <a href="tel:+15555555555" style="color:#29abe2; text-decoration:none;">555-555-5555</a>.
+        <a href="tel:+15145132535" style="color:#29abe2; text-decoration:none;">514-513-2535</a>.
     </p>'''

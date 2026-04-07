@@ -2,9 +2,9 @@
 {
     "name": "Gestion d'hébergement",
     "summary": "Gérer les services d'hébergement pour les clients avec suivi de versions et facturation",
-    "version": "18.0.2.21.0",
+    "version": "18.0.2.23.0",
     "category": "Services",
-    "website": "https://example.com",
+    "website": "https://bluefox.ca",
     "author": "Blue Fox Inc.",
     "license": "LGPL-3",  # Odoo requires LGPL-3 or proprietary for Community modules
     "application": True,
@@ -31,6 +31,7 @@
         "data/hosting_maintenance_template_data.xml",
         "data/hosting_backup_email_template.xml",
         "data/hosting_client_email_templates.xml",
+        "data/hosting_accepted_http_code_data.xml",
         "data/hosting_domain_data.xml",
         "data/hosting_audit_cron.xml",
         # Views

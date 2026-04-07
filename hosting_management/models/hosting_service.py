@@ -1,11 +1,15 @@
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
+import ipaddress
 import logging
+import time
 from datetime import timedelta
+from urllib.parse import urlparse
 
 from markupsafe import escape as _esc
 
 from odoo import api, fields, models
+from odoo.exceptions import ValidationError
 
 _logger = logging.getLogger(__name__)
 
@@ -109,6 +113,11 @@ class HostingService(models.Model):
     server_url = fields.Char(
         string="URL du service",
         tracking=True,
+    )
+    accepted_http_code_ids = fields.Many2many(
+        comodel_name="hosting.accepted.http.code",
+        string="Codes HTTP acceptés",
+        help="Codes HTTP (ex. 404) considérés comme 'en ligne' pour ce service.",
     )
     domain_id = fields.Many2one(
         comodel_name="hosting.domain",
@@ -304,6 +313,12 @@ class HostingService(models.Model):
         string="Nombre de vérifications de santé",
         compute="_compute_health_check_count",
     )
+    health_alert_active = fields.Boolean(
+        string="Alerte de santé active",
+        default=False,
+        help="Indique qu'une alerte de panne a été envoyée et que "
+        "le service n'est pas encore rétabli.",
+    )
 
     active = fields.Boolean(
         string="Actif",
@@ -313,6 +328,36 @@ class HostingService(models.Model):
     _sql_constraints = [
         ("code_uniq", "UNIQUE(code)", "La référence du service doit être unique !"),
     ]
+
+    @api.constrains("server_url")
+    def _check_server_url(self):
+        """Reject URLs pointing to private/internal networks (SSRF prevention)."""
+        for record in self:
+            url = record.server_url
+            if not url:
+                continue
+            parsed = urlparse(url)
+            if parsed.scheme not in ("http", "https"):
+                raise ValidationError(
+                    f"L'URL du service doit utiliser http:// ou https:// (reçu : {parsed.scheme}://)"
+                )
+            hostname = parsed.hostname or ""
+            if hostname in ("localhost", "127.0.0.1", "::1", "0.0.0.0"):
+                raise ValidationError(
+                    "L'URL du service ne peut pas pointer vers localhost."
+                )
+            try:
+                addr = ipaddress.ip_address(hostname)
+                if addr.is_private or addr.is_loopback or addr.is_link_local:
+                    raise ValidationError(
+                        f"L'URL du service ne peut pas pointer vers une adresse privée ({hostname})."
+                    )
+            except ValueError:
+                pass  # hostname is not an IP literal — that's normal (domain name)
+            if hostname.endswith(".internal") or hostname.endswith(".local"):
+                raise ValidationError(
+                    f"L'URL du service ne peut pas pointer vers un domaine interne ({hostname})."
+                )
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -850,6 +895,34 @@ class HostingService(models.Model):
         minutes = int((decimal_hour - hours) * 60)
         return f"{hours:02d}:{minutes:02d}"
 
+    @staticmethod
+    def _do_health_check(requests_mod, url, accepted_codes=None):
+        """Execute a single HTTP health check.
+
+        Returns (status, response_time_ms, http_status_code, error_message).
+        ``accepted_codes`` is an optional set of HTTP status codes that should
+        be treated as "up" even though they are >= 400.
+        """
+        try:
+            response = requests_mod.get(
+                url,
+                timeout=10,
+                allow_redirects=True,
+                headers={"User-Agent": "Odoo-Hosting-Health-Check/1.0"},
+            )
+            sc = response.status_code
+            if sc < 400 or (accepted_codes and sc in accepted_codes):
+                status = "up"
+            else:
+                status = "degraded"
+            return status, int(response.elapsed.total_seconds() * 1000), sc, None
+        except requests_mod.Timeout:
+            return "timeout", None, None, "La requête a expiré après 10 secondes"
+        except requests_mod.RequestException as e:
+            return "down", None, None, str(e)[:500]
+        except Exception as e:
+            return "down", None, None, f"Erreur inattendue : {str(e)[:450]}"
+
     @api.model
     def _cron_health_check(self):
         """Vérifier la santé de tous les services actifs avec URL."""
@@ -869,72 +942,75 @@ class HostingService(models.Model):
             .sudo()
             .get_param("hosting.response_time_threshold_ms", "5000")
         )
+        retry_count = int(
+            self.env["ir.config_parameter"]
+            .sudo()
+            .get_param("hosting.health_alert_threshold", "3")
+        )
+        retry_delay = 10.0 / max(retry_count, 2)  # spread retries within 10s
 
         services_now_down = []
         services_recovered = []
         services_slow = []
 
         for service in services:
-            previous_status = service.last_health_status
-            new_status = None
-            error_message = None
-            response_time_ms = None
+            accepted_codes = set(service.accepted_http_code_ids.mapped("code"))
+            status, response_time_ms, http_code, error_message = self._do_health_check(
+                requests, service.server_url, accepted_codes or None,
+            )
 
-            try:
-                response = requests.get(
-                    service.server_url,
-                    timeout=10,
-                    allow_redirects=True,
-                    headers={"User-Agent": "Odoo-Hosting-Health-Check/1.0"},
-                )
-                new_status = "up" if response.status_code < 400 else "degraded"
-                response_time_ms = int(response.elapsed.total_seconds() * 1000)
-                self.env["hosting.health.check"].create({
-                    "service_id": service.id,
-                    "status": new_status,
-                    "response_time_ms": response_time_ms,
-                    "http_status_code": response.status_code,
-                })
-            except requests.Timeout:
-                new_status = "timeout"
-                error_message = "La requête a expiré après 10 secondes"
-                self.env["hosting.health.check"].create({
-                    "service_id": service.id,
-                    "status": "timeout",
-                    "error_message": error_message,
-                })
-            except requests.RequestException as e:
-                new_status = "down"
-                error_message = str(e)[:500]
-                self.env["hosting.health.check"].create({
-                    "service_id": service.id,
-                    "status": "down",
-                    "error_message": error_message,
-                })
-            except Exception as e:
-                _logger.exception("Erreur lors de la vérification de santé pour le service %s", service.name)
-                new_status = "down"
-                error_message = f"Erreur inattendue : {str(e)[:450]}"
-                self.env["hosting.health.check"].create({
-                    "service_id": service.id,
-                    "status": "down",
-                    "error_message": error_message,
-                })
+            # On failure, do rapid retries to confirm it's a real outage
+            if status in ("down", "timeout", "degraded"):
+                confirmed_down = True
+                for attempt in range(1, retry_count):
+                    time.sleep(retry_delay)
+                    r_status, r_time, r_code, r_err = self._do_health_check(
+                        requests, service.server_url,
+                    )
+                    if r_status == "up":
+                        _logger.info(
+                            "Service %s : échec initial mais retry %d/%d réussi, faux positif évité",
+                            service.name, attempt, retry_count - 1,
+                        )
+                        confirmed_down = False
+                        # Use the successful retry result
+                        status, response_time_ms, http_code, error_message = r_status, r_time, r_code, r_err
+                        break
 
-            if previous_status == "up" and new_status in ("down", "timeout", "degraded"):
-                services_now_down.append({
-                    "service": service,
-                    "status": new_status,
-                    "error": error_message,
-                })
+                if confirmed_down:
+                    _logger.warning(
+                        "Service %s confirmé hors ligne après %d vérifications en ≤10s",
+                        service.name, retry_count,
+                    )
 
-            if previous_status in ("down", "timeout", "degraded") and new_status == "up":
-                services_recovered.append({
-                    "service": service,
-                    "response_time_ms": response_time_ms,
-                })
+            # Record the final health check result
+            check_vals = {"service_id": service.id, "status": status}
+            if response_time_ms is not None:
+                check_vals["response_time_ms"] = response_time_ms
+            if http_code is not None:
+                check_vals["http_status_code"] = http_code
+            if error_message:
+                check_vals["error_message"] = error_message
+            self.env["hosting.health.check"].create(check_vals)
 
-            if (new_status == "up" and response_time_ms
+            # Alert logic
+            if status in ("down", "timeout", "degraded"):
+                if not service.health_alert_active:
+                    service.write({"health_alert_active": True})
+                    services_now_down.append({
+                        "service": service,
+                        "status": status,
+                        "error": error_message,
+                    })
+            elif status == "up":
+                if service.health_alert_active:
+                    services_recovered.append({
+                        "service": service,
+                        "response_time_ms": response_time_ms,
+                    })
+                    service.write({"health_alert_active": False})
+
+            if (status == "up" and response_time_ms
                     and response_time_ms > response_time_threshold):
                 services_slow.append({
                     "service": service,
@@ -1185,7 +1261,12 @@ class HostingService(models.Model):
                 allow_redirects=True,
                 headers={"User-Agent": "Odoo-Hosting-Health-Check/1.0"},
             )
-            status = "up" if response.status_code < 400 else "degraded"
+            accepted_codes = set(self.accepted_http_code_ids.mapped("code"))
+            sc = response.status_code
+            if sc < 400 or (accepted_codes and sc in accepted_codes):
+                status = "up"
+            else:
+                status = "degraded"
             self.env["hosting.health.check"].create({
                 "service_id": self.id,
                 "status": status,
@@ -1321,15 +1402,18 @@ class HostingService(models.Model):
         if not services:
             return results
 
-        # Regrouper les services par hôte
+        # Regrouper les services par hôte (hostname → {services, ssh_user})
         hosts = {}
         for service in services:
             host = service.docker_host
             if host not in hosts:
-                hosts[host] = []
-            hosts[host].append(service)
+                ssh_user = service.server_id.ssh_user if service.server_id else "root"
+                hosts[host] = {"services": [], "ssh_user": ssh_user}
+            hosts[host]["services"].append(service)
 
-        for host, host_services in hosts.items():
+        for host, host_info in hosts.items():
+            host_services = host_info["services"]
+            ssh_user = host_info["ssh_user"]
             container_names = [s.docker_container for s in host_services]
 
             try:
@@ -1350,9 +1434,9 @@ class HostingService(models.Model):
                         shlex.quote(name) for name in container_names
                     )
                     cmd = [
-                        "ssh", "-o", "StrictHostKeyChecking=accept-new",
+                        "ssh", "-o", "StrictHostKeyChecking=yes",
                         "-o", "ConnectTimeout=10",
-                        f"root@{host}",
+                        f"{shlex.quote(ssh_user)}@{shlex.quote(host)}",
                         f"docker inspect --format '{{{{.Name}}}}|{{{{.Config.Image}}}}' {containers_arg} 2>/dev/null || true"
                     ]
                     result = subprocess.run(

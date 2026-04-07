@@ -26,11 +26,10 @@
             <field name="company_id" eval="False"/>
         </record>
 
-        <!-- Paramètre système pour le jeton API de sauvegarde -->
-        <record id="ir_config_parameter_backup_api_token" model="ir.config_parameter">
-            <field name="key">hosting.backup_api_token</field>
-            <field name="value">CHANGE_ME_TO_SECURE_TOKEN</field>
-        </record>
+        <!--
+            Backup API token: must be configured manually in Settings > Hosting.
+            No default value is seeded to prevent accidental exposure.
+        -->
 
     </data>
 </odoo>

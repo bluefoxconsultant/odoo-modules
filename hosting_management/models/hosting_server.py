@@ -1,6 +1,9 @@
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
+import re
+
 from odoo import api, fields, models
+from odoo.exceptions import ValidationError
 
 
 class HostingServer(models.Model):
@@ -103,6 +106,29 @@ class HostingServer(models.Model):
         ("code_uniq", "UNIQUE(code)", "Le code du serveur doit être unique !"),
         ("hostname_uniq", "UNIQUE(hostname)", "Le nom d'hôte doit être unique !"),
     ]
+
+    _HOSTNAME_RE = re.compile(r"^[a-zA-Z0-9]([a-zA-Z0-9._-]{0,253}[a-zA-Z0-9])?$")
+
+    @api.constrains("hostname")
+    def _check_hostname(self):
+        for record in self:
+            if record.hostname and not self._HOSTNAME_RE.match(record.hostname):
+                raise ValidationError(
+                    f"Le nom d'hôte « {record.hostname} » contient des caractères non autorisés. "
+                    "Seuls les lettres, chiffres, points, tirets et underscores sont permis."
+                )
+
+    @api.constrains("ip_address")
+    def _check_ip_address(self):
+        for record in self:
+            if record.ip_address:
+                try:
+                    import ipaddress as _ipa
+                    _ipa.ip_address(record.ip_address)
+                except ValueError:
+                    raise ValidationError(
+                        f"« {record.ip_address} » n'est pas une adresse IP valide."
+                    )
 
     _AUDIT_FIELDS = {"hostname", "ip_address", "state", "provider", "server_type"}
 

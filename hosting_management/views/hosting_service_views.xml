@@ -100,6 +100,9 @@
                     <group>
                         <group string="Connexion">
                             <field name="server_url" string="URL du serveur" widget="url"/>
+                            <field name="accepted_http_code_ids" widget="many2many_tags"
+                                   string="Codes HTTP acceptés"
+                                   invisible="not server_url"/>
                             <field name="domain_id" string="Domaine"/>
                             <field name="domain_name" string="Nom de domaine"/>
                             <field name="server_id" string="Serveur"/>

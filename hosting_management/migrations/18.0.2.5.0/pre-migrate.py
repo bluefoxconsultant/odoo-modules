@@ -60,7 +60,7 @@ def migrate(cr, version):
     # Create hosting.server records for each unique host
     for (hostname,) in hosts:
         # Generate a code from the hostname
-        # e.g., "server1.example.com" -> "PRIMETIME1"
+        # e.g., "server1.example.com" -> "SERVER1"
         code = hostname.split(".")[0].upper().replace("-", "")[:10]
         name = hostname.split(".")[0].replace("-", " ").title()
 

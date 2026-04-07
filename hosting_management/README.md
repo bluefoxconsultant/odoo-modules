@@ -32,6 +32,8 @@ A comprehensive Odoo 18 module for managing hosting services, including version 
 
 ### Health Monitoring
 - **HTTP Health Checks**: Periodic health checks for all services with URLs configured
+- **Accepted HTTP Codes**: Per-service configurable list of HTTP status codes (e.g. 404) treated as "up" instead of "degraded" — useful for services like Shlink that return 404 on their root URL
+- **Rapid Retry Confirmation**: On failure, immediately retries within 10 seconds (configurable count, default 3 checks) to filter transient glitches before alerting
 - **Response Time Tracking**: Monitor response times and detect slow services
 - **Status Tracking**: Up, degraded, down, and timeout states with visual indicators
 - **30-Day Uptime Calculation**: Automatic uptime percentage based on health check history
@@ -192,6 +194,7 @@ The module provides a dedicated settings page accessible via **Hosting > Configu
 |---------|---------|-------------|
 | Alert Email | (empty) | Email address for health alert notifications |
 | Response Time Threshold | 5000 ms | Response time threshold for slow service warnings |
+| Alert Threshold | 3 | Number of rapid-retry checks (within ~10s) that must all fail before a down alert is sent |
 | Expiration Warning Days | 90 | Days before expiration to create warning activities |
 
 #### Push Notifications (ntfy)
@@ -202,8 +205,8 @@ The module provides a dedicated settings page accessible via **Hosting > Configu
 | Topic | `hosting-alerts` | ntfy topic name for hosting alerts |
 
 When configured, push notifications are sent alongside email alerts:
-- **Service down/timeout/degraded**: Urgent priority with rotating light icon
-- **Service recovered**: Default priority with checkmark icon
+- **Service down/timeout/degraded**: Urgent priority with rotating light icon (only after rapid-retry confirmation)
+- **Service recovered**: Default priority with checkmark icon (only if a down alert was previously sent)
 - Slow service warnings do not trigger push notifications (to reduce noise)
 - Push notifications are suppressed during the maintenance window, same as emails
 
@@ -236,6 +239,7 @@ These can also be configured in Settings > Technical > Parameters > System Param
 | `hosting.ntfy_url` | (empty) | ntfy server URL for push notifications |
 | `hosting.ntfy_token` | (empty) | Bearer token for ntfy publishing |
 | `hosting.ntfy_topic` | (empty) | ntfy topic name for alerts |
+| `hosting.health_alert_threshold` | 3 | Number of consecutive failed checks (within ~10s) required before firing a down alert |
 | `hosting.backup_api_token` | (change me) | API token for backup report webhook authentication |
 | `hosting.domain_expiration_warning_days` | 60 | Days before domain expiration to create warning activities |
 | `hosting.ssl_expiration_warning_days` | 30 | Days before SSL expiration to create warning activities |
@@ -333,7 +337,7 @@ The module provides a REST API endpoint for receiving backup reports from extern
    - Key: `hosting.backup_api_token`
    - Value: A secure random token (e.g., generate with `openssl rand -hex 32`)
 
-2. Store the same token on your backup server (e.g., `/home/livv/secrets/backup-api-token`)
+2. Store the same token on your backup server (e.g., `/etc/hosting/backup-api-token`)
 
 #### Request Payload
 
@@ -416,7 +420,7 @@ The companion script `backup-all-services.sh` supports two modes:
 - `--no-webhook` - Run backups but don't send report to Odoo/n8n
 - `--no-downtime` - Skip backups that cause service downtime (e.g., Nextcloud maintenance mode)
 
-The token is loaded from `/home/livv/secrets/backup-api-token` or the `ODOO_BACKUP_TOKEN` environment variable.
+The token is loaded from `$BACKUP_TOKEN_FILE` (default `/etc/hosting/backup-api-token`) or the `ODOO_BACKUP_TOKEN` environment variable.
 
 ### Setting Up Email Digests
 
@@ -500,6 +504,7 @@ The token is loaded from `/home/livv/secrets/backup-api-token` or the `ODOO_BACK
 | `environment` | Selection | production/staging/development/testing |
 | `domain_id` | Many2one | Linked domain record |
 | `server_url` | Char | URL for health checks |
+| `accepted_http_code_ids` | Many2many | HTTP codes (e.g. 404) treated as "up" |
 | `docker_host` | Char | Docker host for version checking |
 | `docker_container` | Char | Container name for version checking |
 | `storage_quota_gb` | Float | Storage limit in GB |
@@ -579,6 +584,35 @@ Hosting
 ```
 
 ## Changelog
+
+### Version 18.0.2.23.0 (2026-04-07)
+- **Accepted HTTP Status Codes per Service**
+  - New `hosting.accepted.http.code` model with 9 pre-seeded codes (400, 401, 403, 404, 405, 500, 502, 503, 504)
+  - New `accepted_http_code_ids` Many2many field on `hosting.service` displayed as tags in the form view
+  - Health check logic (`_do_health_check`, `_cron_health_check`, `action_run_health_check`) now considers per-service accepted codes as "up" instead of "degraded"
+  - Solves false degraded status for services like Shlink that return 404 on their root URL when healthy
+  - Tags visible under "URL du serveur" only when a server URL is configured
+
+- **Security Hardening**
+  - **SSRF prevention**: `@api.constrains` on `server_url` rejects private IPs (RFC 1918, loopback, link-local), non-HTTP schemes, and `.internal`/`.local` domains
+  - **Command injection prevention**: `hostname` field on `hosting.server` now validated with strict regex (`^[a-zA-Z0-9._-]+$`); SSH commands use `shlex.quote()` on both hostname and user
+  - **IP address validation**: `@api.constrains` on `ip_address` field ensures valid IP format
+  - **Default API token removed**: backup API token no longer seeded with a guessable default; endpoint rejects `CHANGE_ME_TO_SECURE_TOKEN` explicitly
+  - **API error messages sanitized**: backup API endpoints no longer leak exception details to callers
+  - **SSH host key policy tightened**: changed from `StrictHostKeyChecking=accept-new` to `StrictHostKeyChecking=yes`
+  - **ReDoS protection**: `version_regex` evaluation now has a 2-second timeout via SIGALRM and input truncated to 500 chars
+  - **Data sanitization**: removed real hostnames, paths, and credentials from data files and migrations for safe publication
+
+### Version 18.0.2.22.0 (2026-03-17)
+- **Health Check Rapid Retry (False Positive Reduction)**
+  - On first failure, immediately retries N-1 more times within ~10 seconds (default N=3)
+  - Down alert only fires if ALL retry checks also fail, eliminating transient false positives
+  - Recovery alert only fires if a down alert was previously sent for that service
+  - New `health_alert_active` field on `hosting.service` tracks whether an outage alert is active
+  - New system parameter `hosting.health_alert_threshold` (default 3) controls the number of checks
+  - Retry delay auto-calculated to spread checks evenly within 10 seconds
+  - Extracted `_do_health_check()` static method for single HTTP check execution
+  - Only the final confirmed result is recorded as a `hosting.health.check` entry
 
 ### Version 18.0.2.21.0 (2026-02-23)
 - **NEW: Push Notifications via ntfy**
