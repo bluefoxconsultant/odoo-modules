@@ -102,7 +102,7 @@
                                                     <t t-if="client.state === 'delivered'">
                                                         <span class="badge bg-success ms-1" style="font-size:10px">Livr&#233;</span>
                                                     </t>
-                                                    <t t-elif="client.assessed == client.total and client.total > 0">
+                                                    <t t-elif="client.adequate == client.total and client.total > 0">
                                                         <span class="badge bg-success ms-1" style="font-size:10px">100%</span>
                                                     </t>
                                                 </small>
