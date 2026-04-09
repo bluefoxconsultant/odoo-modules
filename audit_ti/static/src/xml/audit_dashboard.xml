@@ -102,6 +102,9 @@
                                                     <t t-if="client.state === 'delivered'">
                                                         <span class="badge bg-success ms-1" style="font-size:10px">Livr&#233;</span>
                                                     </t>
+                                                    <t t-elif="client.assessed == client.total and client.total > 0">
+                                                        <span class="badge bg-success ms-1" style="font-size:10px">100%</span>
+                                                    </t>
                                                 </small>
                                                 <small>
                                                     <span class="text-success" t-esc="client.adequate"/>
@@ -124,6 +127,11 @@
                                                     <div class="progress-bar bg-danger"
                                                         t-attf-style="width: {{ (client.inadequate / client.total * 100).toFixed(0) }}%"
                                                         t-att-title="'' + client.inadequate + ' inadéquats'"/>
+                                                </t>
+                                                <t t-if="client.other > 0">
+                                                    <div class="progress-bar bg-info"
+                                                        t-attf-style="width: {{ (client.other / client.total * 100).toFixed(0) }}%"
+                                                        t-att-title="'' + client.other + ' à valider/déclarés/N.A.'"/>
                                                 </t>
                                             </div>
                                         </div>

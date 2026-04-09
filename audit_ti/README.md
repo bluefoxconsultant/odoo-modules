@@ -6,7 +6,7 @@ Module Odoo 18 pour la gestion des audits de conformit&eacute; TI dans le cadre 
 
 - **14 &eacute;l&eacute;ments d'audit** : grille d'&eacute;valuation structur&eacute;e couvrant les exigences Loi 25
 - **Matrice client &times; fournisseur** : &eacute;valuation par fournisseur pour chaque &eacute;l&eacute;ment, avec statuts (ad&eacute;quat, partiel, d&eacute;clar&eacute;, &agrave; valider, inad&eacute;quat, N/A)
-- **Tableau de bord OWL** : KPI en temps r&eacute;el, progression par client et fournisseur, distribution des statuts, points de vigilance ouverts
+- **Tableau de bord OWL** : KPI en temps r&eacute;el, progression par client (barres empil&eacute;es : ad&eacute;quat, partiel, inad&eacute;quat, &agrave; valider/d&eacute;clar&eacute;/N.A.) avec badge 100% pour les clients compl&egrave;tement &eacute;valu&eacute;s, progression par fournisseur, distribution des statuts, points de vigilance ouverts
 - **Workflow de livraison** : &eacute;tat En cours / Livr&eacute; avec suivi (date, utilisateur), filtrage automatique dans le dashboard et la liste
 - **Points de vigilance** : suivi des risques par priorit&eacute; (haute, moyenne, basse) avec assignation
 - **Rapport PDF** : rapport d'avancement professionnel avec couverture des &eacute;l&eacute;ments, matrice fournisseurs, points de vigilance, barre de progression

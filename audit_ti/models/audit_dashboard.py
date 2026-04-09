@@ -90,7 +90,8 @@ class AuditDashboard(models.Model):
                 COUNT(a.id) FILTER (WHERE a.status NOT IN ('pending')) AS assessed,
                 COUNT(a.id) FILTER (WHERE a.status = 'adequate') AS adequate,
                 COUNT(a.id) FILTER (WHERE a.status = 'inadequate') AS inadequate,
-                COUNT(a.id) FILTER (WHERE a.status = 'partial') AS partial
+                COUNT(a.id) FILTER (WHERE a.status = 'partial') AS partial,
+                COUNT(a.id) FILTER (WHERE a.status IN ('to_validate', 'declared', 'na')) AS other
             FROM audit_client c
             LEFT JOIN audit_assessment a ON a.client_id = c.id
             WHERE c.active = true {state_filter}
@@ -109,6 +110,7 @@ class AuditDashboard(models.Model):
                 "adequate": row["adequate"],
                 "inadequate": row["inadequate"],
                 "partial": row["partial"],
+                "other": row["other"],
                 "pct_assessed": round(100 * row["assessed"] / total, 1),
                 "pct_adequate": round(100 * row["adequate"] / total, 1),
             })
