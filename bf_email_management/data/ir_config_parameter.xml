@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+
+    <record id="bf_email_last_sync_date" model="ir.config_parameter">
+        <field name="key">bf_email.last_sync_date</field>
+        <field name="value">2000-01-01 00:00:00</field>
+    </record>
+
+    <record id="bf_email_sync_batch_size" model="ir.config_parameter">
+        <field name="key">bf_email.sync_batch_size</field>
+        <field name="value">200</field>
+    </record>
+
+</odoo>

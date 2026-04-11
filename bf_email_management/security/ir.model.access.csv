@@ -1,0 +1,6 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_bf_email_user,bf.email.user,model_bf_email,group_email_user,1,1,0,0
+access_bf_email_manager,bf.email.manager,model_bf_email,group_email_manager,1,1,1,1
+access_bf_email_dashboard_user,bf.email.dashboard.user,model_bf_email_dashboard,group_email_user,1,0,0,0
+access_bf_email_dashboard_manager,bf.email.dashboard.manager,model_bf_email_dashboard,group_email_manager,1,0,0,0
+access_bf_email_initial_sync_manager,bf.email.initial.sync.manager,model_bf_email_initial_sync,group_email_manager,1,1,1,1

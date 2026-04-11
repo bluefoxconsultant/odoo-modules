@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Root menu -->
+    <menuitem id="menu_bf_email_root"
+              name="Courriels"
+              web_icon="bf_email_management,static/description/icon.png"
+              sequence="45"/>
+
+    <!-- Dashboard -->
+    <menuitem id="menu_bf_email_dashboard"
+              name="Tableau de bord"
+              parent="menu_bf_email_root"
+              action="action_bf_email_dashboard"
+              sequence="1"/>
+
+    <!-- Courriels -->
+    <menuitem id="menu_bf_email_emails"
+              name="Courriels"
+              parent="menu_bf_email_root"
+              sequence="10"/>
+
+    <menuitem id="menu_bf_email_inbox"
+              name="Bo&#238;te de r&#233;ception"
+              parent="menu_bf_email_emails"
+              action="bf_email_action"
+              sequence="10"/>
+
+    <menuitem id="menu_bf_email_all"
+              name="Tous les courriels"
+              parent="menu_bf_email_emails"
+              action="bf_email_action_all"
+              sequence="20"/>
+
+    <!-- Analyse -->
+    <menuitem id="menu_bf_email_analysis"
+              name="Analyse"
+              parent="menu_bf_email_root"
+              sequence="20"/>
+
+    <menuitem id="menu_bf_email_graph"
+              name="Volume"
+              parent="menu_bf_email_analysis"
+              action="bf_email_action_graph"
+              sequence="10"/>
+
+    <menuitem id="menu_bf_email_pivot"
+              name="Tableau crois&#233;"
+              parent="menu_bf_email_analysis"
+              action="bf_email_action_pivot"
+              sequence="20"/>
+
+    <!-- Configuration -->
+    <menuitem id="menu_bf_email_config"
+              name="Configuration"
+              parent="menu_bf_email_root"
+              groups="group_email_manager"
+              sequence="90"/>
+
+    <menuitem id="menu_bf_email_initial_sync"
+              name="Import initial"
+              parent="menu_bf_email_config"
+              action="action_bf_email_initial_sync"
+              sequence="10"/>
+
+</odoo>
