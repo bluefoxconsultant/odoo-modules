@@ -14,6 +14,7 @@ _DIRECTION_LABELS = {
 
 class BfEmail(models.Model):
     _name = "bf.email"
+    _inherit = ["mail.activity.mixin"]
     _description = "Courriel"
     _order = "date desc, id desc"
     _rec_name = "subject"
@@ -157,6 +158,12 @@ class BfEmail(models.Model):
         string="Nb pi\u00e8ces jointes",
         default=0,
     )
+    attachment_ids = fields.Many2many(
+        comodel_name="ir.attachment",
+        string="Fichiers joints",
+        related="mail_message_id.attachment_ids",
+        readonly=True,
+    )
 
     # ------------------------------------------------------------------
     # Operational
@@ -206,9 +213,22 @@ class BfEmail(models.Model):
             text = re.sub(r"\s+", " ", text).strip()
             rec.body_preview = text[:300]
 
-    @api.depends("partner_id", "author_id")
+    _NOTIFICATION_PATTERNS = re.compile(
+        r"^(noreply|no-reply|notification|mailer-daemon|postmaster|bounce)"
+        r"@",
+        re.IGNORECASE,
+    )
+
+    @api.depends("partner_id", "author_id", "email_from")
     def _compute_category(self):
         for rec in self:
+            # Detect notification senders by email pattern
+            if rec.email_from and self._NOTIFICATION_PATTERNS.search(
+                rec.email_from.strip()
+            ):
+                rec.category = "notification"
+                continue
+
             partner = rec.partner_id or rec.author_id
             if not partner:
                 rec.category = False
@@ -263,7 +283,7 @@ class BfEmail(models.Model):
         result = super().web_read(specification)
         new_recs = self.filtered(lambda r: r.status == "new")
         if new_recs:
-            new_recs.sudo().write({"status": "read"})
+            new_recs.write({"status": "read"})
         return result
 
     # ------------------------------------------------------------------
@@ -281,6 +301,8 @@ class BfEmail(models.Model):
     def action_open_source_record(self):
         self.ensure_one()
         if self.res_model and self.res_id:
+            self.env[self.res_model].check_access_rights("read")
+            self.env[self.res_model].browse(self.res_id).check_access_rule("read")
             return {
                 "type": "ir.actions.act_window",
                 "res_model": self.res_model,
@@ -362,6 +384,8 @@ class BfEmail(models.Model):
         self.ensure_one()
         if not self.res_model or not self.res_id:
             return False
+        self.env[self.res_model].check_access_rights("read")
+        self.env[self.res_model].browse(self.res_id).check_access_rule("read")
         return {
             "type": "ir.actions.act_window",
             "res_model": self.res_model,
@@ -511,6 +535,25 @@ class BfEmail(models.Model):
         if msg.author_id and msg.author_id.user_ids:
             return "out"
         return "in"
+
+    # ------------------------------------------------------------------
+    # Reminder / Activity
+    # ------------------------------------------------------------------
+    def action_create_reminder(self):
+        """Open the activity scheduling wizard on this email record."""
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": "mail.activity",
+            "view_mode": "form",
+            "views": [[False, "form"]],
+            "target": "new",
+            "context": {
+                "default_res_model": self._name,
+                "default_res_id": self.id,
+                "default_summary": self.subject or "",
+            },
+        }
 
     # ------------------------------------------------------------------
     # Data repair

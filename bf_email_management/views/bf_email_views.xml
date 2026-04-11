@@ -66,6 +66,11 @@
                             type="object"
                             class="btn-secondary"
                             invisible="status == 'archived'"/>
+                    <button name="action_create_reminder"
+                            string="Cr&#233;er un rappel"
+                            type="object"
+                            class="btn-secondary"
+                            icon="fa-bell"/>
                     <field name="status" widget="statusbar"
                            statusbar_visible="new,read,replied"/>
                 </header>
@@ -127,6 +132,17 @@
                     <notebook>
                         <page string="Corps" name="body">
                             <field name="body_html" readonly="1" nolabel="1"/>
+                        </page>
+                        <page string="Pi&#232;ces jointes" name="attachments"
+                              invisible="not has_attachments">
+                            <field name="attachment_ids" nolabel="1" readonly="1">
+                                <list>
+                                    <field name="name"/>
+                                    <field name="mimetype"/>
+                                    <field name="file_size"/>
+                                    <field name="create_date"/>
+                                </list>
+                            </field>
                         </page>
                         <page string="Technique" name="technical">
                             <group>
@@ -190,6 +206,12 @@
                         string="Ce mois-ci"
                         domain="[('date', '>=', (context_today()).strftime('%%Y-%%m-01'))]"/>
                 <separator/>
+                <filter name="filter_my_emails"
+                        string="Mes courriels"
+                        domain="[('author_id.user_ids', 'in', uid)]"/>
+                <filter name="filter_no_record"
+                        string="Sans enregistrement"
+                        domain="[('res_model', '=', False)]"/>
                 <filter name="filter_attachments"
                         string="Avec pi&#232;ces jointes"
                         domain="[('has_attachments', '=', True)]"/>

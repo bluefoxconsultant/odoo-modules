@@ -119,6 +119,8 @@ class BfEmailDashboard(models.Model):
     @api.model
     def _sql_date_clause(self, date_from, date_to, table_alias="be"):
         """Build SQL WHERE clause and params for a date range."""
+        if not table_alias.isidentifier():
+            raise ValueError("Invalid table alias")
         clauses = []
         params = []
         if date_from:
@@ -219,13 +221,19 @@ class BfEmailDashboard(models.Model):
 
     @api.model
     def _get_daily_volume(self, date_from=False, date_to=False):
-        """Daily email volume for the selected range."""
+        """Daily email volume for the selected range (capped at 366 days)."""
         if date_from and date_to:
             start = date_from
             end = date_to
         else:
             end = str(fields.Date.today())
             start = str(fields.Date.today() - timedelta(days=14))
+        # Cap range to prevent DoS via unbounded generate_series
+        max_days = 366
+        start_dt = datetime.strptime(start, "%Y-%m-%d")
+        end_dt = datetime.strptime(end, "%Y-%m-%d")
+        if (end_dt - start_dt).days > max_days:
+            start = str((end_dt - timedelta(days=max_days)).date())
 
         self.env.cr.execute("""
             SELECT

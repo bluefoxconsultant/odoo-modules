@@ -1,7 +1,7 @@
 {
     "name": "Gestion des courriels",
     "summary": "Vue centralisée des courriels envoyés et reçus avec enrichissement",
-    "version": "18.0.1.0.0",
+    "version": "18.0.1.1.0",
     "category": "Productivity",
     "website": "https://bluefox.ca",
     "author": "Blue Fox Inc.",
@@ -21,6 +21,7 @@
         "views/bf_email_views.xml",
         "views/bf_email_dashboard_views.xml",
         "views/bf_email_menu.xml",
+        "views/res_partner_views.xml",
     ],
     "assets": {
         "web.assets_backend": [
