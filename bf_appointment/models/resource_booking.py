@@ -8,6 +8,22 @@ from odoo import _, api, fields, models
 _logger = logging.getLogger(__name__)
 
 
+def _escape_ics(value):
+    """Escape a string for use in ICS property values per RFC 5545."""
+    if not value:
+        return ""
+    # Backslash must be escaped first
+    value = value.replace("\\", "\\\\")
+    # Semicolons and commas are special in ICS
+    value = value.replace(";", "\\;")
+    value = value.replace(",", "\\,")
+    # Newlines must be escaped as literal \n
+    value = value.replace("\r\n", "\\n")
+    value = value.replace("\r", "\\n")
+    value = value.replace("\n", "\\n")
+    return value
+
+
 class ResourceBooking(models.Model):
     _inherit = "resource.booking"
 
@@ -212,7 +228,9 @@ class ResourceBooking(models.Model):
         dtstart = self.start.strftime("%Y%m%dT%H%M%SZ")
         dtend = stop.strftime("%Y%m%dT%H%M%SZ")
         dtstamp = fields.Datetime.now().strftime("%Y%m%dT%H%M%SZ")
-        summary = self.name or (_("RDV - %s") % self.type_id.name)
+        summary = _escape_ics(
+            self.name or (_("RDV - %s") % self.type_id.name)
+        )
         ics = (
             "BEGIN:VCALENDAR\r\n"
             "VERSION:2.0\r\n"
@@ -227,10 +245,10 @@ class ResourceBooking(models.Model):
             f"SUMMARY:{summary}\r\n"
         )
         if location:
-            ics += f"LOCATION:{location}\r\n"
+            ics += f"LOCATION:{_escape_ics(location)}\r\n"
         if self.videocall_location:
             ics += f"URL:{self.videocall_location}\r\n"
-        ics += f"DESCRIPTION:{description}\r\n"
+        ics += f"DESCRIPTION:{_escape_ics(description)}\r\n"
         ics += (
             "STATUS:CONFIRMED\r\n"
             "END:VEVENT\r\n"
