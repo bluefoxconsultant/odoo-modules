@@ -12,9 +12,9 @@ class TestHostingServer(TransactionCase):
 
     def _make(self, **overrides):
         vals = {
-            "name": "Primetime 1",
-            "code": "PT1",
-            "hostname": "pt1.example.com",
+            "name": "Production 1",
+            "code": "P1",
+            "hostname": "prod1.example.com",
         }
         vals.update(overrides)
         return self.Server.create(vals)

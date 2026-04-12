@@ -14,7 +14,6 @@
         "security/ir.model.access.csv",
         "data/mail_activity_type_data.xml",
         "data/audit_element_data.xml",
-        "data/audit_supplier_alias_data.xml",
         "views/audit_element_views.xml",
         "views/audit_supplier_views.xml",
         "views/audit_assessment_views.xml",

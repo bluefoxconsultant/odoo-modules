@@ -1,0 +1,5 @@
+cryptography
+cssselect
+openpyxl
+python-dateutil
+requests

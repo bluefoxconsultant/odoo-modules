@@ -193,14 +193,18 @@ class AuditClient(models.Model):
         """Auto-link audit clients to Odoo projects by fuzzy name matching."""
         clients = self.search([("project_id", "=", False)])
         projects = self.env["project.project"].search([])
+        suffixes = (
+            self.env["ir.config_parameter"]
+            .sudo()
+            .get_param("audit_ti.project_name_suffixes", "")
+        )
+        suffix_list = [s.strip().lower() for s in suffixes.split(",") if s.strip()]
         linked = 0
         for client in clients:
             cn = client.name.lower().replace("-", " ").replace("\u2019", "'")
             for project in projects:
                 pn = project.name.lower().replace("-", " ").replace("\u2019", "'")
-                # Remove suffixes like "| OBNL Conforme"
-                for suffix in [" | obnl conforme", " | pme conforme", " | cpe conforme",
-                               " | conforme"]:
+                for suffix in suffix_list:
                     if suffix in pn:
                         pn = pn.split(suffix)[0].strip()
                 if cn == pn or (len(cn) > 5 and cn in pn) or (len(pn) > 5 and pn in cn):
