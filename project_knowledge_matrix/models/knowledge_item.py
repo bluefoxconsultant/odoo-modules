@@ -434,6 +434,7 @@ class KnowledgeItem(models.Model):
             'supersedes_id': self.id,
             'decision_date': False,
             'completion_date': False,
+            'decision_id': self._next_decision_id(),
         })
         self.write({
             'state': 'superseded',
@@ -531,6 +532,24 @@ class KnowledgeItem(models.Model):
             action['views'] = [[False, 'form']]
             action['res_id'] = self.task_ids.id
         return action
+
+    def _next_decision_id(self):
+        """Return a free decision_id in the same matrix by incrementing
+        the trailing digits of the current one (e.g. SUP1 → SUP2)."""
+        self.ensure_one()
+        import re
+        match = re.match(r'^([A-Z]+)(\d+)$', (self.decision_id or '').upper())
+        if not match:
+            return self.decision_id
+        prefix, num = match.group(1), int(match.group(2))
+        existing = set(self.search([
+            ('matrix_id', '=', self.matrix_id.id),
+            ('decision_id', '=like', f'{prefix}%'),
+        ]).mapped('decision_id'))
+        candidate = num + 1
+        while f'{prefix}{candidate}' in existing:
+            candidate += 1
+        return f'{prefix}{candidate}'
 
     @api.constrains('decision_id')
     def _check_decision_id_format(self):
