@@ -313,6 +313,8 @@ class ResourceBooking(models.Model):
         ])
         for booking in bookings:
             for schedule in booking.type_id.email_schedule_ids.filtered("active"):
+                # Refresh M2M cache to avoid re-sending already-sent emails
+                booking.invalidate_recordset(["sent_schedule_ids"])
                 if schedule in booking.sent_schedule_ids:
                     continue
                 should_send = False
@@ -329,6 +331,13 @@ class ResourceBooking(models.Model):
                     try:
                         booking._send_appointment_email(schedule.template_id)
                         booking.sent_schedule_ids = [(4, schedule.id)]
+                        _logger.info(
+                            "Appointment email sent: booking=%d schedule=%d "
+                            "template=%s",
+                            booking.id,
+                            schedule.id,
+                            schedule.template_id.name,
+                        )
                     except Exception as e:
                         _logger.error(
                             "Failed to send scheduled email for booking %d "
