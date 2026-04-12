@@ -19,7 +19,7 @@ Fonctionnalit\u00e9s:
     """,
     'author': 'Blue Fox Inc',
     'website': 'https://example.com',
-    'license': 'Other OSI approved licence',
+    'license': 'LGPL-3',
     'depends': ['project', 'account', 'hr_timesheet', 'mail', 'portal'],
     'external_dependencies': {
         'python': ['openpyxl'],

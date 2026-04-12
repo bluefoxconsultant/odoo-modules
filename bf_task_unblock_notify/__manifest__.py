@@ -5,7 +5,7 @@
     "category": "Project",
     "author": "Blue Fox",
     "website": "https://example.com",
-    "license": "Other OSI approved licence",
+    "license": "LGPL-3",
     "depends": ["project"],
     "data": [
         "data/unblock_notify_template.xml",

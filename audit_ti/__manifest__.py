@@ -5,7 +5,7 @@
     "category": "Services",
     "website": "https://example.com",
     "author": "PME Conforme / Blue Fox Inc.",
-    "license": "Other OSI approved licence",
+    "license": "LGPL-3",
     "application": True,
     "installable": True,
     "depends": ["base", "mail", "project"],

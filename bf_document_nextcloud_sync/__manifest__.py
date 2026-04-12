@@ -5,7 +5,7 @@
     "category": "Services/Project",
     "website": "https://bluefoxconsultant.com",
     "author": "Blue Fox Inc.",
-    "license": "Other OSI approved licence",
+    "license": "LGPL-3",
     "application": False,
     "installable": True,
     "depends": [

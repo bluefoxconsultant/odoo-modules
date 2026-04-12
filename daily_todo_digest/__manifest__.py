@@ -29,7 +29,7 @@ Uses Blue Fox branding.
     """,
     "author": "Blue Fox",
     "website": "https://example.com",
-    "license": "Other OSI approved licence",
+    "license": "LGPL-3",
     "depends": [
         "base",
         "mail",

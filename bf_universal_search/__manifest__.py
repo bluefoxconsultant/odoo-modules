@@ -5,7 +5,7 @@
     "summary": "Recherche transversale dans tous les modules via la palette de commandes",
     "author": "Blue Fox Inc",
     "website": "https://example.com",
-    "license": "Other OSI approved licence",
+    "license": "LGPL-3",
     "depends": ["web", "base"],
     "data": [
         "security/ir.model.access.csv",

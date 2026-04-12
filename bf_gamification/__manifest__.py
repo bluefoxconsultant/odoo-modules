@@ -5,7 +5,7 @@
     "category": "Human Resources",
     "website": "https://bluefox.ca",
     "author": "Blue Fox Inc.",
-    "license": "Other OSI approved licence",  # MIT — see README.md
+    "license": "LGPL-3",
     "application": True,
     "installable": True,
     "post_init_hook": "_post_init_backfill",

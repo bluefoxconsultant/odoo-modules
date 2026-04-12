@@ -4,7 +4,7 @@
     "category": "Services/Timesheets",
     "summary": "Timer global de feuilles de temps avec multi-timer et interface OWL",
     "author": "Blue Fox Inc",
-    "license": "Other OSI approved licence",  # MIT — see README.md
+    "license": "LGPL-3",
     "depends": ["hr_timesheet", "project", "sh_task_time_adv", "base_setup"],
     "data": [
         "security/bf_timer_security.xml",

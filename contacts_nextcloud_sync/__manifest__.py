@@ -4,7 +4,7 @@
     "version": "18.0.1.0.0",
     "category": "Contacts",
     "author": "Blue Fox Inc.",
-    "license": "Other OSI approved licence",
+    "license": "LGPL-3",
     "application": False,
     "installable": True,
     "depends": ["contacts", "base_setup"],
