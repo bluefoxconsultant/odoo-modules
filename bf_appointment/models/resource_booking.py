@@ -109,22 +109,40 @@ class ResourceBooking(models.Model):
             return self.type_id.videocall_location or False
 
     def _decrypt_nc_talk_password(self, encrypted_value):
-        """Decrypt Nextcloud Talk password using Fernet."""
+        """Decrypt Nextcloud Talk password using Fernet.
+
+        Returns False (with an error log) if the cryptography package is
+        missing, the encryption key is unset, or decryption fails. Never
+        falls back to returning the raw ciphertext, which could leak an
+        un-decryptable value to the API as if it were a password.
+        """
         if not encrypted_value:
             return False
         try:
             from cryptography.fernet import Fernet, InvalidToken
         except ImportError:
-            return encrypted_value
+            _logger.error(
+                "cryptography package not installed - cannot decrypt NC Talk password"
+            )
+            return False
         ICP = self.env["ir.config_parameter"].sudo()
         key = ICP.get_param("bf_appointment.encryption_key")
         if not key:
-            return encrypted_value
+            _logger.error(
+                "bf_appointment.encryption_key not set - cannot decrypt NC Talk password"
+            )
+            return False
         try:
             f = Fernet(key.encode())
             return f.decrypt(encrypted_value.encode()).decode()
-        except (InvalidToken, Exception):
-            return encrypted_value
+        except InvalidToken:
+            _logger.error(
+                "NC Talk password decryption failed - key mismatch or corrupted data"
+            )
+            return False
+        except Exception:
+            _logger.exception("NC Talk password decryption error")
+            return False
 
     def get_duration_display(self):
         """Return human-readable duration label."""
