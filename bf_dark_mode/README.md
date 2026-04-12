@@ -110,7 +110,7 @@ bf_dark_mode/
 
 ## Credits
 
-Developed by [Blue Fox Inc.](https://bluefoxconsultant.com) with AI assistance (Claude, Anthropic).
+Authored and maintained by Blue Fox Inc. AI coding assistants were used as productivity tools during development.
 
 ## License Text
 

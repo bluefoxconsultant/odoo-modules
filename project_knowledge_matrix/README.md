@@ -762,7 +762,7 @@ This module is provided as-is, without warranty of any kind. Use at your own ris
 **Author**: Your Company
 **Website**: [example.com](https://example.com)
 
-*This module was developed with assistance from Claude, Anthropic's AI assistant.*
+Authored and maintained by Blue Fox Inc. AI coding assistants were used as productivity tools during development.
 
 ## Support
 

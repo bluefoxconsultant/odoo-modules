@@ -593,8 +593,6 @@ This module is provided as-is, without warranty of any kind. Use at your own ris
 
 ## Acknowledgements
 
-This module was developed with substantial assistance from AI tools (Claude by Anthropic),
-used for code generation, architecture design, and documentation. All output was reviewed,
-tested, and validated by the Blue Fox Inc. development team.
+Authored and maintained by Blue Fox Inc. AI coding assistants were used as productivity tools during development; all output was reviewed, tested, and validated by the Blue Fox Inc. development team.
 
 Built with Odoo 18 Community Edition and the OWL framework.

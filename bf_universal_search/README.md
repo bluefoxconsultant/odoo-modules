@@ -273,7 +273,7 @@ Three approaches were evaluated:
 
 Developed by [Your Company](https://example.com)
 
-Architecture design, code implementation, and documentation were produced with assistance from Claude (Anthropic). All code was reviewed, tested, and validated in a production Odoo 18 environment.
+Authored and maintained by Blue Fox Inc. AI coding assistants were used as productivity tools during development. All code was reviewed, tested, and validated in a production Odoo 18 environment.
 
 ## License Text
 

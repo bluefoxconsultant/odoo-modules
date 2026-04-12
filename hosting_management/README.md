@@ -807,4 +807,4 @@ For support, please contact Blue Fox Inc. or open an issue in the repository.
 
 ---
 
-*Some code in this module was developed with AI assistance (Claude) for bug fixes and feature implementation.*
+Authored and maintained by Blue Fox Inc. AI coding assistants were used as productivity tools during development.

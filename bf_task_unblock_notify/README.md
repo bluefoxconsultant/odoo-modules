@@ -132,7 +132,7 @@ This module is provided as-is, without warranty of any kind. Use at your own ris
 
 ## Credits
 
-Developed with AI assistance (Claude, Anthropic).
+Authored and maintained by Blue Fox Inc. AI coding assistants were used as productivity tools during development.
 
 ## Support
 

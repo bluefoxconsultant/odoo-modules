@@ -14,6 +14,7 @@ Custom Odoo 18 Community Edition modules developed by [Blue Fox Inc.](https://bl
 | `bf_gamification` | Fox Quest | 18.0.2.1.0 | LGPL-3 | Système de gamification avec XP, niveaux, badges et récompenses |
 | `bf_hour_bank` | Banque d'heures | 18.0.1.6.0 | LGPL-3 | Suivi automatisé des banques d'heures client |
 | `bf_mail_import` | BF Import courriel (.eml) | 18.0.1.2.0 | LGPL-3 | Importer des fichiers .eml dans le chatter Odoo |
+| `bf_sms_archive` | Archive SMS & Appels | 18.0.1.3.0 | LGPL-3 | Archivage et recherche de SMS et journaux d'appels Android |
 | `bf_task_unblock_notify` | BF Notification de déblocage de tâche | 18.0.1.6.1 | LGPL-3 | Notifie les assignés quand leur tâche est débloquée |
 | `bf_timesheet_timer` | BF Timer - Feuilles de temps | 18.0.1.6.0 | LGPL-3 | Timer global de feuilles de temps avec multi-timer et interface OWL |
 | `bf_universal_search` | BF Recherche universelle | 18.0.1.3.0 | LGPL-3 | Recherche transversale dans tous les modules via la palette de commandes |
@@ -45,4 +46,4 @@ Unless stated otherwise in the module's `__manifest__.py`, modules are released 
 
 ## Credits
 
-These modules have been developed with the assistance of Claude (Anthropic) for architecture, implementation and technical documentation.
+Authored and maintained by Blue Fox Inc. AI coding assistants (including Anthropic's Claude) were used as productivity tools during development; architectural decisions, code review, testing and release responsibility rest with Blue Fox.

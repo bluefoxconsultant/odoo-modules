@@ -141,4 +141,4 @@ LGPL-3
 
 ## Remerciements
 
-Ce module a &#233;t&#233; d&#233;velopp&#233; avec l'assistance de Claude (Anthropic) pour l'architecture, l'impl&#233;mentation et la documentation technique.
+Créé et maintenu par Blue Fox Inc. Des assistants de codage IA ont été utilisés comme outils de productivité durant le développement.

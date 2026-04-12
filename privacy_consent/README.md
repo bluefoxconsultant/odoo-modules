@@ -616,4 +616,4 @@ Pour signaler un problème ou suggérer une amélioration, veuillez contacter l'
 
 ---
 
-<sub>¹ Le code de ce module a été développé avec l'assistance de [Claude](https://claude.ai) (Anthropic) pour la revue et l'optimisation du code.</sub>
+<sub>¹ Créé et maintenu par Blue Fox Inc. Des assistants de codage IA ont été utilisés comme outils de productivité durant le développement.</sub>

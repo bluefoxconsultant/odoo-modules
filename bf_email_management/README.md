@@ -84,4 +84,4 @@ For support, please contact Blue Fox Inc. or open an issue in the repository.
 
 ---
 
-*This module was developed with AI assistance (Claude Code by Anthropic) for architecture, implementation, and quality assurance.*
+Authored and maintained by Blue Fox Inc. AI coding assistants were used as productivity tools during development.
