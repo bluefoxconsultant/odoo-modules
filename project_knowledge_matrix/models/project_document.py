@@ -74,6 +74,14 @@ class ProjectDocument(models.Model):
         help='Versions traduites de ce document',
     )
 
+    # Content matrix
+    matrix_id = fields.Many2one(
+        'project.knowledge.matrix',
+        string='Matrice de contenu',
+        tracking=True,
+        help='Matrice de connaissances contenant le contenu structuré de ce document',
+    )
+
     # External links
     external_url = fields.Char(
         string='Lien externe',
@@ -323,6 +331,28 @@ class ProjectDocument(models.Model):
         """Clear software version when software changes."""
         if self.software_version_id and self.software_version_id.software_id != self.software_id:
             self.software_version_id = False
+
+    def action_export_matrix_pdf(self):
+        """Export the linked knowledge matrix as a branded PDF report."""
+        self.ensure_one()
+        if not self.matrix_id:
+            from odoo.exceptions import UserError
+            raise UserError("Aucune matrice de contenu liée à ce document.")
+        return self.matrix_id.action_print_report()
+
+    def action_view_matrix(self):
+        """Open the linked knowledge matrix form."""
+        self.ensure_one()
+        if not self.matrix_id:
+            from odoo.exceptions import UserError
+            raise UserError("Aucune matrice de contenu liée à ce document.")
+        return {
+            'type': 'ir.actions.act_window',
+            'name': self.matrix_id.name,
+            'res_model': 'project.knowledge.matrix',
+            'res_id': self.matrix_id.id,
+            'view_mode': 'form',
+        }
 
     def action_view_versions(self):
         """Open versions for this document."""

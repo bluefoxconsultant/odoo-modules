@@ -122,6 +122,9 @@
         <field name="arch" type="xml">
             <form string="Document">
                 <header>
+                    <button name="action_export_matrix_pdf" string="Exporter PDF" type="object"
+                            class="btn-secondary" icon="fa-file-pdf-o"
+                            invisible="not matrix_id"/>
                     <button name="action_set_active" string="Activer" type="object"
                             class="btn-primary" invisible="state != 'draft'"/>
                     <button name="action_set_archived" string="Archiver" type="object"
@@ -132,6 +135,13 @@
                 </header>
                 <sheet>
                     <div class="oe_button_box" name="button_box">
+                        <button class="oe_stat_button" type="object"
+                                name="action_view_matrix" icon="fa-th"
+                                invisible="not matrix_id">
+                            <div class="o_stat_info">
+                                <span class="o_stat_text">Matrice</span>
+                            </div>
+                        </button>
                         <button class="oe_stat_button" type="object"
                                 name="action_view_versions" icon="fa-copy">
                             <field name="version_count" widget="statinfo" string="Versions"/>
@@ -169,6 +179,7 @@
                             <field name="is_internal" readonly="1"/>
                             <field name="project_id" invisible="is_internal"/>
                             <field name="department_id" invisible="not is_internal"/>
+                            <field name="matrix_id" options="{'no_create': True}"/>
                             <field name="company_id" groups="base.group_multi_company"/>
                         </group>
                         <group>
