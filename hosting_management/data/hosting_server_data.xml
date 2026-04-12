@@ -3,7 +3,7 @@
     <data noupdate="1">
 
         <!-- Primary Production Server (update hostname/IP after install) -->
-        <record id="server_primetime1" model="hosting.server">
+        <record id="server_prod1" model="hosting.server">
             <field name="name">Production 1</field>
             <field name="code">PT1</field>
             <field name="hostname">server.example.com</field>
