@@ -30,7 +30,11 @@ class TestTaskUnblockNotify(TransactionCase):
     def test_closing_blocker_notifies_waiting_dependent(self):
         """Closing a blocker should post a notification on the now-unblocked task."""
         blocker = self._make_task("Blocker")
-        dependent = self._make_task("Dependent", depend_on_ids=[(6, 0, [blocker.id])])
+        dependent = self._make_task("Dependent")
+        # Link dependency via write so _compute_state lands on 04_waiting_normal
+        # (Odoo 18 doesn't transition state when depend_on_ids is passed in create)
+        dependent.write({"depend_on_ids": [(6, 0, [blocker.id])]})
+        self.assertEqual(dependent.state, "04_waiting_normal")
         # Baseline message count on dependent
         before = self.env["mail.message"].search_count([
             ("model", "=", "project.task"),
@@ -64,7 +68,8 @@ class TestTaskUnblockNotify(TransactionCase):
     def test_cancelling_blocker_unblocks_dependent(self):
         """Cancellation (1_canceled) also counts as closing for unblock purposes."""
         blocker = self._make_task("Blocker2")
-        dependent = self._make_task("Dep2", depend_on_ids=[(6, 0, [blocker.id])])
+        dependent = self._make_task("Dep2")
+        dependent.write({"depend_on_ids": [(6, 0, [blocker.id])]})
         # Should not raise
         blocker.write({"state": "1_canceled"})
         # Dependent's waiting state should have cleared

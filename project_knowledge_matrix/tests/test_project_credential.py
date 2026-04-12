@@ -123,8 +123,15 @@ class TestProjectCredential(TransactionCase):
         non_manager = self.env["res.users"].create({
             "name": "Basic User", "login": "basic_cred_user",
             "email": "basic@example.com",
-            "groups_id": [(4, self.env.ref("base.group_user").id)],
+            "groups_id": [
+                (4, self.env.ref("base.group_user").id),
+                (4, self.env.ref(
+                    "project_knowledge_matrix.group_credential_user"
+                ).id),
+            ],
         })
+        # Record rule restricts credentials to project followers — subscribe the user
+        self.project.message_subscribe(partner_ids=non_manager.partner_id.ids)
         c_as_user = c.with_user(non_manager)
         c_as_user.invalidate_recordset()
         self.assertEqual(c_as_user.password, "********")

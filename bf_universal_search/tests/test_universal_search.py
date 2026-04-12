@@ -23,8 +23,12 @@ class TestUniversalSearch(TransactionCase):
             "icon": "fa fa-users",
             "limit": 5,
         })
-        # Seed a unique partner
-        cls.partner = cls.env["res.partner"].create({
+        # Rename an existing partner instead of creating one: in -i mode,
+        # bf_universal_search loads before the account module, so res.partner's
+        # Python definition lacks account's autopost_bills field and create()
+        # fails while write() on existing rows is unaffected.
+        cls.partner = cls.env.ref("base.partner_admin")
+        cls.partner.write({
             "name": "ZZZ Universal Search Target",
             "email": "usearch@example.com",
         })

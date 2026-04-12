@@ -23,7 +23,7 @@ class TestHostingDashboard(TransactionCase):
         cls.software = cls.Software.create({
             "name": "DashSoft",
             "code": "dashsoft",
-            "software_type": "webapp",
+            "software_type": "self_hosted",
         })
 
     def _service(self, state="active", **overrides):

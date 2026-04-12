@@ -19,7 +19,7 @@ class TestHostingService(TransactionCase):
         cls.software = cls.Software.create({
             "name": "TestSoft",
             "code": "testsoft",
-            "software_type": "webapp",
+            "software_type": "self_hosted",
         })
 
     def _make(self, **overrides):

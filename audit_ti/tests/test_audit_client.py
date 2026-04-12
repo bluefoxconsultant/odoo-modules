@@ -110,5 +110,9 @@ class TestAuditClient(TransactionCase):
     # --- action_print_progress_report ---
 
     def test_action_print_progress_report_returns_report_action(self):
-        action = self.client.action_print_progress_report()
+        # Skip the external-report-layout wizard that core triggers for admins
+        # whose company has no layout configured yet.
+        action = self.client.with_context(
+            discard_logo_check=True
+        ).action_print_progress_report()
         self.assertEqual(action["type"], "ir.actions.report")
