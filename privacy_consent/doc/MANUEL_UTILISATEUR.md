@@ -1,9 +1,9 @@
-# Manuel d'utilisation - Module de gestion des consentements
+# Manuel d'utilisation - Module Vie privee (Loi 25)
 
-## Suivi des consentements (Loi 25)
+## Suivi des consentements et destruction documentaire (Loi 25)
 
-**Version:** 18.0.2.0.0
-**Catégorie:** Vie privée / Conformité
+**Version:** 18.0.3.0.0
+**Categorie:** Vie privee / Conformite
 **Auteur:** Your Company Name
 
 ---
@@ -11,26 +11,31 @@
 ## Table des matières
 
 1. [Introduction](#1-introduction)
-2. [Accès au module](#2-accès-au-module)
+2. [Acces au module](#2-acces-au-module)
 3. [Tableau de bord](#3-tableau-de-bord)
-4. [Opérations](#4-opérations)
+4. [Operations](#4-operations)
    - 4.1 [Consentements](#41-consentements)
    - 4.2 [Demandes en attente](#42-demandes-en-attente)
    - 4.3 [Demandes de destruction](#43-demandes-de-destruction)
+   - 4.4 [Registre de destruction](#44-registre-de-destruction)
+   - 4.5 [Campagnes de destruction](#45-campagnes-de-destruction)
+   - 4.6 [Evaluations d'anonymisation](#46-evaluations-danonymisation)
 5. [Configuration](#5-configuration)
-   - 5.1 [Finalités](#51-finalités)
+   - 5.1 [Finalites](#51-finalites)
    - 5.2 [Avis de consentement](#52-avis-de-consentement)
-   - 5.3 [Préférences de contact](#53-préférences-de-contact)
-   - 5.4 [Politiques de rétention](#54-politiques-de-rétention)
-   - 5.5 [Séquences de courriels](#55-séquences-de-courriels)
-   - 5.6 [DocuSeal](#56-docuseal)
+   - 5.3 [Preferences de contact](#53-preferences-de-contact)
+   - 5.4 [Politiques de retention](#54-politiques-de-retention)
+   - 5.5 [Calendrier de conservation](#55-calendrier-de-conservation)
+   - 5.6 [Classifications documentaires](#56-classifications-documentaires)
+   - 5.7 [Sequences de courriels](#57-sequences-de-courriels)
+   - 5.8 [DocuSeal / LibreSign](#58-docuseal--libresign)
 6. [Portail client](#6-portail-client)
-7. [Intégration avec les contacts](#7-intégration-avec-les-contacts)
-8. [Intégration avec les projets](#8-intégration-avec-les-projets)
+7. [Integration avec les contacts](#7-integration-avec-les-contacts)
+8. [Integration avec les projets](#8-integration-avec-les-projets)
 9. [Cycle de vie d'un consentement](#9-cycle-de-vie-dun-consentement)
-10. [Preuves et traçabilité](#10-preuves-et-traçabilité)
+10. [Preuves et tracabilite](#10-preuves-et-tracabilite)
 11. [Automatisations](#11-automatisations)
-12. [Rôles et permissions](#12-rôles-et-permissions)
+12. [Roles et permissions](#12-roles-et-permissions)
 13. [Glossaire](#13-glossaire)
 
 ---
@@ -261,12 +266,72 @@ Création manuelle :
 #### Certificat de destruction
 
 Le certificat contient :
-- Numéro unique de certificat
+- Numero unique de certificat
 - Informations sur le contact et le consentement
-- Méthode de destruction utilisée
+- Methode de destruction utilisee
 - Dates pertinentes
-- Base légale (Loi 25, RGPD)
-- Empreinte SHA-256 pour vérification d'intégrité
+- Base legale (Loi 25, RGPD)
+- Empreinte SHA-256 pour verification d'integrite
+
+### 4.4 Registre de destruction
+
+**Menu :** Vie privee > Operations > Registre de destruction
+
+Le registre de destruction est un journal **immuable** conforme a l'article 3.2 de la LPRPSP. Chaque destruction de renseignements personnels y est automatiquement consignee.
+
+**Caracteristiques :**
+- Les entrees sont en **lecture seule** : aucune modification (sauf les notes) ni suppression n'est possible
+- Chaque entree contient une empreinte SHA-256 pour la verification d'integrite anti-falsification
+- Numerotation automatique : `REG-YYYY-NNNNN`
+
+**Informations enregistrees :**
+- Date de destruction et auteur
+- Approbateur (RPRP)
+- Document detruit (modele, ID, nom au moment de la destruction)
+- Categories de renseignements personnels concernees
+- Nombre de sujets affectes
+- Methode de destruction utilisee
+- Base legale applicable
+- Lien vers la demande de destruction ou la campagne
+
+**Acces :** Responsable de la vie privee (Privacy Officer) uniquement.
+
+### 4.5 Campagnes de destruction
+
+**Menu :** Vie privee > Operations > Campagnes de destruction
+
+Les campagnes permettent d'executer des purges periodiques de documents dont la periode de conservation a expire.
+
+**Workflow :**
+
+1. **Brouillon** : Creer la campagne, choisir la date limite et optionnellement une regle de conservation specifique
+2. **Balayage** : Cliquer sur **Scanner** — le systeme identifie automatiquement tous les documents classifies dont la retention a expire avant la date limite
+3. **Revision** : Examiner la liste des documents identifies, ignorer individuellement ceux a conserver
+4. **Approbation** : Le responsable de la vie privee (RPRP) approuve la campagne
+5. **Execution** : Chaque document est detruit selon la methode configuree, avec une entree au registre pour chaque destruction
+6. **Terminee** : Le systeme affiche un resume (X detruits, Y echecs, Z ignores)
+
+**Gestion des erreurs :** Si un document ne peut pas etre detruit, la ligne est marquee en echec avec un message d'erreur. Les autres documents continuent a etre traites normalement.
+
+### 4.6 Evaluations d'anonymisation
+
+**Menu :** Vie privee > Operations > Evaluations d'anonymisation
+
+Les evaluations d'anonymisation permettent de valider si un jeu de donnees est effectivement anonyme selon les 3 criteres du Reglement sur l'anonymisation des renseignements personnels (A-2.1, r. 0.1, mai 2024).
+
+**Workflow :**
+
+1. **Brouillon** : Decrire le jeu de donnees a evaluer
+2. **Analyse** : Evaluer chacun des 3 criteres :
+   - **Individualisation** : Peut-on isoler ou distinguer une personne dans le jeu de donnees?
+   - **Correlation** : Peut-on relier des jeux de donnees concernant la meme personne?
+   - **Inference** : Peut-on deduire des renseignements personnels a partir d'autres donnees?
+3. **Completee** : Une fois les 3 criteres evalues, le systeme calcule le risque global
+4. **Reevaluation requise** : Signale automatiquement quand la reevaluation periodique est due
+
+**Resultat :** Les donnees sont considerees comme **effectivement anonymes** uniquement si les 3 criteres presentent un risque **faible**. Dans le cas contraire, des mesures supplementaires sont necessaires.
+
+**Reevaluation :** L'intervalle par defaut est de 12 mois. Un cron quotidien surveille les echeances et cree automatiquement une activite de rappel.
 
 ---
 
@@ -400,32 +465,98 @@ Les politiques définissent combien de temps les données sont conservées et co
 - Méthode : Anonymiser
 - Déclencheur : Les deux (expiration et retrait)
 
-### 5.5 Séquences de courriels
+### 5.5 Calendrier de conservation
 
-Les séquences permettent d'envoyer des rappels automatiques aux personnes n'ayant pas répondu.
+**Menu :** Vie privee > Configuration > Calendrier de conservation
 
-#### Créer une séquence
+Le calendrier de conservation definit les regles de retention par **type de document** (distinct des politiques de retention qui s'appliquent par consentement).
 
-1. Allez dans **Configuration > Séquences de courriels**
+#### Creer une regle
+
+1. Allez dans **Configuration > Calendrier de conservation**
 2. Cliquez sur **Nouveau**
 3. Configurez :
 
 | Champ | Description |
 |-------|-------------|
-| **Finalité** | Pour quelle finalité |
-| **Numéro de séquence** | Ordre d'envoi (1, 2, 3...) |
-| **Jours après demande** | Délai avant envoi |
-| **Modèle de courriel** | Modèle à utiliser |
-| **Vérifier l'ouverture** | N'envoie que si le précédent n'a pas été ouvert |
+| **Code** | Identifiant unique (ex: `FIN-001`, `RH-003`) |
+| **Nom** | Nom descriptif de la regle |
+| **Type de document** | Contrat, facture, dossier RH, projet, etc. |
+| **Base legale** | Reference juridique obligatoire (ex: Art. 2925 C.c.Q.) |
+| **Conservation active** | Nombre d'annees de conservation active |
+| **Conservation semi-active** | Nombre d'annees supplementaires |
+| **Disposition finale** | Detruire, anonymiser, archiver en permanence, transferer |
+| **Methode de destruction** | Anonymiser, supprimer, effacement securise, manuel |
+| **Approbation requise** | Si le RPRP doit approuver (recommande) |
 
-#### Exemple de séquence
+**Exemple :** Les contrats (CTR-001) sont conserves 6 ans en actif, puis detruits. Base legale : Art. 2925 C.c.Q. (prescription civile).
+
+#### Bouton « Creer une campagne »
+
+Depuis une regle du calendrier, cliquez sur **Creer une campagne** pour lancer une purge de tous les documents classifies sous cette regle dont la retention a expire.
+
+### 5.6 Classifications documentaires
+
+**Menu :** Vie privee > Configuration > Classifications documentaires
+
+Les classifications permettent de taguer n'importe quel enregistrement Odoo avec les categories de renseignements personnels qu'il contient.
+
+#### Classifier un document
+
+1. Allez dans **Configuration > Classifications documentaires**
+2. Cliquez sur **Nouveau**
+3. Selectionnez le modele (ex: `res.partner`, `project.task`, `hr.employee`)
+4. Selectionnez l'enregistrement specifique
+5. Choisissez la categorie de RP et le niveau de sensibilite
+
+**Categories de RP disponibles :**
+- Identification (nom, NAS, courriel)
+- Medical / sante
+- Financier
+- Biometrique
+- Geolocalisation
+- Antecedents judiciaires
+- Opinions politiques / syndicales
+- Origine ethnique / raciale
+- Renseignements sur un mineur
+- Autre
+
+**Niveaux de sensibilite :**
+- Public
+- Interne
+- Confidentiel
+- Hautement confidentiel
+
+**Date d'expiration :** Calculee automatiquement a partir de la date de classification + la duree de la regle de conservation associee.
+
+**Modeles autorises :** Pour des raisons de securite, seuls certains modeles peuvent etre classifies (contacts, projets, taches, employes, factures, pieces jointes, etc.). Les modeles systeme sont exclus.
+
+### 5.7 Sequences de courriels
+
+Les sequences permettent d'envoyer des rappels automatiques aux personnes n'ayant pas repondu.
+
+#### Creer une sequence
+
+1. Allez dans **Configuration > Sequences de courriels**
+2. Cliquez sur **Nouveau**
+3. Configurez :
+
+| Champ | Description |
+|-------|-------------|
+| **Finalite** | Pour quelle finalite |
+| **Numero de sequence** | Ordre d'envoi (1, 2, 3...) |
+| **Jours apres demande** | Delai avant envoi |
+| **Modele de courriel** | Modele a utiliser |
+| **Verifier l'ouverture** | N'envoie que si le precedent n'a pas ete ouvert |
+
+#### Exemple de sequence
 
 **Rappels pour consentement marketing :**
-1. **Rappel 1** : 7 jours après la demande initiale
-2. **Rappel 2** : 14 jours après la demande initiale
-3. **Rappel final** : 21 jours après la demande initiale
+1. **Rappel 1** : 7 jours apres la demande initiale
+2. **Rappel 2** : 14 jours apres la demande initiale
+3. **Rappel final** : 21 jours apres la demande initiale
 
-### 5.6 DocuSeal
+### 5.8 DocuSeal / LibreSign
 
 DocuSeal permet d'obtenir des signatures électroniques pour les consentements formels.
 
@@ -704,12 +835,13 @@ Chaque action via le portail enregistre automatiquement :
 
 ### Activités créées automatiquement
 
-| Activité | Quand | Assigné à |
+| Activite | Quand | Assigne a |
 |----------|-------|-----------|
 | **Consentement va expirer** | 30 jours avant | Utilisateur responsable |
-| **Consentement expire bientôt** | 7 jours avant | Utilisateur responsable |
-| **Revoir la destruction** | Demande créée | Gestionnaire vie privée |
-| **Supprimer dossier Nextcloud** | Destruction avec Nextcloud | Gestionnaire vie privée |
+| **Consentement expire bientot** | 7 jours avant | Utilisateur responsable |
+| **Revoir la destruction** | Demande creee | Gestionnaire vie privee |
+| **Supprimer dossier Nextcloud** | Destruction avec Nextcloud | Gestionnaire vie privee |
+| **Reevaluation d'anonymisation due** | Date de reevaluation atteinte | Evaluateur original |
 
 ---
 
@@ -717,39 +849,52 @@ Chaque action via le portail enregistre automatiquement :
 
 ### Groupes de sécurité
 
-#### Utilisateur vie privée
+#### Utilisateur vie privee
 
 **Peut :**
-- Voir les finalités, avis et consentements
-- Créer et modifier des consentements
-- Créer et modifier des preuves
-- Gérer les préférences de contact
+- Voir les finalites, avis et consentements
+- Creer et modifier des consentements
+- Creer et modifier des preuves
+- Gerer les preferences de contact
+- Consulter le registre de destruction (lecture seule)
+- Consulter les classifications documentaires (lecture seule)
 
 **Ne peut pas :**
 - Supprimer des enregistrements
-- Accéder à la configuration
-- Gérer les destructions
+- Acceder a la configuration
+- Gerer les destructions ou campagnes
 
-#### Gestionnaire vie privée
+#### Gestionnaire vie privee
 
 **Inclut** toutes les permissions de l'Utilisateur, plus :
 
 **Peut :**
-- Configurer les finalités et avis
-- Configurer les politiques de rétention
-- Gérer les séquences de courriels
-- Voir et gérer les demandes de destruction
-- Configurer les modèles DocuSeal
+- Configurer les finalites et avis
+- Configurer les politiques de retention et le calendrier de conservation
+- Gerer les sequences de courriels
+- Creer et modifier les classifications documentaires
+- Creer des demandes de destruction et les **approuver**
+- Creer et gerer les campagnes de destruction
+- Creer et modifier les evaluations d'anonymisation
+- Configurer les modeles DocuSeal / LibreSign
 
-#### Responsable vie privée
+**Ne peut pas :**
+- Executer les destructions
+- Approuver les campagnes ou evaluations
+- Modifier ou supprimer des entrees du registre
+
+#### Responsable vie privee (RPRP)
 
 **Inclut** toutes les permissions du Gestionnaire, plus :
 
 **Peut :**
-- Exporter toutes les données
-- Configurer DocuSeal (API, webhooks)
-- Tester les connexions API
-- Administration complète du module
+- **Approuver et executer** les demandes de destruction
+- **Approuver et executer** les campagnes de destruction en lot
+- **Approuver** les evaluations d'anonymisation
+- Creer des entrees au registre de destruction
+- Administration complete du module
+- Configurer DocuSeal / LibreSign (API, webhooks)
+- Exporter toutes les donnees
 
 ### Règles d'accès
 
@@ -779,9 +924,24 @@ Chaque action via le portail enregistre automatiquement :
 | **Portail** | Interface web permettant aux clients de gérer leurs informations |
 | **DocuSeal** | Service de signature électronique intégré |
 | **Webhook** | Notification automatique entre systèmes |
-| **Empreinte (Hash)** | Code unique généré à partir d'un contenu pour vérifier son intégrité |
-| **UUID** | Identifiant unique universel utilisé pour les jetons d'accès |
-| **Médico-légal** | Relatif à la collecte de preuves utilisables en contexte juridique |
+| **Empreinte (Hash)** | Code unique genere a partir d'un contenu pour verifier son integrite |
+| **UUID** | Identifiant unique universel utilise pour les jetons d'acces |
+| **Medico-legal** | Relatif a la collecte de preuves utilisables en contexte juridique |
+| **Calendrier de conservation** | Ensemble de regles definissant la duree de retention par type de document |
+| **Classification documentaire** | Attribution de categories de RP a un enregistrement Odoo |
+| **Registre de destruction** | Journal immuable de toutes les destructions de RP (Art. 3.2 LPRPSP) |
+| **Campagne de destruction** | Purge periodique de documents depasses selon le calendrier de conservation |
+| **Evaluation d'anonymisation** | Evaluation des 3 criteres du Reglement A-2.1, r. 0.1 pour valider l'anonymisation |
+| **Individualisation** | Critere d'anonymisation : peut-on isoler une personne dans le jeu de donnees? |
+| **Correlation** | Critere d'anonymisation : peut-on relier des jeux de donnees? |
+| **Inference** | Critere d'anonymisation : peut-on deduire des RP? |
+| **RPRP** | Responsable de la protection des renseignements personnels (Privacy Officer) |
+| **LPRPSP** | Loi sur la protection des renseignements personnels dans le secteur prive |
+| **Art. 23 LPRPSP** | Obligation de detruire les RP une fois les fins de collecte atteintes |
+| **Art. 28.1 LPRPSP** | Droit a l'effacement (droit a l'oubli) |
+| **Art. 3.2 LPRPSP** | Cadre de gouvernance incluant la conservation et la destruction |
+| **Droit a l'effacement** | Droit d'une personne de demander la suppression de ses donnees personnelles |
+| **LibreSign** | Service auto-heberge de signature electronique integre |
 
 ---
 

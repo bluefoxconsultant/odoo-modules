@@ -39,6 +39,27 @@
               groups="privacy_consent.group_privacy_manager"
               sequence="30"/>
 
+    <menuitem id="menu_privacy_register"
+              name="Registre de destruction"
+              parent="menu_privacy_operations"
+              action="action_privacy_destruction_register"
+              groups="privacy_consent.group_privacy_officer"
+              sequence="35"/>
+
+    <menuitem id="menu_privacy_campaigns"
+              name="Campagnes de destruction"
+              parent="menu_privacy_operations"
+              action="action_privacy_destruction_campaign"
+              groups="privacy_consent.group_privacy_manager"
+              sequence="40"/>
+
+    <menuitem id="menu_privacy_assessments"
+              name="Évaluations d'anonymisation"
+              parent="menu_privacy_operations"
+              action="action_privacy_anonymization_assessment"
+              groups="privacy_consent.group_privacy_manager"
+              sequence="45"/>
+
     <!-- Configuration submenu -->
     <menuitem id="menu_privacy_config"
               name="Configuration"
@@ -77,6 +98,18 @@
               parent="menu_privacy_config"
               action="action_privacy_retention_policy"
               sequence="40"/>
+
+    <menuitem id="menu_privacy_retention_calendar"
+              name="Calendrier de conservation"
+              parent="menu_privacy_config"
+              action="action_privacy_retention_calendar"
+              sequence="42"/>
+
+    <menuitem id="menu_privacy_classifications"
+              name="Classifications documentaires"
+              parent="menu_privacy_config"
+              action="action_privacy_document_classification"
+              sequence="44"/>
 
     <menuitem id="menu_privacy_email_sequences"
               name="Séquences de courriel"

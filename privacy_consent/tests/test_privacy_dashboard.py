@@ -6,7 +6,11 @@ from odoo.tests import TransactionCase, tagged
 
 @tagged("privacy_consent", "privacy_dashboard")
 class TestPrivacyDashboard(TransactionCase):
-    """Test cases for Privacy Dashboard."""
+    """Test cases for Privacy Dashboard.
+
+    Stats are computed DB-wide, so tests measure deltas against
+    a baseline rather than absolute values.
+    """
 
     @classmethod
     def setUpClass(cls):
@@ -16,33 +20,32 @@ class TestPrivacyDashboard(TransactionCase):
             "email": "test@example.com",
         })
         cls.purpose = cls.env["privacy.purpose"].create({
-            "code": "TEST",
-            "name": "Test Purpose",
+            "code": "TEST_DASH",
+            "name": "Test Dashboard Purpose",
             "default_validity_days": 365,
         })
 
     def test_dashboard_stats_empty(self):
-        """Test dashboard with no data."""
+        """Dashboard returns expected keys with integer counts."""
         Dashboard = self.env["privacy.dashboard"]
         stats = Dashboard._get_dashboard_stats()
 
-        self.assertEqual(stats["pending_requests"], 0)
-        self.assertEqual(stats["granted_consents"], 0)
-        self.assertEqual(stats["consent_rate"], 0)
+        for key in ("pending_requests", "granted_consents", "consent_rate"):
+            self.assertIn(key, stats)
+            self.assertIsInstance(stats[key], (int, float))
 
     def test_dashboard_stats_with_consents(self):
-        """Test dashboard statistics calculation."""
+        """New consents increment pending/granted/expiring counters."""
         Consent = self.env["privacy.consent"]
         Dashboard = self.env["privacy.dashboard"]
 
-        # Create pending consent
+        before = Dashboard._get_dashboard_stats()
+
         Consent.create({
             "subject_partner_id": self.partner.id,
             "purpose_id": self.purpose.id,
             "status": "pending",
         })
-
-        # Create granted consent
         Consent.create({
             "subject_partner_id": self.partner.id,
             "purpose_id": self.purpose.id,
@@ -51,37 +54,49 @@ class TestPrivacyDashboard(TransactionCase):
             "expires_at": fields.Datetime.now() + timedelta(days=20),
         })
 
-        stats = Dashboard._get_dashboard_stats()
+        after = Dashboard._get_dashboard_stats()
 
-        self.assertEqual(stats["pending_requests"], 1)
-        self.assertEqual(stats["granted_consents"], 1)
-        self.assertEqual(stats["expiring_30_days"], 1)
+        self.assertEqual(after["pending_requests"] - before["pending_requests"], 1)
+        self.assertEqual(after["granted_consents"] - before["granted_consents"], 1)
+        self.assertEqual(after["expiring_30_days"] - before["expiring_30_days"], 1)
 
     def test_dashboard_consent_rate(self):
-        """Test consent rate calculation."""
+        """Consent rate reflects granted/(granted+refused) ratio."""
         Consent = self.env["privacy.consent"]
         Dashboard = self.env["privacy.dashboard"]
 
-        # Create 3 granted and 1 refused
-        for i in range(3):
+        partner = self.env["res.partner"].create({
+            "name": "Rate Partner",
+            "email": "rate@example.com",
+        })
+
+        before = Dashboard._get_dashboard_stats()
+        granted_before = before["granted_consents"]
+        refused_before = Consent.search_count([("status", "=", "refused")])
+
+        for _ in range(3):
             Consent.create({
-                "subject_partner_id": self.partner.id,
+                "subject_partner_id": partner.id,
                 "purpose_id": self.purpose.id,
                 "status": "granted",
                 "granted_at": fields.Datetime.now(),
             })
-
         Consent.create({
-            "subject_partner_id": self.partner.id,
+            "subject_partner_id": partner.id,
             "purpose_id": self.purpose.id,
             "status": "refused",
             "refused_at": fields.Datetime.now(),
         })
 
-        stats = Dashboard._get_dashboard_stats()
+        after = Dashboard._get_dashboard_stats()
 
-        # 3 granted / 4 total = 75%
-        self.assertEqual(stats["consent_rate"], 75.0)
+        granted_after = after["granted_consents"]
+        refused_after = Consent.search_count([("status", "=", "refused")])
+        expected_rate = round(granted_after / (granted_after + refused_after) * 100)
+
+        self.assertEqual(granted_after - granted_before, 3)
+        self.assertEqual(refused_after - refused_before, 1)
+        self.assertEqual(after["consent_rate"], expected_rate)
 
     def test_dashboard_action_view_pending(self):
         """Test action to view pending requests."""

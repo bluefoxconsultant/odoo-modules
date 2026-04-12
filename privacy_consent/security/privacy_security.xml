@@ -89,5 +89,75 @@
             <field name="perm_create" eval="True"/>
             <field name="perm_unlink" eval="False"/>
         </record>
+
+        <!-- Demande de destruction : Règle de société -->
+        <record id="rule_destruction_request_company" model="ir.rule">
+            <field name="name">Demande de destruction : Règle de société</field>
+            <field name="model_id" ref="model_privacy_destruction_request"/>
+            <field name="global" eval="True"/>
+            <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+        </record>
+
+        <!-- Politique de rétention : Règle de société -->
+        <record id="rule_retention_policy_company" model="ir.rule">
+            <field name="name">Politique de rétention : Règle de société</field>
+            <field name="model_id" ref="model_privacy_retention_policy"/>
+            <field name="global" eval="True"/>
+            <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+        </record>
+
+        <!-- Registre de destruction : no-unlink pour tous les groupes (belt & suspenders with Python unlink override) -->
+        <record id="rule_destruction_register_no_unlink" model="ir.rule">
+            <field name="name">Registre de destruction : Suppression interdite</field>
+            <field name="model_id" ref="model_privacy_destruction_register"/>
+            <field name="global" eval="True"/>
+            <field name="domain_force">[(0, '=', 1)]</field>
+            <field name="perm_read" eval="False"/>
+            <field name="perm_write" eval="False"/>
+            <field name="perm_create" eval="False"/>
+            <field name="perm_unlink" eval="True"/>
+        </record>
+
+        <!-- === Destruction documentaire — Nouvelles règles === -->
+
+        <!-- Calendrier de conservation : Règle de société -->
+        <record id="rule_retention_calendar_company" model="ir.rule">
+            <field name="name">Calendrier de conservation : Règle de société</field>
+            <field name="model_id" ref="model_privacy_retention_calendar"/>
+            <field name="global" eval="True"/>
+            <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+        </record>
+
+        <!-- Classification documentaire : Règle de société -->
+        <record id="rule_document_classification_company" model="ir.rule">
+            <field name="name">Classification documentaire : Règle de société</field>
+            <field name="model_id" ref="model_privacy_document_classification"/>
+            <field name="global" eval="True"/>
+            <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+        </record>
+
+        <!-- Registre de destruction : Règle de société -->
+        <record id="rule_destruction_register_company" model="ir.rule">
+            <field name="name">Registre de destruction : Règle de société</field>
+            <field name="model_id" ref="model_privacy_destruction_register"/>
+            <field name="global" eval="True"/>
+            <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+        </record>
+
+        <!-- Évaluation d'anonymisation : Règle de société -->
+        <record id="rule_anonymization_assessment_company" model="ir.rule">
+            <field name="name">Évaluation d'anonymisation : Règle de société</field>
+            <field name="model_id" ref="model_privacy_anonymization_assessment"/>
+            <field name="global" eval="True"/>
+            <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+        </record>
+
+        <!-- Campagne de destruction : Règle de société -->
+        <record id="rule_destruction_campaign_company" model="ir.rule">
+            <field name="name">Campagne de destruction : Règle de société</field>
+            <field name="model_id" ref="model_privacy_destruction_campaign"/>
+            <field name="global" eval="True"/>
+            <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+        </record>
     </data>
 </odoo>

@@ -350,6 +350,129 @@
                         </div>
                     </div>
 
+                    <!-- Section: Document Destruction -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h5 class="text-muted mb-3">
+                                <i class="fa fa-fire me-2"/> Destruction et anonymisation documentaire
+                            </h5>
+                        </div>
+                        <div class="col-md-2">
+                            <button name="action_view_register" type="object"
+                                    class="btn w-100 p-0 border-0" style="background: transparent;">
+                                <div class="card" style="background-color: #e9ecef; border-color: #6c757d !important;">
+                                    <div class="card-body text-center py-3">
+                                        <div class="fw-bold mb-1" style="color: #6c757d;">
+                                            <i class="fa fa-book me-1"/> Registre
+                                        </div>
+                                        <div class="display-6" style="color: #6c757d;">
+                                            <field name="register_entries_count"/>
+                                        </div>
+                                    </div>
+                                </div>
+                            </button>
+                        </div>
+                        <div class="col-md-2">
+                            <button name="action_view_register_month" type="object"
+                                    class="btn w-100 p-0 border-0" style="background: transparent;">
+                                <div class="card" style="background-color: #cfe2ff; border-color: #0d6efd !important;">
+                                    <div class="card-body text-center py-3">
+                                        <div class="fw-bold mb-1" style="color: #0d6efd;">
+                                            <i class="fa fa-calendar me-1"/> Ce mois
+                                        </div>
+                                        <div class="display-6" style="color: #0d6efd;">
+                                            <field name="register_entries_month"/>
+                                        </div>
+                                    </div>
+                                </div>
+                            </button>
+                        </div>
+                        <div class="col-md-2">
+                            <button name="action_view_documents_classified" type="object"
+                                    class="btn w-100 p-0 border-0" style="background: transparent;">
+                                <div class="card" style="background-color: #d1e7dd; border-color: #198754 !important;">
+                                    <div class="card-body text-center py-3">
+                                        <div class="fw-bold mb-1" style="color: #198754;">
+                                            <i class="fa fa-tags me-1"/> Classifiés
+                                        </div>
+                                        <div class="display-6" style="color: #198754;">
+                                            <field name="documents_classified"/>
+                                        </div>
+                                    </div>
+                                </div>
+                            </button>
+                        </div>
+                        <div class="col-md-2">
+                            <button name="action_view_documents_past_retention" type="object" invisible="documents_past_retention == 0"
+                                    class="btn w-100 p-0 border-0" style="background: transparent;">
+                                <div class="card" style="background-color: #f8d7da; border-color: #dc3545 !important;">
+                                    <div class="card-body text-center py-3">
+                                        <div class="fw-bold mb-1" style="color: #dc3545;">
+                                            <i class="fa fa-exclamation-triangle me-1"/> Rétention dépassée
+                                        </div>
+                                        <div class="display-6" style="color: #dc3545;">
+                                            <field name="documents_past_retention"/>
+                                        </div>
+                                    </div>
+                                </div>
+                            </button>
+                            <div invisible="documents_past_retention != 0" class="card" style="background-color: #f8f9fa;">
+                                <div class="card-body text-center py-3">
+                                    <div class="fw-bold mb-1 text-muted">
+                                        <i class="fa fa-exclamation-triangle me-1"/> Rétention dépassée
+                                    </div>
+                                    <div class="display-6 text-muted">0</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <button name="action_view_active_campaigns" type="object" invisible="active_campaigns == 0"
+                                    class="btn w-100 p-0 border-0" style="background: transparent;">
+                                <div class="card" style="background-color: #fff3cd; border-color: #ffc107 !important;">
+                                    <div class="card-body text-center py-3">
+                                        <div class="fw-bold mb-1" style="color: #856404;">
+                                            <i class="fa fa-rocket me-1"/> Campagnes
+                                        </div>
+                                        <div class="display-6" style="color: #856404;">
+                                            <field name="active_campaigns"/>
+                                        </div>
+                                    </div>
+                                </div>
+                            </button>
+                            <div invisible="active_campaigns != 0" class="card" style="background-color: #f8f9fa;">
+                                <div class="card-body text-center py-3">
+                                    <div class="fw-bold mb-1 text-muted">
+                                        <i class="fa fa-rocket me-1"/> Campagnes
+                                    </div>
+                                    <div class="display-6 text-muted">0</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <button name="action_view_assessments_due" type="object" invisible="assessments_due == 0"
+                                    class="btn w-100 p-0 border-0" style="background: transparent;">
+                                <div class="card" style="background-color: #f8d7da; border-color: #dc3545 !important;">
+                                    <div class="card-body text-center py-3">
+                                        <div class="fw-bold mb-1" style="color: #dc3545;">
+                                            <i class="fa fa-flask me-1"/> Rééval. dues
+                                        </div>
+                                        <div class="display-6" style="color: #dc3545;">
+                                            <field name="assessments_due"/>
+                                        </div>
+                                    </div>
+                                </div>
+                            </button>
+                            <div invisible="assessments_due != 0" class="card" style="background-color: #f8f9fa;">
+                                <div class="card-body text-center py-3">
+                                    <div class="fw-bold mb-1 text-muted">
+                                        <i class="fa fa-flask me-1"/> Rééval. dues
+                                    </div>
+                                    <div class="display-6 text-muted">0</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Footer -->
                     <div class="row">
                         <div class="col-12 text-center text-muted">

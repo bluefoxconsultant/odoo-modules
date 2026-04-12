@@ -7,7 +7,13 @@ from . import privacy_consent_evidence
 from . import privacy_contact_preference
 from . import privacy_dashboard
 from . import privacy_retention
+from . import privacy_retention_calendar
+from . import privacy_document_classification
 from . import privacy_destruction
+from . import privacy_destruction_register
+from . import privacy_destruction_campaign
+from . import privacy_anonymization_assessment
+from . import privacy_url_guard
 from . import privacy_docuseal_config
 from . import privacy_docuseal_interface
 from . import privacy_docuseal_template

@@ -384,6 +384,7 @@ class PrivacyConsent(models.Model):
                 body="Demande de consentement envoyée.",
                 message_type="notification",
             )
+        return True
 
     def action_grant(self):
         """Mark consent as granted."""
@@ -399,6 +400,7 @@ class PrivacyConsent(models.Model):
                 body="Consentement accordé.",
                 message_type="notification",
             )
+        return True
 
     def action_refuse(self):
         """Mark consent as refused."""
@@ -413,6 +415,7 @@ class PrivacyConsent(models.Model):
                 body="Consentement refusé.",
                 message_type="notification",
             )
+        return True
 
     def action_withdraw(self):
         """Open withdrawal wizard."""
@@ -434,6 +437,7 @@ class PrivacyConsent(models.Model):
             if consent.status in ("granted", "withdrawn"):
                 raise UserError("Impossible de réinitialiser les consentements accordés ou révoqués.")
             consent.write({"status": "draft"})
+        return True
 
     def action_view_evidence(self):
         """View evidence attachments."""
@@ -505,6 +509,7 @@ class PrivacyConsent(models.Model):
                 "The contact has no email address."
             )
         self._send_consent_request_email()
+        return True
 
     # === Email ===
 

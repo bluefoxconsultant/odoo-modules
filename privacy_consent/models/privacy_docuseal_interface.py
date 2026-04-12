@@ -7,6 +7,8 @@ import requests
 from odoo import api, models
 from odoo.exceptions import UserError
 
+from .privacy_url_guard import assert_safe_url
+
 _logger = logging.getLogger(__name__)
 
 
@@ -31,6 +33,7 @@ class PrivacyDocusealInterface(models.AbstractModel):
     def _make_request(self, config, method, endpoint, data=None, timeout=30):
         """Make an API request to DocuSeal."""
         url = f"{config.api_url}{endpoint}"
+        assert_safe_url(url, "DocuSeal")
         headers = self._get_headers(config)
 
         try:
@@ -67,9 +70,15 @@ class PrivacyDocusealInterface(models.AbstractModel):
             return {"success": True, "templates": result}
         except UserError as e:
             return {"success": False, "error": str(e)}
-        except Exception as e:
+        except Exception:
             _logger.exception("DocuSeal connection test failed")
-            return {"success": False, "error": str(e)}
+            return {
+                "success": False,
+                "error": (
+                    "La connexion à DocuSeal a échoué. "
+                    "Consultez les journaux du serveur pour les détails."
+                ),
+            }
 
     @api.model
     def get_templates(self, config):

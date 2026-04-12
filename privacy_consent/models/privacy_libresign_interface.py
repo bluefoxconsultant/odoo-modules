@@ -7,6 +7,8 @@ import requests
 from odoo import api, models
 from odoo.exceptions import UserError
 
+from .privacy_url_guard import assert_safe_url
+
 _logger = logging.getLogger(__name__)
 
 LIBRESIGN_API_PATH = "/index.php/apps/libresign/api/v1"
@@ -43,6 +45,7 @@ class PrivacyLibresignInterface(models.AbstractModel):
     def _make_request(self, config, method, endpoint, data=None, timeout=30):
         """Make an API request to LibreSign."""
         url = f"{self._get_base_url(config)}{endpoint}"
+        assert_safe_url(url, "LibreSign")
         headers = self._get_headers(config)
 
         try:
@@ -79,9 +82,15 @@ class PrivacyLibresignInterface(models.AbstractModel):
             return {"success": True, "data": result}
         except UserError as e:
             return {"success": False, "error": str(e)}
-        except Exception as e:
+        except Exception:
             _logger.exception("LibreSign connection test failed")
-            return {"success": False, "error": str(e)}
+            return {
+                "success": False,
+                "error": (
+                    "La connexion à LibreSign a échoué. "
+                    "Consultez les journaux du serveur pour les détails."
+                ),
+            }
 
     @api.model
     def request_signature(self, config, file_data, signers, name="Consent Document"):

@@ -9,10 +9,11 @@ _logger = logging.getLogger(__name__)
 
 
 class PrivacyDestructionRequest(models.Model):
-    """Demande de destruction de données basée sur la politique de rétention.
+    """Demande de destruction de données (Art. 23 LPRPSP).
 
     Gère la destruction de :
     - Enregistrements de consentement (anonymisation/archivage)
+    - Documents classifiés contenant des RP
     - Identifiants de projet (effacement sécurisé) - si project_knowledge_matrix est installé
     - Données Nextcloud (activité pour suppression manuelle)
     """
@@ -23,29 +24,70 @@ class PrivacyDestructionRequest(models.Model):
     _order = "scheduled_date, id"
     _rec_name = "certificate_number"
 
+    # Request type
+    request_type = fields.Selection(
+        selection=[
+            ("consent", "Consentement"),
+            ("document", "Document"),
+            ("erasure_right", "Droit à l'effacement"),
+            ("campaign", "Campagne"),
+        ],
+        string="Type de demande",
+        default="consent",
+        required=True,
+        tracking=True,
+    )
+
     consent_id = fields.Many2one(
         comodel_name="privacy.consent",
         string="Consentement",
-        required=False,  # Can now be standalone for partner destruction
+        required=False,
         ondelete="cascade",
         index=True,
     )
     policy_id = fields.Many2one(
         comodel_name="privacy.retention.policy",
         string="Politique de rétention",
-        required=True,
+        required=False,
         ondelete="restrict",
     )
     partner_id = fields.Many2one(
-        related="consent_id.subject_partner_id",
+        comodel_name="res.partner",
         string="Sujet",
         store=True,
         index=True,
+        tracking=True,
     )
     purpose_id = fields.Many2one(
         related="consent_id.purpose_id",
         string="Finalité",
         store=True,
+    )
+
+    # Document destruction fields
+    classification_ids = fields.Many2many(
+        comodel_name="privacy.document.classification",
+        string="Documents classifiés",
+        help="Documents contenant des RP à détruire",
+    )
+    retention_calendar_id = fields.Many2one(
+        comodel_name="privacy.retention.calendar",
+        string="Règle de conservation",
+        help="Règle du calendrier de conservation applicable",
+    )
+    campaign_id = fields.Many2one(
+        comodel_name="privacy.destruction.campaign",
+        string="Campagne",
+        ondelete="set null",
+    )
+    register_entry_ids = fields.One2many(
+        comodel_name="privacy.destruction.register",
+        inverse_name="destruction_request_id",
+        string="Entrées du registre",
+    )
+    document_count = fields.Integer(
+        string="Documents ciblés",
+        compute="_compute_document_count",
     )
 
     # Schedule
@@ -90,6 +132,7 @@ class PrivacyDestructionRequest(models.Model):
         selection=[
             ("anonymize", "Anonymisé"),
             ("delete", "Supprimé"),
+            ("secure_wipe", "Effacement sécurisé"),
             ("archive", "Archivé"),
             ("manual", "Manuel"),
         ],
@@ -103,13 +146,6 @@ class PrivacyDestructionRequest(models.Model):
         copy=False,
         index=True,
     )
-    certificate_file = fields.Binary(
-        string="Certificat de destruction",
-        attachment=True,
-    )
-    certificate_filename = fields.Char(
-        string="Nom du fichier de certificat",
-    )
     verification_hash = fields.Char(
         string="Empreinte de vérification",
         readonly=True,
@@ -120,7 +156,7 @@ class PrivacyDestructionRequest(models.Model):
     company_id = fields.Many2one(
         comodel_name="res.company",
         string="Société",
-        related="consent_id.company_id",
+        default=lambda self: self.env.company,
         store=True,
     )
 
@@ -142,14 +178,57 @@ class PrivacyDestructionRequest(models.Model):
         help="Chemin vers le dossier client dans Nextcloud pour suppression",
     )
 
+    def _compute_document_count(self):
+        for record in self:
+            record.document_count = len(record.classification_ids)
+
+    @api.onchange("consent_id")
+    def _onchange_consent_id(self):
+        """Auto-fill partner from consent."""
+        if self.consent_id and self.consent_id.subject_partner_id:
+            self.partner_id = self.consent_id.subject_partner_id
+
+    # Valid state transitions (from → allowed to states).
+    # Enforced in write() so direct ORM writes cannot skip approval/execution.
+    _STATE_TRANSITIONS = {
+        "pending": {"approved", "cancelled"},
+        "approved": {"executed", "cancelled"},
+        "executed": set(),
+        "cancelled": set(),
+    }
+
+    def write(self, vals):
+        """Enforce valid state transitions (Art. 3.2 LPRPSP accountability)."""
+        if "state" in vals and not self.env.context.get("skip_state_validation"):
+            new_state = vals["state"]
+            for record in self:
+                allowed = self._STATE_TRANSITIONS.get(record.state, set())
+                if new_state != record.state and new_state not in allowed:
+                    raise UserError(
+                        f"Transition d'état invalide : « {record.state} » → "
+                        f"« {new_state} ». Utilisez les actions d'approbation / "
+                        f"d'exécution / d'annulation."
+                    )
+        return super().write(vals)
+
     @api.model_create_multi
     def create(self, vals_list):
-        """Generate certificate number on creation."""
+        """Generate certificate number on creation and auto-fill partner."""
         for vals in vals_list:
             if not vals.get("certificate_number"):
                 vals["certificate_number"] = self.env["ir.sequence"].next_by_code(
                     "privacy.destruction.request"
                 ) or "DEST-NEW"
+            # Auto-fill partner from consent if not provided
+            if not vals.get("partner_id") and vals.get("consent_id"):
+                consent = self.env["privacy.consent"].browse(vals["consent_id"])
+                if consent.exists() and consent.subject_partner_id:
+                    vals["partner_id"] = consent.subject_partner_id.id
+            # Auto-fill company from consent if not provided
+            if not vals.get("company_id") and vals.get("consent_id"):
+                consent = self.env["privacy.consent"].browse(vals["consent_id"])
+                if consent.exists() and consent.company_id:
+                    vals["company_id"] = consent.company_id.id
         return super().create(vals_list)
 
     def _compute_display_name(self):
@@ -157,23 +236,58 @@ class PrivacyDestructionRequest(models.Model):
             record.display_name = record.certificate_number or f"Demande #{record.id}"
 
     def action_approve(self):
-        """Approve destruction request."""
+        """Approve destruction request (Privacy Manager+ only)."""
+        if not self.env.su and not self.env.user.has_group(
+            "privacy_consent.group_privacy_manager"
+        ):
+            raise UserError(
+                "Seul un gestionnaire ou responsable de la vie privée peut approuver "
+                "une demande de destruction."
+            )
         for request in self:
             if request.state != "pending":
                 raise UserError("Seules les demandes en attente peuvent être approuvées.")
+            # Prevent two approved requests targeting the same classified documents
+            if request.classification_ids:
+                conflicting = self.search([
+                    ("id", "!=", request.id),
+                    ("state", "=", "approved"),
+                    ("classification_ids", "in", request.classification_ids.ids),
+                ], limit=1)
+                if conflicting:
+                    raise UserError(
+                        f"Une demande déjà approuvée ({conflicting.certificate_number}) "
+                        f"cible un ou plusieurs de ces documents. "
+                        f"Exécutez-la ou annulez-la avant d'approuver celle-ci."
+                    )
             request.write({"state": "approved"})
             request.message_post(
                 body="Demande de destruction approuvée.",
                 message_type="notification",
             )
+        return True
 
     def action_execute(self):
-        """Execute destruction according to policy."""
+        """Execute destruction according to policy or calendar rule (Privacy Officer+ only)."""
+        if not self.env.su and not self.env.user.has_group(
+            "privacy_consent.group_privacy_officer"
+        ):
+            raise UserError(
+                "Seul le responsable de la vie privée peut exécuter "
+                "une destruction de données."
+            )
         for request in self:
             if request.state != "approved":
                 raise UserError("Seules les demandes approuvées peuvent être exécutées.")
 
-            method = request.policy_id.destruction_method
+            # Determine method from policy, calendar, or default
+            if request.policy_id:
+                method = request.policy_id.destruction_method
+            elif request.retention_calendar_id:
+                method = request.retention_calendar_id.destruction_method or "delete"
+            else:
+                method = "anonymize"
+
             request._execute_destruction(method)
 
             # Generate certificate
@@ -185,20 +299,34 @@ class PrivacyDestructionRequest(models.Model):
                 "executed_by_id": self.env.user.id,
                 "destruction_method_used": method,
             })
+
+            # Create register entry
+            self.env["privacy.destruction.register"].create_from_destruction_request(request)
+
             request.message_post(
                 body=f"Destruction exécutée avec la méthode : {method}",
                 message_type="notification",
             )
+        return True
 
     def _execute_destruction(self, method):
         """Execute the actual destruction based on method.
 
-        This includes:
+        For consent-type requests:
         1. Consent record handling (anonymize/archive)
         2. Credential destruction (secure wipe)
         3. Nextcloud activity creation (for manual deletion)
+
+        For document-type requests:
+        Delegates to _execute_document_destruction().
         """
         self.ensure_one()
+
+        # Document-type destruction
+        if self.request_type in ("document", "campaign") and self.classification_ids:
+            self._execute_document_destruction(method)
+            return
+
         consent = self.consent_id
         partner = self.partner_id
 
@@ -236,6 +364,78 @@ class PrivacyDestructionRequest(models.Model):
                 note=f"Révision manuelle de destruction requise pour {partner.name}",
                 user_id=self.env.user.id,
             )
+
+    def _execute_document_destruction(self, method):
+        """Execute destruction for classified documents.
+
+        Iterates over classification_ids and destroys/anonymizes each linked
+        document record based on the chosen method.
+
+        Validates that the target model allows write access before using sudo()
+        to perform the actual destruction.
+        """
+        self.ensure_one()
+        # Validate method
+        valid_methods = {"anonymize", "delete", "secure_wipe", "archive", "manual"}
+        if method not in valid_methods:
+            raise UserError(f"Méthode de destruction invalide : {method}")
+        for classification in self.classification_ids:
+            if not classification.res_model or not classification.res_id:
+                continue
+            try:
+                record = self.env[classification.res_model].browse(classification.res_id)
+            except KeyError:
+                _logger.warning(
+                    "Model %s not found during destruction", classification.res_model
+                )
+                continue
+            if not record.exists():
+                _logger.info(
+                    "Record %s,%s already deleted", classification.res_model, classification.res_id
+                )
+                classification.write({"active": False})
+                continue
+
+            # Verify current user would have write access to the target model
+            # before escalating to sudo. This prevents privilege escalation
+            # through the destruction workflow.
+            try:
+                record.check_access_rights("write")
+                record.check_access_rule("write")
+            except Exception:
+                _logger.warning(
+                    "User %s lacks write access to %s,%s — skipping destruction",
+                    self.env.user.login, classification.res_model, classification.res_id,
+                )
+                continue
+
+            if method == "anonymize":
+                if hasattr(record, "active"):
+                    record.sudo().write({"active": False})
+                if hasattr(record, "notes"):
+                    record.sudo().write({
+                        "notes": f"[ANONYMISÉ le {fields.Date.today()}]"
+                    })
+            elif method in ("delete", "secure_wipe"):
+                if classification.res_model == "ir.attachment":
+                    record.sudo().write({
+                        "datas": False,
+                        "description": f"[EFFACÉ le {fields.Date.today()}]",
+                    })
+                if hasattr(record, "active"):
+                    record.sudo().write({"active": False})
+            elif method == "archive":
+                if hasattr(record, "active"):
+                    record.sudo().write({"active": False})
+
+            # Deactivate classification
+            classification.write({"active": False})
+
+        # Also handle partner-level destruction if applicable
+        if self.partner_id:
+            credentials_count = self._destroy_partner_credentials(self.partner_id)
+            self.credentials_destroyed = credentials_count
+            self._create_nextcloud_deletion_activity(self.partner_id)
 
     def _destroy_partner_credentials(self, partner):
         """Securely destroy all credentials linked to partner's projects.
@@ -505,17 +705,16 @@ in accordance with applicable privacy laws and regulations.
                 body="Demande de destruction annulée.",
                 message_type="notification",
             )
+        return True
 
     def action_view_certificate(self):
-        """View/Download destruction certificate."""
+        """View/Download destruction certificate via QWeb report."""
         self.ensure_one()
-        if not self.certificate_file:
-            raise UserError("Le certificat n'a pas encore été généré.")
-        return {
-            "type": "ir.actions.act_url",
-            "url": f"/web/content/{self._name}/{self.id}/certificate_file/{self.certificate_filename}",
-            "target": "new",
-        }
+        if self.state != "executed":
+            raise UserError("Le certificat n'est disponible qu'après exécution de la destruction.")
+        return self.env.ref(
+            "privacy_consent.action_report_destruction_certificate"
+        ).report_action(self)
 
     @api.model
     def create_partner_destruction_request(self, partner_id, reason=None):
@@ -555,6 +754,7 @@ in accordance with applicable privacy laws and regulations.
         ], limit=1)
 
         vals = {
+            'request_type': 'erasure_right',
             'partner_id': partner_id,
             'trigger_date': fields.Datetime.now(),
             'scheduled_date': fields.Date.today(),
@@ -563,6 +763,15 @@ in accordance with applicable privacy laws and regulations.
 
         if policy:
             vals['policy_id'] = policy.id
+
+        # Attach all classified documents for this partner (scoped to company)
+        classifications = self.env['privacy.document.classification'].search([
+            ('subject_partner_id', '=', partner_id),
+            ('active', '=', True),
+            ('company_id', 'in', [self.env.company.id, False]),
+        ])
+        if classifications:
+            vals['classification_ids'] = [(6, 0, classifications.ids)]
 
         # Link to any consent if exists
         consent = self.env['privacy.consent'].search([
@@ -587,35 +796,49 @@ in accordance with applicable privacy laws and regulations.
 
     @api.model
     def cron_process_scheduled_destructions(self):
-        """Process destruction requests that have reached their scheduled date."""
+        """Execute destruction requests already approved by a Privacy Officer.
+
+        Auto-approval was removed in v18.0.3.1.0: Loi 25 accountability requires
+        an explicit officer decision before any destruction. Pending requests
+        past their scheduled_date now trigger an activity for manual review.
+        """
         today = fields.Date.today()
 
-        # Find pending requests with auto-approve
+        # Flag pending requests past their scheduled date (manual review required)
         pending = self.search([
             ("state", "=", "pending"),
             ("scheduled_date", "<=", today),
-            ("policy_id.destruction_method", "!=", "manual"),
         ])
-
         for request in pending:
-            try:
-                request.action_approve()
-            except Exception as e:
-                request.message_post(
-                    body=f"Échec de l'approbation automatique : {e}",
-                    message_type="notification",
-                )
+            # Avoid duplicate activities
+            existing = request.activity_ids.filtered(
+                lambda a: a.activity_type_id
+                and a.activity_type_id.name == "To-Do"
+            )
+            if existing:
+                continue
+            request.activity_schedule(
+                "mail.mail_activity_data_todo",
+                summary="Demande de destruction en attente d'approbation",
+                note=(
+                    f"La demande {request.certificate_number} a atteint sa date "
+                    f"prévue et requiert une approbation manuelle (Loi 25)."
+                ),
+            )
 
-        # Find approved requests ready for execution
+        # Execute already-approved requests (officer gate still applies inside)
         approved = self.search([
             ("state", "=", "approved"),
             ("scheduled_date", "<=", today),
         ])
-
         for request in approved:
             try:
                 request.action_execute()
             except Exception as e:
+                _logger.exception(
+                    "Cron failed to execute destruction %s: %s",
+                    request.certificate_number, e,
+                )
                 request.message_post(
                     body=f"Échec de l'exécution : {e}",
                     message_type="notification",

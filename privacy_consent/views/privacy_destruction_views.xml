@@ -23,15 +23,19 @@
                         </h1>
                     </div>
                     <group>
-                        <group string="Information sur le consentement">
-                            <field name="consent_id"/>
+                        <group string="Demande">
+                            <field name="request_type"/>
                             <field name="partner_id"/>
-                            <field name="purpose_id"/>
-                            <field name="policy_id"/>
+                            <field name="consent_id" invisible="request_type not in ('consent', 'erasure_right')"/>
+                            <field name="purpose_id" invisible="request_type not in ('consent', 'erasure_right')"/>
+                            <field name="policy_id" invisible="request_type in ('document', 'campaign')"/>
+                            <field name="retention_calendar_id" invisible="request_type not in ('document', 'campaign')"/>
+                            <field name="campaign_id" invisible="request_type != 'campaign'"/>
                         </group>
                         <group string="Planification">
                             <field name="trigger_date"/>
                             <field name="scheduled_date"/>
+                            <field name="document_count" invisible="request_type == 'consent'"/>
                         </group>
                     </group>
                     <group invisible="state != 'executed'">
@@ -41,8 +45,6 @@
                             <field name="destruction_method_used"/>
                         </group>
                         <group string="Certificat">
-                            <field name="certificate_file" filename="certificate_filename"/>
-                            <field name="certificate_filename" invisible="1"/>
                             <field name="verification_hash"/>
                         </group>
                     </group>
@@ -55,6 +57,32 @@
                             <field name="nextcloud_activity_id"/>
                         </group>
                     </group>
+                    <notebook invisible="request_type == 'consent' and not register_entry_ids">
+                        <page string="Documents classifiés" name="classifications"
+                              invisible="request_type == 'consent'">
+                            <field name="classification_ids">
+                                <list>
+                                    <field name="res_name" string="Document"/>
+                                    <field name="pi_category"/>
+                                    <field name="sensitivity_level"/>
+                                    <field name="retention_calendar_id"/>
+                                    <field name="retention_expiry_date"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Registre" name="register"
+                              invisible="not register_entry_ids">
+                            <field name="register_entry_ids" readonly="1">
+                                <list>
+                                    <field name="register_number"/>
+                                    <field name="destruction_date"/>
+                                    <field name="destruction_method"/>
+                                    <field name="res_name"/>
+                                    <field name="approved_by_id"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
                     <group string="Notes">
                         <field name="notes" nolabel="1"/>
                     </group>
@@ -72,9 +100,14 @@
             <list string="Demandes de destruction" decoration-danger="state == 'pending' and scheduled_date &lt;= current_date"
                   decoration-warning="state == 'approved'" decoration-muted="state == 'cancelled'">
                 <field name="certificate_number"/>
+                <field name="request_type" widget="badge"
+                       decoration-info="request_type == 'consent'"
+                       decoration-warning="request_type == 'document'"
+                       decoration-danger="request_type == 'erasure_right'"
+                       decoration-success="request_type == 'campaign'"/>
                 <field name="partner_id"/>
-                <field name="purpose_id"/>
-                <field name="policy_id"/>
+                <field name="purpose_id" optional="show"/>
+                <field name="policy_id" optional="show"/>
                 <field name="scheduled_date"/>
                 <field name="state" widget="badge"
                        decoration-info="state == 'pending'"

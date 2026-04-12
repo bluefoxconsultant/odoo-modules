@@ -1,52 +1,50 @@
 {
     "name": "Suivi des consentements (Loi 25)",
-    "version": "18.0.2.18.0",
+    "version": "18.0.3.1.2",
     "category": "Privacy/Compliance",
-    "summary": "Suivi des consentements pour la conformité à la Loi 25 du Québec",
+    "summary": "Vie privée, consentements et destruction documentaire (Loi 25)",
     "description": """
-Suivi des consentements (Loi 25)
-================================
+Vie privée — Loi 25 du Québec
+==============================
 
-Module de gestion des consentements pour la conformité à la Loi 25 du Québec.
+Module complet de gestion de la vie privée pour la conformité à la Loi 25.
 
-Fonctionnalités :
------------------
-* Tableau de bord avec KPIs (consentements en attente, expirant, taux)
-* Gestion des modèles de consentement (avec finalités intégrées)
-* Versionnage des modèles avec hash d'intégrité
-* Suivi des consentements par contact et projet
-* Préférences de contact (DNC, canaux)
-* Portail client (Centre de préférences) avec renouvellement
-* Politiques de rétention et destruction de données
-* Intégration DocuSeal pour signatures électroniques
-* Intégration LibreSign (Nextcloud) pour signatures électroniques
-* Séquences de courriels automatisées (relances)
-* Automatisations (expiration, rappels)
-* Assistants pour demandes et retraits
-* Intégration complète avec Contacts et Projets
-* Certificats de destruction PDF
+Consentements :
+---------------
+* Tableau de bord avec KPIs
+* Modèles de consentement versionnés avec hash d'intégrité
+* Suivi par contact et projet, préférences DNC
+* Portail client avec renouvellement
+* Intégration DocuSeal et LibreSign (signatures électroniques)
+* Séquences de courriels automatisées
+* Gestion du consentement des mineurs (<14 ans)
+* Piste de vérification forensique avec preuves
 
-Conformité Loi 25 :
---------------------
-* Résumés en langage clair
-* Suivi des consentements express
-* Gestion du consentement des mineurs
-* Piste de vérification avec preuves
-* Politiques de rétention des données
-* Certificats de destruction
+Destruction et anonymisation documentaire :
+--------------------------------------------
+* Calendrier de conservation par type de document (Art. 3.2 LPRPSP)
+* Classification documentaire (catégories de RP, sensibilité)
+* Registre de destruction immuable avec hash SHA-256
+* Campagnes de destruction en lot
+* Évaluations d'anonymisation — 3 critères (Règl. A-2.1, r. 0.1)
+* Droit à l'effacement (Art. 28.1 LPRPSP)
+* Certificats de destruction PDF bilingues
+* Effacement sécurisé des identifiants (credentials)
     """,
-    "author": "Your Company Name",
-    "website": "https://example.com",
+    "author": "Blue Fox Inc",
+    "website": "https://bluefoxconsultant.com",
     "license": "Other OSI approved licence",
     "depends": ["base", "mail", "project", "portal"],
     "external_dependencies": {
-        "python": ["cryptography"],
+        "python": ["cryptography", "dateutil"],
     },
     "data": [
         # Sécurité en premier
         "security/privacy_security.xml",
         "security/ir.model.access.csv",
         # Données
+        "data/privacy_retention_calendar_data.xml",
+        "data/privacy_destruction_register_cron.xml",
         "data/privacy_purpose_data.xml",
         "data/privacy_notice_data.xml",
         "data/privacy_cron.xml",
@@ -64,6 +62,11 @@ Conformité Loi 25 :
         "views/privacy_dashboard_views.xml",
         "views/privacy_retention_views.xml",
         "views/privacy_destruction_views.xml",
+        "views/privacy_retention_calendar_views.xml",
+        "views/privacy_document_classification_views.xml",
+        "views/privacy_destruction_register_views.xml",
+        "views/privacy_anonymization_assessment_views.xml",
+        "views/privacy_destruction_campaign_views.xml",
         "views/privacy_docuseal_views.xml",
         "views/privacy_libresign_views.xml",
         "views/privacy_email_sequence_views.xml",

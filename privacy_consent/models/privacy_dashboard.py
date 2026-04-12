@@ -77,6 +77,32 @@ class PrivacyDashboard(models.TransientModel):
         help="Consentements expirant dans les 90 jours qui n'ont pas encore été renouvelés",
     )
 
+    # Document destruction KPIs
+    register_entries_count = fields.Integer(
+        string="Entrées au registre",
+        compute="_compute_stats",
+    )
+    register_entries_month = fields.Integer(
+        string="Destructions ce mois",
+        compute="_compute_stats",
+    )
+    active_campaigns = fields.Integer(
+        string="Campagnes en cours",
+        compute="_compute_stats",
+    )
+    assessments_due = fields.Integer(
+        string="Réévaluations dues",
+        compute="_compute_stats",
+    )
+    documents_classified = fields.Integer(
+        string="Documents classifiés",
+        compute="_compute_stats",
+    )
+    documents_past_retention = fields.Integer(
+        string="Rétention dépassée",
+        compute="_compute_stats",
+    )
+
     @api.model
     def default_get(self, fields_list):
         """Override to compute stats on form load."""
@@ -153,6 +179,51 @@ class PrivacyDashboard(models.TransientModel):
             ("renewed_to_id", "=", False),
         ])
 
+        # Document destruction KPIs
+        register_entries_count = 0
+        register_entries_month = 0
+        active_campaigns = 0
+        assessments_due = 0
+        documents_classified = 0
+        documents_past_retention = 0
+
+        try:
+            Register = self.env["privacy.destruction.register"]
+            register_entries_count = Register.search_count([])
+            month_start = today.replace(day=1)
+            register_entries_month = Register.search_count([
+                ("destruction_date", ">=", month_start),
+            ])
+        except Exception:
+            pass
+
+        try:
+            Campaign = self.env["privacy.destruction.campaign"]
+            active_campaigns = Campaign.search_count([
+                ("state", "in", ["scanning", "review", "approved", "executing"]),
+            ])
+        except Exception:
+            pass
+
+        try:
+            Assessment = self.env["privacy.anonymization.assessment"]
+            assessments_due = Assessment.search_count([
+                ("state", "=", "reassessment_due"),
+            ])
+        except Exception:
+            pass
+
+        try:
+            Classification = self.env["privacy.document.classification"]
+            documents_classified = Classification.search_count([("active", "=", True)])
+            documents_past_retention = Classification.search_count([
+                ("active", "=", True),
+                ("retention_expiry_date", "<=", today),
+                ("retention_expiry_date", "!=", False),
+            ])
+        except Exception:
+            pass
+
         return {
             "last_refresh": now,
             "pending_requests": pending_requests,
@@ -168,6 +239,12 @@ class PrivacyDashboard(models.TransientModel):
             "dnc_count": dnc_count,
             "pending_destructions": pending_destructions,
             "renewal_emails_pending": renewal_emails_pending,
+            "register_entries_count": register_entries_count,
+            "register_entries_month": register_entries_month,
+            "active_campaigns": active_campaigns,
+            "assessments_due": assessments_due,
+            "documents_classified": documents_classified,
+            "documents_past_retention": documents_past_retention,
         }
 
     @api.depends_context("uid")
@@ -188,6 +265,12 @@ class PrivacyDashboard(models.TransientModel):
             record.dnc_count = stats["dnc_count"]
             record.pending_destructions = stats["pending_destructions"]
             record.renewal_emails_pending = stats["renewal_emails_pending"]
+            record.register_entries_count = stats["register_entries_count"]
+            record.register_entries_month = stats["register_entries_month"]
+            record.active_campaigns = stats["active_campaigns"]
+            record.assessments_due = stats["assessments_due"]
+            record.documents_classified = stats["documents_classified"]
+            record.documents_past_retention = stats["documents_past_retention"]
 
     # === Action Methods ===
 
@@ -319,6 +402,72 @@ class PrivacyDashboard(models.TransientModel):
             "res_model": "privacy.destruction.request",
             "views": [[False, "list"], [False, "form"]],
             "domain": [("state", "=", "pending")],
+        }
+
+    def action_view_register(self):
+        """View destruction register."""
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Registre de destruction",
+            "res_model": "privacy.destruction.register",
+            "views": [[False, "list"], [False, "form"]],
+            "domain": [],
+        }
+
+    def action_view_register_month(self):
+        """View this month's register entries."""
+        month_start = fields.Date.today().replace(day=1)
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Destructions ce mois",
+            "res_model": "privacy.destruction.register",
+            "views": [[False, "list"], [False, "form"]],
+            "domain": [("destruction_date", ">=", month_start)],
+        }
+
+    def action_view_active_campaigns(self):
+        """View active destruction campaigns."""
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Campagnes en cours",
+            "res_model": "privacy.destruction.campaign",
+            "views": [[False, "list"], [False, "form"]],
+            "domain": [("state", "in", ["scanning", "review", "approved", "executing"])],
+        }
+
+    def action_view_assessments_due(self):
+        """View anonymization assessments due for reassessment."""
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Réévaluations dues",
+            "res_model": "privacy.anonymization.assessment",
+            "views": [[False, "list"], [False, "form"]],
+            "domain": [("state", "=", "reassessment_due")],
+        }
+
+    def action_view_documents_classified(self):
+        """View classified documents."""
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Documents classifiés",
+            "res_model": "privacy.document.classification",
+            "views": [[False, "list"], [False, "form"]],
+            "domain": [("active", "=", True)],
+        }
+
+    def action_view_documents_past_retention(self):
+        """View documents past their retention period."""
+        today = fields.Date.today()
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Rétention dépassée",
+            "res_model": "privacy.document.classification",
+            "views": [[False, "list"], [False, "form"]],
+            "domain": [
+                ("active", "=", True),
+                ("retention_expiry_date", "<=", today),
+                ("retention_expiry_date", "!=", False),
+            ],
         }
 
     def action_view_renewal_emails_pending(self):

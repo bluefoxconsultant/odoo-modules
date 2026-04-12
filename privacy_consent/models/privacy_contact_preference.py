@@ -119,6 +119,7 @@ class PrivacyContactPreference(models.Model):
             "allow_sms": False,
             "opt_out_date": fields.Date.today(),
         })
+        return True
 
     def action_reset_preferences(self):
         """Reset to default preferences."""
@@ -131,6 +132,7 @@ class PrivacyContactPreference(models.Model):
             "opt_out_reason": False,
             "opt_out_date": False,
         })
+        return True
 
     # -------------------------------------------------------------------------
     # Marketing Blacklist Sync

@@ -3,6 +3,7 @@
     <!-- Modèle de rapport - Certificat de destruction -->
     <template id="report_destruction_certificate_document">
         <t t-call="web.external_layout">
+            <t t-set="lang" t-value="(o.partner_id.lang or o.env.company.partner_id.lang or 'fr_CA')"/>
             <t t-set="o" t-value="o.with_context(lang=lang)"/>
             <div class="page">
                 <!-- En-tête -->
@@ -38,7 +39,7 @@
                                 <td><strong>Finalité / Purpose:</strong></td>
                                 <td><t t-esc="o.purpose_id.name or 'N/A'"/></td>
                             </tr>
-                            <tr>
+                            <tr t-if="o.consent_id">
                                 <td><strong>Référence du consentement / Consent Reference:</strong></td>
                                 <td><t t-esc="o.consent_id.display_name"/></td>
                             </tr>
@@ -74,6 +75,7 @@
                                 <td>
                                     <t t-if="o.destruction_method_used == 'anonymize'">Anonymisation / Anonymization</t>
                                     <t t-elif="o.destruction_method_used == 'delete'">Suppression / Deletion</t>
+                                    <t t-elif="o.destruction_method_used == 'secure_wipe'">Effacement sécurisé / Secure Wipe</t>
                                     <t t-elif="o.destruction_method_used == 'archive'">Archivage / Archival</t>
                                     <t t-else="">Manuel / Manual</t>
                                 </td>
@@ -83,7 +85,7 @@
                 </div>
 
                 <!-- Politique de rétention -->
-                <div class="row mb-4">
+                <div class="row mb-4" t-if="o.policy_id">
                     <div class="col-12">
                         <h5 style="border-bottom: 2px solid #32373c; padding-bottom: 5px;">
                             Politique de rétention / Retention Policy
@@ -105,6 +107,69 @@
                                     <t t-else="">Après expiration ou retrait / After Expiration or Withdrawal</t>
                                 </td>
                             </tr>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Règle du calendrier de conservation -->
+                <div class="row mb-4" t-if="o.retention_calendar_id">
+                    <div class="col-12">
+                        <h5 style="border-bottom: 2px solid #32373c; padding-bottom: 5px;">
+                            Calendrier de conservation / Retention Calendar
+                        </h5>
+                        <table class="table table-borderless">
+                            <tr>
+                                <td width="30%"><strong>Règle / Rule:</strong></td>
+                                <td><t t-esc="o.retention_calendar_id.display_name"/></td>
+                            </tr>
+                            <tr>
+                                <td><strong>Base légale / Legal Basis:</strong></td>
+                                <td><t t-esc="o.retention_calendar_id.legal_basis or 'N/A'"/></td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Documents détruits (pour destructions documentaires) -->
+                <div class="row mb-4" t-if="o.request_type in ('document', 'erasure_right', 'campaign') and o.classification_ids">
+                    <div class="col-12">
+                        <h5 style="border-bottom: 2px solid #32373c; padding-bottom: 5px;">
+                            Documents détruits / Destroyed Documents
+                        </h5>
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Document</th>
+                                    <th>Catégorie de RP / PI Category</th>
+                                    <th>Sensibilité / Sensitivity</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <t t-foreach="o.classification_ids" t-as="cls">
+                                    <tr>
+                                        <td><t t-esc="cls.res_name or 'N/A'"/></td>
+                                        <td><t t-esc="cls.pi_category"/></td>
+                                        <td><t t-esc="cls.sensitivity_level"/></td>
+                                    </tr>
+                                </t>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Registre de destruction / Destruction Register -->
+                <div class="row mb-4" t-if="o.register_entry_ids">
+                    <div class="col-12">
+                        <h5 style="border-bottom: 2px solid #32373c; padding-bottom: 5px;">
+                            Registre de destruction / Destruction Register
+                        </h5>
+                        <table class="table table-borderless">
+                            <t t-foreach="o.register_entry_ids" t-as="entry">
+                                <tr>
+                                    <td width="30%"><strong>N° registre / Register No.:</strong></td>
+                                    <td><t t-esc="entry.register_number"/></td>
+                                </tr>
+                            </t>
                         </table>
                     </div>
                 </div>
