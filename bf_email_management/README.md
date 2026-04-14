@@ -26,14 +26,17 @@ A centralized email management module for Odoo 18 that aggregates all sent and r
 
 ### Synchronization
 - **Incremental Cron**: Syncs new emails from `mail.message` every 5 minutes
-- **Initial Import Wizard**: Batch import of historical emails with date range selection
-- **Deduplication**: RFC 2822 Message-ID based deduplication prevents duplicates
+- **Manual Trigger**: "Synchroniser maintenant" button on the list view header and under *Configuration* runs the sync on demand and reports how many records were imported
+- **Dual Source Coverage**: Captures both mail-gateway emails (`message_type='email'`) and chatter comments that generated an email notification to external partners (`message_type='comment'` with an `email` notification) — so replies posted from an Odoo chatter form are no longer missed
+- **Source Field**: Each record is tagged `Passerelle courriel` or `Chatter` with search filters and group-by
+- **Initial Import Wizard**: Batch import of historical emails with date range selection, covers both sources
+- **Deduplication**: RFC 2822 Message-ID based deduplication prevents duplicates; scoped across active and archived rows, savepoint-isolated per record so a single constraint error never aborts the batch
 
 ### Views
 - **List**: Inbox-style with contact link, subject, category badges, status badges
 - **Form**: Full email detail with HTML body, technical headers, action buttons
 - **Kanban**: Grouped by status for visual workflow
-- **Search**: Filters by direction, status, date range, attachments; group by category, partner, model
+- **Search**: Filters by direction, source (gateway vs chatter), status, date range, attachments; group by category, source, partner, model
 - **Graph & Pivot**: Email volume analysis and cross-tabulation
 
 ## Requirements
