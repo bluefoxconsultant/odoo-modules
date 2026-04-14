@@ -11,6 +11,14 @@
             <list decoration-bf="status == 'new'"
                   decoration-muted="status == 'archived'"
                   default_order="date desc">
+                <header>
+                    <button name="%(action_bf_email_sync_now)d"
+                            string="Synchroniser maintenant"
+                            type="action"
+                            class="btn-primary"
+                            icon="fa-refresh"
+                            display="always"/>
+                </header>
                 <field name="direction" widget="badge"
                        decoration-info="direction == 'in'"
                        decoration-success="direction == 'out'"/>
@@ -26,6 +34,10 @@
                        decoration-warning="category == 'vendor'"
                        decoration-success="category == 'internal'"
                        optional="show"/>
+                <field name="source" widget="badge"
+                       decoration-info="source == 'chatter'"
+                       decoration-muted="source == 'gateway'"
+                       optional="hide"/>
                 <field name="status" widget="badge"
                        decoration-info="status == 'new'"
                        decoration-success="status == 'replied'"
@@ -121,6 +133,7 @@
                         </group>
                         <group string="Enrichissement">
                             <field name="category"/>
+                            <field name="source"/>
                             <field name="priority" widget="priority"/>
                             <field name="partner_id"/>
                             <field name="author_id"/>
@@ -186,6 +199,13 @@
                         string="Envoy&#233;s"
                         domain="[('direction', '=', 'out')]"/>
                 <separator/>
+                <filter name="filter_source_gateway"
+                        string="Via passerelle"
+                        domain="[('source', '=', 'gateway')]"/>
+                <filter name="filter_source_chatter"
+                        string="Via Chatter"
+                        domain="[('source', '=', 'chatter')]"/>
+                <separator/>
                 <filter name="filter_new"
                         string="Non lus"
                         domain="[('status', '=', 'new')]"/>
@@ -226,6 +246,9 @@
                     <filter name="group_category"
                             string="Cat&#233;gorie"
                             context="{'group_by': 'category'}"/>
+                    <filter name="group_source"
+                            string="Source"
+                            context="{'group_by': 'source'}"/>
                     <filter name="group_status"
                             string="Statut"
                             context="{'group_by': 'status'}"/>
@@ -347,6 +370,13 @@
         <field name="binding_view_types">list</field>
         <field name="state">code</field>
         <field name="code">records.action_archive()</field>
+    </record>
+
+    <record id="action_bf_email_sync_now" model="ir.actions.server">
+        <field name="name">Synchroniser maintenant</field>
+        <field name="model_id" ref="model_bf_email"/>
+        <field name="state">code</field>
+        <field name="code">action = model.action_sync_now()</field>
     </record>
 
     <!-- ============================================================ -->

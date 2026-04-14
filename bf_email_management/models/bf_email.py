@@ -61,6 +61,16 @@ class BfEmail(models.Model):
         required=True,
         index=True,
     )
+    source = fields.Selection(
+        selection=[
+            ("gateway", "Passerelle courriel"),
+            ("chatter", "Chatter"),
+        ],
+        string="Source",
+        index=True,
+        help="Origine du message\u00a0: passerelle courriel entrante/sortante "
+             "ou commentaire post\u00e9 via le chatter et notifi\u00e9 par courriel.",
+    )
     message_id_header = fields.Char(
         string="Message-ID",
         index=True,
@@ -406,8 +416,12 @@ class BfEmail(models.Model):
 
         messages = self.env["mail.message"].sudo().search(
             [
-                ("message_type", "=", "email"),
                 ("date", ">", last_sync),
+                "|",
+                    ("message_type", "=", "email"),
+                    "&",
+                        ("message_type", "=", "comment"),
+                        ("notification_ids.notification_type", "=", "email"),
             ],
             limit=batch_size,
             order="date asc",
@@ -435,10 +449,11 @@ class BfEmail(models.Model):
                 continue
 
             try:
-                self.with_context(
-                    mail_create_nosubscribe=True,
-                    tracking_disable=True,
-                ).create(vals)
+                with self.env.cr.savepoint():
+                    self.with_context(
+                        mail_create_nosubscribe=True,
+                        tracking_disable=True,
+                    ).create(vals)
                 created += 1
             except Exception:
                 _logger.warning(
@@ -456,9 +471,15 @@ class BfEmail(models.Model):
 
     @api.model
     def _should_sync(self, msg):
-        """Check if a mail.message should be synced (dedup)."""
+        """Check if a mail.message should be synced (dedup).
+
+        Includes archived records via active_test=False — the UNIQUE
+        constraint on (message_id_header, company_id) spans all rows
+        regardless of active, so we must match that scope to avoid
+        IntegrityError when a partner later archives and we re-sync.
+        """
         if msg.message_id:
-            existing = self.search_count([
+            existing = self.with_context(active_test=False).search_count([
                 ("message_id_header", "=", msg.message_id),
                 ("company_id", "=", self.env.company.id),
             ])
@@ -516,6 +537,7 @@ class BfEmail(models.Model):
             "email_cc": email_cc_str,
             "subject": msg.subject or "",
             "direction": direction,
+            "source": "gateway" if msg.message_type == "email" else "chatter",
             "message_id_header": msg.message_id or False,
             "in_reply_to": msg.parent_id.message_id if msg.parent_id else False,
             "mail_message_id": msg.id,
@@ -535,6 +557,51 @@ class BfEmail(models.Model):
         if msg.author_id and msg.author_id.user_ids:
             return "out"
         return "in"
+
+    # ------------------------------------------------------------------
+    # Manual sync trigger
+    # ------------------------------------------------------------------
+    @api.model
+    def action_sync_now(self):
+        """Run the sync cron immediately and show a notification with results.
+
+        Iterates until no new messages remain (or a safety cap is reached),
+        so a single click covers any backlog that exceeds the batch size.
+        """
+        ICP = self.env["ir.config_parameter"].sudo()
+        before = ICP.get_param("bf_email.last_sync_date", "2000-01-01 00:00:00")
+        before_count = self.search_count([])
+
+        max_iterations = 50
+        for _ in range(max_iterations):
+            last_before = ICP.get_param(
+                "bf_email.last_sync_date", "2000-01-01 00:00:00"
+            )
+            self._cron_sync_emails()
+            last_after = ICP.get_param(
+                "bf_email.last_sync_date", "2000-01-01 00:00:00"
+            )
+            if last_after == last_before:
+                break
+
+        after_count = self.search_count([])
+        created = after_count - before_count
+        after = ICP.get_param("bf_email.last_sync_date", before)
+
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": "Synchronisation termin\u00e9e",
+                "message": (
+                    f"{created} nouveau(x) courriel(s) import\u00e9(s).\n"
+                    f"Dernier message trait\u00e9\u00a0: {after}"
+                ),
+                "type": "success" if created else "info",
+                "sticky": False,
+                "next": {"type": "ir.actions.client", "tag": "reload"},
+            },
+        }
 
     # ------------------------------------------------------------------
     # Reminder / Activity

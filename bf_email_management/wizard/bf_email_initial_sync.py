@@ -50,9 +50,13 @@ class BfEmailInitialSync(models.TransientModel):
         BfEmail = self.env["bf.email"]
 
         domain = [
-            ("message_type", "=", "email"),
             ("date", ">=", str(self.date_from)),
             ("date", "<=", str(self.date_to) + " 23:59:59"),
+            "|",
+                ("message_type", "=", "email"),
+                "&",
+                    ("message_type", "=", "comment"),
+                    ("notification_ids.notification_type", "=", "email"),
         ]
 
         total = self.env["mail.message"].sudo().search_count(domain)
@@ -85,10 +89,11 @@ class BfEmailInitialSync(models.TransientModel):
                     continue
 
                 try:
-                    BfEmail.with_context(
-                        mail_create_nosubscribe=True,
-                        tracking_disable=True,
-                    ).create(vals)
+                    with self.env.cr.savepoint():
+                        BfEmail.with_context(
+                            mail_create_nosubscribe=True,
+                            tracking_disable=True,
+                        ).create(vals)
                     created += 1
                 except Exception:
                     _logger.warning(

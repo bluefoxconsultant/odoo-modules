@@ -57,6 +57,12 @@
               groups="group_email_manager"
               sequence="90"/>
 
+    <menuitem id="menu_bf_email_sync_now"
+              name="Synchroniser maintenant"
+              parent="menu_bf_email_config"
+              action="action_bf_email_sync_now"
+              sequence="5"/>
+
     <menuitem id="menu_bf_email_initial_sync"
               name="Import initial"
               parent="menu_bf_email_config"
