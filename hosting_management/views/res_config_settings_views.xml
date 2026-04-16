@@ -97,6 +97,16 @@
                             </div>
                         </setting>
                     </block>
+                    <block title="Provisioning de tenants (API)" name="provision_api">
+                        <setting string="Jeton API" help="Jeton partagé envoyé par les scripts create_nextcloud_tenant.sh et create_odoo_client.sh dans l'entête X-Provision-Token vers /api/hosting/provision/report.">
+                            <div class="content-group">
+                                <div class="row mt16">
+                                    <label for="hosting_provision_api_token" class="col-lg-3 o_light_label"/>
+                                    <field name="hosting_provision_api_token" class="oe_inline" password="True"/>
+                                </div>
+                            </div>
+                        </setting>
+                    </block>
                     <block title="Notifications push (ntfy)" name="ntfy_push">
                         <setting string="Serveur ntfy" help="Configurer le serveur ntfy pour recevoir des notifications push lors de pannes de service">
                             <div class="content-group">

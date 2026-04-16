@@ -460,6 +460,7 @@ class HostingDashboard(models.Model):
                 ))::int AS avg_ms
             FROM hosting_health_check
             WHERE check_date >= NOW() - INTERVAL '24 hours'
+              AND NOT excluded_from_stats
         """)
         row = self.env.cr.dictfetchone()
         total = row["total"] or 0
@@ -467,12 +468,15 @@ class HostingDashboard(models.Model):
         uptime_pct = round((up_count / total) * 100, 1) if total else 0.0
         avg_response_ms = row["avg_ms"] or 0
 
-        # Current down count via lateral join (one query for all services)
+        # Current down count via lateral join (one query for all services).
+        # Excluded checks are skipped so an ignored external incident doesn't
+        # count a service as down.
         self.env.cr.execute("""
             SELECT COUNT(*) FROM hosting_service hs
             CROSS JOIN LATERAL (
                 SELECT status FROM hosting_health_check hc
                 WHERE hc.service_id = hs.id
+                  AND NOT hc.excluded_from_stats
                 ORDER BY hc.check_date DESC LIMIT 1
             ) latest
             WHERE hs.state = 'active'
@@ -510,6 +514,7 @@ class HostingDashboard(models.Model):
                     service_id, status, check_date
                 FROM hosting_health_check
                 WHERE service_id IN (SELECT id FROM service_ids)
+                  AND NOT excluded_from_stats
                 ORDER BY service_id, check_date DESC
             ),
             agg AS (
@@ -541,6 +546,7 @@ class HostingDashboard(models.Model):
                 FROM hosting_health_check hc
                 WHERE hc.service_id IN (SELECT id FROM service_ids)
                   AND hc.check_date >= NOW() - INTERVAL '30 days'
+                  AND NOT hc.excluded_from_stats
                 GROUP BY hc.service_id
             )
             SELECT

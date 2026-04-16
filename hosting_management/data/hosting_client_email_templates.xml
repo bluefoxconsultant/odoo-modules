@@ -12,7 +12,7 @@
             <field name="model_id" ref="base.model_res_partner"/>
             <field name="email_from">{{ (object.company_id.email or user.email_formatted) }}</field>
             <field name="email_to">{{ object.email }}</field>
-            <field name="subject">{{ ctx.get('email_subject', 'Information importante') }} - Blue Fox</field>
+            <field name="subject">{{ ctx.get('email_subject', 'Information importante') }} - {{ object.company_id.name }}</field>
             <field name="body_html" type="html">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F8FAFC;">
   <tbody>
@@ -31,8 +31,8 @@
                           <tbody>
                             <tr>
                               <td align="left">
-                                <a href="https://www.bluefoxconsultant.com" style="text-decoration:none;">
-                                  <img src="https://www.bluefoxconsultant.com/web/image/website/1/logo/Blue%20Fox?unique=803cc14" alt="Blue Fox" style="height:44px;width:auto;display:block;border:0;" height="44"/>
+                                <a href="#" style="text-decoration:none;">
+                                  <img src="/web/image/res.company/{{ object.company_id.id }}/logo" alt="Company" style="height:44px;width:auto;display:block;border:0;" height="44"/>
                                 </a>
                               </td>
                               <td align="right" style="color:#E6EDF3;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:14px;font-weight:400;letter-spacing:0.3px;">
@@ -44,7 +44,7 @@
                       </td>
                     </tr>
 
-                    <!-- Accent bar - Blue Fox blue -->
+                    <!-- Accent bar - {{ object.company_id.name }} blue -->
                     <tr>
                       <td style="height:4px;line-height:4px;background-color:#29ABE2;">&amp;nbsp;</td>
                     </tr>
@@ -64,7 +64,7 @@
                         </p>
                         <p style="margin:16px 0 0 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;line-height:26px;color:#22303B;font-weight:400;">
                           Cordialement,<br/>
-                          <strong>L'&#233;quipe Blue Fox</strong>
+                          <strong>L'&#233;quipe {{ object.company_id.name }}</strong>
                         </p>
                       </td>
                     </tr>
@@ -85,17 +85,17 @@
                           <tbody>
                             <tr>
                               <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#6B7280;line-height:20px;">
-                                <strong style="color:#22303B;font-size:14px;">contiGNU par Blue Fox</strong><br/>
+                                <strong style="color:#22303B;font-size:14px;">{{ object.company_id.name }}</strong><br/>
                                 Solutions &#233;thiques et souveraines pour vos donn&#233;es.
                               </td>
                             </tr>
                             <tr>
                               <td style="padding-top:12px;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;color:#9CA3AF;line-height:18px;">
-                                <a href="mailto:service@bluefoxconsultant.com" style="color:#29ABE2;text-decoration:none;">service@bluefoxconsultant.com</a>
+                                <a href="mailto:{{ (object.company_id.email or '') }}" style="color:#29ABE2;text-decoration:none;">{{ (object.company_id.email or '') }}</a>
                                 <span style="color:#D1D5DB;"> &#183; </span>
-                                <a href="tel:+15145132535" style="color:#29ABE2;text-decoration:none;">514-513-2535</a>
+                                <a href="tel:{{ (object.company_id.phone or '') }}" style="color:#29ABE2;text-decoration:none;">{{ (object.company_id.phone or '') }}</a>
                                 <span style="color:#D1D5DB;"> &#183; </span>
-                                <a href="https://www.bluefoxconsultant.com" style="color:#29ABE2;text-decoration:none;">bluefoxconsultant.com</a>
+                                <a href="#" style="color:#29ABE2;text-decoration:none;">{{ (object.company_id.website or '').replace('https://','').replace('http://','') or 'example.com' }}</a>
                               </td>
                             </tr>
                             <tr>
@@ -104,9 +104,9 @@
                                   <tbody>
                                     <tr>
                                       <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:11px;">
-                                        <a href="https://www.bluefoxconsultant.com/r/politique-de-confidentialite" style="color:#9CA3AF;text-decoration:underline;">Confidentialit&#233;</a>
+                                        <a href="#" style="color:#9CA3AF;text-decoration:underline;">Confidentialit&#233;</a>
                                         <span style="color:#D1D5DB;"> | </span>
-                                        <a href="https://www.bluefoxconsultant.com/r/termes-et-conditions" style="color:#9CA3AF;text-decoration:underline;">Conditions</a>
+                                        <a href="#" style="color:#9CA3AF;text-decoration:underline;">Conditions</a>
                                       </td>
                                     </tr>
                                   </tbody>
@@ -152,7 +152,7 @@
             <field name="model_id" ref="base.model_res_partner"/>
             <field name="email_from">{{ (object.company_id.email or user.email_formatted) }}</field>
             <field name="email_to">{{ object.email }}</field>
-            <field name="subject">Rapport mensuel de vos services - {{ ctx.get('report_month', 'ce mois') }} - Blue Fox</field>
+            <field name="subject">Rapport mensuel de vos services - {{ ctx.get('report_month', 'ce mois') }} - {{ object.company_id.name }}</field>
             <field name="body_html" type="html">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F8FAFC;">
   <tbody>
@@ -171,8 +171,8 @@
                           <tbody>
                             <tr>
                               <td align="left">
-                                <a href="https://www.bluefoxconsultant.com" style="text-decoration:none;">
-                                  <img src="https://www.bluefoxconsultant.com/web/image/website/1/logo/Blue%20Fox?unique=803cc14" alt="Blue Fox" style="height:44px;width:auto;display:block;border:0;" height="44"/>
+                                <a href="#" style="text-decoration:none;">
+                                  <img src="/web/image/res.company/{{ object.company_id.id }}/logo" alt="Company" style="height:44px;width:auto;display:block;border:0;" height="44"/>
                                 </a>
                               </td>
                               <td align="right" style="color:#E6EDF3;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:20px;font-weight:700;letter-spacing:0.3px;">
@@ -184,7 +184,7 @@
                       </td>
                     </tr>
 
-                    <!-- Accent bar - Blue Fox blue -->
+                    <!-- Accent bar - {{ object.company_id.name }} blue -->
                     <tr>
                       <td style="height:4px;line-height:4px;background-color:#29ABE2;">&amp;nbsp;</td>
                     </tr>
@@ -276,7 +276,7 @@
                         </p>
                         <p style="margin:16px 0 0 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;line-height:26px;color:#22303B;font-weight:400;">
                           Cordialement,<br/>
-                          <strong>L'&#233;quipe Blue Fox</strong>
+                          <strong>L'&#233;quipe {{ object.company_id.name }}</strong>
                         </p>
                       </td>
                     </tr>
@@ -297,17 +297,17 @@
                           <tbody>
                             <tr>
                               <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#6B7280;line-height:20px;">
-                                <strong style="color:#22303B;font-size:14px;">contiGNU par Blue Fox</strong><br/>
+                                <strong style="color:#22303B;font-size:14px;">{{ object.company_id.name }}</strong><br/>
                                 Solutions &#233;thiques et souveraines pour vos donn&#233;es.
                               </td>
                             </tr>
                             <tr>
                               <td style="padding-top:12px;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;color:#9CA3AF;line-height:18px;">
-                                <a href="mailto:service@bluefoxconsultant.com" style="color:#29ABE2;text-decoration:none;">service@bluefoxconsultant.com</a>
+                                <a href="mailto:{{ (object.company_id.email or '') }}" style="color:#29ABE2;text-decoration:none;">{{ (object.company_id.email or '') }}</a>
                                 <span style="color:#D1D5DB;"> &#183; </span>
-                                <a href="tel:+15145132535" style="color:#29ABE2;text-decoration:none;">514-513-2535</a>
+                                <a href="tel:{{ (object.company_id.phone or '') }}" style="color:#29ABE2;text-decoration:none;">{{ (object.company_id.phone or '') }}</a>
                                 <span style="color:#D1D5DB;"> &#183; </span>
-                                <a href="https://www.bluefoxconsultant.com" style="color:#29ABE2;text-decoration:none;">bluefoxconsultant.com</a>
+                                <a href="#" style="color:#29ABE2;text-decoration:none;">{{ (object.company_id.website or '').replace('https://','').replace('http://','') or 'example.com' }}</a>
                               </td>
                             </tr>
                             <tr>
@@ -316,9 +316,9 @@
                                   <tbody>
                                     <tr>
                                       <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:11px;">
-                                        <a href="https://www.bluefoxconsultant.com/r/politique-de-confidentialite" style="color:#9CA3AF;text-decoration:underline;">Confidentialit&#233;</a>
+                                        <a href="#" style="color:#9CA3AF;text-decoration:underline;">Confidentialit&#233;</a>
                                         <span style="color:#D1D5DB;"> | </span>
-                                        <a href="https://www.bluefoxconsultant.com/r/termes-et-conditions" style="color:#9CA3AF;text-decoration:underline;">Conditions</a>
+                                        <a href="#" style="color:#9CA3AF;text-decoration:underline;">Conditions</a>
                                       </td>
                                     </tr>
                                   </tbody>
@@ -365,7 +365,7 @@
             <field name="model_id" ref="base.model_res_partner"/>
             <field name="email_from">{{ (object.company_id.email or user.email_formatted) }}</field>
             <field name="email_to">{{ object.email }}</field>
-            <field name="subject">Avis de maintenance planifi&#233;e - {{ ctx.get('maintenance_date', '') }} - Blue Fox</field>
+            <field name="subject">Avis de maintenance planifi&#233;e - {{ ctx.get('maintenance_date', '') }} - {{ object.company_id.name }}</field>
             <field name="body_html" type="html">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F8FAFC;">
   <tbody>
@@ -384,8 +384,8 @@
                           <tbody>
                             <tr>
                               <td align="left">
-                                <a href="https://www.bluefoxconsultant.com" style="text-decoration:none;">
-                                  <img src="https://www.bluefoxconsultant.com/web/image/website/1/logo/Blue%20Fox?unique=803cc14" alt="Blue Fox" style="height:44px;width:auto;display:block;border:0;" height="44"/>
+                                <a href="#" style="text-decoration:none;">
+                                  <img src="/web/image/res.company/{{ object.company_id.id }}/logo" alt="Company" style="height:44px;width:auto;display:block;border:0;" height="44"/>
                                 </a>
                               </td>
                               <td align="right" style="color:#FDE68A;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:20px;font-weight:700;letter-spacing:0.3px;">
@@ -496,7 +496,7 @@
                         </p>
                         <p style="margin:16px 0 0 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;line-height:26px;color:#22303B;font-weight:400;">
                           Cordialement,<br/>
-                          <strong>L'&#233;quipe Blue Fox</strong>
+                          <strong>L'&#233;quipe {{ object.company_id.name }}</strong>
                         </p>
                       </td>
                     </tr>
@@ -517,17 +517,17 @@
                           <tbody>
                             <tr>
                               <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#6B7280;line-height:20px;">
-                                <strong style="color:#22303B;font-size:14px;">contiGNU par Blue Fox</strong><br/>
+                                <strong style="color:#22303B;font-size:14px;">{{ object.company_id.name }}</strong><br/>
                                 Solutions &#233;thiques et souveraines pour vos donn&#233;es.
                               </td>
                             </tr>
                             <tr>
                               <td style="padding-top:12px;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;color:#9CA3AF;line-height:18px;">
-                                <a href="mailto:service@bluefoxconsultant.com" style="color:#29ABE2;text-decoration:none;">service@bluefoxconsultant.com</a>
+                                <a href="mailto:{{ (object.company_id.email or '') }}" style="color:#29ABE2;text-decoration:none;">{{ (object.company_id.email or '') }}</a>
                                 <span style="color:#D1D5DB;"> &#183; </span>
-                                <a href="tel:+15145132535" style="color:#29ABE2;text-decoration:none;">514-513-2535</a>
+                                <a href="tel:{{ (object.company_id.phone or '') }}" style="color:#29ABE2;text-decoration:none;">{{ (object.company_id.phone or '') }}</a>
                                 <span style="color:#D1D5DB;"> &#183; </span>
-                                <a href="https://www.bluefoxconsultant.com" style="color:#29ABE2;text-decoration:none;">bluefoxconsultant.com</a>
+                                <a href="#" style="color:#29ABE2;text-decoration:none;">{{ (object.company_id.website or '').replace('https://','').replace('http://','') or 'example.com' }}</a>
                               </td>
                             </tr>
                             <tr>
@@ -536,9 +536,9 @@
                                   <tbody>
                                     <tr>
                                       <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:11px;">
-                                        <a href="https://www.bluefoxconsultant.com/r/politique-de-confidentialite" style="color:#9CA3AF;text-decoration:underline;">Confidentialit&#233;</a>
+                                        <a href="#" style="color:#9CA3AF;text-decoration:underline;">Confidentialit&#233;</a>
                                         <span style="color:#D1D5DB;"> | </span>
-                                        <a href="https://www.bluefoxconsultant.com/r/termes-et-conditions" style="color:#9CA3AF;text-decoration:underline;">Conditions</a>
+                                        <a href="#" style="color:#9CA3AF;text-decoration:underline;">Conditions</a>
                                       </td>
                                     </tr>
                                   </tbody>
@@ -585,7 +585,7 @@
             <field name="model_id" ref="base.model_res_partner"/>
             <field name="email_from">{{ (object.company_id.email or user.email_formatted) }}</field>
             <field name="email_to">{{ object.email }}</field>
-            <field name="subject">Rapport d'intervention compl&#233;t&#233;e - Blue Fox</field>
+            <field name="subject">Rapport d'intervention compl&#233;t&#233;e - {{ object.company_id.name }}</field>
             <field name="body_html" type="html">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F8FAFC;">
   <tbody>
@@ -604,8 +604,8 @@
                           <tbody>
                             <tr>
                               <td align="left">
-                                <a href="https://www.bluefoxconsultant.com" style="text-decoration:none;">
-                                  <img src="https://www.bluefoxconsultant.com/web/image/website/1/logo/Blue%20Fox?unique=803cc14" alt="Blue Fox" style="height:44px;width:auto;display:block;border:0;" height="44"/>
+                                <a href="#" style="text-decoration:none;">
+                                  <img src="/web/image/res.company/{{ object.company_id.id }}/logo" alt="Company" style="height:44px;width:auto;display:block;border:0;" height="44"/>
                                 </a>
                               </td>
                               <td align="right" style="color:#A7F3D0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:20px;font-weight:700;letter-spacing:0.3px;">
@@ -712,7 +712,7 @@
                         </p>
                         <p style="margin:16px 0 0 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;line-height:26px;color:#22303B;font-weight:400;">
                           Cordialement,<br/>
-                          <strong>L'&#233;quipe Blue Fox</strong>
+                          <strong>L'&#233;quipe {{ object.company_id.name }}</strong>
                         </p>
                       </td>
                     </tr>
@@ -733,17 +733,17 @@
                           <tbody>
                             <tr>
                               <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#6B7280;line-height:20px;">
-                                <strong style="color:#22303B;font-size:14px;">contiGNU par Blue Fox</strong><br/>
+                                <strong style="color:#22303B;font-size:14px;">{{ object.company_id.name }}</strong><br/>
                                 Solutions &#233;thiques et souveraines pour vos donn&#233;es.
                               </td>
                             </tr>
                             <tr>
                               <td style="padding-top:12px;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;color:#9CA3AF;line-height:18px;">
-                                <a href="mailto:service@bluefoxconsultant.com" style="color:#29ABE2;text-decoration:none;">service@bluefoxconsultant.com</a>
+                                <a href="mailto:{{ (object.company_id.email or '') }}" style="color:#29ABE2;text-decoration:none;">{{ (object.company_id.email or '') }}</a>
                                 <span style="color:#D1D5DB;"> &#183; </span>
-                                <a href="tel:+15145132535" style="color:#29ABE2;text-decoration:none;">514-513-2535</a>
+                                <a href="tel:{{ (object.company_id.phone or '') }}" style="color:#29ABE2;text-decoration:none;">{{ (object.company_id.phone or '') }}</a>
                                 <span style="color:#D1D5DB;"> &#183; </span>
-                                <a href="https://www.bluefoxconsultant.com" style="color:#29ABE2;text-decoration:none;">bluefoxconsultant.com</a>
+                                <a href="#" style="color:#29ABE2;text-decoration:none;">{{ (object.company_id.website or '').replace('https://','').replace('http://','') or 'example.com' }}</a>
                               </td>
                             </tr>
                             <tr>
@@ -752,9 +752,9 @@
                                   <tbody>
                                     <tr>
                                       <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:11px;">
-                                        <a href="https://www.bluefoxconsultant.com/r/politique-de-confidentialite" style="color:#9CA3AF;text-decoration:underline;">Confidentialit&#233;</a>
+                                        <a href="#" style="color:#9CA3AF;text-decoration:underline;">Confidentialit&#233;</a>
                                         <span style="color:#D1D5DB;"> | </span>
-                                        <a href="https://www.bluefoxconsultant.com/r/termes-et-conditions" style="color:#9CA3AF;text-decoration:underline;">Conditions</a>
+                                        <a href="#" style="color:#9CA3AF;text-decoration:underline;">Conditions</a>
                                       </td>
                                     </tr>
                                   </tbody>
@@ -801,7 +801,7 @@
             <field name="model_id" ref="base.model_res_partner"/>
             <field name="email_from">{{ (object.company_id.email or user.email_formatted) }}</field>
             <field name="email_to">{{ object.email }}</field>
-            <field name="subject">Bienvenue chez Blue Fox ! Vos services sont pr&#234;ts</field>
+            <field name="subject">Bienvenue ! Vos services sont pr&#234;ts</field>
             <field name="body_html" type="html">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F8FAFC;">
   <tbody>
@@ -820,8 +820,8 @@
                           <tbody>
                             <tr>
                               <td align="center">
-                                <a href="https://www.bluefoxconsultant.com" style="text-decoration:none;">
-                                  <img src="https://www.bluefoxconsultant.com/web/image/website/1/logo/Blue%20Fox?unique=803cc14" alt="Blue Fox" style="height:56px;width:auto;display:block;border:0;" height="56"/>
+                                <a href="#" style="text-decoration:none;">
+                                  <img src="/web/image/res.company/{{ object.company_id.id }}/logo" alt="Company" style="height:56px;width:auto;display:block;border:0;" height="56"/>
                                 </a>
                               </td>
                             </tr>
@@ -889,16 +889,16 @@
                                     <tr>
                                       <td style="padding:6px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:15px;color:#374151;font-weight:300;">
                                         Courriel :
-                                        <a href="mailto:{{ ctx.get('support_email', 'service@bluefoxconsultant.com') }}" style="color:#29ABE2;text-decoration:none;font-weight:400;">
-                                          <t t-out="ctx.get('support_email', 'service@bluefoxconsultant.com')"/>
+                                        <a href="mailto:{{ ctx.get('support_email', '{{ (object.company_id.email or '') }}') }}" style="color:#29ABE2;text-decoration:none;font-weight:400;">
+                                          <t t-out="ctx.get('support_email', '{{ (object.company_id.email or '') }}')"/>
                                         </a>
                                       </td>
                                     </tr>
                                     <tr>
                                       <td style="padding:6px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:15px;color:#374151;font-weight:300;">
                                         T&#233;l&#233;phone :
-                                        <a href="tel:{{ ctx.get('support_phone', '+15145132535') }}" style="color:#29ABE2;text-decoration:none;font-weight:400;">
-                                          <t t-out="ctx.get('support_phone', '514-513-2535')"/>
+                                        <a href="tel:{{ ctx.get('support_phone', '{{ (object.company_id.phone or '') }}') }}" style="color:#29ABE2;text-decoration:none;font-weight:400;">
+                                          <t t-out="ctx.get('support_phone', '{{ (object.company_id.phone or '') }}')"/>
                                         </a>
                                       </td>
                                     </tr>
@@ -924,7 +924,7 @@
                           <tbody>
                             <tr>
                               <td align="center">
-                                <a href="https://www.bluefoxconsultant.com" style="display:inline-block;padding:14px 36px;background-color:#29ABE2;color:#ffffff;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;font-weight:600;text-decoration:none;border-radius:10px;">
+                                <a href="#" style="display:inline-block;padding:14px 36px;background-color:#29ABE2;color:#ffffff;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;font-weight:600;text-decoration:none;border-radius:10px;">
                                   D&#233;couvrir nos services
                                 </a>
                               </td>
@@ -942,7 +942,7 @@
                         </p>
                         <p style="margin:16px 0 0 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;line-height:26px;color:#22303B;font-weight:400;">
                           Chaleureusement,<br/>
-                          <strong>L'&#233;quipe Blue Fox</strong>
+                          <strong>L'&#233;quipe {{ object.company_id.name }}</strong>
                         </p>
                       </td>
                     </tr>
@@ -963,17 +963,17 @@
                           <tbody>
                             <tr>
                               <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#6B7280;line-height:20px;">
-                                <strong style="color:#22303B;font-size:14px;">contiGNU par Blue Fox</strong><br/>
+                                <strong style="color:#22303B;font-size:14px;">{{ object.company_id.name }}</strong><br/>
                                 Solutions &#233;thiques et souveraines pour vos donn&#233;es.
                               </td>
                             </tr>
                             <tr>
                               <td style="padding-top:12px;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;color:#9CA3AF;line-height:18px;">
-                                <a href="mailto:service@bluefoxconsultant.com" style="color:#29ABE2;text-decoration:none;">service@bluefoxconsultant.com</a>
+                                <a href="mailto:{{ (object.company_id.email or '') }}" style="color:#29ABE2;text-decoration:none;">{{ (object.company_id.email or '') }}</a>
                                 <span style="color:#D1D5DB;"> &#183; </span>
-                                <a href="tel:+15145132535" style="color:#29ABE2;text-decoration:none;">514-513-2535</a>
+                                <a href="tel:{{ (object.company_id.phone or '') }}" style="color:#29ABE2;text-decoration:none;">{{ (object.company_id.phone or '') }}</a>
                                 <span style="color:#D1D5DB;"> &#183; </span>
-                                <a href="https://www.bluefoxconsultant.com" style="color:#29ABE2;text-decoration:none;">bluefoxconsultant.com</a>
+                                <a href="#" style="color:#29ABE2;text-decoration:none;">{{ (object.company_id.website or '').replace('https://','').replace('http://','') or 'example.com' }}</a>
                               </td>
                             </tr>
                             <tr>
@@ -982,9 +982,9 @@
                                   <tbody>
                                     <tr>
                                       <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:11px;">
-                                        <a href="https://www.bluefoxconsultant.com/r/politique-de-confidentialite" style="color:#9CA3AF;text-decoration:underline;">Confidentialit&#233;</a>
+                                        <a href="#" style="color:#9CA3AF;text-decoration:underline;">Confidentialit&#233;</a>
                                         <span style="color:#D1D5DB;"> | </span>
-                                        <a href="https://www.bluefoxconsultant.com/r/termes-et-conditions" style="color:#9CA3AF;text-decoration:underline;">Conditions</a>
+                                        <a href="#" style="color:#9CA3AF;text-decoration:underline;">Conditions</a>
                                       </td>
                                     </tr>
                                   </tbody>

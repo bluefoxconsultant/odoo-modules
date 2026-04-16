@@ -16,7 +16,7 @@ class HostingServer(models.Model):
         string="Nom du serveur",
         required=True,
         tracking=True,
-        help="Nom convivial du serveur (ex. : « Primetime 1 »)",
+        help="Nom convivial du serveur (ex. : « Production 1 »)",
     )
     code = fields.Char(
         string="Code",

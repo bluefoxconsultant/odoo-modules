@@ -8,7 +8,13 @@
         <field name="arch" type="xml">
             <list decoration-success="status == 'up'"
                   decoration-warning="status == 'degraded'"
-                  decoration-danger="status in ('down', 'timeout')">
+                  decoration-danger="status in ('down', 'timeout')"
+                  decoration-muted="excluded_from_stats">
+                <header>
+                    <button name="action_toggle_exclusion" type="object"
+                            string="Basculer l'exclusion des stats"
+                            confirm="Basculer l'exclusion des statistiques pour les vérifications sélectionnées ?"/>
+                </header>
                 <field name="check_date" string="Date"/>
                 <field name="service_id" string="Service"/>
                 <field name="partner_id" string="Client"/>
@@ -19,6 +25,8 @@
                 <field name="response_time_ms" string="Temps de réponse (ms)"/>
                 <field name="http_status_code" string="Code HTTP"/>
                 <field name="error_message" string="Erreur" optional="hide"/>
+                <field name="excluded_from_stats" string="Exclu" optional="show"/>
+                <field name="exclusion_reason" string="Raison d'exclusion" optional="hide"/>
             </list>
         </field>
     </record>
@@ -28,8 +36,21 @@
         <field name="name">hosting.health.check.form</field>
         <field name="model">hosting.health.check</field>
         <field name="arch" type="xml">
-            <form string="Vérification de santé" create="false" edit="false">
+            <form string="Vérification de santé" create="false">
+                <header>
+                    <button name="action_toggle_exclusion" type="object"
+                            string="Exclure des statistiques"
+                            class="btn-secondary"
+                            invisible="excluded_from_stats"/>
+                    <button name="action_toggle_exclusion" type="object"
+                            string="Réintégrer dans les statistiques"
+                            class="btn-primary"
+                            invisible="not excluded_from_stats"/>
+                </header>
                 <sheet>
+                    <widget name="web_ribbon" title="Exclu des statistiques"
+                            bg_color="text-bg-warning"
+                            invisible="not excluded_from_stats"/>
                     <group>
                         <group string="Informations de la vérification">
                             <field name="check_date" string="Date"/>
@@ -48,6 +69,12 @@
                     </group>
                     <group string="Détails de l'erreur" invisible="not error_message">
                         <field name="error_message" nolabel="1"/>
+                    </group>
+                    <group string="Exclusion des statistiques">
+                        <field name="excluded_from_stats"/>
+                        <field name="exclusion_reason" nolabel="1" colspan="2"
+                               placeholder="Cause externe (fournisseur réseau, DNS client, maintenance tierce)…"
+                               invisible="not excluded_from_stats"/>
                     </group>
                 </sheet>
             </form>
@@ -70,6 +97,9 @@
                 <filter name="filter_timeout" string="Délai dépassé" domain="[('status', '=', 'timeout')]"/>
                 <separator/>
                 <filter name="filter_issues" string="Problèmes" domain="[('status', 'in', ['down', 'timeout', 'degraded'])]"/>
+                <separator/>
+                <filter name="filter_excluded" string="Exclus des stats" domain="[('excluded_from_stats', '=', True)]"/>
+                <filter name="filter_included" string="Inclus dans les stats" domain="[('excluded_from_stats', '=', False)]"/>
                 <separator/>
                 <filter name="filter_today" string="Aujourd'hui" domain="[('check_date', '>=', context_today().strftime('%Y-%m-%d'))]"/>
                 <filter name="filter_last_7_days" string="7 derniers jours" domain="[('check_date', '>=', (context_today() - relativedelta(days=7)).strftime('%Y-%m-%d'))]"/>

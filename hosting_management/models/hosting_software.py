@@ -393,7 +393,9 @@ class HostingSoftware(models.Model):
         software_to_check = self.search([
             ("version_check_method", "!=", "none"),
         ])
+        updates = []
         for software in software_to_check:
+            previous = software.latest_version
             try:
                 software._check_version()
                 # Commit after each check to avoid losing all progress on error
@@ -403,3 +405,18 @@ class HostingSoftware(models.Model):
                     "Version check cron failed for %s: %s", software.name, str(e)
                 )
                 self.env.cr.rollback()
+                continue
+            software.invalidate_recordset(["latest_version"])
+            if software.latest_version and software.latest_version != previous:
+                updates.append((software.name, previous or "?", software.latest_version))
+
+        if updates:
+            body_lines = [f"- {name} : {old} → {new}" for name, old, new in updates[:15]]
+            if len(updates) > 15:
+                body_lines.append(f"… et {len(updates) - 15} de plus")
+            self.env["hosting.ntfy"].send(
+                title=f"VERSIONS : {len(updates)} nouvelle(s) version(s) détectée(s)",
+                body="\n".join(body_lines),
+                priority="default",
+                tags="package,arrow_up",
+            )

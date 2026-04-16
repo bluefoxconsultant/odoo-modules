@@ -284,6 +284,37 @@ class HostingDomain(models.Model):
                 len(expired_domains),
             )
 
+        # --- ntfy push summary for newly flagged expirations ---
+        if expiring_domains or ssl_expiring or expired_domains:
+            Ntfy = self.env["hosting.ntfy"]
+            body_lines = []
+            if expired_domains:
+                body_lines.append(f"Domaines expirés : {len(expired_domains)}")
+                for d in expired_domains[:5]:
+                    body_lines.append(f"- {d.name} ({d.date_expiration})")
+            if expiring_domains:
+                body_lines.append("")
+                body_lines.append(f"Domaines proches expiration : {len(expiring_domains)}")
+                for d in expiring_domains[:5]:
+                    body_lines.append(
+                        f"- {d.name} — {d.days_until_expiration} j ({d.date_expiration})"
+                    )
+            if ssl_expiring:
+                body_lines.append("")
+                body_lines.append(f"Certificats SSL proches expiration : {len(ssl_expiring)}")
+                for d in ssl_expiring[:5]:
+                    body_lines.append(
+                        f"- {d.name} — {d.days_until_ssl_expiry} j ({d.ssl_expiry_date})"
+                    )
+            has_expired = bool(expired_domains)
+            Ntfy.send(
+                title=("DOMAINES/SSL : expirations détectées"
+                       + (" — domaines déjà expirés" if has_expired else "")),
+                body="\n".join(body_lines),
+                priority="urgent" if has_expired else "high",
+                tags="lock,calendar",
+            )
+
     @api.model
     def _cron_sync_cloudflare_domains(self):
         """Synchroniser les domaines depuis l'API Cloudflare Registrar."""

@@ -55,19 +55,25 @@ A comprehensive Odoo 18 module for managing hosting services, including version 
 - **Refresh All**: Button to run all checks (health, versions, Docker) and update all computed fields
 
 ### Client Email Templates
-- **Branded Communications**: 5 sleek, client-facing email templates with full Blue Fox branding
+- **Branded Communications**: 5 sleek, client-facing email templates with corporate branding
 - **Generic Template**: Multipurpose template for any client communication via `ctx.message_body`
 - **Monthly Report**: Service summary with KPI grid (services count, uptime, backups, updates) and next maintenance callout
 - **Maintenance Notice**: Amber-accented notification with structured details (date, duration, affected services, impact)
 - **Intervention Report**: Green-accented post-intervention summary (work done, duration, result, recommendations)
 - **Welcome / Onboarding**: Warm welcome with gradient accent, activated services list, contact info, and CTA button
-- **Design System**: Light background (`#F8FAFC`), 600px card with `border-radius: 16px`, Lexend typography, variable accent bars, enriched footer with contiGNU tagline and full contact details
+- **Design System**: Light background (`#F8FAFC`), 600px card with `border-radius: 16px`, Lexend typography, variable accent bars, enriched footer with company tagline and full contact details
 
 ### Scheduled Digests
 - **Email Summaries**: Configurable email digests with service status summaries
 - **Flexible Scheduling**: Daily, weekly, or monthly delivery options
 - **Customizable Content**: Choose which alerts to include (expiring, updates, storage, health, maintenance)
 - **Multiple Recipients**: Send to any number of users
+
+### Tenant Provisioning Reporting
+- **External Provisioning Integration**: Receive verbose output and structured metadata from host-side tenant creation scripts (`create_nextcloud_tenant.sh`, `create_odoo_client.sh`) via REST API
+- **Auto-Upsert Service Records**: Endpoint creates or updates `hosting.service` records, resolves software/server by code/hostname, and auto-creates a `res.partner` company stub when missing
+- **Verbose Log as Attachment**: Full stdout/stderr (with secrets redacted) is attached to the service chatter as a downloadable `.log` file
+- **Audit Trail**: Every provisioning event creates an immutable `hosting.audit.log` entry with severity scaled by exit status
 
 ### Backup Reporting
 - **External Backup Integration**: Receive backup reports from external scripts via REST API
@@ -422,6 +428,68 @@ The companion script `backup-all-services.sh` supports two modes:
 
 The token is loaded from `$BACKUP_TOKEN_FILE` (default `/etc/hosting/backup-api-token`) or the `ODOO_BACKUP_TOKEN` environment variable.
 
+### Tenant Provisioning Report API
+
+The module provides a REST API endpoint that receives verbose output and structured metadata from host-side tenant creation scripts (`create_nextcloud_tenant.sh`, `create_odoo_client.sh`). On every provisioning run — whether successful or not — a `hosting.service` record is created or updated, the full log is attached to its chatter, and an immutable audit log entry is written.
+
+#### API Endpoint
+
+**URL:** `/api/hosting/provision/report`
+**Method:** `POST`
+**Authentication:** Token-based via `X-Provision-Token` header
+**Content-Type:** `application/json`
+
+#### Configuration
+
+1. Set the API token in **Settings → Hosting → Provisioning de tenants (API)** (or directly via `Settings → Technical → System Parameters`):
+   - Key: `hosting.provision_api_token`
+   - Value: a secure random token (e.g., `openssl rand -hex 32`)
+2. Mirror the token on the host running the provisioning scripts:
+   - Default path: `~/.config/hosting-report/token` (chmod 600)
+   - Override with `ODOO_REPORT_TOKEN_FILE` env var
+
+#### Request Payload
+
+```json
+{
+  "slug": "acme",
+  "client_name": "Acme Inc.",
+  "software_code": "NC",
+  "software_name": "Nextcloud",
+  "hostname": "server1.example.com",
+  "server_url": "https://acme.cloud.example.com",
+  "domain_name": "acme.cloud.example.com",
+  "admin_url": "https://acme.cloud.example.com",
+  "docker_container": "acme-nc-app",
+  "db_name": "nextcloud",
+  "npm_port": 9612,
+  "started_at": "2026-04-15 20:40:00",
+  "ended_at": "2026-04-15 20:48:32",
+  "status": "success",
+  "log": "<full stdout+stderr, secrets redacted>"
+}
+```
+
+`software_code` matches `hosting.software.code`; `software_name` is a fallback if the code is unknown. `hostname` resolves a `hosting.server` by hostname or code. The partner is resolved by `res.partner.ref = slug`, then by name; if neither matches, a company partner stub is auto-created.
+
+#### Response
+
+```json
+{
+  "success": true,
+  "action": "created",
+  "service_id": 80,
+  "service_code": "HST-0067",
+  "partner_id": 3740
+}
+```
+
+`action` is either `"created"` or `"updated"`. On token failure the endpoint returns 401; on missing required fields or unknown software, 400; on internal errors, 500.
+
+#### Companion Bash Helper
+
+The shared helper at `~/lib/hosting-report.sh` is sourced by both wizard scripts. It captures stdout/stderr to a temp log via `tee`, redacts common secret patterns (passwords, tokens, secrets, `POSTGRES_PASSWORD`, `MASTER_PASSWORD`, etc.), and POSTs the report on EXIT (covering both success and failure paths). Override the destination via `ODOO_REPORT_URL` or disable entirely with `ODOO_REPORT_DISABLE=1`.
+
 ### Setting Up Email Digests
 
 1. Go to Hosting > Configuration > Digests
@@ -585,6 +653,14 @@ Hosting
 
 ## Changelog
 
+### Version 18.0.2.26.0 (2026-04-15)
+- **NEW: Tenant Provisioning Report API**
+  - REST endpoint `/api/hosting/provision/report` (token-auth via `X-Provision-Token`)
+  - Auto-upserts `hosting.service` from host-side script output, resolving software by code (with name fallback), server by hostname, and partner by `ref`/name (auto-creating a company stub when missing)
+  - Full verbose log attached to the service chatter as `.log` file; an immutable `hosting.audit.log` entry is written on every call
+  - New setting under **Hosting → Provisioning de tenants (API)** to manage the shared token
+  - Companion bash helper `~/lib/hosting-report.sh` wired into `create_nextcloud_tenant.sh` and `create_odoo_client.sh` (captures stdout/stderr, redacts secret patterns, POSTs on EXIT for both success and failure)
+
 ### Version 18.0.2.23.0 (2026-04-07)
 - **Accepted HTTP Status Codes per Service**
   - New `hosting.accepted.http.code` model with 9 pre-seeded codes (400, 401, 403, 404, 405, 500, 502, 503, 504)
@@ -644,7 +720,7 @@ Hosting
 
 ### Version 18.0.2.18.0 (2026-02-13)
 - **NEW: Client Email Templates**
-  - 5 sleek, client-facing email templates with full Blue Fox branding
+  - 5 sleek, client-facing email templates with corporate branding
   - New data file `hosting_client_email_templates.xml` with `noupdate="0"` for easy iteration
   - All templates use `res.partner` as model, data passed via `ctx` dictionary
   - **Template 1 — Generic**: Multipurpose template for any client communication; accepts `email_subject` and `message_body` via ctx
@@ -659,7 +735,7 @@ Hosting
   - Header: `#22303B` with Blue Fox logo + contextual title
   - Variable accent bars: blue (generic/monthly), amber (maintenance), green (intervention), gradient (welcome)
   - Typography: Lexend, `font-weight: 300` body, `font-weight: 500-700` headings
-  - Enriched footer: contiGNU tagline, full contact (email, phone, website), privacy/terms links
+  - Enriched footer: company tagline, full contact (email, phone, website), privacy/terms links
   - Double accent bottom bar maintained (Blue Fox signature)
   - All accented characters encoded as HTML entities for email client safety
 
@@ -807,4 +883,4 @@ For support, please contact Blue Fox Inc. or open an issue in the repository.
 
 ---
 
-Authored and maintained by Blue Fox Inc. AI coding assistants were used as productivity tools during development.
+*Some code in this module was developed with AI assistance (Claude) for bug fixes and feature implementation.*

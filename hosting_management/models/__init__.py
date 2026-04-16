@@ -1,5 +1,6 @@
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
+from . import hosting_ntfy
 from . import hosting_email_template
 from . import hosting_server
 from . import hosting_domain

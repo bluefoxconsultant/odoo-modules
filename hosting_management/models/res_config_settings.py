@@ -66,6 +66,15 @@ class ResConfigSettings(models.TransientModel):
         readonly=True,
     )
 
+    # Jeton API pour rapports de provisioning de tenants
+    hosting_provision_api_token = fields.Char(
+        string="Jeton API provisioning de tenants",
+        config_parameter="hosting.provision_api_token",
+        help="Jeton partagé envoyé par les scripts de création (create_nextcloud_tenant.sh, "
+             "create_odoo_client.sh) dans l'entête X-Provision-Token vers "
+             "/api/hosting/provision/report.",
+    )
+
     # Notifications push ntfy
     hosting_ntfy_url = fields.Char(
         string="URL du serveur ntfy",

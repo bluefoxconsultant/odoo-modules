@@ -125,6 +125,9 @@ class HostingSecurityEvent(models.Model):
     def create(self, vals_list):
         records = super().create(vals_list)
         AuditLog = self.env["hosting.audit.log"]
+        Ntfy = self.env["hosting.ntfy"]
+        type_labels = dict(self._fields["event_type"].selection)
+        severity_labels = dict(self._fields["severity"].selection)
         for rec in records:
             AuditLog._log_event(
                 action_type="security_event",
@@ -135,4 +138,25 @@ class HostingSecurityEvent(models.Model):
                 res_name=rec.name,
                 severity="warning" if rec.severity in ("low", "medium") else "critical",
             )
+            if rec.severity in ("high", "critical"):
+                target_list = ", ".join(rec.service_ids.mapped("name"))
+                if rec.server_id:
+                    target_list = (
+                        f"{rec.server_id.name} / {target_list}"
+                        if target_list
+                        else rec.server_id.name
+                    )
+                body_lines = [
+                    f"Type : {type_labels.get(rec.event_type, rec.event_type)}",
+                    f"Sévérité : {severity_labels.get(rec.severity, rec.severity)}",
+                ]
+                if target_list:
+                    body_lines.append(f"Cible : {target_list}")
+                Ntfy.send(
+                    title=f"SÉCURITÉ [{severity_labels.get(rec.severity, rec.severity).upper()}] : {rec.name}",
+                    body="\n".join(body_lines),
+                    priority="urgent" if rec.severity == "critical" else "high",
+                    tags="lock,rotating_light",
+                    click=Ntfy.record_url(rec),
+                )
         return records

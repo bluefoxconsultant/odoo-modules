@@ -540,12 +540,17 @@ class HostingService(models.Model):
                 record.is_service_up = True
 
     def _compute_uptime_30d(self):
-        """Calculer le pourcentage de disponibilité des 30 derniers jours."""
+        """Calculer le pourcentage de disponibilité des 30 derniers jours.
+
+        Exclut les vérifications marquées `excluded_from_stats` (pannes
+        tributaires de causes externes) pour éviter de biaiser la moyenne.
+        """
         now = fields.Datetime.now()
         thirty_days_ago = now - timedelta(days=30)
         for record in self:
             checks = record.health_check_ids.filtered(
                 lambda c: c.check_date >= thirty_days_ago
+                and not c.excluded_from_stats
             )
             if checks:
                 up_count = len(checks.filtered(lambda c: c.status == "up"))
@@ -1053,20 +1058,6 @@ class HostingService(models.Model):
             services_list: Liste de dicts avec les informations de service
             alert_type: "down" ou "recovered"
         """
-        try:
-            import requests as req
-        except ImportError:
-            return
-
-        ICP = self.env["ir.config_parameter"].sudo()
-        ntfy_url = ICP.get_param("hosting.ntfy_url", "").strip().rstrip("/")
-        ntfy_token = ICP.get_param("hosting.ntfy_token", "").strip()
-        ntfy_topic = ICP.get_param("hosting.ntfy_topic", "").strip()
-
-        if not all([ntfy_url, ntfy_token, ntfy_topic]):
-            _logger.debug("ntfy non configuré, notification push ignorée")
-            return
-
         count = len(services_list)
         if alert_type == "down":
             title = f"ALERTE : {count} service(s) hors ligne"
@@ -1093,22 +1084,12 @@ class HostingService(models.Model):
         else:
             return
 
-        body = "\n".join(lines)
-
-        try:
-            req.post(
-                f"{ntfy_url}/{ntfy_topic}",
-                data=body.encode("utf-8"),
-                headers={
-                    "Authorization": f"Bearer {ntfy_token}",
-                    "Title": title,
-                    "Priority": priority,
-                    "Tags": tags,
-                },
-                timeout=10,
-            )
-        except Exception:
-            _logger.exception("Erreur lors de l'envoi de la notification ntfy")
+        self.env["hosting.ntfy"].send(
+            title=title,
+            body="\n".join(lines),
+            priority=priority,
+            tags=tags,
+        )
 
     def _send_health_alert_email(self, services_list, alert_type="down"):
         """Envoyer un courriel d'alerte pour les événements de santé.

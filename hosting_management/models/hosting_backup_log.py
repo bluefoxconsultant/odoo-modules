@@ -76,6 +76,11 @@ class HostingBackupRun(models.Model):
     report_sent_date = fields.Datetime(
         string="Date d'envoi du rapport",
     )
+    ntfy_alert_sent = fields.Boolean(
+        string="Alerte push envoyée",
+        default=False,
+        copy=False,
+    )
     company_id = fields.Many2one(
         comodel_name="res.company",
         string="Société",
@@ -120,6 +125,56 @@ class HostingBackupRun(models.Model):
                 )
                 run.state = "partial" if has_unverified else "success"
 
+    def _maybe_send_ntfy_alert(self):
+        """Appeler après finalisation de l'exécution (lignes créées, état calculé)."""
+        for run in self:
+            if run.state in ("failed", "partial") and not run.ntfy_alert_sent:
+                run._send_backup_ntfy_alert()
+                run.ntfy_alert_sent = True
+
+    def _send_backup_ntfy_alert(self):
+        """Push ntfy lorsqu'une exécution se termine en échec ou en succès partiel."""
+        self.ensure_one()
+        Ntfy = self.env["hosting.ntfy"]
+        failed_lines = self.line_ids.filtered(lambda l: l.status == "failed")
+        unverified_lines = self.line_ids.filtered(
+            lambda l: l.status == "success" and l.file_ids and not l.all_verified
+        )
+        if self.state == "failed":
+            title = f"SAUVEGARDE ÉCHEC : {self.name or self.hostname or 'exécution'}"
+            priority = "urgent"
+            tags = "floppy_disk,rotating_light"
+        else:
+            title = f"SAUVEGARDE PARTIELLE : {self.name or self.hostname or 'exécution'}"
+            priority = "high"
+            tags = "floppy_disk,warning"
+        body_lines = [
+            f"Hôte : {self.hostname or 'N/D'}",
+            f"Succès : {self.success_count} / Échecs : {self.failed_count} / Ignorés : {self.skipped_count}",
+        ]
+        if failed_lines:
+            body_lines.append("")
+            body_lines.append("Services en échec :")
+            for line in failed_lines[:10]:
+                err = (line.error_message or "").strip().splitlines()[0] if line.error_message else ""
+                body_lines.append(
+                    f"- {line.service_name}" + (f" : {err[:80]}" if err else "")
+                )
+            if len(failed_lines) > 10:
+                body_lines.append(f"… et {len(failed_lines) - 10} de plus")
+        if unverified_lines and not failed_lines:
+            body_lines.append("")
+            body_lines.append("Archives non vérifiées :")
+            for line in unverified_lines[:10]:
+                body_lines.append(f"- {line.service_name} ({line.backup_ratio})")
+        Ntfy.send(
+            title=title,
+            body="\n".join(body_lines),
+            priority=priority,
+            tags=tags,
+            click=Ntfy.record_url(self),
+        )
+
     def action_send_report(self):
         """Envoyer le rapport de sauvegarde par courriel."""
         self.ensure_one()
@@ -131,6 +186,7 @@ class HostingBackupRun(models.Model):
             self.write(
                 {"report_sent": True, "report_sent_date": fields.Datetime.now()}
             )
+        self._maybe_send_ntfy_alert()
         return True
 
 
