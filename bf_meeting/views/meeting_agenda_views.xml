@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- List View -->
+    <record id="meeting_agenda_view_list" model="ir.ui.view">
+        <field name="name">meeting.agenda.list</field>
+        <field name="model">meeting.agenda</field>
+        <field name="arch" type="xml">
+            <list default_order="date desc">
+                <field name="date"/>
+                <field name="name"/>
+                <field name="project_id"/>
+                <field name="partner_id" optional="show"/>
+                <field name="series_name" optional="hide"/>
+                <field name="duration_planned" optional="show"/>
+                <field name="topic_count"/>
+                <field name="agenda_task_count" string="Tâches à discuter" optional="show"/>
+                <field name="state" widget="badge"
+                       decoration-success="state == 'confirmed'"
+                       decoration-info="state == 'done'"
+                       decoration-warning="state == 'draft'"
+                       decoration-danger="state == 'cancelled'"/>
+                <field name="sent_date" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Form View -->
+    <record id="meeting_agenda_view_form" model="ir.ui.view">
+        <field name="name">meeting.agenda.form</field>
+        <field name="model">meeting.agenda</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_confirm" type="object"
+                            string="Confirmer"
+                            class="btn-primary"
+                            invisible="state != 'draft'"/>
+                    <button name="action_send_agenda" type="object"
+                            string="Envoyer"
+                            class="btn-primary"
+                            invisible="state not in ('confirmed',)"/>
+                    <button name="action_send_agenda_wizard" type="object"
+                            string="Envoyer avec options..."
+                            invisible="state not in ('draft', 'confirmed')"/>
+                    <button name="%(bf_meeting.action_report_meeting_agenda)d" type="action"
+                            string="Imprimer PDF"
+                            class="btn-secondary"/>
+                    <button name="action_create_meeting_record" type="object"
+                            string="Créer le compte rendu"
+                            class="btn-secondary"
+                            invisible="state != 'confirmed' or meeting_record_id"/>
+                    <button name="action_done" type="object"
+                            string="Terminer"
+                            invisible="state != 'confirmed'"/>
+                    <button name="action_cancel" type="object"
+                            string="Annuler"
+                            invisible="state not in ('draft', 'confirmed')"/>
+                    <button name="action_reset_draft" type="object"
+                            string="Remettre en brouillon"
+                            invisible="state not in ('cancelled',)"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="draft,confirmed,done"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_agenda_tasks" type="object"
+                                class="oe_stat_button" icon="fa-tasks"
+                                help="Tâches à discuter lors de cet ordre du jour"
+                                invisible="agenda_task_count == 0">
+                            <field name="agenda_task_count" widget="statinfo"
+                                   string="À discuter"/>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" placeholder="Titre de l'ordre du jour"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="project_id"/>
+                            <field name="partner_id"/>
+                            <field name="date"/>
+                            <field name="duration_planned"/>
+                        </group>
+                        <group>
+                            <field name="location"/>
+                            <field name="series_name"/>
+                            <field name="organizer_id"/>
+                            <field name="auto_send_on_confirm"/>
+                        </group>
+                    </group>
+                    <group string="Participants">
+                        <field name="participant_ids" widget="many2many_tags" nolabel="1"/>
+                    </group>
+                    <notebook>
+                        <page string="Sujets" name="topics">
+                            <field name="topic_ids">
+                                <list>
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="name"/>
+                                    <field name="duration_planned"/>
+                                    <field name="presenter_id"/>
+                                </list>
+                                <form>
+                                    <group>
+                                        <group>
+                                            <field name="name"/>
+                                            <field name="duration_planned"/>
+                                        </group>
+                                        <group>
+                                            <field name="presenter_id"/>
+                                            <field name="sequence"/>
+                                        </group>
+                                    </group>
+                                    <separator string="Notes / Contexte"/>
+                                    <field name="description" nolabel="1"/>
+                                </form>
+                            </field>
+                        </page>
+                        <page string="Éléments d'action à discuter" name="tagged_tasks">
+                            <field name="agenda_task_ids" readonly="1" nolabel="1">
+                                <list>
+                                    <field name="name"/>
+                                    <field name="project_id"/>
+                                    <field name="user_ids" widget="many2many_avatar_user"/>
+                                    <field name="date_deadline"/>
+                                    <field name="stage_id"/>
+                                    <field name="state" widget="badge"/>
+                                    <field name="bf_discuss_tag"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Contenu" name="content">
+                            <separator string="Objectifs"/>
+                            <field name="objectives" nolabel="1"
+                                   placeholder="Ce que nous souhaitons accomplir lors de cette rencontre..."/>
+                            <separator string="Contexte"/>
+                            <field name="context_html" nolabel="1"
+                                   placeholder="État des lieux avant la rencontre..."/>
+                            <separator string="Préparation"/>
+                            <field name="preparation_html" nolabel="1"
+                                   placeholder="Ce qui doit être préparé avant la rencontre..."/>
+                        </page>
+                        <page string="Technique" name="technical">
+                            <group>
+                                <group>
+                                    <field name="calendar_event_id"/>
+                                    <field name="meeting_record_id" readonly="1"/>
+                                </group>
+                                <group>
+                                    <field name="nc_path"/>
+                                    <field name="sent_date"/>
+                                    <field name="company_id" groups="base.group_multi_company"/>
+                                    <field name="active"/>
+                                </group>
+                            </group>
+                            <separator string="Destinataires"/>
+                            <field name="recipient_ids" widget="many2many_tags"
+                                   placeholder="Si vide, les participants recevront le courriel."/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <!-- Search View -->
+    <record id="meeting_agenda_view_search" model="ir.ui.view">
+        <field name="name">meeting.agenda.search</field>
+        <field name="model">meeting.agenda</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="project_id"/>
+                <field name="partner_id"/>
+                <field name="series_name"/>
+                <filter name="filter_draft" string="Brouillon"
+                        domain="[('state', '=', 'draft')]"/>
+                <filter name="filter_confirmed" string="Confirmé"
+                        domain="[('state', '=', 'confirmed')]"/>
+                <filter name="filter_done" string="Terminé"
+                        domain="[('state', '=', 'done')]"/>
+                <separator/>
+                <filter name="filter_upcoming" string="À venir"
+                        domain="[('state', 'in', ('draft', 'confirmed')),
+                                 ('date', '&gt;=', context_today().strftime('%%Y-%%m-%%d'))]"/>
+                <filter name="filter_this_month" string="Ce mois"
+                        domain="[('date', '&gt;=', (context_today() - relativedelta(day=1)).strftime('%%Y-%%m-%%d')),
+                                 ('date', '&lt;', (context_today() + relativedelta(months=1, day=1)).strftime('%%Y-%%m-%%d'))]"/>
+                <group expand="0" string="Regrouper par">
+                    <filter name="group_project" string="Projet"
+                            context="{'group_by': 'project_id'}"/>
+                    <filter name="group_month" string="Mois"
+                            context="{'group_by': 'date:month'}"/>
+                    <filter name="group_state" string="État"
+                            context="{'group_by': 'state'}"/>
+                    <filter name="group_series" string="Série"
+                            context="{'group_by': 'series_name'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Actions -->
+    <record id="meeting_agenda_action" model="ir.actions.act_window">
+        <field name="name">Ordres du jour</field>
+        <field name="res_model">meeting.agenda</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="meeting_agenda_view_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Aucun ordre du jour
+            </p>
+            <p>Créez un ordre du jour pour préparer votre prochaine rencontre.</p>
+        </field>
+    </record>
+
+    <record id="meeting_agenda_action_upcoming" model="ir.actions.act_window">
+        <field name="name">Ordres du jour à venir</field>
+        <field name="res_model">meeting.agenda</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="meeting_agenda_view_search"/>
+        <field name="context">{'search_default_filter_upcoming': 1}</field>
+    </record>
+
+</odoo>
