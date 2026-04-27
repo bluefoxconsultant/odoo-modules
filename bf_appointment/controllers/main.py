@@ -1,7 +1,11 @@
 import hmac
 import logging
 import re
+import threading
+import time
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
+from urllib.parse import quote_plus
 
 from dateutil.parser import isoparse
 
@@ -11,6 +15,52 @@ from odoo.exceptions import ValidationError
 from odoo.http import Controller, request, route
 
 _logger = logging.getLogger(__name__)
+
+# Rate limiting for token validation (anti brute-force)
+_token_fail_lock = threading.Lock()
+_token_fail_data = defaultdict(list)  # IP -> [timestamps of failed attempts]
+_TOKEN_FAIL_MAX = 10  # max failed attempts
+_TOKEN_FAIL_WINDOW = 300  # per 5 minutes
+
+
+def _client_ip():
+    """Return the real client IP, honoring X-Forwarded-For when behind a proxy.
+
+    Odoo's proxy_mode applies ProxyFix at the WSGI layer, which replaces
+    REMOTE_ADDR with the leftmost X-Forwarded-For entry. But that rewrite only
+    fires when the raw REMOTE_ADDR matches a trusted proxy. Reading the header
+    ourselves as a fallback keeps the rate-limit bucket per-client instead of
+    per-proxy, so a single abusive client cannot lock out everyone behind the
+    reverse proxy.
+    """
+    try:
+        env = request.httprequest.environ
+        for key in ("HTTP_X_REAL_IP", "HTTP_X_FORWARDED_FOR"):
+            value = env.get(key, "")
+            if value:
+                return value.split(",")[0].strip()
+        return request.httprequest.remote_addr or "unknown"
+    except Exception:
+        return "unknown"
+
+
+def _check_token_rate_limit():
+    """Return True if IP is within rate limits for token validation."""
+    ip = _client_ip()
+    now = time.monotonic()
+    with _token_fail_lock:
+        attempts = _token_fail_data[ip]
+        cutoff = now - _TOKEN_FAIL_WINDOW
+        _token_fail_data[ip] = [t for t in attempts if t > cutoff]
+        return len(_token_fail_data[ip]) < _TOKEN_FAIL_MAX
+
+
+def _record_token_failure():
+    """Record a failed token validation attempt for rate limiting."""
+    ip = _client_ip()
+    now = time.monotonic()
+    with _token_fail_lock:
+        _token_fail_data[ip].append(now)
 
 
 class AppointmentController(Controller):
@@ -75,16 +125,26 @@ class AppointmentController(Controller):
         # Validate required fields
         if not name or not email:
             return request.redirect(
-                f"/appointment/{slug}?error=Veuillez remplir tous les champs obligatoires."
+                f"/appointment/{slug}?error={quote_plus('Veuillez remplir tous les champs obligatoires.')}"
             )
         # Basic email validation
         if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
             return request.redirect(
-                f"/appointment/{slug}?error=Adresse courriel invalide."
+                f"/appointment/{slug}?error={quote_plus('Adresse courriel invalide.')}"
             )
         # Validate timezone
         if tz and tz not in pytz.all_timezones_set:
             tz = ""
+        # Validate required intake fields. We re-run _validate_intake_value so
+        # a tampered select/email/phone (non-empty but invalid) is treated as
+        # missing rather than silently dropped downstream.
+        for field in booking_type.intake_field_ids.filtered("required"):
+            key = f"intake_{field.id}"
+            raw = (kwargs.get(key) or "").strip()
+            if not raw or not self._validate_intake_value(field, raw):
+                return request.redirect(
+                    f"/appointment/{slug}?error={quote_plus(f'Le champ « {field.name} » est obligatoire.')}"
+                )
         # Find or create partner
         Partner = request.env["res.partner"].sudo()
         partner = Partner.search([("email", "=ilike", email)], limit=1)
@@ -165,6 +225,14 @@ class AppointmentController(Controller):
         booking_sudo = self._get_booking_sudo(booking_id, token)
         if not booking_sudo:
             return request.redirect("/appointment")
+        # Cancelled bookings cannot be rescheduled: OCA clears the resource
+        # combination on cancel, so any POST /confirm would 400. Route the
+        # user straight to the confirmation page (which shows the cancelled
+        # state) instead of a misleading calendar picker.
+        if booking_sudo.state == "canceled":
+            return request.redirect(
+                f"/appointment/b/{booking_id}/{token}"
+            )
         tz = kwargs.get("tz") or ""
         if tz and tz in pytz.all_timezones_set:
             booking_sudo = booking_sudo.with_context(tz=tz)
@@ -192,6 +260,10 @@ class AppointmentController(Controller):
         booking_sudo = self._get_booking_sudo(booking_id, token)
         if not booking_sudo:
             return request.redirect("/appointment")
+        if booking_sudo.state == "canceled":
+            return request.redirect(
+                f"/appointment/b/{booking_id}/{token}"
+            )
         try:
             when_tz_aware = isoparse(when)
             when_naive = datetime.fromtimestamp(
@@ -218,7 +290,7 @@ class AppointmentController(Controller):
             return request.redirect(
                 f"/appointment/b/{booking_id}/{token}"
                 f"/schedule/{when_tz_aware:%Y/%m}"
-                f"?error={error.args[0]}{tz_param}"
+                f"?error={quote_plus(str(error.args[0]))}{tz_param}"
             )
         booking_sudo.action_confirm()
         # Send our branded confirmation email with ICS attachment
@@ -306,9 +378,17 @@ class AppointmentController(Controller):
         """Validate access token and return sudoed booking."""
         if not access_token:
             return False
+        # Rate limit: block IPs with too many failed token attempts
+        if not _check_token_rate_limit():
+            _logger.warning(
+                "Token rate limit exceeded for IP %s",
+                _client_ip(),
+            )
+            return False
         booking_sudo = (
             request.env["resource.booking"]
             .sudo()
+            .with_context(active_test=False)
             .browse(booking_id)
         )
         if (
@@ -316,11 +396,42 @@ class AppointmentController(Controller):
             or not booking_sudo.access_token
             or not hmac.compare_digest(booking_sudo.access_token, access_token)
         ):
+            _record_token_failure()
             return False
         return booking_sudo.with_context(
             using_portal=True,
+            active_test=False,
             tz=booking_sudo.type_id.resource_calendar_id.tz,
         )
+
+    @staticmethod
+    def _validate_intake_value(field, value):
+        """Validate an intake field value against its declared type."""
+        if not value:
+            return value
+        if field.field_type == "email":
+            if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", value):
+                return ""
+        elif field.field_type == "phone":
+            # Allow digits, spaces, dashes, parens, plus sign
+            if not re.match(r"^[\d\s\-()+.]{7,20}$", value):
+                return ""
+        elif field.field_type == "number":
+            try:
+                float(value)
+            except ValueError:
+                return ""
+        elif field.field_type == "select":
+            # Validate against allowed options
+            if field.select_options:
+                allowed = {
+                    opt.strip()
+                    for opt in field.select_options.split("\n")
+                    if opt.strip()
+                }
+                if value not in allowed:
+                    return ""
+        return value
 
     def _save_intake_answers(self, booking, booking_type, kwargs):
         """Save custom intake field answers from the form."""
@@ -328,6 +439,7 @@ class AppointmentController(Controller):
         for field in booking_type.intake_field_ids:
             key = f"intake_{field.id}"
             value = (kwargs.get(key) or "").strip()
+            value = self._validate_intake_value(field, value)
             if value:
                 IntakeAnswer.create({
                     "booking_id": booking.id,

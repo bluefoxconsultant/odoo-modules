@@ -9,6 +9,11 @@ _logger = logging.getLogger(__name__)
 class ResourceBookingType(models.Model):
     _inherit = "resource.booking.type"
 
+    project_id = fields.Many2one(
+        "project.project",
+        string="Projet associé",
+        help="Projet Odoo dans lequel les tâches issues du Meeting Processor seront créées.",
+    )
     is_public = fields.Boolean(
         string="Public Booking Page",
         default=False,
@@ -135,14 +140,17 @@ class ResourceBookingType(models.Model):
         return result
 
     def _create_default_email_schedules(self):
-        """Create default email schedules for a public booking type."""
+        """Create default email schedules for a public booking type.
+
+        The 48h/2h/1h pre-reminders are intentionally absent : keeping a
+        single 24h-before reminder avoids spamming the booker. Three
+        post-meeting touchpoints stay on by design (immediate thanks,
+        +1h check-in, +2h summary).
+        """
         self.ensure_one()
         Schedule = self.env["appointment.email.schedule"]
         defaults = [
-            ("before", 48, "bf_appointment.mail_template_reminder_2d"),
             ("before", 24, "bf_appointment.mail_template_reminder_1d"),
-            ("before", 2, "bf_appointment.mail_template_reminder_2h"),
-            ("before", 1, "bf_appointment.mail_template_reminder_1h"),
             ("after", 0, "bf_appointment.mail_template_followup_immediate"),
             ("after", 1, "bf_appointment.mail_template_followup_1h"),
             ("after", 2, "bf_appointment.mail_template_followup_2h"),

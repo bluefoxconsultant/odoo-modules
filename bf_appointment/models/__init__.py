@@ -1,6 +1,7 @@
 from . import appointment_email_schedule
 from . import appointment_intake
 from . import calendar_event
+from . import mail_template
 from . import res_config_settings
 from . import resource_booking
 from . import resource_booking_type

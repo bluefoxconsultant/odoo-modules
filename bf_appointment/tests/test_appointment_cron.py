@@ -122,3 +122,32 @@ class TestAppointmentCronDedup(TransactionCase):
             Booking._cron_send_appointment_emails()
             self.assertEqual(mock_send.call_count, 0)
             self.assertNotIn(near_schedule, booking.sent_schedule_ids)
+
+    def test_cron_before_trigger_does_not_fire_after_start(self):
+        """A 'before' schedule must never fire once the booking has already started.
+
+        Regression guard: without the `now < booking.start` cap, a 24h reminder
+        on a booking that started 5 minutes ago would still fire (send_at was
+        23h55m ago, firmly past). Users received "Rappel demain" AFTER the
+        meeting had already happened.
+        """
+        late_schedule = self.env["appointment.email.schedule"].create({
+            "type_id": self.booking_type.id,
+            "trigger": "before",
+            "hours": 24.0,
+            "template_id": self.template.id,
+        })
+        self.schedule.active = False
+        booking = self._make_confirmed_booking()
+        # Booking started 5 minutes ago — well past the send_at of 23h55m ago
+        booking.start = fields.Datetime.now() - timedelta(minutes=5)
+        Booking = self.env["resource.booking"]
+        with patch.object(
+            type(booking), "_send_appointment_email", autospec=True
+        ) as mock_send:
+            Booking._cron_send_appointment_emails()
+            self.assertEqual(
+                mock_send.call_count, 0,
+                "'before' schedule must not fire after booking start",
+            )
+            self.assertNotIn(late_schedule, booking.sent_schedule_ids)

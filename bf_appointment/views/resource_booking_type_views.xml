@@ -12,6 +12,7 @@
             <xpath expr="//group[@name='main']" position="after">
                 <group string="Page publique de rendez-vous">
                     <group>
+                        <field name="project_id"/>
                         <field name="is_public"/>
                         <field name="is_in_person"/>
                         <field name="slug" invisible="not is_public"/>

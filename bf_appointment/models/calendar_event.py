@@ -8,6 +8,21 @@ _logger = logging.getLogger(__name__)
 class CalendarEvent(models.Model):
     _inherit = "calendar.event"
 
+    def _track_subtype(self, init_values):
+        """Suppress tracking notifications on events linked to a booking.
+
+        Resource bookings drive their own branded confirmation/reminder
+        emails. Stock Odoo otherwise fires a "Date mise à jour" notification
+        on every reschedule, AND any orphan calendar.event left behind by
+        cancel/rebook cycles (with the booker still in attendee_ids) keeps
+        firing them forever. The suppression context set by
+        ResourceBooking._sync_meeting only covers the sync path; this guard
+        catches every write to a booking-linked event.
+        """
+        if self.resource_booking_ids:
+            return False
+        return super()._track_subtype(init_values)
+
     def _get_ics_file(self):
         """Override to include videocall_location in ICS LOCATION and DESCRIPTION."""
         result = super()._get_ics_file()

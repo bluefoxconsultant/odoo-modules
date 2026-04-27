@@ -24,6 +24,29 @@
         <field name="perm_unlink" eval="False"/>
     </record>
 
+    <!-- Intake fields: public/portal can only read fields of public booking types -->
+    <record id="rule_intake_field_public" model="ir.rule">
+        <field name="name">Intake fields: public reads only public types</field>
+        <field name="model_id" ref="model_appointment_intake_field"/>
+        <field name="domain_force">[('type_id.is_public', '=', True)]</field>
+        <field name="groups" eval="[(4, ref('base.group_public'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <record id="rule_intake_field_portal" model="ir.rule">
+        <field name="name">Intake fields: portal reads only public types</field>
+        <field name="model_id" ref="model_appointment_intake_field"/>
+        <field name="domain_force">[('type_id.is_public', '=', True)]</field>
+        <field name="groups" eval="[(4, ref('base.group_portal'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
     <!-- Intake answers: block direct RPC access for public/portal -->
     <record id="rule_intake_answer_public" model="ir.rule">
         <field name="name">Intake answers: public - no direct access</field>

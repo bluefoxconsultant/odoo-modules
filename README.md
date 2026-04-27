@@ -7,7 +7,7 @@ Custom Odoo 18 Community Edition modules developed by [Blue Fox Inc.](https://bl
 | Directory | Name | Version | License | Description |
 |---|---|---|---|---|
 | `audit_ti` | Audit TI - Loi 25 | 18.0.1.17.0 | LGPL-3 | Gestion des audits de sécurité informatique pour la conformité Loi 25 |
-| `bf_appointment` | Blue Fox Appointment | 18.0.2.6.0 | AGPL-3 | Pages publiques de prise de rendez-vous en libre-service (étend `resource_booking`) |
+| `bf_appointment` | Blue Fox Appointment | 18.0.2.7.1 | AGPL-3 | Pages publiques de prise de rendez-vous en libre-service (étend `resource_booking`) |
 | `bf_dark_mode` | Blue Fox Dark Mode | 18.0.1.0.0 | MIT | Mode sombre pour Odoo utilisant la palette Blue Fox |
 | `bf_document_nextcloud_sync` | Document Nextcloud Sync | 18.0.1.1.0 | LGPL-3 | Synchronisation documents Odoo ↔ Nextcloud via WebDAV |
 | `bf_email_management` | Gestion des courriels | 18.0.1.1.0 | LGPL-3 | Vue centralisée des courriels envoyés et reçus avec enrichissement |
@@ -15,7 +15,7 @@ Custom Odoo 18 Community Edition modules developed by [Blue Fox Inc.](https://bl
 | `bf_hour_bank` | Banque d'heures | 18.0.1.6.0 | LGPL-3 | Suivi automatisé des banques d'heures client |
 | `bf_mail_import` | BF Import courriel (.eml) | 18.0.1.2.0 | LGPL-3 | Importer des fichiers .eml dans le chatter Odoo |
 | `bf_mail_vigie` | BF Vigie courriels (re-router) | 18.0.2.0.0 | LGPL-3 | Bouton "Re-router" sur `bf.email` pour déplacer un courriel mal routé vers la bonne chatter |
-| `bf_meeting` | Rencontres | 18.0.3.1.0 | LGPL-3 | Ordres du jour, comptes rendus et tâches à discuter en rencontre |
+| `bf_meeting` | Rencontres | 18.0.3.3.0 | LGPL-3 | Ordres du jour, comptes rendus et tâches à discuter en rencontre |
 | `bf_sms_archive` | Archive SMS & Appels | 18.0.1.3.0 | LGPL-3 | Archivage et recherche de SMS et journaux d'appels Android |
 | `bf_task_unblock_notify` | BF Notification de déblocage de tâche | 18.0.1.6.1 | LGPL-3 | Notifie les assignés quand leur tâche est débloquée |
 | `bf_timesheet_timer` | BF Timer - Feuilles de temps | 18.0.1.6.0 | LGPL-3 | Timer global de feuilles de temps avec multi-timer et interface OWL |

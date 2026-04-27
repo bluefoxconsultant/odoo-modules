@@ -1,7 +1,12 @@
 import base64
 import logging
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta
+
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    from backports.zoneinfo import ZoneInfo
 
 from odoo import _, api, fields, models
 
@@ -22,6 +27,30 @@ def _escape_ics(value):
     value = value.replace("\r", "\\n")
     value = value.replace("\n", "\\n")
     return value
+
+
+# Minimal VTIMEZONE block for America/Toronto (EST/EDT). Hard-coded because it
+# covers every BF booking today, and including a VTIMEZONE is required by
+# RFC 5545 when TZID references are used in DTSTART/DTEND.
+_VTIMEZONE_AMERICA_TORONTO = (
+    "BEGIN:VTIMEZONE\r\n"
+    "TZID:America/Toronto\r\n"
+    "BEGIN:STANDARD\r\n"
+    "DTSTART:19701101T020000\r\n"
+    "TZOFFSETFROM:-0400\r\n"
+    "TZOFFSETTO:-0500\r\n"
+    "TZNAME:EST\r\n"
+    "RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU\r\n"
+    "END:STANDARD\r\n"
+    "BEGIN:DAYLIGHT\r\n"
+    "DTSTART:19700308T020000\r\n"
+    "TZOFFSETFROM:-0500\r\n"
+    "TZOFFSETTO:-0400\r\n"
+    "TZNAME:EDT\r\n"
+    "RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU\r\n"
+    "END:DAYLIGHT\r\n"
+    "END:VTIMEZONE\r\n"
+)
 
 
 class ResourceBooking(models.Model):
@@ -48,6 +77,30 @@ class ResourceBooking(models.Model):
         string="Intake Answers",
     )
 
+    def _sync_meeting(self):
+        """Suppress calendar.event invite/update notifications.
+
+        OCA's resource_booking._sync_meeting creates and writes the linked
+        calendar.event with mail_notify_author=True (set in OCA's
+        calendar_event create override) and from_ui=True on reschedule.
+        Both paths fire the stock Odoo "Date mise à jour" notification to
+        the booker, on top of our own branded confirmation/reminder
+        emails. Inject suppression context before delegating so attendees
+        do not get the duplicate calendar invite.
+        """
+        return super(
+            ResourceBooking,
+            self.with_context(
+                no_mail_to_attendees=True,
+                mail_notify_author=False,
+                mail_create_nosubscribe=True,
+                mail_create_nolog=True,
+                mail_notrack=True,
+                tracking_disable=True,
+                dont_notify=True,
+            ),
+        )._sync_meeting()
+
     def action_confirm(self):
         """Override to generate video URL on confirmation."""
         result = super().action_confirm()
@@ -59,6 +112,22 @@ class ResourceBooking(models.Model):
                 url = booking._generate_video_url()
                 if url:
                     booking.videocall_location = url
+        return result
+
+    def action_cancel(self):
+        """Override to preserve access_token after cancellation.
+
+        OCA resource_booking clears access_token on cancel, which breaks the
+        "Voir le rendez-vous" link in previously-sent confirmation emails. We
+        still archive the record (active=False), but keep the token so the
+        booker can land on the confirmation page and see the cancelled state.
+        """
+        tokens = {b.id: b.access_token for b in self}
+        result = super().action_cancel()
+        for booking in self:
+            token = tokens.get(booking.id)
+            if token and not booking.access_token:
+                booking.sudo().access_token = token
         return result
 
     def _generate_video_url(self):
@@ -127,10 +196,8 @@ class ResourceBooking(models.Model):
     def _decrypt_nc_talk_password(self, encrypted_value):
         """Decrypt Nextcloud Talk password using Fernet.
 
-        Returns False (with an error log) if the cryptography package is
-        missing, the encryption key is unset, or decryption fails. Never
-        falls back to returning the raw ciphertext, which could leak an
-        un-decryptable value to the API as if it were a password.
+        Raises UserError if the encryption key is missing or decryption fails,
+        instead of falling back to returning the raw (potentially plaintext) value.
         """
         if not encrypted_value:
             return False
@@ -141,11 +208,11 @@ class ResourceBooking(models.Model):
                 "cryptography package not installed - cannot decrypt NC Talk password"
             )
             return False
-        ICP = self.env["ir.config_parameter"].sudo()
-        key = ICP.get_param("bf_appointment.encryption_key")
+        from ._crypto import get_encryption_key
+        key = get_encryption_key(self.env, auto_generate=False)
         if not key:
             _logger.error(
-                "bf_appointment.encryption_key not set - cannot decrypt NC Talk password"
+                "bf_appointment Fernet key not set (env/odoo.conf/ICP) - cannot decrypt NC Talk password"
             )
             return False
         try:
@@ -219,17 +286,33 @@ class ResourceBooking(models.Model):
         desc_parts.append(_("Voir mon rendez-vous : %s") % booking_url)
         desc_parts.append(_("Modifier l'horaire : %s") % schedule_url)
         desc_parts.append(_("Annuler : %s") % cancel_url)
-        description = "\\n".join(desc_parts)
+        description = "\n".join(desc_parts)
         # Location
         location = self.videocall_location or self.location or ""
         # UID
         uid = f"bf-appointment-{self.id}@{base_url.split('//')[1] if '//' in base_url else 'odoo'}"
-        # Format dates
-        dtstart = self.start.strftime("%Y%m%dT%H%M%SZ")
-        dtend = stop.strftime("%Y%m%dT%H%M%SZ")
+        # Format dates. Odoo stores datetimes naive-UTC; render with TZID so
+        # calendar clients display the booking in the booker's local time
+        # (the same time shown on the public booking page). The DTSTAMP stays
+        # UTC per RFC 5545 (§3.8.7.2).
+        tzname = self._get_ics_tzname()
+        tz = ZoneInfo(tzname)
+        start_local = self.start.replace(tzinfo=ZoneInfo("UTC")).astimezone(tz)
+        end_local = stop.replace(tzinfo=ZoneInfo("UTC")).astimezone(tz)
+        dtstart = start_local.strftime("%Y%m%dT%H%M%S")
+        dtend = end_local.strftime("%Y%m%dT%H%M%S")
         dtstamp = fields.Datetime.now().strftime("%Y%m%dT%H%M%SZ")
         summary = _escape_ics(
             self.name or (_("RDV - %s") % self.type_id.name)
+        )
+        # Organizer/Attendee: METHOD:REQUEST requires an ORGANIZER (RFC 5546);
+        # ATTENDEE makes the invite RSVP-able in Outlook / Google / Apple Mail.
+        organizer_email = (
+            self.env.company.email
+            or "bonjour@bluefoxconsultant.com"
+        )
+        organizer_name = _escape_ics(
+            self.env.company.name or "Blue Fox"
         )
         ics = (
             "BEGIN:VCALENDAR\r\n"
@@ -237,13 +320,22 @@ class ResourceBooking(models.Model):
             "PRODID:-//Blue Fox Inc//BF Appointment//FR\r\n"
             "CALSCALE:GREGORIAN\r\n"
             "METHOD:REQUEST\r\n"
-            "BEGIN:VEVENT\r\n"
+            + (_VTIMEZONE_AMERICA_TORONTO if tzname == "America/Toronto" else "")
+            + "BEGIN:VEVENT\r\n"
             f"UID:{uid}\r\n"
             f"DTSTAMP:{dtstamp}\r\n"
-            f"DTSTART:{dtstart}\r\n"
-            f"DTEND:{dtend}\r\n"
+            f"DTSTART;TZID={tzname}:{dtstart}\r\n"
+            f"DTEND;TZID={tzname}:{dtend}\r\n"
             f"SUMMARY:{summary}\r\n"
+            f'ORGANIZER;CN="{organizer_name}":mailto:{organizer_email}\r\n'
         )
+        if self.partner_id and self.partner_id.email:
+            attendee_name = _escape_ics(self.partner_id.name or "")
+            ics += (
+                f'ATTENDEE;CN="{attendee_name}";ROLE=REQ-PARTICIPANT;'
+                f"PARTSTAT=NEEDS-ACTION;RSVP=TRUE:"
+                f"mailto:{self.partner_id.email}\r\n"
+            )
         if location:
             ics += f"LOCATION:{_escape_ics(location)}\r\n"
         if self.videocall_location:
@@ -255,6 +347,31 @@ class ResourceBooking(models.Model):
             "END:VCALENDAR\r\n"
         )
         return ics.encode("utf-8")
+
+    def _get_ics_tzname(self):
+        """Return the IANA TZ name used to render DTSTART/DTEND in the ICS.
+
+        Priority: booker partner → assigned user → calendar → America/Toronto.
+        res.company has no native ``tz`` field, so we read it from the
+        company's resource_calendar_id instead (and from the booking's
+        own resource_calendar_id as a closer match).
+        """
+        self.ensure_one()
+        cal_company = self.env.company.resource_calendar_id
+        cal_type = self.type_id.resource_calendar_id
+        for candidate in (
+            self.partner_id.tz if self.partner_id else None,
+            self.user_id.tz if self.user_id else None,
+            cal_type.tz if cal_type else None,
+            cal_company.tz if cal_company else None,
+        ):
+            if candidate:
+                try:
+                    ZoneInfo(candidate)
+                    return candidate
+                except Exception:
+                    continue
+        return "America/Toronto"
 
     def _get_ics_attachment(self):
         """Return an ir.attachment record with the ICS file for email attachment."""
@@ -272,27 +389,37 @@ class ResourceBooking(models.Model):
         })
         return attachment
 
-    def _send_appointment_email(self, template):
-        """Send an appointment email with ICS attachment.
+    def _send_appointment_email(self, template, attach_ics=True):
+        """Send an appointment email with optional ICS attachment.
 
         Respects the partner's language for both the email template
-        rendering and the ICS attachment content.
+        rendering and the ICS attachment content. Pass ``attach_ics=False``
+        for follow-up templates (suivi immédiat / 1h / 2h après) where the
+        booking has already happened — re-sending an ICS REQUEST for a past
+        event would just clutter the recipient's calendar client.
         """
         self.ensure_one()
+        # Guarantee access_token: portal links in templates render empty when
+        # access_token is False, producing 404s like /appointment/b/22/. The
+        # public flow calls _portal_ensure_token() at create time, but cron
+        # paths and admin-confirmed bookings can still reach this method
+        # without a token.
+        if not self.access_token:
+            self._portal_ensure_token()
         # Use partner's language for ICS content
         partner_lang = self.partner_id.lang or self.env.lang or "fr_CA"
         booking_lang = self.with_context(lang=partner_lang)
-        attachment = booking_lang._get_ics_attachment()
-        ctx = {}
+        attachment = booking_lang._get_ics_attachment() if attach_ics else False
+        # Create the mail.mail without sending, attach the ICS explicitly,
+        # then send. Going through email_values={'attachment_ids': ...} on
+        # send_mail() lost attachments in production (confirmation arrived
+        # without ICS in QA on 2026-04-25); writing to the record directly is
+        # the only path Odoo 18 honors reliably.
+        mail_id = template.send_mail(self.id, force_send=False)
+        mail = self.env["mail.mail"].browse(mail_id)
         if attachment:
-            ctx["default_attachment_ids"] = [(4, attachment.id)]
-        template.with_context(**ctx).send_mail(
-            self.id,
-            force_send=True,
-            email_values={
-                "attachment_ids": [(4, attachment.id)] if attachment else [],
-            },
-        )
+            mail.write({"attachment_ids": [(4, attachment.id)]})
+        mail.send()
 
     # ---- Cron ----
 
@@ -301,11 +428,30 @@ class ResourceBooking(models.Model):
         """Backward compat alias for old cron."""
         return self._cron_send_appointment_emails()
 
+    # Postgres advisory-lock key used to serialize cron execution.
+    # Picked arbitrarily; only this cron uses it.
+    _CRON_ADVISORY_LOCK_KEY = 0x4250414F4C434C4B  # "BPAOLCLK"
+
     @api.model
     def _cron_send_appointment_emails(self):
-        """Send scheduled appointment emails (reminders + follow-ups)."""
+        """Send scheduled appointment emails (reminders + follow-ups).
+
+        Acquires a transaction-scoped Postgres advisory lock so two parallel
+        runs (multi-worker cron, or scheduled tick + manual "Run Manually"
+        click) cannot both pass the sent_schedule_ids check and double-send.
+        Without this guard, QA on 2026-04-25 received the 24h reminder twice
+        (38s apart) because the manual trigger raced the scheduled tick.
+        """
+        self.env.cr.execute(
+            "SELECT pg_try_advisory_xact_lock(%s)",
+            (self._CRON_ADVISORY_LOCK_KEY,),
+        )
+        if not self.env.cr.fetchone()[0]:
+            _logger.info(
+                "bf_appointment cron already running on another worker, skipping"
+            )
+            return
         now = fields.Datetime.now()
-        # Process confirmed bookings with active schedules
         bookings = self.search([
             ("state", "in", ("confirmed", "scheduled")),
             ("start", "!=", False),
@@ -313,7 +459,6 @@ class ResourceBooking(models.Model):
         ])
         for booking in bookings:
             for schedule in booking.type_id.email_schedule_ids.filtered("active"):
-                # Refresh M2M cache to avoid re-sending already-sent emails
                 booking.invalidate_recordset(["sent_schedule_ids"])
                 if schedule in booking.sent_schedule_ids:
                     continue
@@ -327,22 +472,24 @@ class ResourceBooking(models.Model):
                     )
                     send_at = stop + timedelta(hours=schedule.hours)
                     should_send = now >= send_at
-                if should_send:
-                    try:
-                        booking._send_appointment_email(schedule.template_id)
-                        booking.sent_schedule_ids = [(4, schedule.id)]
-                        _logger.info(
-                            "Appointment email sent: booking=%d schedule=%d "
-                            "template=%s",
-                            booking.id,
-                            schedule.id,
-                            schedule.template_id.name,
-                        )
-                    except Exception as e:
-                        _logger.error(
-                            "Failed to send scheduled email for booking %d "
-                            "(schedule %d): %s",
-                            booking.id,
-                            schedule.id,
-                            e,
-                        )
+                if not should_send:
+                    continue
+                # Claim the schedule BEFORE sending so a transient send
+                # failure does not retry forever, and so any concurrent path
+                # that bypasses the advisory lock still sees the claim.
+                booking.sent_schedule_ids = [(4, schedule.id)]
+                # Skip ICS on "after" follow-ups — the meeting already
+                # happened, so re-sending the calendar invite is noise.
+                attach_ics = schedule.trigger != "after"
+                try:
+                    booking._send_appointment_email(
+                        schedule.template_id, attach_ics=attach_ics
+                    )
+                except Exception as e:
+                    _logger.error(
+                        "Failed to send scheduled email for booking %d "
+                        "(schedule %d): %s",
+                        booking.id,
+                        schedule.id,
+                        e,
+                    )

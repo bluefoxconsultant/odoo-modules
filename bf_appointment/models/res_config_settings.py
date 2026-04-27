@@ -61,24 +61,8 @@ class ResConfigSettings(models.TransientModel):
         return res
 
     def _get_encryption_key(self):
-        """Get Fernet key: env var > odoo.conf > ir.config_parameter (fallback)."""
-        key = os.environ.get("BF_APPOINTMENT_FERNET_KEY")
-        if key:
-            return key
-        from odoo.tools import config
-        key = config.get("bf_appointment_fernet_key")
-        if key:
-            return key
-        ICP = self.env["ir.config_parameter"].sudo()
-        key = ICP.get_param("bf_appointment.encryption_key")
-        if not key:
-            key = Fernet.generate_key().decode()
-            ICP.set_param("bf_appointment.encryption_key", key)
-            _logger.warning(
-                "bf_appointment: encryption key auto-generated in database. "
-                "For better security, set BF_APPOINTMENT_FERNET_KEY env var."
-            )
-        return key
+        from ._crypto import get_encryption_key
+        return get_encryption_key(self.env)
 
     def _encrypt_value(self, value):
         if not value:
