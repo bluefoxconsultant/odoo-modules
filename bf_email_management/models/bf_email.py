@@ -243,11 +243,16 @@ class BfEmail(models.Model):
             if not partner:
                 rec.category = False
                 continue
+            # customer_rank / supplier_rank live on res.partner only when the
+            # sale_team / purchase modules are installed. Tenants without them
+            # (PMEC) would AttributeError otherwise.
+            customer_rank = getattr(partner, "customer_rank", 0) or 0
+            supplier_rank = getattr(partner, "supplier_rank", 0) or 0
             if partner.user_ids:
                 rec.category = "internal"
-            elif partner.customer_rank and partner.customer_rank > 0:
+            elif customer_rank > 0:
                 rec.category = "client"
-            elif partner.supplier_rank and partner.supplier_rank > 0:
+            elif supplier_rank > 0:
                 rec.category = "vendor"
             else:
                 rec.category = False
@@ -409,14 +414,20 @@ class BfEmail(models.Model):
     # ------------------------------------------------------------------
     @api.model
     def _cron_sync_emails(self):
-        """Sync new mail.message records of type 'email' into bf.email."""
+        """Sync new mail.message records of type 'email' into bf.email.
+
+        Watermark uses ``create_date`` (insertion time), not ``date``
+        (sender's send time). Backdated imports (manual IMAP imports,
+        forwarded emails with original send dates) would otherwise fall
+        below the watermark and never get picked up.
+        """
         ICP = self.env["ir.config_parameter"].sudo()
         last_sync = ICP.get_param("bf_email.last_sync_date", "2000-01-01 00:00:00")
         batch_size = int(ICP.get_param("bf_email.sync_batch_size", "200"))
 
         messages = self.env["mail.message"].sudo().search(
             [
-                ("date", ">", last_sync),
+                ("create_date", ">", last_sync),
                 "|",
                     ("message_type", "=", "email"),
                     "&",
@@ -424,7 +435,7 @@ class BfEmail(models.Model):
                         ("notification_ids.notification_type", "=", "email"),
             ],
             limit=batch_size,
-            order="date asc",
+            order="create_date asc",
         )
 
         if not messages:
@@ -435,7 +446,7 @@ class BfEmail(models.Model):
         latest_date = last_sync
 
         for msg in messages:
-            msg_date_str = fields.Datetime.to_string(msg.date)
+            msg_date_str = fields.Datetime.to_string(msg.create_date)
             if msg_date_str > latest_date:
                 latest_date = msg_date_str
 
@@ -530,6 +541,12 @@ class BfEmail(models.Model):
             if not partner and msg.partner_ids:
                 partner = msg.partner_ids[0]
 
+        # Drop partner / author refs whose row no longer exists. mail.message
+        # holds raw int FKs and Odoo doesn't auto-null them when a partner is
+        # deleted, so blindly forwarding the id would trip the bf_email FK.
+        partner_id = partner.id if partner and partner.exists() else False
+        author_id = msg.author_id.id if msg.author_id and msg.author_id.exists() else False
+
         return {
             "date": msg.date,
             "email_from": msg.email_from or "",
@@ -544,8 +561,8 @@ class BfEmail(models.Model):
             "res_model": msg.model or False,
             "res_id": msg.res_id or False,
             "record_name": record_name[:200],
-            "partner_id": partner.id if partner else False,
-            "author_id": msg.author_id.id if msg.author_id else False,
+            "partner_id": partner_id,
+            "author_id": author_id,
             "has_attachments": bool(attachment_ids),
             "attachment_count": len(attachment_ids),
             "company_id": self.env.company.id,
