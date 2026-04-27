@@ -32,17 +32,27 @@ A centralized email management module for Odoo 18 that aggregates all sent and r
 - **Initial Import Wizard**: Batch import of historical emails with date range selection, covers both sources
 - **Deduplication**: RFC 2822 Message-ID based deduplication prevents duplicates; scoped across active and archived rows, savepoint-isolated per record so a single constraint error never aborts the batch
 
+### Scheduled Drafts
+- **Cross-Chatter Drafts View**: Single list of every `mail.scheduled.message` (chatter draft awaiting send) across all records the user has post access to
+- **"Envoi prévu le" Column**: First-position `scheduled_date` column with default ascending sort so the next outgoing message is always on top
+- **Per-Row Actions**: Send-now and open-source-record buttons inline on each row
+- **Editable Form**: Adjust subject, body, recipients, attachments and scheduled date directly without re-opening the parent record's chatter
+- **Computed Record Name**: `record_name` derived from `model` + `res_id` so drafts are immediately identifiable regardless of the underlying model
+- **Smart Filters**: Mes brouillons / Courriels / Notes internes / Aujourd'hui / 7 prochains jours, plus group-by author / model / day
+- **Native ACL**: Inherits Odoo core's per-record post-access filtering on `mail.scheduled.message._search` — users only see drafts they are authorised to send
+
 ### Views
 - **List**: Inbox-style with contact link, subject, category badges, status badges
 - **Form**: Full email detail with HTML body, technical headers, action buttons
 - **Kanban**: Grouped by status for visual workflow
 - **Search**: Filters by direction, source (gateway vs chatter), status, date range, attachments; group by category, source, partner, model
 - **Graph & Pivot**: Email volume analysis and cross-tabulation
+- **Scheduled Drafts**: Dedicated list/form for `mail.scheduled.message` reachable from *Courriels → Brouillons planifiés*
 
 ## Requirements
 
 - Odoo 18 Community or Enterprise
-- `mail` module (included in Odoo)
+- `mail` module (included in Odoo) — provides the `mail.scheduled.message` model that the Scheduled Drafts view extends
 - Optional: `mail_quoted_reply` for quoted reply body in composer
 
 ## Installation

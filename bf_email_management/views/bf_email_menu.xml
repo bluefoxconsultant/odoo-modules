@@ -32,6 +32,12 @@
               action="bf_email_action_all"
               sequence="20"/>
 
+    <menuitem id="menu_bf_email_scheduled_drafts"
+              name="Brouillons planifi&#233;s"
+              parent="menu_bf_email_emails"
+              action="action_mail_scheduled_message"
+              sequence="30"/>
+
     <!-- Analyse -->
     <menuitem id="menu_bf_email_analysis"
               name="Analyse"
