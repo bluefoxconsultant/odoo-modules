@@ -203,7 +203,7 @@
                         <!-- Banner -->
                         <div class="ma-banner">
                             <div class="banner-logo">
-                                <img t-att-src="image_data_uri(doc.company_id.logo)" alt="Logo"/>
+                                <img t-att-src="image_data_uri(doc.company_id.meeting_logo or doc.company_id.logo)" alt="Logo"/>
                             </div>
                             <div class="banner-content">
                                 <div class="doc-type">Ordre du jour</div>

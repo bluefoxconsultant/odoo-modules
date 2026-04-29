@@ -69,15 +69,6 @@ docker compose exec odoo odoo -d <database> -i bf_meeting --stop-after-init --no
 
 Après installation, un groupe « Gestionnaire » est attribué par défaut à `base.user_admin` ; les autres utilisateurs reçoivent le groupe « Utilisateur » via les paramètres du profil.
 
-## Mise à jour des modèles de courriel
-
-Les deux modèles de courriel (ordre du jour, compte rendu) sont déclarés dans des blocs `<data noupdate="1">`, ce qui est le comportement Odoo attendu pour préserver les modifications manuelles — mais qui bloque également la propagation des changements de template lors d'un `-u bf_meeting`. Pour forcer la mise à jour depuis la source XML :
-
-```bash
-docker compose exec odoo odoo shell -d <database> --no-http \
-    < /mnt/extra-addons/bf_meeting/tools/force_update_mail_templates.py
-```
-
 ## Licence
 
 LGPL-3
