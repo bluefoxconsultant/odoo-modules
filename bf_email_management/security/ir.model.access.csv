@@ -4,3 +4,6 @@ access_bf_email_manager,bf.email.manager,model_bf_email,group_email_manager,1,1,
 access_bf_email_dashboard_user,bf.email.dashboard.user,model_bf_email_dashboard,group_email_user,1,0,0,0
 access_bf_email_dashboard_manager,bf.email.dashboard.manager,model_bf_email_dashboard,group_email_manager,1,0,0,0
 access_bf_email_initial_sync_manager,bf.email.initial.sync.manager,model_bf_email_initial_sync,group_email_manager,1,1,1,1
+access_bf_email_reroute_user,bf.email.reroute.user,model_bf_email_reroute,group_email_user,1,1,1,1
+access_bf_email_reroute_manager,bf.email.reroute.manager,model_bf_email_reroute,group_email_manager,1,1,1,1
+access_bf_email_imap_backfill_manager,bf.email.imap.backfill.manager,model_bf_email_imap_backfill,group_email_manager,1,1,1,1

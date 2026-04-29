@@ -75,4 +75,10 @@
               action="action_bf_email_initial_sync"
               sequence="10"/>
 
+    <menuitem id="menu_bf_email_imap_backfill"
+              name="Rattrapage IMAP (Archives)"
+              parent="menu_bf_email_config"
+              action="action_bf_email_imap_backfill"
+              sequence="15"/>
+
 </odoo>

@@ -10,6 +10,7 @@
         <field name="arch" type="xml">
             <list decoration-bf="status == 'new'"
                   decoration-muted="status == 'archived'"
+                  decoration-warning="not res_model"
                   default_order="date desc">
                 <header>
                     <button name="%(action_bf_email_sync_now)d"
@@ -29,6 +30,7 @@
                 <field name="email_to" optional="hide"/>
                 <field name="subject"/>
                 <field name="record_name" optional="show"/>
+                <field name="res_model" optional="hide"/>
                 <field name="category" widget="badge"
                        decoration-info="category == 'client'"
                        decoration-warning="category == 'vendor'"
@@ -37,13 +39,20 @@
                 <field name="source" widget="badge"
                        decoration-info="source == 'chatter'"
                        decoration-muted="source == 'gateway'"
-                       optional="hide"/>
+                       decoration-warning="source == 'imap'"
+                       optional="show"/>
                 <field name="status" widget="badge"
                        decoration-info="status == 'new'"
                        decoration-success="status == 'replied'"
                        decoration-muted="status == 'archived'"/>
                 <field name="priority" widget="priority" optional="hide"/>
                 <field name="has_attachments" widget="boolean" optional="hide"/>
+                <button name="action_reroute"
+                        string="Importer"
+                        type="object"
+                        icon="fa-sign-in"
+                        invisible="res_model"
+                        help="Router ce courriel IMAP orphelin vers un chatter."/>
             </list>
         </field>
     </record>
@@ -63,6 +72,12 @@
                             class="btn-primary"
                             icon="fa-reply"
                             invisible="not res_model"/>
+                    <button name="action_reroute"
+                            string="Importer dans un chatter"
+                            type="object"
+                            class="btn-primary"
+                            icon="fa-sign-in"
+                            invisible="res_model"/>
                     <button name="action_mark_read"
                             string="Marquer lu"
                             type="object"
@@ -115,6 +130,13 @@
                                 <span class="o_stat_text">Enregistrement</span>
                             </div>
                         </button>
+                        <button name="action_open_conversation"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-comments-o"
+                                invisible="thread_count &lt; 2">
+                            <field name="thread_count" widget="statinfo" string="Fil"/>
+                        </button>
                     </div>
 
                     <div class="oe_title">
@@ -159,16 +181,30 @@
                         </page>
                         <page string="Technique" name="technical">
                             <group>
-                                <field name="message_id_header"/>
-                                <field name="in_reply_to"/>
-                                <field name="mail_message_id"/>
-                                <field name="res_model"/>
-                                <field name="res_id"/>
-                                <field name="record_name"/>
-                                <field name="has_attachments"/>
-                                <field name="attachment_count"/>
-                                <field name="company_id"
-                                       groups="base.group_multi_company"/>
+                                <group string="RFC 2822">
+                                    <field name="message_id_header"/>
+                                    <field name="in_reply_to"/>
+                                    <field name="thread_root_id"/>
+                                </group>
+                                <group string="IMAP source"
+                                       invisible="source != 'imap'">
+                                    <field name="imap_uid"/>
+                                    <field name="imap_folder"/>
+                                </group>
+                                <group string="Chatter">
+                                    <field name="mail_message_id"/>
+                                    <field name="res_model"/>
+                                    <field name="res_id"/>
+                                    <field name="record_name"/>
+                                </group>
+                                <group string="Pi&#232;ces jointes">
+                                    <field name="has_attachments"/>
+                                    <field name="attachment_count"/>
+                                </group>
+                                <group>
+                                    <field name="company_id"
+                                           groups="base.group_multi_company"/>
+                                </group>
                             </group>
                         </page>
                     </notebook>
@@ -205,6 +241,9 @@
                 <filter name="filter_source_chatter"
                         string="Via Chatter"
                         domain="[('source', '=', 'chatter')]"/>
+                <filter name="filter_source_imap"
+                        string="IMAP direct"
+                        domain="[('source', '=', 'imap')]"/>
                 <separator/>
                 <filter name="filter_new"
                         string="Non lus"
@@ -216,6 +255,19 @@
                         string="R&#233;pondus"
                         domain="[('status', '=', 'replied')]"/>
                 <separator/>
+                <filter name="filter_to_reply"
+                        string="&#192; r&#233;pondre"
+                        domain="[('direction', '=', 'in'), ('status', 'in', ('new', 'read')), ('category', 'in', ('client', 'vendor'))]"/>
+                <filter name="filter_stale"
+                        string="Sans r&#233;ponse > 7 jours"
+                        domain="[('direction', '=', 'in'), ('status', '=', 'new'), ('date', '&lt;', (context_today() - datetime.timedelta(days=7)).strftime('%%Y-%%m-%%d'))]"/>
+                <separator/>
+                <filter name="filter_last_24h"
+                        string="Derni&#232;res 24 h"
+                        domain="[('date', '>=', (context_today() - datetime.timedelta(days=1)).strftime('%%Y-%%m-%%d'))]"/>
+                <filter name="filter_last_48h"
+                        string="Derni&#232;res 48 h"
+                        domain="[('date', '>=', (context_today() - datetime.timedelta(days=2)).strftime('%%Y-%%m-%%d'))]"/>
                 <filter name="filter_today"
                         string="Aujourd'hui"
                         domain="[('date', '>=', (context_today()).strftime('%%Y-%%m-%%d'))]"/>
@@ -230,8 +282,14 @@
                         string="Mes courriels"
                         domain="[('author_id.user_ids', 'in', uid)]"/>
                 <filter name="filter_no_record"
-                        string="Sans enregistrement"
+                        string="Sans dossier (&#224; router)"
                         domain="[('res_model', '=', False)]"/>
+                <filter name="filter_with_record"
+                        string="Avec dossier"
+                        domain="[('res_model', '!=', False)]"/>
+                <filter name="filter_imap_only"
+                        string="IMAP orphelin"
+                        domain="[('source', '=', 'imap'), ('mail_message_id', '=', False)]"/>
                 <filter name="filter_attachments"
                         string="Avec pi&#232;ces jointes"
                         domain="[('has_attachments', '=', True)]"/>
@@ -258,6 +316,9 @@
                     <filter name="group_model"
                             string="Mod&#232;le"
                             context="{'group_by': 'res_model'}"/>
+                    <filter name="group_thread"
+                            string="Fil"
+                            context="{'group_by': 'thread_root_id'}"/>
                     <filter name="group_date"
                             string="Date"
                             context="{'group_by': 'date:day'}"/>
@@ -387,7 +448,7 @@
         <field name="res_model">bf.email</field>
         <field name="view_mode">list,kanban,form,graph,pivot</field>
         <field name="search_view_id" ref="bf_email_view_search"/>
-        <field name="context">{'search_default_filter_new': 1}</field>
+        <field name="context">{}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
                 Aucun courriel synchronis&#233;
