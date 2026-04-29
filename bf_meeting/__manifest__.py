@@ -1,6 +1,6 @@
 {
     'name': 'Rencontres',
-    'version': '18.0.3.5.0',
+    'version': '18.0.3.6.0',
     'category': 'Services/Meetings',
     'summary': 'Gestion des rencontres, ordres du jour et comptes rendus',
     'description': """
@@ -24,6 +24,17 @@ Fonctionnalités principales
 * Smart buttons sur les projets et les événements calendrier
 * Suivi complet via chatter et activités
 
+Unification OdJ et compte rendu
+-------------------------------
+Un même ``calendar.event`` peut porter un ordre du jour et un compte rendu :
+la création d'un compte rendu depuis un événement déjà rattaché à un OdJ lie
+automatiquement les deux et propage le projet. Le champ calculé
+``bf_needs_agenda`` sur ``calendar.event`` signale les rencontres à venir
+sans OdJ ; une case ``bf_skip_agenda`` permet de dispenser les rencontres
+internes courtes ou récurrentes. Un cron quotidien crée une activité « À
+faire » sur l'organisateur si l'OdJ n'a pas été envoyé et que la rencontre
+arrive dans les 7 jours.
+
 Tâches à discuter en rencontre
 ------------------------------
 Une tâche ``project.task`` peut être rattachée à une rencontre à venir selon
@@ -40,7 +51,7 @@ disparaissent automatiquement lorsqu'elles sont fermées ou transférées au
 compte rendu.
     """,
     'author': 'Blue Fox Inc',
-    'website': 'https://example.com',
+    'website': 'https://github.com/bluefoxconsultant/odoo-modules',
     'license': 'LGPL-3',
     'depends': ['project', 'mail', 'calendar', 'project_knowledge_matrix'],
     'data': [
@@ -51,6 +62,7 @@ compte rendu.
         'report/meeting_report_templates.xml',
         'data/meeting_report_mail_template.xml',
         'data/meeting_agenda_mail_template.xml',
+        'data/meeting_agenda_cron.xml',
         'views/meeting_decision_views.xml',
         'views/meeting_topic_views.xml',
         'views/meeting_record_views.xml',

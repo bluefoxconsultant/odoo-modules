@@ -20,9 +20,13 @@ Permettre à une équipe de projet de planifier, tenir et documenter ses rencont
 - **Résolution dynamique** — les tâches taguées sont calculées à chaque ouverture de l'OdJ (formulaire, PDF, courriel) et disparaissent dès qu'elles sont fermées
 - **Annulation d'un OdJ** — les tâches hard-linkées sans tag soft reçoivent une activité « À faire » due aujourd'hui pour être réassignées ; les tâches taguées basculent automatiquement vers le prochain OdJ admissible
 - **Transfert vers compte rendu** — `action_create_meeting_record` transfère les tâches hard-linkées vers `meeting.record.task_ids` et efface le tag soft
-- **Smart buttons** — prochaine rencontre sur la tâche, comptes rendus sur le projet et sur l'événement calendrier, tâches à discuter sur l'OdJ
+- **Smart buttons** — prochaine rencontre sur la tâche, comptes rendus et OdJ sur le projet et sur l'événement calendrier, tâches à discuter sur l'OdJ
 - **Courriels** — modèles pour l'envoi de l'ordre du jour et du compte rendu, avec section dédiée aux tâches à discuter
 - **Rapport PDF** — rendu brandé de l'ordre du jour avec section « Éléments d'action à discuter »
+- **Unification OdJ ↔ compte rendu ↔ événement calendrier** — un même `calendar.event` peut porter un OdJ et un compte rendu ; la création d'un compte rendu depuis un événement ayant déjà un OdJ rattache automatiquement les deux (`meeting.agenda.meeting_record_id`) et propage le projet
+- **Drapeau « Besoin d'un OdJ »** — sur `calendar.event`, champ calculé `bf_needs_agenda` (vrai si la rencontre est à venir, sans OdJ et non dispensée) ; bannière d'alerte sur le formulaire et filtre dédié dans la vue de recherche
+- **Opt-out par rencontre** — case à cocher `bf_skip_agenda` sur `calendar.event` pour les rencontres internes courtes ou récurrentes
+- **Rappel automatique avant rencontre** — cron quotidien `_cron_remind_unsent_agenda` qui crée une activité « À faire » due aujourd'hui sur l'organisateur (utilisateur interne uniquement) si la rencontre arrive dans les 7 prochains jours et que l'OdJ n'a pas encore été envoyé ; idempotent via le `summary` de l'activité
 
 ## Architecture technique
 
@@ -38,7 +42,7 @@ Permettre à une équipe de projet de planifier, tenir et documenter ses rencont
 | `meeting.attendance` | Présence d'un participant (statut, rôle) |
 | `project.task` (hérité) | Champs de rattachement à une rencontre (`meeting_id`, `bf_meeting_agenda_id`, `bf_discuss_tag`, `bf_next_agenda_id`) |
 | `project.project` (hérité) | Smart button « Comptes rendus » |
-| `calendar.event` (hérité) | Smart button « Comptes rendus » et création d'un compte rendu depuis l'événement |
+| `calendar.event` (hérité) | Smart buttons « Comptes rendus » et « Ordre du jour », champs `meeting_agenda_ids/id/count`, `bf_skip_agenda` (opt-out), `bf_needs_agenda` (calculé), création d'un OdJ ou d'un compte rendu depuis l'événement |
 | `project.knowledge.item` (hérité) | Lien Many2many vers les comptes rendus qui référencent l'item |
 
 ### Dépendances
@@ -56,6 +60,12 @@ Permettre à une équipe de projet de planifier, tenir et documenter ses rencont
 - Groupe `group_meeting_manager` — accès complet à tous les comptes rendus, ordres du jour, décisions et présences
 - Règles `ir.rule` sur `meeting.record`, `meeting.agenda`, `meeting.topic`, `meeting.decision`, `meeting.agenda.topic`, `meeting.attendance`
 - ACL standard déclarées dans `security/ir.model.access.csv`
+
+### Tâche planifiée
+
+| Cron | Modèle | Fréquence | Rôle |
+|---|---|---|---|
+| `ir_cron_remind_unsent_agenda` | `meeting.agenda` | quotidien | Crée une activité « À faire » sur l'OdJ vers l'organisateur si la rencontre arrive dans 7 jours et que l'OdJ n'est pas envoyé |
 
 ### Rendu HTML sécurisé
 

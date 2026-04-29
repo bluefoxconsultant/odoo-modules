@@ -1,4 +1,7 @@
 import logging
+from datetime import timedelta
+
+from markupsafe import escape
 
 from odoo import api, fields, models
 from odoo.exceptions import UserError
@@ -7,6 +10,9 @@ _logger = logging.getLogger(__name__)
 
 ACTIVE_AGENDA_STATES = ('draft', 'confirmed')
 CLOSED_TASK_STATES = ('1_done', '1_canceled')
+
+REMINDER_LEAD_DAYS = 7
+REMINDER_ACTIVITY_SUMMARY = "Envoyer l'ordre du jour avant la rencontre"
 
 
 class MeetingAgenda(models.Model):
@@ -377,6 +383,59 @@ class MeetingAgenda(models.Model):
             'target': 'new',
             'context': ctx,
         }
+
+    def _cron_remind_unsent_agenda(self):
+        """Daily : pour les OdJ draft/confirmed dont la rencontre est dans les 7
+        prochains jours et qui n'ont pas encore été envoyés, créer une activité
+        « À faire » due aujourd'hui sur l'organisateur de la rencontre s'il est
+        un utilisateur interne. Idempotent via le summary."""
+        now = fields.Datetime.now()
+        horizon = now + timedelta(days=REMINDER_LEAD_DAYS)
+        agendas = self.search([
+            ('state', 'in', ACTIVE_AGENDA_STATES),
+            ('sent_date', '=', False),
+            ('date', '>=', now),
+            ('date', '<=', horizon),
+        ])
+        if not agendas:
+            return
+
+        Activity = self.env['mail.activity']
+        activity_type = self.env.ref(
+            'mail.mail_activity_data_todo', raise_if_not_found=False
+        )
+        if not activity_type:
+            _logger.warning("mail.mail_activity_data_todo not found, skipping agenda reminders")
+            return
+        model_id = self.env['ir.model']._get_id('meeting.agenda')
+
+        for agenda in agendas:
+            user = agenda.calendar_event_id.user_id or agenda.organizer_id
+            if not user or user.share or not user.active:
+                continue
+            existing = Activity.search_count([
+                ('res_model', '=', 'meeting.agenda'),
+                ('res_id', '=', agenda.id),
+                ('summary', '=', REMINDER_ACTIVITY_SUMMARY),
+            ])
+            if existing:
+                continue
+            tz_date = fields.Datetime.context_timestamp(agenda, agenda.date)
+            date_str = tz_date.strftime('%Y-%m-%d %H:%M') if tz_date else ''
+            safe_name = escape(agenda.name or '')
+            note = (
+                f"L'ordre du jour « {safe_name} » n'a pas encore été envoyé "
+                f"et la rencontre approche ({date_str}). Réviser et envoyer."
+            )
+            Activity.create({
+                'activity_type_id': activity_type.id,
+                'summary': REMINDER_ACTIVITY_SUMMARY,
+                'note': note,
+                'date_deadline': fields.Date.context_today(agenda),
+                'user_id': user.id,
+                'res_model_id': model_id,
+                'res_id': agenda.id,
+            })
 
     def action_view_agenda_tasks(self):
         """Smart button : ouvrir la liste des tâches à discuter."""
