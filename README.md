@@ -15,6 +15,7 @@ Custom Odoo 18 Community Edition modules developed by [Blue Fox Inc.](https://bl
 | `bf_gamification` | Fox Quest | 18.0.2.1.0 | LGPL-3 | Système de gamification avec XP, niveaux, badges et récompenses |
 | `bf_hour_bank` | Banque d'heures | 18.0.1.6.0 | LGPL-3 | Suivi automatisé des banques d'heures client |
 | `bf_mail_import` | BF Import courriel (.eml) | 18.0.1.2.0 | LGPL-3 | Importer des fichiers .eml dans le chatter Odoo |
+| `bf_mail_subject_clean` | BF Nettoyage des sujets de courriel | 18.0.1.0.0 | LGPL-3 | Évite l'empilement « Re: Re: Re: » dans les sujets envoyés via le chatter |
 | `bf_mail_vigie` | BF Vigie courriels (re-router) | 18.0.2.0.0 | LGPL-3 | Bouton "Re-router" sur `bf.email` pour déplacer un courriel mal routé vers la bonne chatter |
 | `bf_meeting` | Rencontres | 18.0.3.6.0 | LGPL-3 | Ordres du jour, comptes rendus et tâches à discuter en rencontre, unifiés autour de `calendar.event` avec rappel automatique |
 | `bf_sms_archive` | Archive SMS & Appels | 18.0.1.3.0 | LGPL-3 | Archivage et recherche de SMS et journaux d'appels Android |
