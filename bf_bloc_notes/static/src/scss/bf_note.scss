@@ -1,0 +1,40 @@
+.o_bf_note_systray {
+    .fa-sticky-note-o, .fa-sticky-note {
+        transition: transform 120ms ease;
+    }
+    button:hover .fa-sticky-note-o {
+        transform: scale(1.15);
+        color: #29ABE1;
+    }
+}
+
+.o_bf_note_quick_create {
+    .o_bf_note_editor {
+        background: #fff;
+        line-height: 1.45;
+
+        &:focus {
+            outline: 2px solid rgba(41, 171, 225, 0.35);
+            outline-offset: 0;
+        }
+
+        p:last-child { margin-bottom: 0; }
+    }
+}
+
+.o_bf_note_kanban {
+    .o_bf_note_card {
+        border-left: 4px solid transparent;
+        min-height: 120px;
+
+        &.oe_kanban_color_2 { border-left-color: #f59e0b; }
+        &.oe_kanban_color_3 { border-left-color: #ef4444; }
+        &.oe_kanban_color_4 { border-left-color: #29ABE1; }
+        &.oe_kanban_color_7 { border-left-color: #6b7280; }
+    }
+    .o_bf_note_card_body {
+        max-height: 150px;
+        overflow: hidden;
+        font-size: 0.875rem;
+    }
+}

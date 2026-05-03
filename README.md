@@ -8,6 +8,7 @@ Custom Odoo 18 Community Edition modules developed by [Blue Fox Inc.](https://bl
 |---|---|---|---|---|
 | `audit_ti` | Audit TI - Loi 25 | 18.0.1.17.0 | LGPL-3 | Gestion des audits de sécurité informatique pour la conformité Loi 25 |
 | `bf_appointment` | Blue Fox Appointment | 18.0.2.7.1 | AGPL-3 | Pages publiques de prise de rendez-vous en libre-service (étend `resource_booking`) |
+| `bf_bloc_notes` | BF Bloc-notes | 18.0.2.1.0 | LGPL-3 | Notes rapides riches, multi-liens vers fiches, conversion en activité, raccourcis et icône systray (Alt+N) |
 | `bf_dark_mode` | Blue Fox Dark Mode | 18.0.1.0.0 | MIT | Mode sombre pour Odoo utilisant la palette Blue Fox |
 | `bf_document_nextcloud_sync` | Document Nextcloud Sync | 18.0.1.1.0 | LGPL-3 | Synchronisation documents Odoo ↔ Nextcloud via WebDAV |
 | `bf_email_management` | Gestion des courriels | 18.0.1.5.1 | LGPL-3 | Inbox unifiée IMAP + chatters Odoo, avec re-routage UI |
