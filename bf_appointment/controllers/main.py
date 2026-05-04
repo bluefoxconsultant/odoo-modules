@@ -491,6 +491,11 @@ class AppointmentController(Controller):
             return request.redirect("/appointment")
         # Skip if already cancelled (idempotent + avoid duplicate emails)
         already_cancelled = booking_sudo.state == "canceled"
+        # Capture cancellation reason before action_cancel (it may flip
+        # active=False / clear writable state in some flows).
+        reason = (kwargs.get("cancellation_reason") or "").strip()
+        if reason and not already_cancelled:
+            booking_sudo.sudo().cancellation_reason = reason[:2000]
         booking_sudo.with_context(
             no_mail_to_attendees=True,
             tracking_disable=True,

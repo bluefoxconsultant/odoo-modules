@@ -44,7 +44,7 @@ class ResourceBookingType(models.Model):
             ("nextcloud_talk", "Nextcloud Talk"),
         ],
         string="Video Provider",
-        default="none",
+        default="nextcloud_talk",
     )
     is_in_person = fields.Boolean(
         string="In-Person Available",

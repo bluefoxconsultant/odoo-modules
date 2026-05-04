@@ -76,6 +76,12 @@ class ResourceBooking(models.Model):
         "booking_id",
         string="Intake Answers",
     )
+    cancellation_reason = fields.Text(
+        string="Raison de l'annulation",
+        copy=False,
+        help="Raison saisie par le client (ou l'organisateur) lors de "
+             "l'annulation du rendez-vous. Optionnel.",
+    )
 
     # K-of-N support: actual subset of combination resources that took the slot.
     # Equal to combination_id.resource_ids when min_required is 0 / >= N

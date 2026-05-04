@@ -1,6 +1,6 @@
 {
     "name": "Blue Fox Appointment",
-    "version": "18.0.2.8.1",
+    "version": "18.0.2.9.1",
     "category": "Appointments",
     "summary": "Public self-service booking pages extending Resource Booking",
     "author": "Blue Fox Inc",
@@ -15,6 +15,7 @@
         "templates/appointment_public.xml",
         "templates/appointment_confirmation.xml",
         "views/resource_booking_type_views.xml",
+        "views/resource_booking_views.xml",
         "views/res_config_settings_views.xml",
     ],
     "assets": {

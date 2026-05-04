@@ -254,7 +254,10 @@
                                             </t>
                                         </div>
                                     </t>
-                                    <!-- Loi 25 — explicit consent for personal information collection -->
+                                    <!-- Loi 25 — explicit consent for personal information collection.
+                                         Privacy URL is read from ir.config_parameter so each tenant
+                                         can point at its own privacy page. company_name comes from the
+                                         booking type's company so the wording stays accurate per tenant. -->
                                     <div class="form-check mt-3 mb-3">
                                         <input type="checkbox"
                                                class="form-check-input"
@@ -263,8 +266,9 @@
                                                value="1"
                                                required="required"/>
                                         <label class="form-check-label small" for="bf_consent">
-                                            J&#8217;accepte que Blue Fox conserve mon nom, mon courriel et les informations fournies dans ce formulaire afin de planifier et faire le suivi de cette rencontre.
-                                            <a href="/r/politique-de-confidentialite" target="_blank" rel="noopener">Politique de confidentialit&#233;</a>.
+                                            J&#8217;accepte que <t t-out="(booking_type.company_id.name if booking_type.company_id else (env.company.name or 'l&#8217;organisation'))"/> conserve mon nom, mon courriel et les informations fournies dans ce formulaire afin de planifier et faire le suivi de cette rencontre.
+                                            <t t-set="_privacy_url" t-value="env['ir.config_parameter'].sudo().get_param('bf_appointment.privacy_url', '/r/politique-de-confidentialite')"/>
+                                            <a t-att-href="_privacy_url" target="_blank" rel="noopener">Politique de confidentialit&#233;</a>.
                                         </label>
                                     </div>
                                     <button type="submit" class="btn w-100 text-white fw-semibold bf-btn-accent"
