@@ -1,12 +1,55 @@
 import logging
 
-from odoo import models
+from odoo import api, fields, models
 
 _logger = logging.getLogger(__name__)
 
 
 class CalendarEvent(models.Model):
     _inherit = "calendar.event"
+
+    @api.model
+    def _cron_cleanup_orphan_booking_events(self):
+        """Unlink past calendar.event records orphaned from a resource.booking.
+
+        OCA action_unschedule already unlinks the meeting on a normal cancel,
+        but custom cleanup scripts (`--cleanup` flags), direct DB ops, or
+        future regressions can leave the calendar.event behind. The orphan
+        keeps blocking slots in resource_booking_combination._get_intervals
+        because it still belongs to the resource user's calendar.
+
+        We target events that:
+          - have the BF appointment naming convention "RDV - <name>"
+          - have NO active or archived resource.booking pointing back to them
+          - have already started (so we never touch in-flight bookings)
+        """
+        cutoff = fields.Datetime.now()
+        candidates = self.search([
+            ("name", "=like", "RDV - %"),
+            ("start", "<", cutoff),
+            ("resource_booking_ids", "=", False),
+        ])
+        # Skip events still linked from an *active* booking — that should
+        # never happen given the inverse one2many is empty above, but it's a
+        # cheap belt-and-suspenders against active_test edge cases.
+        # Archived/cancelled booking references are fine: meeting_id is
+        # ondelete=set null, so the booking record stays intact when we
+        # unlink its old meeting.
+        if candidates:
+            still_active = self.env["resource.booking"].sudo().search([
+                ("meeting_id", "in", candidates.ids),
+            ]).mapped("meeting_id")
+            to_unlink = candidates - still_active
+            if to_unlink:
+                _logger.info(
+                    "Unlinking %d orphan calendar.event(s) from cancelled bookings",
+                    len(to_unlink),
+                )
+                to_unlink.with_context(
+                    no_mail_to_attendees=True,
+                    tracking_disable=True,
+                    mail_notrack=True,
+                ).unlink()
 
     def _track_subtype(self, init_values):
         """Suppress tracking notifications on events linked to a booking.

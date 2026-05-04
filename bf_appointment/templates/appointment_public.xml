@@ -206,6 +206,18 @@
                                                id="phone" name="phone"
                                                placeholder="514-555-1234"/>
                                     </div>
+                                    <!-- In-person address (booker enters when type has no fixed location) -->
+                                    <t t-if="booking_type.is_in_person and not booking_type.location">
+                                        <div class="mb-3">
+                                            <label for="location" class="form-label fw-medium">
+                                                Lieu de la rencontre <span class="text-danger">*</span>
+                                            </label>
+                                            <input type="text" class="form-control"
+                                                   id="location" name="location" required=""
+                                                   placeholder="Adresse, caf&#233;, bureau, etc."/>
+                                            <div class="form-text">Indiquez o&#249; vous souhaitez rencontrer.</div>
+                                        </div>
+                                    </t>
                                     <!-- Dynamic intake fields -->
                                     <t t-foreach="booking_type.intake_field_ids" t-as="field">
                                         <div class="mb-3">
@@ -242,6 +254,19 @@
                                             </t>
                                         </div>
                                     </t>
+                                    <!-- Loi 25 — explicit consent for personal information collection -->
+                                    <div class="form-check mt-3 mb-3">
+                                        <input type="checkbox"
+                                               class="form-check-input"
+                                               id="bf_consent"
+                                               name="bf_consent"
+                                               value="1"
+                                               required="required"/>
+                                        <label class="form-check-label small" for="bf_consent">
+                                            J&#8217;accepte que Blue Fox conserve mon nom, mon courriel et les informations fournies dans ce formulaire afin de planifier et faire le suivi de cette rencontre.
+                                            <a href="/r/politique-de-confidentialite" target="_blank" rel="noopener">Politique de confidentialit&#233;</a>.
+                                        </label>
+                                    </div>
                                     <button type="submit" class="btn w-100 text-white fw-semibold bf-btn-accent"
                                             t-attf-style="background-color: #{booking_type.color_hex or '#29ABE2'};">
                                         <i class="fa fa-calendar me-2"/>

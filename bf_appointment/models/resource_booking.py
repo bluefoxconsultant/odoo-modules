@@ -77,6 +77,98 @@ class ResourceBooking(models.Model):
         string="Intake Answers",
     )
 
+    # K-of-N support: actual subset of combination resources that took the slot.
+    # Equal to combination_id.resource_ids when min_required is 0 / >= N
+    # (standard OCA behavior). For K-of-N (min_required = K < N), holds the K
+    # resources that were free at booking time. Used by _prepare_meeting_vals
+    # to add only those partners as calendar.event attendees.
+    # Stored computed so it's set BEFORE _sync_meeting fires (which is
+    # triggered on the same write that sets `start`).
+    attendee_resource_ids = fields.Many2many(
+        "resource.resource",
+        "rb_attendee_resource_rel",
+        "booking_id",
+        "resource_id",
+        string="Assigned Resources",
+        compute="_compute_attendee_resources",
+        store=True,
+        copy=False,
+        help="Subset of the combination's resources actually assigned to "
+             "this booking (relevant for K-of-N combinations).",
+    )
+
+    @api.depends("start", "stop", "combination_id", "combination_id.resource_ids",
+                 "combination_id.min_required")
+    def _compute_attendee_resources(self):
+        import pytz
+        from itertools import combinations as _icombs
+        from odoo.addons.resource.models.utils import Intervals
+        for rec in self:
+            combo = rec.combination_id
+            if not combo:
+                rec.attendee_resource_ids = [(5, 0, 0)]
+                continue
+            n = len(combo.resource_ids)
+            k = combo.min_required
+            if k <= 0 or k >= n or not rec.start or not rec.stop:
+                rec.attendee_resource_ids = [(6, 0, combo.resource_ids.ids)]
+                continue
+            start_aware = pytz.utc.localize(rec.start) if rec.start.tzinfo is None else rec.start
+            stop_aware = pytz.utc.localize(rec.stop) if rec.stop.tzinfo is None else rec.stop
+            base = Intervals([(start_aware, stop_aware, combo)])
+            sorted_resources = combo.resource_ids.sorted(lambda r: r.id)
+            picked = None
+            for subset in _icombs(sorted_resources, k):
+                subset_intervals = base
+                ok = True
+                for res in subset:
+                    calendar = combo.forced_calendar_id or res.calendar_id
+                    free = calendar._work_intervals_batch(start_aware, stop_aware, res)[res.id]
+                    subset_intervals &= free
+                    if not subset_intervals:
+                        ok = False
+                        break
+                if ok and subset_intervals:
+                    picked = subset
+                    break
+            ids_picked = [r.id for r in picked] if picked else combo.resource_ids[:k].ids
+            rec.attendee_resource_ids = [(6, 0, ids_picked)]
+
+    # QWeb mail templates have non-deterministic behaviour with
+    # format_datetime(tz=...) in some render paths, so we precompute the
+    # localized date/time strings here for the booking type's resource calendar
+    # timezone (defaults to America/Toronto).
+    start_date_local = fields.Char(
+        compute="_compute_start_local_strings",
+        string="Local Start Date",
+    )
+    start_time_local = fields.Char(
+        compute="_compute_start_local_strings",
+        string="Local Start Time",
+    )
+
+    @api.depends("start", "type_id.resource_calendar_id.tz")
+    def _compute_start_local_strings(self):
+        import pytz
+        for rec in self:
+            if not rec.start:
+                rec.start_date_local = ""
+                rec.start_time_local = ""
+                continue
+            tz_name = rec.type_id.resource_calendar_id.tz or "America/Toronto"
+            try:
+                start_dt = rec.start
+                if isinstance(start_dt, str):
+                    start_dt = fields.Datetime.from_string(start_dt)
+                aware_utc = pytz.utc.localize(start_dt) if start_dt.tzinfo is None else start_dt.astimezone(pytz.utc)
+                local_dt = aware_utc.astimezone(pytz.timezone(tz_name))
+                rec.start_date_local = local_dt.strftime("%Y-%m-%d")
+                rec.start_time_local = local_dt.strftime("%H:%M")
+            except Exception as e:
+                _logger.warning("start_local compute failed for booking %s: %s", rec.id, e)
+                rec.start_date_local = rec.start.strftime("%Y-%m-%d") if rec.start else ""
+                rec.start_time_local = rec.start.strftime("%H:%M") if rec.start else ""
+
     def _sync_meeting(self):
         """Suppress calendar.event invite/update notifications.
 
@@ -102,9 +194,27 @@ class ResourceBooking(models.Model):
         )._sync_meeting()
 
     def action_confirm(self):
-        """Override to generate video URL on confirmation."""
+        """Override to generate video URL + strip non-attendee resource partners
+        for K-of-N bookings.
+
+        OCA's action_confirm unions in `combination_id.resource_ids.user_id.partner_id`
+        on the meeting (re-adding ALL combination resources, including non-attendees
+        for K-of-N). We post-process to keep only `attendee_resource_ids` partners.
+        """
         result = super().action_confirm()
         for booking in self:
+            # K-of-N: remove non-attendee resource partners from the meeting.
+            combo = booking.combination_id
+            if combo and 0 < combo.min_required < len(combo.resource_ids) and booking.meeting_id:
+                full_partners = combo.resource_ids.filtered(
+                    lambda r: r.resource_type == "user"
+                ).mapped("user_id.partner_id")
+                attendee_partners = booking.attendee_resource_ids.filtered(
+                    lambda r: r.resource_type == "user"
+                ).mapped("user_id.partner_id")
+                excluded = full_partners - attendee_partners
+                if excluded:
+                    booking.meeting_id.partner_ids -= excluded
             if (
                 booking.type_id.video_provider
                 and booking.type_id.video_provider != "none"
@@ -114,20 +224,77 @@ class ResourceBooking(models.Model):
                     booking.videocall_location = url
         return result
 
-    def action_cancel(self):
-        """Override to preserve access_token after cancellation.
+    def _prepare_meeting_vals(self):
+        """Override to use attendee_resource_ids (K-of-N aware) instead of
+        combination_id.resource_ids when populating calendar.event partners."""
+        vals = super()._prepare_meeting_vals()
+        if not self.attendee_resource_ids:
+            return vals
+        # Replace resource_partners with K-of-N subset
+        full_resource_partners = self.combination_id.resource_ids.filtered(
+            lambda res: res.resource_type == "user"
+        ).mapped("user_id.partner_id")
+        attendee_partners = self.attendee_resource_ids.filtered(
+            lambda res: res.resource_type == "user"
+        ).mapped("user_id.partner_id")
+        # Remove any partners from the full set that aren't in the K subset,
+        # then ensure the K subset partners are present.
+        partner_cmd = list(vals.get("partner_ids", []))
+        # Strip OCA's add commands for non-attendee resource partners
+        excluded_partner_ids = (full_resource_partners - attendee_partners).ids
+        partner_cmd = [
+            cmd for cmd in partner_cmd
+            if not (cmd[0] == 4 and cmd[1] in excluded_partner_ids)
+        ]
+        # Ensure attendee subset is added
+        for p in attendee_partners:
+            if not any(c[0] == 4 and c[1] == p.id for c in partner_cmd):
+                partner_cmd.append((4, p.id, 0))
+        vals["partner_ids"] = partner_cmd
+        return vals
 
-        OCA resource_booking clears access_token on cancel, which breaks the
-        "Voir le rendez-vous" link in previously-sent confirmation emails. We
-        still archive the record (active=False), but keep the token so the
-        booker can land on the confirmation page and see the cancelled state.
+    def action_cancel(self):
+        """Override to preserve access_token AND unlink the orphan calendar.event.
+
+        Two OCA resource_booking gotchas patched here:
+
+        1. action_cancel clears access_token, which breaks the "Voir le
+           rendez-vous" link in previously-sent confirmation emails. We
+           preserve the token so the booker still lands on the confirmation
+           page (showing cancelled state).
+        2. action_cancel sets active=False on the booking but leaves the
+           linked calendar.event behind. The orphan event keeps blocking
+           slots in combinations._get_intervals(), so the same combination
+           shows "no availability" on slots that should be free. We unlink
+           the calendar.event after cancellation. The
+           calendar_event._track_subtype override already suppresses any
+           tracking notifications on these events, so the unlink is silent.
         """
         tokens = {b.id: b.access_token for b in self}
+        meeting_ids = [b.meeting_id.id for b in self if b.meeting_id]
         result = super().action_cancel()
         for booking in self:
             token = tokens.get(booking.id)
             if token and not booking.access_token:
                 booking.sudo().access_token = token
+        if meeting_ids:
+            # Belt + suspenders. Current OCA action_unschedule unlinks the
+            # meeting before we get here, so .exists() filters those out and
+            # this is usually a no-op. But if a future OCA regression or
+            # an alternative cancel path leaves the event behind, this
+            # ensures the slot is freed immediately.
+            events = (
+                self.env["calendar.event"]
+                .sudo()
+                .browse(meeting_ids)
+                .exists()
+            )
+            if events:
+                events.with_context(
+                    no_mail_to_attendees=True,
+                    tracking_disable=True,
+                    mail_notrack=True,
+                ).unlink()
         return result
 
     def _generate_video_url(self):
@@ -168,7 +335,21 @@ class ResourceBooking(models.Model):
         if not password:
             return self.type_id.videocall_location or False
         try:
+            import pytz
             import requests
+
+            booker = self.partner_id or (self.partner_ids[:1] if self.partner_ids else False)
+            booker_name = (booker.name if booker else "").strip() or "Invité"
+            tz_name = self.type_id.resource_calendar_id.tz or "America/Toronto"
+            local_start = ""
+            if self.start:
+                local_start = pytz.utc.localize(self.start).astimezone(
+                    pytz.timezone(tz_name)
+                ).strftime("%Y-%m-%d %H:%M")
+            type_name = (self.type_id.name or "Rendez-vous").strip()
+            room_name = " | ".join(p for p in (type_name, booker_name, local_start) if p)
+            # Nextcloud caps room names at 200 chars
+            room_name = room_name[:200]
 
             api_url = f"{base_url.rstrip('/')}/ocs/v2.php/apps/spreed/api/v4/room"
             response = requests.post(
@@ -176,19 +357,18 @@ class ResourceBooking(models.Model):
                 auth=(user, password),
                 headers={
                     "OCS-APIREQUEST": "true",
-                    "Content-Type": "application/json",
                     "Accept": "application/json",
                 },
-                json={
-                    "roomType": 3,  # public
-                    "roomName": f"Rendez-vous #{self.id}",
+                data={
+                    "roomType": 3,  # public — anyone with the link can join as guest
+                    "roomName": room_name,
                 },
-                timeout=5,
+                timeout=10,
             )
             response.raise_for_status()
             data = response.json()
             room_token = data["ocs"]["data"]["token"]
-            return f"{base_url.rstrip('/')}/call/{room_token}"
+            return f"{base_url.rstrip('/')}/index.php/call/{room_token}"
         except Exception as e:
             _logger.error("Failed to create Nextcloud Talk room: %s", e)
             return self.type_id.videocall_location or False

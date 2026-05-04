@@ -4,4 +4,5 @@ from . import calendar_event
 from . import mail_template
 from . import res_config_settings
 from . import resource_booking
+from . import resource_booking_combination
 from . import resource_booking_type

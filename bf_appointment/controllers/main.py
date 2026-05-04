@@ -63,6 +63,79 @@ def _record_token_failure():
         _token_fail_data[ip].append(now)
 
 
+# BF only ships fr_CA and en_CA. Anything en* maps to en_CA, everything else
+# (and missing header) falls back to fr_CA.
+_BF_DEFAULT_LANG = "fr_CA"
+
+
+def _resolve_lang_from_accept_header():
+    """Return en_CA if Accept-Language asks for English, fr_CA otherwise."""
+    try:
+        header = request.httprequest.headers.get("Accept-Language", "")
+    except Exception:
+        return _BF_DEFAULT_LANG
+    if not header:
+        return _BF_DEFAULT_LANG
+    # Simple parse: take first non-q-flagged tag, lowercased.
+    first = header.split(",")[0].split(";")[0].strip().lower()
+    if first.startswith("en"):
+        return "en_CA"
+    return _BF_DEFAULT_LANG
+
+
+def _apply_locale_from_request():
+    """Switch request env lang based on Accept-Language. Idempotent."""
+    lang = _resolve_lang_from_accept_header()
+    if request.env.context.get("lang") != lang:
+        request.update_context(lang=lang)
+
+
+# Security headers applied to every public /appointment* response. CSP is
+# permissive on inline styles because Odoo emits inline t-att-style on widgets;
+# scripts and frames are locked down. frame-ancestors 'none' + X-Frame-Options
+# DENY together protect against clickjacking on legacy browsers.
+_APPOINTMENT_CSP = (
+    "default-src 'self'; "
+    "img-src 'self' data: https:; "
+    "style-src 'self' 'unsafe-inline'; "
+    "script-src 'self' 'unsafe-inline'; "
+    "font-src 'self' data:; "
+    "connect-src 'self'; "
+    "frame-ancestors 'none'; "
+    "base-uri 'self'; "
+    "form-action 'self'"
+)
+
+
+def _apply_security_headers(response):
+    """Add CSP + X-Frame-Options + nosniff to a response object. No-op on redirects."""
+    try:
+        headers = response.headers
+    except AttributeError:
+        return response
+    headers["Content-Security-Policy"] = _APPOINTMENT_CSP
+    headers["X-Frame-Options"] = "DENY"
+    headers["X-Content-Type-Options"] = "nosniff"
+    headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
+
+
+# Pragmatic location validation: refuse strings that are too short, lack any
+# letters, or are a single short token. Rejects "abc", "123", "x", "..." while
+# accepting "1072 Bellemare", "Bureau Olivier", "Café du Coin".
+_LOCATION_MIN_LEN = 5
+_LOCATION_RE = re.compile(r"[A-Za-zÀ-ÖØ-öø-ÿ]")
+
+
+def _validate_location_format(value):
+    """Return True when the location looks like a real lieu/adresse."""
+    if not value or len(value) < _LOCATION_MIN_LEN:
+        return False
+    if not _LOCATION_RE.search(value):
+        return False
+    return True
+
+
 class AppointmentController(Controller):
 
     @route(
@@ -74,15 +147,17 @@ class AppointmentController(Controller):
     )
     def appointment_landing(self, **kwargs):
         """Public landing page listing all public booking types."""
+        _apply_locale_from_request()
         BookingType = request.env["resource.booking.type"].sudo()
         types = BookingType.search(
             [("is_public", "=", True)],
             order="sequence, name",
         )
-        return request.render(
+        response = request.render(
             "bf_appointment.appointment_landing",
             {"booking_types": types},
         )
+        return _apply_security_headers(response)
 
     @route(
         "/appointment/<string:slug>",
@@ -93,13 +168,15 @@ class AppointmentController(Controller):
     )
     def appointment_type_page(self, slug, **kwargs):
         """Detail page for a specific booking type with intake form."""
+        _apply_locale_from_request()
         booking_type = self._get_type_by_slug(slug)
         if not booking_type:
             return request.redirect("/appointment")
-        return request.render(
+        response = request.render(
             "bf_appointment.appointment_type_page",
             {"booking_type": booking_type, "error": kwargs.get("error")},
         )
+        return _apply_security_headers(response)
 
     @route(
         "/appointment/<string:slug>/book",
@@ -110,6 +187,7 @@ class AppointmentController(Controller):
     )
     def appointment_book(self, slug, **kwargs):
         """Create a pending booking from the intake form."""
+        _apply_locale_from_request()
         booking_type = self._get_type_by_slug(slug)
         if not booking_type:
             return request.redirect("/appointment")
@@ -122,10 +200,30 @@ class AppointmentController(Controller):
         phone = (kwargs.get("phone") or "").strip()
         tz = (kwargs.get("tz") or "").strip()
         duration_str = (kwargs.get("duration") or "").strip()
+        location_input = (kwargs.get("location") or "").strip()
         # Validate required fields
         if not name or not email:
             return request.redirect(
                 f"/appointment/{slug}?error={quote_plus('Veuillez remplir tous les champs obligatoires.')}"
+            )
+        # Loi 25 — explicit consent required for personal information collection.
+        # The form has client-side `required`, but a tampered submission could
+        # bypass that, so we enforce server-side too.
+        if not kwargs.get("bf_consent"):
+            return request.redirect(
+                f"/appointment/{slug}?error={quote_plus('Veuillez accepter la politique de confidentialité pour soumettre votre demande.')}"
+            )
+        # If in-person without fixed location, the booker must provide one
+        if booking_type.is_in_person and not booking_type.location and not location_input:
+            return request.redirect(
+                f"/appointment/{slug}?error={quote_plus('Veuillez indiquer un lieu de rencontre.')}"
+            )
+        # Validate the format of a booker-provided location: short or
+        # letter-less strings ("abc", "123", "...") slip past the empty check
+        # but are useless for the organizer.
+        if location_input and not _validate_location_format(location_input):
+            return request.redirect(
+                f"/appointment/{slug}?error={quote_plus('Veuillez fournir une adresse ou un lieu reconnaissable.')}"
             )
         # Basic email validation
         if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
@@ -185,6 +283,9 @@ class AppointmentController(Controller):
             "name": f"RDV - {name}",
             "user_id": organizer_user.id,
         }
+        # Booker-provided location overrides type's blank location for in-person types
+        if location_input:
+            booking_vals["location"] = location_input
         # Apply custom duration if provided and valid
         if duration_str and booking_type.duration_options:
             try:
@@ -222,6 +323,7 @@ class AppointmentController(Controller):
         self, booking_id, token, year=None, month=None, **kwargs
     ):
         """Show the scheduling calendar for the booking."""
+        _apply_locale_from_request()
         booking_sudo = self._get_booking_sudo(booking_id, token)
         if not booking_sudo:
             return request.redirect("/appointment")
@@ -244,9 +346,10 @@ class AppointmentController(Controller):
             "visitor_tz": tz,
             **calendar_ctx,
         }
-        return request.render(
+        response = request.render(
             "bf_appointment.appointment_schedule", values
         )
+        return _apply_security_headers(response)
 
     @route(
         "/appointment/b/<int:booking_id>/<string:token>/confirm",
@@ -305,6 +408,32 @@ class AppointmentController(Controller):
                 booking_sudo.id,
                 e,
             )
+        # Notify the organizer (BF employee) so they get a heads-up. Stock
+        # Odoo calendar.event invitations are suppressed by our
+        # CalendarEvent._track_subtype override (avoids the duplicate "Date
+        # mise à jour" notification storm), so we deliver our own branded
+        # internal email instead. Skip if the organizer would just be the
+        # booker (e.g. self-test where employee email == booker partner).
+        try:
+            organizer_partner = booking_sudo.user_id.partner_id
+            booker_emails = booking_sudo.partner_ids.mapped("email")
+            if (
+                organizer_partner
+                and organizer_partner.email
+                and organizer_partner.email not in booker_emails
+            ):
+                org_template = request.env.ref(
+                    "bf_appointment.mail_template_organizer_new_booking"
+                ).sudo()
+                booking_sudo._send_appointment_email(
+                    org_template, attach_ics=True
+                )
+        except Exception as e:
+            _logger.error(
+                "Failed to notify organizer for booking %d: %s",
+                booking_sudo.id,
+                e,
+            )
         # Mark past-due "before" schedules as already sent to prevent
         # the cron from sending all reminders at once for near-future bookings
         now = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -326,6 +455,7 @@ class AppointmentController(Controller):
     )
     def appointment_confirmation_page(self, booking_id, token, **kwargs):
         """Show the booking confirmation/details page."""
+        _apply_locale_from_request()
         booking_sudo = self._get_booking_sudo(booking_id, token)
         if not booking_sudo:
             return request.redirect("/appointment")
@@ -341,9 +471,10 @@ class AppointmentController(Controller):
             "access_token": token,
             "tz_name": tz_name,
         }
-        return request.render(
+        response = request.render(
             "bf_appointment.appointment_confirmation_page", values
         )
+        return _apply_security_headers(response)
 
     @route(
         "/appointment/b/<int:booking_id>/<string:token>/cancel",
@@ -354,15 +485,54 @@ class AppointmentController(Controller):
     )
     def appointment_cancel(self, booking_id, token, **kwargs):
         """Cancel a booking."""
+        _apply_locale_from_request()
         booking_sudo = self._get_booking_sudo(booking_id, token)
         if not booking_sudo:
             return request.redirect("/appointment")
+        # Skip if already cancelled (idempotent + avoid duplicate emails)
+        already_cancelled = booking_sudo.state == "canceled"
         booking_sudo.with_context(
             no_mail_to_attendees=True,
+            tracking_disable=True,
+            mail_notrack=True,
         ).action_cancel()
-        return request.render(
+        # Send our branded cancellation emails (suppress stock Odoo notifications above).
+        if not already_cancelled:
+            try:
+                client_template = request.env.ref(
+                    "bf_appointment.mail_template_appointment_cancellation"
+                ).sudo()
+                booking_sudo._send_appointment_email(
+                    client_template, attach_ics=False
+                )
+            except Exception as e:
+                _logger.error(
+                    "Failed to send cancellation email for booking %d: %s",
+                    booking_sudo.id, e,
+                )
+            try:
+                organizer_partner = booking_sudo.user_id.partner_id
+                booker_emails = booking_sudo.partner_ids.mapped("email")
+                if (
+                    organizer_partner
+                    and organizer_partner.email
+                    and organizer_partner.email not in booker_emails
+                ):
+                    org_template = request.env.ref(
+                        "bf_appointment.mail_template_organizer_cancellation"
+                    ).sudo()
+                    booking_sudo._send_appointment_email(
+                        org_template, attach_ics=False
+                    )
+            except Exception as e:
+                _logger.error(
+                    "Failed to notify organizer of cancellation for booking %d: %s",
+                    booking_sudo.id, e,
+                )
+        response = request.render(
             "bf_appointment.appointment_cancelled", {}
         )
+        return _apply_security_headers(response)
 
     # ---- Helpers ----
 
