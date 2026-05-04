@@ -1,6 +1,6 @@
 import logging
 
-from odoo import _, models
+from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, UserError, ValidationError
 
 _logger = logging.getLogger(__name__)
@@ -8,6 +8,23 @@ _logger = logging.getLogger(__name__)
 
 class SurveyUserInput(models.Model):
     _inherit = "survey.user_input"
+
+    bf_attachment_ids = fields.Many2many(
+        "ir.attachment",
+        string="Fichiers téléversés",
+        compute="_compute_bf_attachment_ids",
+    )
+    bf_attachment_count = fields.Integer(
+        string="Nombre de fichiers",
+        compute="_compute_bf_attachment_ids",
+    )
+
+    @api.depends("user_input_line_ids.bf_attachment_ids")
+    def _compute_bf_attachment_ids(self):
+        for ui in self:
+            atts = ui.user_input_line_ids.mapped("bf_attachment_ids")
+            ui.bf_attachment_ids = atts
+            ui.bf_attachment_count = len(atts)
 
     def _save_lines(self, question, answer, comment=None, overwrite_existing=True):
         if question.question_type == "file_upload":
