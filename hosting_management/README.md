@@ -653,6 +653,14 @@ Hosting
 
 ## Changelog
 
+### Version 18.0.2.29.0 (2026-05-04)
+- **Version-capture reliability — 4 bugs fixed**
+  - **Critical: every cron version check was failing silently.** `_extract_version` used `signal.SIGALRM` to bound regex evaluation, but `signal.signal()` raises `ValueError: signal only works in main thread of the main interpreter` when called from Odoo's threaded HTTP workers. The caller's `try/except (re.error, TimeoutError)` did not catch this, so every check stored an error in `version_check_error` and `latest_version` was frozen to its initial seed. Removed the signal-based timeout (input is admin-controlled and bounded to 500 chars).
+  - **Docker Hub semver sort.** `_check_docker_hub_version` was sorting candidate tags by `last_updated` (upload date), which mis-ranked hotfixes on old branches as "latest". Now parses each tag through a new `_parse_version_tuple` helper and sorts tuples in descending order. Same fix applied to GitHub/GitLab tag-fallback paths via a new `_pick_highest_semver_tag` helper.
+  - **`version_policy='lts'` now honored.** `_compute_update_available` previously compared every service to `software.latest_version` regardless of policy. New `_compute_update_target()` helper returns the highest `is_lts=True` version when policy=lts (falling back to `software.latest_version` for other policies). `action_update_to_latest` updated to use the same helper. **Operational note**: for the LTS policy to flag updates, at least one `hosting.software.version` record per software must be marked `is_lts=True` manually; this is a per-software data decision (e.g., for Nextcloud LTS branches).
+  - **Pre-release tag rejection.** New static helper `_is_floating_or_prerelease` rejects floating tags (`latest`, `main`, `master`, `head`, `nightly`, …) and suffix-based pre-releases (`-rc`, `-beta`, `-alpha`, `-pre`, `-dev`, `-edge`, `-snapshot`). GitHub `releases/latest` also checks the `prerelease` flag for defense in depth.
+- **New public method**: `hosting.software.action_check_versions_now()` — accessible via XML-RPC for ad-hoc version-check scripts (the cron `_cron_check_versions` is `@api.model`-private).
+
 ### Version 18.0.2.26.0 (2026-04-15)
 - **NEW: Tenant Provisioning Report API**
   - REST endpoint `/api/hosting/provision/report` (token-auth via `X-Provision-Token`)
@@ -676,7 +684,7 @@ Hosting
   - **Default API token removed**: backup API token no longer seeded with a guessable default; endpoint rejects `CHANGE_ME_TO_SECURE_TOKEN` explicitly
   - **API error messages sanitized**: backup API endpoints no longer leak exception details to callers
   - **SSH host key policy tightened**: changed from `StrictHostKeyChecking=accept-new` to `StrictHostKeyChecking=yes`
-  - **ReDoS protection**: `version_regex` evaluation now has a 2-second timeout via SIGALRM and input truncated to 500 chars
+  - **ReDoS bound**: `version_regex` evaluation truncates input to 500 chars (the original SIGALRM timeout was removed in 18.0.2.29.0 because it broke in threaded workers; admin-controlled input + length cap is the residual mitigation)
   - **Data sanitization**: removed real hostnames, paths, and credentials from data files and migrations for safe publication
 
 ### Version 18.0.2.22.0 (2026-03-17)

@@ -430,17 +430,61 @@ class HostingService(models.Model):
             )
         return super().unlink()
 
-    @api.depends("installed_version_id", "software_id.latest_version", "version_policy")
+    @api.depends(
+        "installed_version_id",
+        "installed_version_id.version",
+        "software_id.latest_version",
+        "software_id.version_ids",
+        "software_id.version_ids.is_lts",
+        "software_id.version_ids.version",
+        "version_policy",
+    )
     def _compute_update_available(self):
+        """A service is "update_available" if its installed version is older
+        than the policy-appropriate target.
+
+        - frozen: never flag
+        - lts: target = highest `is_lts=True` version of the software
+        - latest/manual: target = software.latest_version (the upstream stable)
+        """
         for record in self:
             if record.version_policy == "frozen":
                 record.update_available = False
-            elif not record.installed_version_id or not record.software_id.latest_version:
+                continue
+            if not record.installed_version_id:
                 record.update_available = False
-            else:
-                installed = record.installed_version_id.version
-                latest = record.software_id.latest_version
-                record.update_available = self._is_version_older(installed, latest)
+                continue
+
+            target = record._compute_update_target()
+            if not target:
+                record.update_available = False
+                continue
+            installed = record.installed_version_id.version
+            record.update_available = self._is_version_older(installed, target)
+
+    def _compute_update_target(self):
+        """Return the version string the service should compare against,
+        respecting `version_policy`. Returns None if no target exists.
+        """
+        self.ensure_one()
+        if self.version_policy == "lts":
+            lts_versions = self.software_id.version_ids.filtered(
+                lambda v: v.is_lts and v.version
+            )
+            if not lts_versions:
+                return None
+            # Highest parsed semver among LTS versions
+            ranked = []
+            for v in lts_versions:
+                parsed = self._parse_version(v.version)
+                if parsed:
+                    ranked.append((parsed, v.version))
+            if not ranked:
+                return None
+            ranked.sort(reverse=True)
+            return ranked[0][1]
+        # latest / manual / (anything else): track upstream stable
+        return self.software_id.latest_version or None
 
     @staticmethod
     def _parse_version(version_str):
@@ -640,15 +684,17 @@ class HostingService(models.Model):
             self.target_version_id = False
 
     def action_update_to_latest(self):
-        """Marquer le service comme mis à jour vers la dernière version disponible."""
+        """Marquer le service comme mis à jour vers la dernière version disponible
+        selon sa politique (LTS ou stable courante)."""
         self.ensure_one()
-        if not self.update_available or not self.software_id.latest_version:
+        target_version = self._compute_update_target()
+        if not self.update_available or not target_version:
             return {
                 "type": "ir.actions.client",
                 "tag": "display_notification",
                 "params": {
                     "title": "Aucune mise à jour disponible",
-                    "message": "Ce service est déjà à la dernière version.",
+                    "message": "Ce service est déjà à la dernière version selon sa politique.",
                     "type": "info",
                 },
             }
@@ -656,15 +702,16 @@ class HostingService(models.Model):
         Version = self.env["hosting.software.version"]
         latest_version_record = Version.search([
             ("software_id", "=", self.software_id.id),
-            ("version", "=", self.software_id.latest_version),
+            ("version", "=", target_version),
         ], limit=1)
 
         if not latest_version_record:
-            latest_version_record = Version.create({
-                "software_id": self.software_id.id,
-                "version": self.software_id.latest_version,
-                "release_date": self.software_id.latest_version_date,
-            })
+            # Only set release_date when target == software.latest_version
+            # (we know its date); otherwise leave it blank.
+            vals = {"software_id": self.software_id.id, "version": target_version}
+            if target_version == self.software_id.latest_version:
+                vals["release_date"] = self.software_id.latest_version_date
+            latest_version_record = Version.create(vals)
 
         self.env["hosting.update.log"].create({
             "service_id": self.id,

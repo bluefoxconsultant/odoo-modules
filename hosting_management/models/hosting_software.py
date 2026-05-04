@@ -224,22 +224,33 @@ class HostingSoftware(models.Model):
         response = requests.get(url, headers=headers, timeout=10)
 
         if response.status_code == 404:
-            # Try tags instead of releases
+            # Try tags instead of releases — pick highest semver, skip pre-releases
             url = f"https://api.github.com/repos/{self.github_repo}/tags"
             response = requests.get(url, headers=headers, timeout=10)
             if response.status_code == 200:
-                tags = response.json()
-                if tags:
-                    version = self._extract_version(tags[0].get("name", ""))
-                    if version:
-                        self._update_latest_version(version)
-                        return
+                tags = response.json() or []
+                best = self._pick_highest_semver_tag(t.get("name", "") for t in tags)
+                if best:
+                    self._update_latest_version(best)
+                    return
             raise ValueError(f"No releases or tags found for {self.github_repo}")
 
         response.raise_for_status()
         data = response.json()
 
+        # Skip if GitHub flagged this as a pre-release (defense in depth — the
+        # `/releases/latest` endpoint already filters them, but some repos
+        # publish pre-releases to that slot when they have no stable release).
+        if data.get("prerelease"):
+            raise ValueError(
+                f"Latest GitHub release for {self.github_repo} is a pre-release"
+            )
+
         tag_name = data.get("tag_name", "")
+        if self._is_floating_or_prerelease(tag_name):
+            raise ValueError(
+                f"GitHub latest tag {tag_name!r} is floating or pre-release"
+            )
         version = self._extract_version(tag_name)
         if version:
             published_at = data.get("published_at", "")
@@ -248,8 +259,30 @@ class HostingSoftware(models.Model):
                 release_date = fields.Date.to_date(published_at[:10])
             self._update_latest_version(version, release_date)
 
+    def _pick_highest_semver_tag(self, tag_names):
+        """Pick the highest parseable semver tag, skipping pre-releases."""
+        candidates = []
+        for name in tag_names:
+            if not name or self._is_floating_or_prerelease(name):
+                continue
+            version = self._extract_version(name)
+            if not version:
+                continue
+            parsed = self._parse_version_tuple(version)
+            if parsed:
+                candidates.append((parsed, version))
+        if not candidates:
+            return None
+        candidates.sort(reverse=True)
+        return candidates[0][1]
+
     def _check_docker_hub_version(self):
-        """Vérifier l'API Docker Hub pour la dernière étiquette de version."""
+        """Vérifier l'API Docker Hub pour la dernière étiquette de version.
+
+        Trie les tags par version semver parsée (DESC), pas par date d'upload —
+        sinon un hotfix sur une vieille branche peut être remonté comme
+        « dernière version » (ex. CubeBackup 1.2.15 hotfix vs 1.2.30 stable).
+        """
         if not self.docker_hub_repo:
             raise ValueError("Docker Hub repository not configured")
 
@@ -269,23 +302,72 @@ class HostingSoftware(models.Model):
         if not tags:
             raise ValueError(f"No tags found for {self.docker_hub_repo}")
 
-        # Find the best version tag (skip 'latest', 'stable', etc.)
-        skip_tags = {"latest", "stable", "edge", "dev", "beta", "alpha", "rc", "nightly"}
+        # Collect (parsed_version, version_string, release_date) candidates.
+        # Skip floating tags and pre-release suffixes.
+        candidates = []
         for tag_info in tags:
             tag_name = tag_info.get("name", "")
-            if tag_name.lower() in skip_tags:
+            if self._is_floating_or_prerelease(tag_name):
                 continue
-
             version = self._extract_version(tag_name)
-            if version:
-                last_updated = tag_info.get("last_updated", "")
-                release_date = None
-                if last_updated:
-                    release_date = fields.Date.to_date(last_updated[:10])
-                self._update_latest_version(version, release_date)
-                return
+            if not version:
+                continue
+            parsed = self._parse_version_tuple(version)
+            if not parsed:
+                continue
+            last_updated = tag_info.get("last_updated", "")
+            release_date = (
+                fields.Date.to_date(last_updated[:10]) if last_updated else None
+            )
+            candidates.append((parsed, version, release_date))
 
-        raise ValueError(f"No version tags found for {self.docker_hub_repo}")
+        if not candidates:
+            raise ValueError(f"No version tags found for {self.docker_hub_repo}")
+
+        # Highest parsed semver wins
+        candidates.sort(reverse=True)
+        _parsed, version, release_date = candidates[0]
+        self._update_latest_version(version, release_date)
+
+    @staticmethod
+    def _is_floating_or_prerelease(tag_name):
+        """Reject floating tags (latest/stable/edge) and pre-release suffixes."""
+        if not tag_name:
+            return True
+        lower = tag_name.lower().strip()
+        # Floating tags as full names
+        if lower in {"latest", "stable", "edge", "dev", "beta", "alpha", "rc",
+                     "nightly", "main", "master", "head"}:
+            return True
+        # Pre-release / dev suffixes anywhere after a separator
+        if re.search(
+            r"(^|[-_.])(rc|beta|alpha|pre|dev|nightly|edge|snapshot)\d*([-_.+]|$)",
+            lower,
+        ):
+            return True
+        return False
+
+    @staticmethod
+    def _parse_version_tuple(version_str):
+        """Parse a clean version string into a comparable tuple.
+
+        Handles: '1.2.30', 'v1.2.3', '25.04.8.1'. Returns None if no integer
+        components are present (e.g. for 'latest' or empty).
+        """
+        if not version_str:
+            return None
+        v = version_str.lstrip("vV")
+        parts = re.split(r"[.\-]", v)
+        out = []
+        for p in parts:
+            if p.isdigit():
+                out.append(int(p))
+            elif p.lstrip("-").isdigit():
+                out.append(int(p))
+            else:
+                # Non-numeric component (e.g. 'rc1') — bail to keep ordering pure
+                return None
+        return tuple(out) if out else None
 
     def _check_gitlab_version(self):
         """Vérifier l'API des versions GitLab pour la dernière version."""
@@ -304,16 +386,15 @@ class HostingSoftware(models.Model):
 
         response = requests.get(url, timeout=10)
         if response.status_code == 404:
-            # Try tags instead
+            # Try tags — pick highest semver, skip pre-releases
             url = f"{gitlab_host}/api/v4/projects/{encoded_path}/repository/tags"
             response = requests.get(url, timeout=10)
             if response.status_code == 200:
-                tags = response.json()
-                if tags:
-                    version = self._extract_version(tags[0].get("name", ""))
-                    if version:
-                        self._update_latest_version(version)
-                        return
+                tags = response.json() or []
+                best = self._pick_highest_semver_tag(t.get("name", "") for t in tags)
+                if best:
+                    self._update_latest_version(best)
+                    return
             raise ValueError(f"No releases or tags found for {self.gitlab_repo}")
 
         response.raise_for_status()
@@ -322,18 +403,42 @@ class HostingSoftware(models.Model):
         if not data:
             raise ValueError(f"No releases found for {self.gitlab_repo}")
 
-        release = data[0]
-        tag_name = release.get("tag_name", "")
-        version = self._extract_version(tag_name)
-        if version:
+        # Skip pre-release slots; pick highest stable semver among returned releases
+        candidates = []
+        for release in data:
+            tag_name = release.get("tag_name", "")
+            if self._is_floating_or_prerelease(tag_name):
+                continue
+            version = self._extract_version(tag_name)
+            if not version:
+                continue
+            parsed = self._parse_version_tuple(version)
+            if not parsed:
+                continue
             released_at = release.get("released_at", "")
-            release_date = None
-            if released_at:
-                release_date = fields.Date.to_date(released_at[:10])
-            self._update_latest_version(version, release_date)
+            release_date = (
+                fields.Date.to_date(released_at[:10]) if released_at else None
+            )
+            candidates.append((parsed, version, release_date))
+
+        if not candidates:
+            raise ValueError(
+                f"No stable releases found for {self.gitlab_repo}"
+            )
+        candidates.sort(reverse=True)
+        _parsed, version, release_date = candidates[0]
+        self._update_latest_version(version, release_date)
 
     def _extract_version(self, tag_name):
-        """Extraire le numéro de version du nom d'étiquette en utilisant le regex configuré."""
+        """Extraire le numéro de version du nom d'étiquette via le regex configuré.
+
+        Le regex est appliqué sur les 500 premiers caractères du tag pour borner
+        le coût. La protection ReDoS via `signal.SIGALRM` a été retirée — elle
+        levait `ValueError: signal only works in main thread of the main interpreter`
+        dans les workers HTTP threadés d'Odoo, ce qui faisait silencieusement
+        échouer chaque vérification de version. Le regex est sous notre contrôle
+        (champ admin), pas user input, donc le risque ReDoS est acceptable.
+        """
         if not tag_name:
             return None
 
@@ -341,25 +446,16 @@ class HostingSoftware(models.Model):
         if self.version_prefix and tag_name.startswith(self.version_prefix):
             tag_name = tag_name[len(self.version_prefix):]
 
-        # Apply regex if configured (with timeout to prevent ReDoS)
         if self.version_regex:
             try:
-                import signal
-
-                def _timeout_handler(signum, frame):
-                    raise TimeoutError("Regex evaluation timed out")
-
-                old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
-                signal.alarm(2)  # 2-second timeout
-                try:
-                    match = re.search(self.version_regex, tag_name[:500])
-                    if match:
-                        return match.group(1) if match.groups() else match.group(0)
-                finally:
-                    signal.alarm(0)
-                    signal.signal(signal.SIGALRM, old_handler)
-            except (re.error, TimeoutError) as exc:
-                _logger.warning("Regex error for %s (%s): %s", self.name, self.version_regex, exc)
+                match = re.search(self.version_regex, tag_name[:500])
+                if match:
+                    return match.group(1) if match.groups() else match.group(0)
+            except re.error as exc:
+                _logger.warning(
+                    "Regex error for %s (%s): %s",
+                    self.name, self.version_regex, exc,
+                )
 
         return tag_name
 
@@ -386,6 +482,17 @@ class HostingSoftware(models.Model):
 
             # Trigger recomputation of update_available on services
             self.service_ids._compute_update_available()
+
+    def action_check_versions_now(self):
+        """Manuel : déclencher la vérification de version pour les enregistrements
+        sélectionnés. Public — accessible via XML-RPC pour les scripts d'audit.
+        """
+        for software in self:
+            try:
+                software._check_version()
+            except Exception as e:
+                _logger.warning("Version check failed for %s: %s", software.name, e)
+        return True
 
     @api.model
     def _cron_check_versions(self):

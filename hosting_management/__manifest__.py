@@ -2,7 +2,7 @@
 {
     "name": "Gestion d'hébergement",
     "summary": "Gérer les services d'hébergement pour les clients avec suivi de versions et facturation",
-    "version": "18.0.2.26.1",
+    "version": "18.0.2.29.0",
     "category": "Services",
     "website": "https://bluefox.ca",
     "author": "Blue Fox Inc.",

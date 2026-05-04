@@ -26,7 +26,7 @@ Custom Odoo 18 Community Edition modules developed by [Blue Fox Inc.](https://bl
 | `calendar_nextcloud_sync` | Calendar Nextcloud Sync | 18.0.1.23.0 | LGPL-3 | Synchronisation calendrier bidirectionnelle Odoo ↔ Nextcloud via n8n |
 | `contacts_nextcloud_sync` | Contacts Nextcloud Sync | 18.0.1.0.0 | LGPL-3 | Synchronisation des contacts Odoo avec le carnet Nextcloud via CardDAV |
 | `daily_todo_digest` | Daily To-Do Digest | 18.0.1.2.0 | LGPL-3 | Courriel quotidien regroupant activités, tâches en retard et aperçu de la semaine |
-| `hosting_management` | Gestion d'hébergement | 18.0.2.23.0 | LGPL-3 | Gérer les services d'hébergement pour les clients avec suivi de versions et facturation |
+| `hosting_management` | Gestion d'hébergement | 18.0.2.29.0 | LGPL-3 | Gérer les services d'hébergement pour les clients avec suivi de versions et facturation |
 | `privacy_consent` | Suivi des consentements (Loi 25) | 18.0.3.0.1 | LGPL-3 | Vie privée, consentements et destruction documentaire (Loi 25) |
 | `project_knowledge_matrix` | Project Knowledge Matrix | 18.0.9.9.0 | LGPL-3 | Base de connaissances projets, politiques et documentation |
 
