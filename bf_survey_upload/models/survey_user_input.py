@@ -44,12 +44,15 @@ class SurveyUserInput(models.Model):
             existing.unlink()
 
         skipped = not attachment_ids
+        # answer_type must be falsy when skipped, non-falsy when answered, to
+        # satisfy native _check_answer_type_skipped. We extend the selection
+        # with 'file_upload' on survey.user_input.line so that's a valid value.
         line_vals = {
             "user_input_id": self.id,
             "question_id": question.id,
             "survey_id": self.survey_id.id,
             "skipped": skipped,
-            "answer_type": False,
+            "answer_type": False if skipped else "file_upload",
             "bf_attachment_ids": [(6, 0, attachment_ids)],
         }
         return self.env["survey.user_input.line"].create(line_vals)
