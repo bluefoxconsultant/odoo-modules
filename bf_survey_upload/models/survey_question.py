@@ -7,7 +7,9 @@ class SurveyQuestion(models.Model):
 
     question_type = fields.Selection(
         selection_add=[("file_upload", "Téléversement de fichiers")],
-        ondelete={"file_upload": "set default"},
+        # On uninstall, downgrade existing file_upload questions to text_box
+        # so the survey remains valid (admin can decide what to do next).
+        ondelete={"file_upload": lambda recs: recs.write({"question_type": "text_box"})},
     )
 
     file_upload_max_size_mb = fields.Integer(
