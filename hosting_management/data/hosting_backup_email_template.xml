@@ -8,7 +8,7 @@
             <field name="model_id" ref="model_hosting_backup_run"/>
             <field name="email_from">{{ (object.company_id.email or user.email_formatted) }}</field>
             <field name="email_to">{{ (object.company_id.email or '') }}</field>
-            <field name="subject">{{ '[ERREUR]' if object.state == 'failed' else '[AVERTISSEMENT]' if object.state == 'partial' else '[OK]' }} Rapport de sauvegarde - {{ object.name }} - {{ object.run_date.strftime('%Y-%m-%d') }}</field>
+            <field name="subject">{{ '[ERREUR]' if object.state == 'failed' else '[PARTIEL]' if object.state == 'partial' else '[AVERTISSEMENT]' if object.state == 'warning' else '[OK]' }} Rapport de sauvegarde - {{ object.name }} - {{ object.run_date.strftime('%Y-%m-%d') }}</field>
             <field name="body_html" type="html">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#2E3132;">
   <tbody>
@@ -60,19 +60,21 @@
                         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-radius:10px;margin-bottom:20px;">
                           <tbody>
                             <tr>
-                              <td t-attf-style="padding:16px;border-radius:10px;border:1px solid {{ '#FECACA' if object.state == 'failed' else '#FDE68A' if object.state == 'partial' else '#A7F3D0' }};background-color:{{ '#FEE2E2' if object.state == 'failed' else '#FEF3C7' if object.state == 'partial' else '#D1FAE5' }};">
+                              <td t-attf-style="padding:16px;border-radius:10px;border:1px solid {{ '#FECACA' if object.state == 'failed' else '#FDE68A' if object.state == 'partial' else '#BFDBFE' if object.state == 'warning' else '#A7F3D0' }};background-color:{{ '#FEE2E2' if object.state == 'failed' else '#FEF3C7' if object.state == 'partial' else '#DBEAFE' if object.state == 'warning' else '#D1FAE5' }};">
                                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                                   <tbody>
                                     <tr>
-                                      <td t-attf-style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:18px;font-weight:600;color:{{ '#DC2626' if object.state == 'failed' else '#D97706' if object.state == 'partial' else '#059669' }};">
+                                      <td t-attf-style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:18px;font-weight:600;color:{{ '#DC2626' if object.state == 'failed' else '#D97706' if object.state == 'partial' else '#1D4ED8' if object.state == 'warning' else '#059669' }};">
                                         <t t-if="object.state == 'failed'">ERREURS DÉTECTÉES</t>
-                                        <t t-elif="object.state == 'partial'">COMPLÉTÉ AVEC AVERTISSEMENTS</t>
+                                        <t t-elif="object.state == 'partial'">SUCCÈS PARTIEL — DONNÉES MANQUANTES</t>
+                                        <t t-elif="object.state == 'warning'">TOUS LES BACKUPS RÉUSSIS (avec avertissements)</t>
                                         <t t-else="">TOUS LES BACKUPS RÉUSSIS</t>
                                       </td>
                                     </tr>
                                     <tr>
                                       <td style="padding-top:8px;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:14px;color:#374151;">
                                         <strong style="color:#059669;"><t t-out="object.success_count"/></strong> réussis |
+                                        <strong style="color:#1D4ED8;"><t t-out="object.warning_count"/></strong> avert. |
                                         <strong style="color:#DC2626;"><t t-out="object.failed_count"/></strong> échoués |
                                         <strong style="color:#D97706;"><t t-out="object.skipped_count"/></strong> ignorés |
                                         <strong><t t-out="object.total_count"/></strong> total
@@ -113,7 +115,18 @@
                                   </span>
                                 </td>
                                 <td style="padding:12px 8px;vertical-align:top;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;">
-                                  <t t-if="line.container_count > 0">
+                                  <t t-if="line.report_type == 'restic'">
+                                    <t t-if="line.snapshot_count > 0">
+                                      <span style="font-weight:600;color:#059669;">
+                                        <t t-out="line.snapshot_count"/>
+                                      </span>
+                                      <span style="color:#6B7280;font-size:11px;"> snapshot<t t-if="line.snapshot_count > 1">s</t></span>
+                                    </t>
+                                    <t t-else="">
+                                      <span style="color:#9CA3AF;">-</span>
+                                    </t>
+                                  </t>
+                                  <t t-elif="line.container_count > 0">
                                     <span t-attf-style="font-weight:600;color:{{ '#059669' if line.verified_file_count >= line.container_count else '#DC2626' }};">
                                       <t t-out="line.verified_file_count"/>/<t t-out="line.container_count"/>
                                     </span>
@@ -128,20 +141,36 @@
                                   </t>
                                 </td>
                                 <td style="padding:12px 8px;vertical-align:top;">
-                                  <t t-foreach="line.file_ids" t-as="file">
-                                    <div style="font-size:12px;color:#374151;margin-top:4px;">
-                                      <span t-attf-style="color:{{ '#059669' if file.verified else '#DC2626' }};font-weight:bold;">
-                                        <t t-if="file.verified">✓</t>
-                                        <t t-else="">✗</t>
-                                      </span>
-                                      <t t-out="file.name"/><br/>
-                                      <span style="color:#9CA3AF;font-size:11px;">
-                                        SHA256: <t t-out="(file.checksum or '')[:16]"/>... | Taille: <t t-out="file.size"/>
-                                      </span>
-                                    </div>
+                                  <t t-if="line.report_type == 'restic'">
+                                    <t t-foreach="line.snapshot_ids" t-as="snap">
+                                      <div style="font-size:12px;color:#374151;margin-top:4px;">
+                                        <span style="color:#059669;font-weight:bold;">✓</span>
+                                        <t t-out="snap.container or snap.destination or '?'"/><br/>
+                                        <span style="color:#9CA3AF;font-size:11px;">
+                                          <t t-out="snap.files_new"/> fichiers ajoutés · <t t-out="snap.data_added_human"/>
+                                        </span>
+                                      </div>
+                                    </t>
+                                    <t t-if="not line.snapshot_ids">
+                                      <span style="color:#9CA3AF;font-size:12px;">Aucun snapshot</span>
+                                    </t>
                                   </t>
-                                  <t t-if="not line.file_ids">
-                                    <span style="color:#9CA3AF;font-size:12px;">Aucun fichier</span>
+                                  <t t-else="">
+                                    <t t-foreach="line.file_ids" t-as="file">
+                                      <div style="font-size:12px;color:#374151;margin-top:4px;">
+                                        <span t-attf-style="color:{{ '#059669' if file.verified else '#DC2626' }};font-weight:bold;">
+                                          <t t-if="file.verified">✓</t>
+                                          <t t-else="">✗</t>
+                                        </span>
+                                        <t t-out="file.name"/><br/>
+                                        <span style="color:#9CA3AF;font-size:11px;">
+                                          SHA256: <t t-out="(file.checksum or '')[:16]"/>... | Taille: <t t-out="file.size"/>
+                                        </span>
+                                      </div>
+                                    </t>
+                                    <t t-if="not line.file_ids">
+                                      <span style="color:#9CA3AF;font-size:12px;">Aucun fichier</span>
+                                    </t>
                                   </t>
                                   <t t-if="line.error_message">
                                     <div style="color:#DC2626;font-size:12px;margin-top:4px;">

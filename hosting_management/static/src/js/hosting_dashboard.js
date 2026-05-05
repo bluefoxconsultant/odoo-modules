@@ -172,6 +172,8 @@ export class HostingDashboard extends Component {
     // Backups
     openBackupRuns() { this._doAction("action_view_backup_runs"); }
     openFailedBackups() { this._doAction("action_view_failed_backups"); }
+    openResticRepos() { this._doAction("action_view_restic_repositories"); }
+    openResticSnapshots() { this._doAction("action_view_restic_snapshots"); }
 
     // Domains
     openDomains() { this._doAction("action_view_domains"); }

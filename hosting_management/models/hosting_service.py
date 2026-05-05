@@ -143,7 +143,7 @@ class HostingService(models.Model):
     )
     docker_container = fields.Char(
         string="Nom du conteneur",
-        help="Nom du conteneur Docker (ex. : vaultwarden-alvea)",
+        help="Nom du conteneur Docker (ex. : vaultwarden-myorg)",
     )
 
     # Stockage
@@ -268,6 +268,11 @@ class HostingService(models.Model):
         inverse_name="service_id",
         string="Vérifications de santé",
     )
+    health_daily_snapshot_ids = fields.One2many(
+        comodel_name="hosting.health.daily.snapshot",
+        inverse_name="service_id",
+        string="Snapshots quotidiens (>30j)",
+    )
 
     # Planifications de maintenance
     maintenance_schedule_ids = fields.One2many(
@@ -324,6 +329,42 @@ class HostingService(models.Model):
         string="Actif",
         default=True,
     )
+
+    # ── Sauvegardes Restic ────────────────────────────────────────────────
+    restic_repository_ids = fields.Many2many(
+        comodel_name="hosting.backup.repository",
+        relation="hosting_service_backup_repository_rel",
+        column1="service_id",
+        column2="repository_id",
+        string="Dépôts Restic",
+        help="Dépôts Restic qui contiennent les sauvegardes de ce service",
+    )
+    restic_snapshot_count = fields.Integer(
+        string="Snapshots Restic",
+        compute="_compute_restic_summary",
+    )
+    restic_last_backup = fields.Datetime(
+        string="Dernière sauvegarde Restic",
+        compute="_compute_restic_summary",
+    )
+    restic_is_stale = fields.Boolean(
+        string="Sauvegarde Restic périmée",
+        compute="_compute_restic_summary",
+        help="Vrai si au moins un dépôt lié est périmé (>27 h)",
+    )
+
+    @api.depends(
+        "restic_repository_ids.snapshot_count",
+        "restic_repository_ids.latest_snapshot_date",
+        "restic_repository_ids.is_stale",
+    )
+    def _compute_restic_summary(self):
+        for s in self:
+            repos = s.restic_repository_ids
+            s.restic_snapshot_count = sum(repos.mapped("snapshot_count"))
+            dates = [d for d in repos.mapped("latest_snapshot_date") if d]
+            s.restic_last_backup = max(dates) if dates else False
+            s.restic_is_stale = any(repos.mapped("is_stale"))
 
     _sql_constraints = [
         ("code_uniq", "UNIQUE(code)", "La référence du service doit être unique !"),

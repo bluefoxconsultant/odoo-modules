@@ -209,6 +209,25 @@
                                 </list>
                             </field>
                         </page>
+                        <page string="Sauvegardes Restic" name="restic_backups">
+                            <group>
+                                <group>
+                                    <field name="restic_snapshot_count" string="Snapshots"/>
+                                    <field name="restic_last_backup" string="Dernière sauvegarde"/>
+                                    <field name="restic_is_stale" string="Périmé (>27h)" widget="boolean_toggle" readonly="1"/>
+                                </group>
+                            </group>
+                            <field name="restic_repository_ids" widget="many2many_tags" placeholder="Lier les dépôts Restic qui couvrent ce service…"/>
+                            <field name="restic_repository_ids" nolabel="1" readonly="1">
+                                <list>
+                                    <field name="name"/>
+                                    <field name="snapshot_count"/>
+                                    <field name="latest_snapshot_date"/>
+                                    <field name="is_stale" widget="boolean"/>
+                                    <field name="size_human" string="Taille"/>
+                                </list>
+                            </field>
+                        </page>
                     </notebook>
 
                     <field name="active" invisible="1"/>

@@ -3,6 +3,16 @@
 from odoo import api, fields, models
 
 
+def _human_bytes(n):
+    if not n:
+        return "0 B"
+    for unit in ("B", "KB", "MB", "GB", "TB", "PB"):
+        if n < 1024.0:
+            return f"{n:.2f} {unit}" if unit != "B" else f"{int(n)} {unit}"
+        n /= 1024.0
+    return f"{n:.2f} EB"
+
+
 class HostingBackupRun(models.Model):
     """Représente une exécution de sauvegarde (exécution quotidienne de tous les scripts de sauvegarde)."""
 
@@ -30,9 +40,26 @@ class HostingBackupRun(models.Model):
     backup_root = fields.Char(
         string="Emplacement de sauvegarde",
     )
+    report_type = fields.Selection(
+        selection=[
+            ("legacy", "Legacy ZIP"),
+            ("restic", "Restic"),
+        ],
+        string="Type de rapport",
+        default="legacy",
+        required=True,
+        index=True,
+        tracking=True,
+    )
+    repository_ids = fields.Many2many(
+        comodel_name="hosting.backup.repository",
+        compute="_compute_repository_ids",
+        string="Dépôts touchés",
+    )
     state = fields.Selection(
         selection=[
             ("success", "Tous réussis"),
+            ("warning", "Réussi avec avertissements"),
             ("partial", "Succès partiel"),
             ("failed", "Échoué"),
         ],
@@ -50,6 +77,13 @@ class HostingBackupRun(models.Model):
         string="Réussis",
         compute="_compute_counts",
         store=True,
+    )
+    warning_count = fields.Integer(
+        string="Avertissements",
+        compute="_compute_counts",
+        store=True,
+        help="Services dont la cible principale a produit un snapshot mais "
+             "où une sous-cible secondaire a été ignorée (data captée).",
     )
     failed_count = fields.Integer(
         string="Échoués",
@@ -96,34 +130,63 @@ class HostingBackupRun(models.Model):
                 ) or "New"
         return super().create(vals_list)
 
-    @api.depends("line_ids", "line_ids.status")
+    @api.depends("line_ids", "line_ids.status", "line_ids.snapshot_count")
     def _compute_counts(self):
         for run in self:
             run.total_count = len(run.line_ids)
+            # Une ligne 'partial' avec ≥1 snapshot = data captée → compte comme succès (avec avertissement).
+            # Une ligne 'partial' sans snapshot = vraie perte → compte comme échec.
             run.success_count = len(
-                run.line_ids.filtered(lambda l: l.status == "success")
+                run.line_ids.filtered(
+                    lambda l: l.status == "success"
+                    or (l.status == "partial" and l.snapshot_count > 0)
+                )
             )
-            run.failed_count = len(run.line_ids.filtered(lambda l: l.status == "failed"))
+            run.warning_count = len(
+                run.line_ids.filtered(
+                    lambda l: l.status == "partial" and l.snapshot_count > 0
+                )
+            )
+            run.failed_count = len(
+                run.line_ids.filtered(
+                    lambda l: l.status == "failed"
+                    or (l.status == "partial" and l.snapshot_count == 0)
+                )
+            )
             run.skipped_count = len(
                 run.line_ids.filtered(lambda l: l.status == "skipped")
             )
 
-    @api.depends("line_ids", "line_ids.status", "line_ids.all_verified")
+    @api.depends("line_ids", "line_ids.status", "line_ids.all_verified", "line_ids.snapshot_count", "report_type")
     def _compute_state(self):
         for run in self:
             if not run.line_ids:
                 run.state = False
             elif run.failed_count > 0:
                 run.state = "failed" if run.success_count == 0 else "partial"
+            elif run.report_type == "restic":
+                # Restic : si toutes les lignes ont produit ≥1 snapshot, la sauvegarde est
+                # complète. Les lignes 'partial' (sous-cible secondaire ignorée mais data
+                # captée) déclenchent l'état 'warning' plutôt que 'partial'.
+                if run.warning_count > 0:
+                    run.state = "warning"
+                else:
+                    run.state = "success"
             else:
-                # Pas d'échec — les services ignorés (sans conteneurs) sont attendus,
-                # donc vérifier uniquement si toutes les sauvegardes réussies sont vérifiées
+                # Legacy : vérifier uniquement si toutes les sauvegardes réussies sont vérifiées
                 has_unverified = any(
                     not line.all_verified
                     for line in run.line_ids
                     if line.status == "success" and line.file_ids
                 )
                 run.state = "partial" if has_unverified else "success"
+
+    @api.depends("line_ids.snapshot_ids.repository_id")
+    def _compute_repository_ids(self):
+        for run in self:
+            run.repository_ids = run.line_ids.mapped(
+                "snapshot_ids.repository_id"
+            )
 
     def _maybe_send_ntfy_alert(self):
         """Appeler après finalisation de l'exécution (lignes créées, état calculé)."""
@@ -150,7 +213,10 @@ class HostingBackupRun(models.Model):
             tags = "floppy_disk,warning"
         body_lines = [
             f"Hôte : {self.hostname or 'N/D'}",
-            f"Succès : {self.success_count} / Échecs : {self.failed_count} / Ignorés : {self.skipped_count}",
+            (
+                f"Succès : {self.success_count} / Avert. : {self.warning_count} / "
+                f"Échecs : {self.failed_count} / Ignorés : {self.skipped_count}"
+            ),
         ]
         if failed_lines:
             body_lines.append("")
@@ -210,6 +276,7 @@ class HostingBackupLine(models.Model):
     status = fields.Selection(
         selection=[
             ("success", "Réussi"),
+            ("partial", "Partiel"),
             ("failed", "Échoué"),
             ("skipped", "Ignoré"),
         ],
@@ -237,6 +304,25 @@ class HostingBackupLine(models.Model):
         inverse_name="line_id",
         string="Fichiers de sauvegarde",
     )
+    snapshot_ids = fields.One2many(
+        comodel_name="hosting.backup.snapshot",
+        inverse_name="run_line_id",
+        string="Snapshots Restic",
+    )
+    snapshot_count = fields.Integer(
+        string="Snapshots",
+        compute="_compute_snapshot_count",
+    )
+    report_type = fields.Selection(
+        related="run_id.report_type",
+        store=True,
+        index=True,
+    )
+    exit_code = fields.Integer(
+        string="Code de sortie",
+        default=0,
+        help="Code de sortie du script enfant (Restic). 0 = OK, autre = partial/failed",
+    )
 
     # Champs calculés
     file_count = fields.Integer(
@@ -257,30 +343,50 @@ class HostingBackupLine(models.Model):
         compute="_compute_all_verified",
     )
 
-    @api.depends("file_ids")
+    @api.depends("file_ids", "snapshot_ids", "report_type")
     def _compute_file_count(self):
         for line in self:
-            line.file_count = len(line.file_ids)
+            if line.report_type == "restic":
+                line.file_count = len(line.snapshot_ids)
+            else:
+                line.file_count = len(line.file_ids)
 
-    @api.depends("file_ids.size")
+    @api.depends("snapshot_ids")
+    def _compute_snapshot_count(self):
+        for line in self:
+            line.snapshot_count = len(line.snapshot_ids)
+
+    @api.depends("file_ids.size", "snapshot_ids.data_added_bytes", "report_type")
     def _compute_total_size(self):
         for line in self:
-            # Just concatenate sizes for now since they're strings like "1.2G", "456M"
-            sizes = line.file_ids.mapped("size")
-            line.total_size = ", ".join(filter(None, sizes)) or "-"
+            if line.report_type == "restic":
+                total = sum(line.snapshot_ids.mapped("data_added_bytes"))
+                line.total_size = _human_bytes(total) if total else "-"
+            else:
+                # Legacy: concatenate string sizes like "1.2G", "456M"
+                sizes = line.file_ids.mapped("size")
+                line.total_size = ", ".join(filter(None, sizes)) or "-"
 
-    @api.depends("file_ids.verified")
+    @api.depends("file_ids.verified", "snapshot_ids", "status", "report_type")
     def _compute_all_verified(self):
         for line in self:
-            if line.file_ids:
+            if line.report_type == "restic":
+                # Restic snapshots are inherently verified by the upload pipeline.
+                line.all_verified = (
+                    line.status == "success" and len(line.snapshot_ids) > 0
+                )
+            elif line.file_ids:
                 line.all_verified = all(f.verified for f in line.file_ids)
             else:
                 line.all_verified = False
 
-    @api.depends("container_count", "verified_file_count")
+    @api.depends("container_count", "verified_file_count", "snapshot_ids", "report_type")
     def _compute_backup_ratio(self):
         for line in self:
-            if line.container_count > 0:
+            if line.report_type == "restic":
+                snaps = len(line.snapshot_ids)
+                line.backup_ratio = f"{snaps}/{snaps}" if snaps else "-"
+            elif line.container_count > 0:
                 line.backup_ratio = f"{line.verified_file_count}/{line.container_count}"
             elif line.verified_file_count > 0:
                 line.backup_ratio = f"{line.verified_file_count}/?"

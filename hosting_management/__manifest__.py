@@ -2,7 +2,7 @@
 {
     "name": "Gestion d'hébergement",
     "summary": "Gérer les services d'hébergement pour les clients avec suivi de versions et facturation",
-    "version": "18.0.2.29.0",
+    "version": "18.0.2.31.3",
     "category": "Services",
     "website": "https://bluefox.ca",
     "author": "Blue Fox Inc.",
@@ -41,11 +41,14 @@
         "views/hosting_server_views.xml",
         "views/hosting_update_log_views.xml",
         "views/hosting_health_check_views.xml",
+        "views/hosting_health_daily_snapshot_views.xml",
         "views/hosting_maintenance_schedule_views.xml",
         "views/hosting_maintenance_template_views.xml",
         "views/hosting_service_views.xml",  # Must come after maintenance_schedule (references action)
         "views/hosting_dashboard_views.xml",
         "views/hosting_digest_views.xml",
+        "views/hosting_backup_repository_views.xml",
+        "views/hosting_backup_snapshot_views.xml",
         "views/hosting_backup_views.xml",
         "views/hosting_domain_views.xml",
         "views/hosting_audit_log_views.xml",

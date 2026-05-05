@@ -8,6 +8,16 @@ from odoo import api, fields, models
 _logger = logging.getLogger(__name__)
 
 
+def _human_bytes(n):
+    if not n:
+        return "0 B"
+    for unit in ("B", "KB", "MB", "GB", "TB", "PB"):
+        if n < 1024.0:
+            return f"{n:.2f} {unit}" if unit != "B" else f"{int(n)} {unit}"
+        n /= 1024.0
+    return f"{n:.2f} EB"
+
+
 class HostingDashboard(models.Model):
     _name = "hosting.dashboard"
     _description = "Tableau de bord d'hébergement"
@@ -436,6 +446,34 @@ class HostingDashboard(models.Model):
         }
 
     @api.model
+    def action_view_restic_repositories(self):
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Dépôts Restic",
+            "res_model": "hosting.backup.repository",
+            "views": [[False, "list"], [False, "form"]],
+            "context": {"search_default_group_category": 1},
+        }
+
+    @api.model
+    def action_view_restic_snapshots(self):
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Snapshots Restic (24h)",
+            "res_model": "hosting.backup.snapshot",
+            "views": [[False, "list"]],
+            "domain": [
+                (
+                    "snapshot_date",
+                    ">=",
+                    fields.Datetime.to_string(
+                        fields.Datetime.subtract(fields.Datetime.now(), hours=24)
+                    ),
+                )
+            ],
+        }
+
+    @api.model
     def action_view_health_checks(self):
         return {
             "type": "ir.actions.act_window",
@@ -681,7 +719,7 @@ class HostingDashboard(models.Model):
 
     @api.model
     def _get_backups(self):
-        """Backup run statistics."""
+        """Backup run statistics (legacy keys + Restic extension)."""
         BackupRun = self.env["hosting.backup.run"]
         last_run = BackupRun.search([], order="run_date desc", limit=1)
 
@@ -691,21 +729,65 @@ class HostingDashboard(models.Model):
             ("run_date", ">=", first_of_month),
         ])
 
+        # Backward-compat keys for the existing JS dashboard
         if last_run:
-            return {
+            base = {
                 "last_run_date": fields.Datetime.to_string(last_run.run_date),
                 "last_run_state": last_run.state,
                 "success_count": last_run.success_count,
                 "failed_count": last_run.failed_count,
                 "runs_this_month": runs_this_month,
             }
-        return {
-            "last_run_date": False,
-            "last_run_state": False,
-            "success_count": 0,
-            "failed_count": 0,
-            "runs_this_month": runs_this_month,
-        }
+        else:
+            base = {
+                "last_run_date": False,
+                "last_run_state": False,
+                "success_count": 0,
+                "failed_count": 0,
+                "runs_this_month": runs_this_month,
+            }
+
+        # Restic extension
+        Repo = self.env["hosting.backup.repository"]
+        Snapshot = self.env["hosting.backup.snapshot"]
+        BucketSnap = self.env["hosting.backup.bucket.snapshot"]
+
+        active_repos = Repo.search([("active", "=", True)])
+        stale_repos = active_repos.filtered(lambda r: r.is_stale)
+        total_size = sum(active_repos.mapped("size_bytes"))
+        last_restic = BackupRun.search(
+            [("report_type", "=", "restic")], order="run_date desc", limit=1
+        )
+        snapshots_24h = Snapshot.search_count([
+            (
+                "snapshot_date",
+                ">=",
+                fields.Datetime.subtract(fields.Datetime.now(), hours=24),
+            )
+        ])
+        latest_bucket = BucketSnap.search([], order="collected_at desc", limit=1)
+
+        base.update({
+            "restic_repo_count": len(active_repos),
+            "restic_stale_count": len(stale_repos),
+            "restic_total_size_human": _human_bytes(total_size),
+            "restic_last_run_state": last_restic.state if last_restic else False,
+            "restic_last_run_date": (
+                fields.Datetime.to_string(last_restic.run_date)
+                if last_restic
+                else False
+            ),
+            "restic_snapshots_24h": snapshots_24h,
+            "bucket_total_human": (
+                _human_bytes(latest_bucket.total_bytes) if latest_bucket else "0 B"
+            ),
+            "bucket_collected_at": (
+                fields.Datetime.to_string(latest_bucket.collected_at)
+                if latest_bucket
+                else False
+            ),
+        })
+        return base
 
     @api.model
     def _get_services(self):

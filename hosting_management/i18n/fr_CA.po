@@ -6331,8 +6331,8 @@ msgstr "Nom du conteneur"
 
 #. module: hosting_management
 #: model:ir.model.fields,help:hosting_management.field_hosting_service__docker_container
-msgid "Nom du conteneur Docker (ex. : vaultwarden-alvea)"
-msgstr "Nom du conteneur Docker (ex. : vaultwarden-alvea)"
+msgid "Nom du conteneur Docker (ex. : vaultwarden-myorg)"
+msgstr "Nom du conteneur Docker (ex. : vaultwarden-myorg)"
 
 #. module: hosting_management
 #: model:ir.model.fields,field_description:hosting_management.field_hosting_software__name
@@ -7601,8 +7601,8 @@ msgstr "URL du dépôt pour la vérification automatique de version"
 
 #. module: hosting_management
 #: model:ir.model.fields,help:hosting_management.field_hosting_service__s3_endpoint
-msgid "URL du point d'accès S3 (ex. : https://v6h1.ca.idrivee2-37.com:443)"
-msgstr "URL du point d'accès S3 (ex. : https://v6h1.ca.idrivee2-37.com:443)"
+msgid "URL du point d'accès S3 (ex. : https://s3.example.com:443)"
+msgstr "URL du point d'accès S3 (ex. : https://s3.example.com:443)"
 
 #. module: hosting_management
 #: model_terms:ir.ui.view,arch_db:hosting_management.hosting_service_view_form

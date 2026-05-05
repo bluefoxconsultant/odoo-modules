@@ -311,6 +311,33 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Restic -->
+                    <div t-if="state.data.backups.restic_repo_count" class="col-md-6 mb-3">
+                        <div t-attf-class="card h-100 {{state.data.backups.restic_stale_count > 0 ? 'border-warning' : 'border-success'}}">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0"><i class="fa fa-snowflake-o me-2"/>Restic <small class="text-muted ms-1">dédup</small></h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between mb-2 cursor-pointer" t-on-click="openResticRepos">
+                                    <span><i class="fa fa-archive me-2"/>Dépôts actifs</span>
+                                    <strong t-esc="state.data.backups.restic_repo_count"/>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2 cursor-pointer" t-on-click="openResticRepos">
+                                    <span><i class="fa fa-exclamation-triangle me-2"/>Périmés (>27h)</span>
+                                    <strong t-attf-class="{{state.data.backups.restic_stale_count > 0 ? 'text-warning' : 'text-muted'}}" t-esc="state.data.backups.restic_stale_count"/>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2 cursor-pointer" t-on-click="openResticSnapshots">
+                                    <span><i class="fa fa-camera me-2"/>Snapshots 24h</span>
+                                    <strong t-esc="state.data.backups.restic_snapshots_24h"/>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span><i class="fa fa-cloud me-2"/>Bucket S3</span>
+                                    <strong t-esc="state.data.backups.bucket_total_human"/>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Domains Row -->

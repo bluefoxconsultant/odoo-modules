@@ -11,12 +11,16 @@ from . import hosting_accepted_http_code
 from . import hosting_service
 from . import hosting_update_log
 from . import hosting_health_check
+from . import hosting_health_daily_snapshot
 from . import hosting_maintenance_schedule
 from . import hosting_maintenance_template
 from . import hosting_dashboard
 from . import hosting_digest
 from . import res_partner
 from . import res_config_settings
+from . import hosting_backup_repository
+from . import hosting_backup_bucket_snapshot
 from . import hosting_backup_log
+from . import hosting_backup_snapshot
 from . import hosting_audit_log
 from . import hosting_security_event

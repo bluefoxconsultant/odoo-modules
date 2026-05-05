@@ -16,6 +16,8 @@ access_hosting_dashboard_manager,hosting.dashboard.manager,model_hosting_dashboa
 access_hosting_digest_manager,hosting.digest.manager,model_hosting_digest,group_hosting_manager,1,1,1,1
 access_hosting_health_check_user,hosting.health.check.user,model_hosting_health_check,group_hosting_user,1,0,0,0
 access_hosting_health_check_manager,hosting.health.check.manager,model_hosting_health_check,group_hosting_manager,1,1,1,1
+access_hosting_health_daily_snapshot_user,hosting.health.daily.snapshot.user,model_hosting_health_daily_snapshot,group_hosting_user,1,0,0,0
+access_hosting_health_daily_snapshot_manager,hosting.health.daily.snapshot.manager,model_hosting_health_daily_snapshot,group_hosting_manager,1,1,1,1
 access_hosting_maintenance_schedule_user,hosting.maintenance.schedule.user,model_hosting_maintenance_schedule,group_hosting_user,1,1,1,0
 access_hosting_maintenance_schedule_manager,hosting.maintenance.schedule.manager,model_hosting_maintenance_schedule,group_hosting_manager,1,1,1,1
 access_hosting_maintenance_template_user,hosting.maintenance.template.user,model_hosting_maintenance_template,group_hosting_user,1,0,0,0
@@ -28,6 +30,12 @@ access_hosting_backup_line_user,hosting.backup.line.user,model_hosting_backup_li
 access_hosting_backup_line_manager,hosting.backup.line.manager,model_hosting_backup_line,group_hosting_manager,1,1,1,1
 access_hosting_backup_file_user,hosting.backup.file.user,model_hosting_backup_file,group_hosting_user,1,0,0,0
 access_hosting_backup_file_manager,hosting.backup.file.manager,model_hosting_backup_file,group_hosting_manager,1,1,1,1
+access_hosting_backup_repository_user,hosting.backup.repository.user,model_hosting_backup_repository,group_hosting_user,1,0,0,0
+access_hosting_backup_repository_manager,hosting.backup.repository.manager,model_hosting_backup_repository,group_hosting_manager,1,1,1,1
+access_hosting_backup_snapshot_user,hosting.backup.snapshot.user,model_hosting_backup_snapshot,group_hosting_user,1,0,0,0
+access_hosting_backup_snapshot_manager,hosting.backup.snapshot.manager,model_hosting_backup_snapshot,group_hosting_manager,1,1,1,1
+access_hosting_backup_bucket_snapshot_user,hosting.backup.bucket.snapshot.user,model_hosting_backup_bucket_snapshot,group_hosting_user,1,0,0,0
+access_hosting_backup_bucket_snapshot_manager,hosting.backup.bucket.snapshot.manager,model_hosting_backup_bucket_snapshot,group_hosting_manager,1,1,1,1
 access_hosting_domain_user,hosting.domain.user,model_hosting_domain,group_hosting_user,1,0,0,0
 access_hosting_domain_manager,hosting.domain.manager,model_hosting_domain,group_hosting_manager,1,1,1,1
 access_hosting_audit_log_user,hosting.audit.log.user,model_hosting_audit_log,group_hosting_user,1,0,0,0
