@@ -1,5 +1,9 @@
 // bf_appointment - Sleek public appointment page styles
-// Blue Fox Inc brand: #2E3132 (anthracite), #29ABE2 (blue), #22303B (dark)
+// Brand colors are configurable per company via res.company.appointment_brand_*.
+// The public template injects CSS custom properties (--bf-appt-primary,
+// --bf-appt-dark) at page root; we use var() with the BF defaults as
+// compile-time fallbacks so the stylesheet still works on tenants that
+// haven't customized branding.
 
 $bf-anthracite: #2E3132;
 $bf-blue: #29ABE2;
@@ -7,10 +11,16 @@ $bf-dark: #22303B;
 $bf-radius: 12px;
 $bf-radius-sm: 8px;
 
+// Runtime-themable copies. Keep the SCSS variables for any place where we
+// need a literal color (e.g. rgba() / lighten() / color math), but switch
+// the front-end to var() everywhere a tenant might want to override.
+$bf-primary: var(--bf-appt-primary, #{$bf-blue});
+$bf-anthracite-themed: var(--bf-appt-dark, #{$bf-anthracite});
+
 // ---- Section Headers ----
 
 .bf-section-header {
-    background-color: $bf-anthracite;
+    background-color: $bf-anthracite-themed;
     color: #fff;
     padding: 1.25rem 1.5rem;
     border-radius: $bf-radius;
@@ -76,7 +86,7 @@ $bf-radius-sm: 8px;
 }
 
 .bf-badge-video {
-    background-color: $bf-blue;
+    background-color: $bf-primary;
     color: #fff;
 }
 
@@ -172,13 +182,15 @@ $bf-radius-sm: 8px;
 }
 
 .bf-btn-nav {
-    background-color: $bf-anthracite;
+    background-color: $bf-anthracite-themed;
     color: #fff;
     border: none;
     border-radius: 6px;
     padding: 0.35rem 0.65rem;
 
     &:hover {
+        // hover lightening uses the SCSS literal — falls back to BF anthracite
+        // when the tenant theme is set, but the difference is subtle.
         background-color: lighten($bf-anthracite, 10%);
         color: #fff;
     }
@@ -215,7 +227,7 @@ $bf-radius-sm: 8px;
     }
 
     a {
-        color: #29ABE1;
+        color: $bf-primary;
     }
 
     ul, ol {
@@ -248,7 +260,7 @@ $bf-radius-sm: 8px;
     padding: 0.6rem 0.85rem;
 
     &:focus {
-        border-color: $bf-blue;
+        border-color: $bf-primary;
         box-shadow: 0 0 0 3px rgba($bf-blue, 0.15);
     }
 }
@@ -263,7 +275,7 @@ $bf-radius-sm: 8px;
 
 .bf-schedule-nav {
     h4 {
-        color: $bf-anthracite;
+        color: $bf-anthracite-themed;
     }
 }
 
@@ -285,7 +297,7 @@ $bf-radius-sm: 8px;
 
 .bf-slot-day-header {
     padding: 0.75rem 0 0.35rem;
-    border-left: 3px solid $bf-blue;
+    border-left: 3px solid $bf-primary;
     padding-left: 0.75rem;
     display: flex;
     align-items: baseline;
@@ -315,17 +327,17 @@ $bf-radius-sm: 8px;
     align-items: center;
     justify-content: center;
     padding: 0.5rem 1.15rem;
-    border: 2px solid $bf-blue;
+    border: 2px solid $bf-primary;
     border-radius: $bf-radius-sm;
     background-color: rgba($bf-blue, 0.08);
-    color: $bf-blue;
+    color: $bf-primary;
     font-weight: 600;
     font-size: 0.95rem;
     cursor: pointer;
     transition: background-color 0.15s ease, color 0.15s ease;
 
     &:hover {
-        background-color: $bf-blue;
+        background-color: $bf-primary;
         color: #fff;
     }
 }
@@ -340,7 +352,7 @@ $bf-radius-sm: 8px;
 }
 
 .bf-modal-header {
-    background-color: $bf-anthracite;
+    background-color: $bf-anthracite-themed;
     color: #fff;
     border-bottom: none;
     padding: 1rem 1.25rem;
@@ -383,7 +395,7 @@ $bf-radius-sm: 8px;
 
 .bf-status-info {
     background-color: rgba($bf-blue, 0.15);
-    color: $bf-blue;
+    color: $bf-primary;
 }
 
 .bf-confirmation-card {

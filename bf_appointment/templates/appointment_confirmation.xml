@@ -4,6 +4,7 @@
     <template id="appointment_confirmation_page" name="Appointment Confirmation Page">
         <t t-call="portal.portal_layout">
             <t t-set="breadcrumbs_searchbar" t-value="False"/>
+            <t t-call="bf_appointment.appointment_brand_style"/>
             <div class="bf-appointment-confirmation">
                 <t t-if="booking_sudo.state == 'confirmed'">
                     <div class="text-center mb-4">
@@ -22,7 +23,7 @@
                         <h3 class="fw-semibold">En attente de confirmation</h3>
                         <a t-attf-href="/appointment/b/#{booking_sudo.id}/#{access_token}/schedule"
                            class="btn bf-btn-accent text-white mt-2"
-                           style="background-color: #29ABE2;">
+                           t-attf-style="background-color: #{(booking_sudo.type_id.company_id and booking_sudo.type_id.company_id.appointment_brand_primary) or '#29ABE2'};">
                             <i class="fa fa-calendar me-2"/>
                             Choisir un cr&#233;neau
                         </a>
@@ -103,7 +104,7 @@
                                         <a t-att-href="booking_sudo.videocall_location"
                                            target="_blank"
                                            class="btn btn-sm bf-btn-accent text-white mt-1"
-                                           style="background-color: #29ABE2;">
+                                           t-attf-style="background-color: #{(booking_sudo.type_id.company_id and booking_sudo.type_id.company_id.appointment_brand_primary) or '#29ABE2'};">
                                             <i class="fa fa-external-link me-1"/>
                                             Rejoindre la r&#233;union
                                         </a>

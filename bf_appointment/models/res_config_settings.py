@@ -40,6 +40,38 @@ class ResConfigSettings(models.TransientModel):
         help="Nextcloud app password for Talk API. Stored encrypted.",
     )
 
+    appointment_brand_name = fields.Char(
+        related="company_id.appointment_brand_name", readonly=False,
+    )
+    appointment_brand_logo_url = fields.Char(
+        related="company_id.appointment_brand_logo_url", readonly=False,
+    )
+    appointment_brand_website_url = fields.Char(
+        related="company_id.appointment_brand_website_url", readonly=False,
+    )
+    appointment_brand_primary = fields.Char(
+        related="company_id.appointment_brand_primary", readonly=False,
+    )
+    appointment_brand_dark = fields.Char(
+        related="company_id.appointment_brand_dark", readonly=False,
+    )
+    appointment_brand_support_email = fields.Char(
+        related="company_id.appointment_brand_support_email", readonly=False,
+    )
+    appointment_brand_support_phone = fields.Char(
+        related="company_id.appointment_brand_support_phone", readonly=False,
+    )
+    appointment_brand_support_phone_display = fields.Char(
+        related="company_id.appointment_brand_support_phone_display",
+        readonly=False,
+    )
+    appointment_brand_privacy_url = fields.Char(
+        related="company_id.appointment_brand_privacy_url", readonly=False,
+    )
+    appointment_brand_terms_url = fields.Char(
+        related="company_id.appointment_brand_terms_url", readonly=False,
+    )
+
     def set_values(self):
         res = super().set_values()
         if self.bf_appointment_nc_talk_password:
