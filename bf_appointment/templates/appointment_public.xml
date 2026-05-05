@@ -93,42 +93,49 @@
             <div class="bf-appointment-detail">
                 <div class="row g-4">
                     <div class="col-lg-7">
-                        <div class="bf-section-header mb-4">
-                            <h2 t-esc="booking_type.name"/>
-                            <div class="d-flex flex-wrap gap-2 mt-2">
-                                <t t-set="detail_choices" t-value="booking_type.get_duration_choices()"/>
-                                <t t-if="detail_choices">
-                                    <t t-foreach="detail_choices" t-as="choice">
+                        <div class="bf-section-header mb-4 bf-section-header-with-image">
+                            <t t-if="booking_type.public_image">
+                                <img class="bf-section-thumb"
+                                     t-attf-src="/web/image/resource.booking.type/#{booking_type.id}/public_image"
+                                     t-att-alt="booking_type.name"/>
+                            </t>
+                            <div class="bf-section-header-text">
+                                <h2 t-esc="booking_type.name"/>
+                                <div class="d-flex flex-wrap gap-2 mt-2">
+                                    <t t-set="detail_choices" t-value="booking_type.get_duration_choices()"/>
+                                    <t t-if="detail_choices">
+                                        <t t-foreach="detail_choices" t-as="choice">
+                                            <span class="bf-badge bf-badge-light">
+                                                <i class="fa fa-clock-o me-1"/>
+                                                <t t-esc="choice[1]"/>
+                                            </span>
+                                        </t>
+                                    </t>
+                                    <t t-if="not detail_choices">
                                         <span class="bf-badge bf-badge-light">
                                             <i class="fa fa-clock-o me-1"/>
-                                            <t t-esc="choice[1]"/>
+                                            <t t-esc="'%g' % booking_type.duration"/> h
                                         </span>
                                     </t>
-                                </t>
-                                <t t-if="not detail_choices">
-                                    <span class="bf-badge bf-badge-light">
-                                        <i class="fa fa-clock-o me-1"/>
-                                        <t t-esc="'%g' % booking_type.duration"/> h
-                                    </span>
-                                </t>
-                                <t t-if="booking_type.video_provider and booking_type.video_provider != 'none'">
-                                    <span class="bf-badge bf-badge-video">
-                                        <i class="fa fa-video-camera me-1"/>
-                                        Vid&#233;o
-                                    </span>
-                                </t>
-                                <t t-if="booking_type.is_in_person">
-                                    <span class="bf-badge bf-badge-inperson">
-                                        <i class="fa fa-map-marker me-1"/>
-                                        En personne
-                                    </span>
-                                </t>
-                                <t t-if="booking_type.location">
-                                    <span class="bf-badge bf-badge-light">
-                                        <i class="fa fa-map-marker me-1"/>
-                                        <t t-esc="booking_type.location"/>
-                                    </span>
-                                </t>
+                                    <t t-if="booking_type.video_provider and booking_type.video_provider != 'none'">
+                                        <span class="bf-badge bf-badge-video">
+                                            <i class="fa fa-video-camera me-1"/>
+                                            Vid&#233;o
+                                        </span>
+                                    </t>
+                                    <t t-if="booking_type.is_in_person">
+                                        <span class="bf-badge bf-badge-inperson">
+                                            <i class="fa fa-map-marker me-1"/>
+                                            En personne
+                                        </span>
+                                    </t>
+                                    <t t-if="booking_type.location">
+                                        <span class="bf-badge bf-badge-light">
+                                            <i class="fa fa-map-marker me-1"/>
+                                            <t t-esc="booking_type.location"/>
+                                        </span>
+                                    </t>
+                                </div>
                             </div>
                         </div>
                         <t t-if="booking_type.public_description">
@@ -254,7 +261,7 @@
                                             </t>
                                         </div>
                                     </t>
-                                    <!-- Loi 25 — explicit consent for personal information collection.
+                                    <!-- Loi 25: explicit consent for personal information collection.
                                          Privacy URL is read from ir.config_parameter so each tenant
                                          can point at its own privacy page. company_name comes from the
                                          booking type's company so the wording stays accurate per tenant. -->
@@ -388,14 +395,33 @@
                 </t>
             </div>
 
-            <!-- Timezone -->
-            <div class="text-muted small mt-3">
-                <i class="fa fa-globe me-1"/>
-                Fuseau horaire :
-                <strong t-if="visitor_tz" t-esc="visitor_tz"/>
-                <strong t-else=""
-                        t-field="booking.type_id.resource_calendar_id.tz"/>
+            <!-- Timezone selector -->
+            <div class="bf-tz-picker text-muted small mt-3 d-flex align-items-center flex-wrap gap-2">
+                <label for="bf_tz_select" class="mb-0">
+                    <i class="fa fa-globe me-1"/>
+                    Fuseau horaire :
+                </label>
+                <select id="bf_tz_select" class="form-select form-select-sm w-auto"
+                        aria-label="Choisir le fuseau horaire">
+                    <t t-foreach="common_timezones" t-as="tz_opt">
+                        <option t-att-value="tz_opt"
+                                t-att-selected="'selected' if tz_opt == effective_tz else None"
+                                t-esc="tz_opt"/>
+                    </t>
+                </select>
+                <span class="text-muted small">Ajustez si vous r&#233;servez depuis un autre fuseau.</span>
             </div>
+            <script>
+                (function () {
+                    var sel = document.getElementById("bf_tz_select");
+                    if (!sel) return;
+                    sel.addEventListener("change", function () {
+                        var url = new URL(window.location.href);
+                        url.searchParams.set("tz", sel.value);
+                        window.location.href = url.toString();
+                    });
+                })();
+            </script>
 
             <!-- Confirmation modals -->
             <t t-foreach="sorted_days" t-as="day">

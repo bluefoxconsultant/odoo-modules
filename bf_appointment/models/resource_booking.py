@@ -153,15 +153,33 @@ class ResourceBooking(models.Model):
         string="Local Start Time",
     )
 
-    @api.depends("start", "type_id.resource_calendar_id.tz")
+    @api.depends("start", "type_id.resource_calendar_id.tz",
+                 "partner_id.tz", "user_id.tz")
     def _compute_start_local_strings(self):
+        """Render the booking start in the most relevant TZ for the reader.
+
+        Priority: explicit ``tz`` context (set by _send_appointment_email
+        per recipient) → booker's partner.tz → organizer user.tz →
+        booking type's resource calendar tz → America/Toronto.
+
+        This lets the same booking show Auckland time in the email sent to
+        an organizer abroad and Montréal time in the email sent to a local
+        booker, without storing two copies.
+        """
         import pytz
+        ctx_tz = self.env.context.get("tz")
         for rec in self:
             if not rec.start:
                 rec.start_date_local = ""
                 rec.start_time_local = ""
                 continue
-            tz_name = rec.type_id.resource_calendar_id.tz or "America/Toronto"
+            tz_name = (
+                ctx_tz
+                or (rec.partner_id.tz if rec.partner_id else None)
+                or (rec.user_id.tz if rec.user_id else None)
+                or (rec.type_id.resource_calendar_id.tz if rec.type_id else None)
+                or "America/Toronto"
+            )
             try:
                 start_dt = rec.start
                 if isinstance(start_dt, str):
@@ -366,7 +384,7 @@ class ResourceBooking(models.Model):
                     "Accept": "application/json",
                 },
                 data={
-                    "roomType": 3,  # public — anyone with the link can join as guest
+                    "roomType": 3,  # public, anyone with the link can join as guest
                     "roomName": room_name,
                 },
                 timeout=10,
@@ -578,11 +596,19 @@ class ResourceBooking(models.Model):
     def _send_appointment_email(self, template, attach_ics=True):
         """Send an appointment email with optional ICS attachment.
 
-        Respects the partner's language for both the email template
-        rendering and the ICS attachment content. Pass ``attach_ics=False``
-        for follow-up templates (suivi immédiat / 1h / 2h après) where the
-        booking has already happened — re-sending an ICS REQUEST for a past
-        event would just clutter the recipient's calendar client.
+        Respects the partner's language AND timezone for both the email
+        template rendering and the ICS attachment content. The recipient's
+        timezone is auto-detected from the template's ``email_to`` jinja:
+        when the template addresses ``object.user_id…`` we render in the
+        organizer's tz; otherwise we render in the booker's tz. This keeps
+        a Montréal booker reading « 14:00 » while the same booking shows
+        « 06:00 » to an organizer in Auckland, without storing two copies
+        of start_*_local.
+
+        Pass ``attach_ics=False`` for follow-up templates (suivi immédiat /
+        1h / 2h après) where the booking has already happened, re-sending
+        an ICS REQUEST for a past event would just clutter the recipient's
+        calendar client.
         """
         self.ensure_one()
         # Guarantee access_token: portal links in templates render empty when
@@ -592,16 +618,35 @@ class ResourceBooking(models.Model):
         # without a token.
         if not self.access_token:
             self._portal_ensure_token()
-        # Use partner's language for ICS content
-        partner_lang = self.partner_id.lang or self.env.lang or "fr_CA"
-        booking_lang = self.with_context(lang=partner_lang)
-        attachment = booking_lang._get_ics_attachment() if attach_ics else False
+        # Auto-detect recipient TZ from the template's email_to expression.
+        # Organizer-bound templates address object.user_id…; everything else
+        # is booker-bound.
+        email_to_expr = (template.email_to or "")
+        if "user_id" in email_to_expr:
+            recipient_tz = self.user_id.tz if self.user_id else False
+            recipient_lang = self.user_id.lang if self.user_id else False
+        else:
+            recipient_tz = self.partner_id.tz if self.partner_id else False
+            recipient_lang = self.partner_id.lang if self.partner_id else False
+        # Final fallbacks
+        partner_lang = recipient_lang or self.env.lang or "fr_CA"
+        booking_ctx = self.with_context(
+            lang=partner_lang,
+            tz=recipient_tz or False,
+        )
+        attachment = booking_ctx._get_ics_attachment() if attach_ics else False
         # Create the mail.mail without sending, attach the ICS explicitly,
         # then send. Going through email_values={'attachment_ids': ...} on
         # send_mail() lost attachments in production (confirmation arrived
         # without ICS in QA on 2026-04-25); writing to the record directly is
         # the only path Odoo 18 honors reliably.
-        mail_id = template.send_mail(self.id, force_send=False)
+        # Push lang+tz onto the template's context too, so the body_html
+        # render (which lazily browses the record from the template's env)
+        # picks up the same recipient-aware tz/lang as the ICS above.
+        mail_id = template.with_context(
+            lang=partner_lang,
+            tz=recipient_tz or False,
+        ).send_mail(self.id, force_send=False)
         mail = self.env["mail.mail"].browse(mail_id)
         if attachment:
             mail.write({"attachment_ids": [(4, attachment.id)]})
@@ -664,7 +709,7 @@ class ResourceBooking(models.Model):
                 # failure does not retry forever, and so any concurrent path
                 # that bypasses the advisory lock still sees the claim.
                 booking.sent_schedule_ids = [(4, schedule.id)]
-                # Skip ICS on "after" follow-ups — the meeting already
+                # Skip ICS on "after" follow-ups, the meeting already
                 # happened, so re-sending the calendar invite is noise.
                 attach_ics = schedule.trigger != "after"
                 try:

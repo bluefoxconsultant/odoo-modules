@@ -60,7 +60,7 @@ class TestAppointmentCronDedup(TransactionCase):
             "body_html": "<p>Reminder</p>",
         })
         # trigger="before" with a very large window so send_at is comfortably in
-        # the past regardless of when the test runs — keeps the booking's start
+        # the past regardless of when the test runs, keeps the booking's start
         # in the future (avoiding OCA scheduling constraints).
         cls.schedule = cls.env["appointment.email.schedule"].create({
             "type_id": cls.booking_type.id,
@@ -139,7 +139,7 @@ class TestAppointmentCronDedup(TransactionCase):
         })
         self.schedule.active = False
         booking = self._make_confirmed_booking()
-        # Booking started 5 minutes ago — well past the send_at of 23h55m ago
+        # Booking started 5 minutes ago, well past the send_at of 23h55m ago
         booking.start = fields.Datetime.now() - timedelta(minutes=5)
         Booking = self.env["resource.booking"]
         with patch.object(

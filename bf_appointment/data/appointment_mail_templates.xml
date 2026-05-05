@@ -470,7 +470,7 @@
         </record>
 
         <!-- ============================================================ -->
-        <!-- ORGANIZER NOTIFICATION — sent to the BF employee on confirm  -->
+        <!-- ORGANIZER NOTIFICATION -sent to the BF employee on confirm  -->
         <!-- ============================================================ -->
         <record id="mail_template_organizer_new_booking" model="mail.template">
             <field name="name">Rendez-vous : Notification organisateur</field>
@@ -533,7 +533,7 @@
         </record>
 
         <!-- ============================================================ -->
-        <!-- CANCELLATION — to client                                     -->
+        <!-- CANCELLATION -to client                                     -->
         <!-- ============================================================ -->
         <record id="mail_template_appointment_cancellation" model="mail.template">
             <field name="name">Rendez-vous : Annulation (client)</field>
@@ -630,7 +630,7 @@
         </record>
 
         <!-- ============================================================ -->
-        <!-- CANCELLATION — to organizer                                  -->
+        <!-- CANCELLATION -to organizer                                  -->
         <!-- ============================================================ -->
         <record id="mail_template_organizer_cancellation" model="mail.template">
             <field name="name">Rendez-vous : Annulation (organisateur)</field>

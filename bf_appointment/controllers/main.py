@@ -206,7 +206,7 @@ class AppointmentController(Controller):
             return request.redirect(
                 f"/appointment/{slug}?error={quote_plus('Veuillez remplir tous les champs obligatoires.')}"
             )
-        # Loi 25 — explicit consent required for personal information collection.
+        # Loi 25, explicit consent required for personal information collection.
         # The form has client-side `required`, but a tampered submission could
         # bypass that, so we enforce server-side too.
         if not kwargs.get("bf_consent"):
@@ -247,19 +247,26 @@ class AppointmentController(Controller):
         Partner = request.env["res.partner"].sudo()
         partner = Partner.search([("email", "=ilike", email)], limit=1)
         if not partner:
-            partner = Partner.create(
-                {
-                    "name": name,
-                    "email": email,
-                    "phone": phone or False,
-                }
-            )
+            partner_vals = {
+                "name": name,
+                "email": email,
+                "phone": phone or False,
+            }
+            if tz:
+                partner_vals["tz"] = tz
+            partner = Partner.create(partner_vals)
         else:
             # Update name if currently set to the email (auto-created contacts)
             if not partner.name or partner.name.strip().lower() == partner.email.strip().lower():
                 partner.name = name
             if phone and not partner.phone:
                 partner.phone = phone
+            # Capture the browser-detected TZ on the partner if missing.
+            # We never overwrite an existing tz: a user who manually picked
+            # a different TZ in their res.users profile (e.g. a colleague
+            # travelling) shouldn't have it blasted by the booking form.
+            if tz and not partner.tz:
+                partner.tz = tz
         # Find a real user for organizer (first resource's user or admin)
         organizer_user = (
             booking_type.combination_rel_ids[:1]
@@ -269,7 +276,7 @@ class AppointmentController(Controller):
         )
         if not organizer_user:
             organizer_user = request.env.ref("base.user_admin").sudo()
-        # Create pending booking — suppress ALL notifications
+        # Create pending booking, suppress ALL notifications
         Booking = request.env["resource.booking"].sudo().with_context(
             no_mail_to_attendees=True,
             mail_create_nolog=True,
@@ -339,11 +346,21 @@ class AppointmentController(Controller):
         if tz and tz in pytz.all_timezones_set:
             booking_sudo = booking_sudo.with_context(tz=tz)
         calendar_ctx = booking_sudo._get_calendar_context(year, month)
+        # Effective TZ for the labels next to the picker. Falls back to the
+        # type's resource calendar tz so we never show an empty TZ next to
+        # the slots.
+        effective_tz = (
+            tz
+            or booking_sudo.type_id.resource_calendar_id.tz
+            or "America/Toronto"
+        )
         values = {
             "booking_sudo": booking_sudo,
             "access_token": token,
             "error": kwargs.get("error"),
             "visitor_tz": tz,
+            "effective_tz": effective_tz,
+            "common_timezones": pytz.common_timezones,
             **calendar_ctx,
         }
         response = request.render(
@@ -377,7 +394,7 @@ class AppointmentController(Controller):
                 f"/appointment/b/{booking_id}/{token}/schedule"
                 f"?error=Format de date invalide."
             )
-        # Suppress ALL notifications — we send our own branded email
+        # Suppress ALL notifications, we send our own branded email
         booking_sudo = booking_sudo.with_context(
             no_mail_to_attendees=True,
             dont_notify=True,

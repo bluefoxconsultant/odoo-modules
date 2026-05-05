@@ -29,7 +29,7 @@ class CalendarEvent(models.Model):
             ("start", "<", cutoff),
             ("resource_booking_ids", "=", False),
         ])
-        # Skip events still linked from an *active* booking — that should
+        # Skip events still linked from an *active* booking, that should
         # never happen given the inverse one2many is empty above, but it's a
         # cheap belt-and-suspenders against active_test edge cases.
         # Archived/cancelled booking references are fine: meeting_id is

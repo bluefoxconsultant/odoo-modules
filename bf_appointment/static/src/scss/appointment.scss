@@ -15,6 +15,39 @@ $bf-radius-sm: 8px;
     padding: 1.25rem 1.5rem;
     border-radius: $bf-radius;
     margin-bottom: 1.5rem;
+}
+
+// Detail-page header with thumbnail accent (96x96, rounded). Stacks
+// vertically on phones so the title stays readable.
+.bf-section-header-with-image {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+
+    .bf-section-thumb {
+        width: 96px;
+        height: 96px;
+        flex-shrink: 0;
+        object-fit: cover;
+        border-radius: $bf-radius-sm;
+        background-color: rgba(255, 255, 255, 0.06);
+    }
+
+    .bf-section-header-text {
+        flex: 1;
+        min-width: 0;
+    }
+
+    @media (max-width: 575.98px) {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+
+        .bf-section-thumb {
+            width: 72px;
+            height: 72px;
+        }
+    }
 
     h2, h3 {
         margin: 0;
@@ -161,9 +194,37 @@ $bf-radius-sm: 8px;
     }
 }
 
+// Inside-type description (`/appointment/<slug>`). The BF site body is
+// dark (`--body-bg: #212529`), so the legacy `#495057` gray was barely
+// visible. White + slightly larger per Olivier 2026-05-04.
 .bf-description {
-    color: #495057;
-    line-height: 1.7;
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 1.05rem;
+    line-height: 1.65;
+
+    p {
+        margin-bottom: 0.75rem;
+
+        &:last-child {
+            margin-bottom: 0;
+        }
+    }
+
+    strong {
+        color: #ffffff;
+    }
+
+    a {
+        color: #29ABE1;
+    }
+
+    ul, ol {
+        padding-left: 1.25rem;
+    }
+
+    li {
+        margin-bottom: 0.4rem;
+    }
 }
 
 // ---- Form Card ----
