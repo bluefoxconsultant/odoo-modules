@@ -5,14 +5,17 @@
         <t t-call="portal.portal_layout">
             <t t-set="breadcrumbs_searchbar" t-value="False"/>
             <t t-call="bf_appointment.appointment_brand_style"/>
+            <t t-set="_en" t-value="(env.context.get('lang') or 'fr_CA').lower().startswith('en')"/>
             <div class="bf-appointment-confirmation">
                 <t t-if="booking_sudo.state == 'confirmed'">
                     <div class="text-center mb-4">
                         <div class="bf-status-icon bf-status-success mx-auto mb-3">
                             <i class="fa fa-check"/>
                         </div>
-                        <h3 class="fw-semibold">Rendez-vous confirm&#233;</h3>
-                        <p class="text-muted">Un courriel de confirmation vous a &#233;t&#233; envoy&#233;.</p>
+                        <h3 class="fw-semibold"
+                            t-out="'Meeting confirmed' if _en else 'Rendez-vous confirmé'"/>
+                        <p class="text-muted"
+                           t-out="'We\'ve emailed you a confirmation.' if _en else 'Un courriel de confirmation vous a été envoyé.'"/>
                     </div>
                 </t>
                 <t t-elif="booking_sudo.state == 'pending'">
@@ -20,12 +23,13 @@
                         <div class="bf-status-icon bf-status-pending mx-auto mb-3">
                             <i class="fa fa-clock-o"/>
                         </div>
-                        <h3 class="fw-semibold">En attente de confirmation</h3>
+                        <h3 class="fw-semibold"
+                            t-out="'Pending confirmation' if _en else 'En attente de confirmation'"/>
                         <a t-attf-href="/appointment/b/#{booking_sudo.id}/#{access_token}/schedule"
                            class="btn bf-btn-accent text-white mt-2"
                            t-attf-style="background-color: #{(booking_sudo.type_id.company_id and booking_sudo.type_id.company_id.appointment_brand_primary) or '#29ABE2'};">
                             <i class="fa fa-calendar me-2"/>
-                            Choisir un cr&#233;neau
+                            <t t-out="'Pick a time' if _en else 'Choisir un créneau'"/>
                         </a>
                     </div>
                 </t>
@@ -34,7 +38,8 @@
                         <div class="bf-status-icon bf-status-cancelled mx-auto mb-3">
                             <i class="fa fa-times"/>
                         </div>
-                        <h3 class="fw-semibold">Rendez-vous annul&#233;</h3>
+                        <h3 class="fw-semibold"
+                            t-out="'Meeting cancelled' if _en else 'Rendez-vous annulé'"/>
                     </div>
                 </t>
                 <t t-else="">
@@ -42,7 +47,8 @@
                         <div class="bf-status-icon bf-status-info mx-auto mb-3">
                             <i class="fa fa-calendar-check-o"/>
                         </div>
-                        <h3 class="fw-semibold">Rendez-vous planifi&#233;</h3>
+                        <h3 class="fw-semibold"
+                            t-out="'Meeting scheduled' if _en else 'Rendez-vous planifié'"/>
                     </div>
                 </t>
 
@@ -58,7 +64,8 @@
                                         <i class="fa fa-calendar"/>
                                     </div>
                                     <div>
-                                        <div class="small text-muted">Date</div>
+                                        <div class="small text-muted"
+                                             t-out="'Date' if _en else 'Date'"/>
                                         <strong t-field="booking_sudo.start"
                                                 t-options='{"format": "EEEE d MMMM yyyy"}'/>
                                     </div>
@@ -68,7 +75,8 @@
                                         <i class="fa fa-clock-o"/>
                                     </div>
                                     <div>
-                                        <div class="small text-muted">Heure</div>
+                                        <div class="small text-muted"
+                                             t-out="'Time' if _en else 'Heure'"/>
                                         <strong t-field="booking_sudo.start"
                                                 t-options='{"format": "HH:mm"}'/>
                                     </div>
@@ -79,7 +87,8 @@
                                     <i class="fa fa-hourglass-half"/>
                                 </div>
                                 <div>
-                                    <div class="small text-muted">Dur&#233;e</div>
+                                    <div class="small text-muted"
+                                         t-out="'Duration' if _en else 'Durée'"/>
                                     <strong t-esc="booking_sudo.get_duration_display()"/>
                                 </div>
                             </div>
@@ -89,7 +98,8 @@
                                         <i class="fa fa-map-marker"/>
                                     </div>
                                     <div>
-                                        <div class="small text-muted">Lieu</div>
+                                        <div class="small text-muted"
+                                             t-out="'Location' if _en else 'Lieu'"/>
                                         <strong t-esc="booking_sudo.location"/>
                                     </div>
                                 </div>
@@ -100,13 +110,14 @@
                                         <i class="fa fa-video-camera"/>
                                     </div>
                                     <div>
-                                        <div class="small text-muted">Vid&#233;oconf&#233;rence</div>
+                                        <div class="small text-muted"
+                                             t-out="'Video call' if _en else 'Vidéoconférence'"/>
                                         <a t-att-href="booking_sudo.videocall_location"
                                            target="_blank"
                                            class="btn btn-sm bf-btn-accent text-white mt-1"
                                            t-attf-style="background-color: #{(booking_sudo.type_id.company_id and booking_sudo.type_id.company_id.appointment_brand_primary) or '#29ABE2'};">
                                             <i class="fa fa-external-link me-1"/>
-                                            Rejoindre la r&#233;union
+                                            <t t-out="'Join the call' if _en else 'Rejoindre la réunion'"/>
                                         </a>
                                     </div>
                                 </div>
@@ -116,7 +127,8 @@
                                     <i class="fa fa-globe"/>
                                 </div>
                                 <div>
-                                    <div class="small text-muted">Fuseau horaire</div>
+                                    <div class="small text-muted"
+                                         t-out="'Timezone' if _en else 'Fuseau horaire'"/>
                                     <strong t-esc="tz_name"/>
                                 </div>
                             </div>
@@ -126,24 +138,25 @@
                         <div class="card-footer bg-transparent border-top py-3">
                             <form t-attf-action="/appointment/b/#{booking_sudo.id}/#{access_token}/cancel"
                                   method="post"
-                                  onsubmit="return confirm('&#202;tes-vous certain de vouloir annuler ce rendez-vous ?');">
+                                  t-att-onsubmit="'return confirm(\'Are you sure you want to cancel this meeting?\');' if _en else 'return confirm(\'Êtes-vous certain de vouloir annuler ce rendez-vous ?\');'">
                                 <input type="hidden" name="csrf_token"
                                        t-att-value="request.csrf_token()"/>
                                 <div class="mb-3 text-start">
                                     <label for="cancellation_reason" class="form-label small text-muted">
-                                        Raison de l'annulation <span class="text-muted">(optionnel)</span>
+                                        <t t-out="'Cancellation reason' if _en else 'Raison de l\'annulation'"/>
+                                        <span class="text-muted" t-out="'(optional)' if _en else '(optionnel)'"/>
                                     </label>
                                     <textarea class="form-control"
                                               id="cancellation_reason"
                                               name="cancellation_reason"
                                               rows="2"
                                               maxlength="2000"
-                                              placeholder="Ex. : empêchement de derni&#232;re minute, conflit d'horaire, sujet trait&#233; autrement..."/>
+                                              t-att-placeholder="'E.g. last-minute conflict, scheduling clash, sorted another way...' if _en else 'Ex. : empêchement de dernière minute, conflit d\'horaire, sujet traité autrement...'"/>
                                 </div>
                                 <div class="text-center">
                                     <button type="submit" class="btn btn-outline-danger btn-sm">
                                         <i class="fa fa-times me-1"/>
-                                        Annuler le rendez-vous
+                                        <t t-out="'Cancel the meeting' if _en else 'Annuler le rendez-vous'"/>
                                     </button>
                                 </div>
                             </form>
@@ -154,7 +167,7 @@
                 <div class="text-center mt-4">
                     <a href="/appointment" class="text-muted text-decoration-none">
                         <i class="fa fa-arrow-left me-1"/>
-                        Retour aux types de rendez-vous
+                        <t t-out="'Back to meeting types' if _en else 'Retour aux types de rendez-vous'"/>
                     </a>
                 </div>
             </div>

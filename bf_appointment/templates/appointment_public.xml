@@ -15,17 +15,15 @@
         <t t-call="portal.portal_layout">
             <t t-set="breadcrumbs_searchbar" t-value="False"/>
             <t t-call="bf_appointment.appointment_brand_style"/>
+            <t t-set="_en" t-value="(env.context.get('lang') or 'fr_CA').lower().startswith('en')"/>
             <div class="bf-appointment-landing">
                 <div class="bf-section-header text-center">
-                    <h2>Prendre rendez-vous</h2>
-                    <p>
-                        Choisissez le type de rendez-vous qui vous convient.
-                    </p>
+                    <h2 t-out="'Book a meeting' if _en else 'Prendre rendez-vous'"/>
+                    <p t-out="'Pick the type of meeting that works for you.' if _en else 'Choisissez le type de rendez-vous qui vous convient.'"/>
                 </div>
                 <t t-if="not booking_types">
-                    <div class="alert alert-info text-center">
-                        Aucun type de rendez-vous disponible pour le moment.
-                    </div>
+                    <div class="alert alert-info text-center"
+                         t-out="'No meeting types available right now.' if _en else 'Aucun type de rendez-vous disponible pour le moment.'"/>
                 </t>
                 <div class="row g-4">
                     <t t-foreach="booking_types" t-as="bt">
@@ -66,13 +64,13 @@
                                             <t t-if="bt.video_provider and bt.video_provider != 'none'">
                                                 <span class="bf-badge bf-badge-video">
                                                     <i class="fa fa-video-camera me-1"/>
-                                                    Vid&#233;o
+                                                    <t t-out="'Video' if _en else 'Vidéo'"/>
                                                 </span>
                                             </t>
                                             <t t-if="bt.is_in_person">
                                                 <span class="bf-badge bf-badge-inperson">
                                                     <i class="fa fa-map-marker me-1"/>
-                                                    En personne
+                                                    <t t-out="'In person' if _en else 'En personne'"/>
                                                 </span>
                                             </t>
                                         </div>
@@ -84,7 +82,7 @@
                                     <div class="card-footer bg-transparent text-center border-0 pb-3">
                                         <span class="btn bf-btn-reserve"
                                               t-attf-style="background-color: #{bt.color_hex or (bt.company_id and bt.company_id.appointment_brand_primary) or '#29ABE2'};">
-                                            R&#233;server
+                                            <t t-out="'Book' if _en else 'Réserver'"/>
                                             <i class="fa fa-arrow-right ms-2"/>
                                         </span>
                                     </div>
@@ -102,6 +100,7 @@
         <t t-call="portal.portal_layout">
             <t t-set="breadcrumbs_searchbar" t-value="False"/>
             <t t-call="bf_appointment.appointment_brand_style"/>
+            <t t-set="_en" t-value="(env.context.get('lang') or 'fr_CA').lower().startswith('en')"/>
             <div class="bf-appointment-detail">
                 <div class="row g-4">
                     <div class="col-lg-7">
@@ -132,13 +131,13 @@
                                     <t t-if="booking_type.video_provider and booking_type.video_provider != 'none'">
                                         <span class="bf-badge bf-badge-video">
                                             <i class="fa fa-video-camera me-1"/>
-                                            Vid&#233;o
+                                            <t t-out="'Video' if _en else 'Vidéo'"/>
                                         </span>
                                     </t>
                                     <t t-if="booking_type.is_in_person">
                                         <span class="bf-badge bf-badge-inperson">
                                             <i class="fa fa-map-marker me-1"/>
-                                            En personne
+                                            <t t-out="'In person' if _en else 'En personne'"/>
                                         </span>
                                     </t>
                                     <t t-if="booking_type.location">
@@ -164,7 +163,7 @@
                         <div class="card bf-form-card">
                             <div class="card-header bf-form-card-header text-white text-center"
                                  t-attf-style="background-color: #{booking_type.color_hex or (booking_type.company_id and booking_type.company_id.appointment_brand_primary) or '#29ABE2'};">
-                                <h5 class="mb-0 fw-semibold">Vos coordonn&#233;es</h5>
+                                <h5 class="mb-0 fw-semibold" t-out="'Your details' if _en else 'Vos coordonnées'"/>
                             </div>
                             <div class="card-body p-4">
                                 <t t-if="error">
@@ -189,7 +188,7 @@
                                     <t t-if="duration_choices">
                                         <div class="mb-3">
                                             <label for="duration" class="form-label fw-medium">
-                                                Dur&#233;e <span class="text-danger">*</span>
+                                                <t t-out="'Duration' if _en else 'Durée'"/> <span class="text-danger">*</span>
                                             </label>
                                             <select class="form-select" id="duration"
                                                     name="duration" required="">
@@ -203,7 +202,7 @@
                                     </t>
                                     <div class="mb-3">
                                         <label for="name" class="form-label fw-medium">
-                                            Nom complet <span class="text-danger">*</span>
+                                            <t t-out="'Full name' if _en else 'Nom complet'"/> <span class="text-danger">*</span>
                                         </label>
                                         <input type="text" class="form-control"
                                                id="name" name="name" required=""
@@ -211,15 +210,15 @@
                                     </div>
                                     <div class="mb-3">
                                         <label for="email" class="form-label fw-medium">
-                                            Courriel <span class="text-danger">*</span>
+                                            <t t-out="'Email' if _en else 'Courriel'"/> <span class="text-danger">*</span>
                                         </label>
                                         <input type="email" class="form-control"
                                                id="email" name="email" required=""
-                                               placeholder="jean@exemple.com"/>
+                                               t-att-placeholder="'jean@example.com' if _en else 'jean@exemple.com'"/>
                                     </div>
                                     <div class="mb-3">
                                         <label for="phone" class="form-label fw-medium">
-                                            T&#233;l&#233;phone
+                                            <t t-out="'Phone' if _en else 'Téléphone'"/>
                                         </label>
                                         <input type="tel" class="form-control"
                                                id="phone" name="phone"
@@ -229,12 +228,13 @@
                                     <t t-if="booking_type.is_in_person and not booking_type.location">
                                         <div class="mb-3">
                                             <label for="location" class="form-label fw-medium">
-                                                Lieu de la rencontre <span class="text-danger">*</span>
+                                                <t t-out="'Meeting location' if _en else 'Lieu de la rencontre'"/> <span class="text-danger">*</span>
                                             </label>
                                             <input type="text" class="form-control"
                                                    id="location" name="location" required=""
-                                                   placeholder="Adresse, caf&#233;, bureau, etc."/>
-                                            <div class="form-text">Indiquez o&#249; vous souhaitez rencontrer.</div>
+                                                   t-att-placeholder="'Address, café, office, etc.' if _en else 'Adresse, café, bureau, etc.'"/>
+                                            <div class="form-text"
+                                                 t-out="'Tell us where you\'d like to meet.' if _en else 'Indiquez où vous souhaitez rencontrer.'"/>
                                         </div>
                                     </t>
                                     <!-- Dynamic intake fields -->
@@ -275,7 +275,7 @@
                                     </t>
                                     <t t-set="_brand_co" t-value="booking_type.company_id or env.company"/>
                                     <t t-set="_privacy_url" t-value="(_brand_co and _brand_co.appointment_brand_privacy_url) or env['ir.config_parameter'].sudo().get_param('bf_appointment.privacy_url', '/r/politique-de-confidentialite')"/>
-                                    <t t-set="_company_name" t-value="(_brand_co and (_brand_co.appointment_brand_name or _brand_co.name)) or 'l&#8217;organisation'"/>
+                                    <t t-set="_company_name" t-value="(_brand_co and (_brand_co.appointment_brand_name or _brand_co.name)) or (_en and 'the organization' or 'l’organisation')"/>
                                     <t t-set="_brand_support_email" t-value="(_brand_co and _brand_co.appointment_brand_support_email) or 'service@bluefoxconsultant.com'"/>
 
                                     <!-- C1 - Loi 25 baseline: explicit consent for collecting the form data
@@ -289,8 +289,14 @@
                                                required="required"/>
                                         <label class="form-check-label small" for="bf_consent">
                                             <span class="text-danger">*</span>
-                                            J&#8217;accepte que <t t-out="_company_name"/> conserve mon nom, mon courriel et les informations fournies dans ce formulaire afin de planifier et faire le suivi de cette rencontre.
-                                            <a t-att-href="_privacy_url" target="_blank" rel="noopener">Politique de confidentialit&#233;</a>.
+                                            <t t-if="_en">
+                                                I agree that <t t-out="_company_name"/> may keep my name, email and the information I provide in this form so we can schedule and follow up on this meeting.
+                                                <a t-att-href="_privacy_url" target="_blank" rel="noopener">Privacy policy</a>.
+                                            </t>
+                                            <t t-else="">
+                                                J’accepte que <t t-out="_company_name"/> conserve mon nom, mon courriel et les informations fournies dans ce formulaire afin de planifier et faire le suivi de cette rencontre.
+                                                <a t-att-href="_privacy_url" target="_blank" rel="noopener">Politique de confidentialité</a>.
+                                            </t>
                                         </label>
                                     </div>
 
@@ -309,16 +315,29 @@
                                                    required="required"/>
                                             <label class="form-check-label small" for="bf_consent_recording">
                                                 <span class="text-danger">*</span>
-                                                J&#8217;accepte que la rencontre soit <strong>enregistr&#233;e (audio et vid&#233;o)</strong> et <strong>transcrite localement</strong> sur les serveurs de <t t-out="_company_name"/> &#224; Montr&#233;al (votre voix ne quitte pas notre infrastructure). Le texte transcrit est ensuite analys&#233; par IA pour produire le compte rendu, sans utilisation de vos donn&#233;es pour entra&#238;nement. Conservation : 24 mois apr&#232;s la fin du mandat.
-                                                <a t-att-href="_privacy_url" target="_blank" rel="noopener">D&#233;tails</a>.
-                                                <span class="text-muted d-block mt-1">Le compte rendu fait partie du service offert pour ce type de rencontre. Si vous pr&#233;f&#233;rez une rencontre sans enregistrement, &#233;crivez-nous &#224; <a t-attf-href="mailto:#{_brand_support_email}"><t t-out="_brand_support_email"/></a>.</span>
+                                                <t t-if="_en">
+                                                    I agree the meeting may be <strong>recorded (audio and video)</strong> and <strong>transcribed locally</strong> on <t t-out="_company_name"/>'s servers in Montreal (your voice never leaves our infrastructure). The transcript is then analyzed by AI to produce the meeting report, with no use of your data for training. Retention: 24 months after the end of the engagement.
+                                                    <a t-att-href="_privacy_url" target="_blank" rel="noopener">Details</a>.
+                                                    <span class="text-muted d-block mt-1">The meeting report is part of the service for this type of booking. If you'd rather meet without recording, email us at <a t-attf-href="mailto:#{_brand_support_email}"><t t-out="_brand_support_email"/></a>.</span>
+                                                </t>
+                                                <t t-else="">
+                                                    J’accepte que la rencontre soit <strong>enregistrée (audio et vidéo)</strong> et <strong>transcrite localement</strong> sur les serveurs de <t t-out="_company_name"/> à Montréal (votre voix ne quitte pas notre infrastructure). Le texte transcrit est ensuite analysé par IA pour produire le compte rendu, sans utilisation de vos données pour entraînement. Conservation : 24 mois après la fin du mandat.
+                                                    <a t-att-href="_privacy_url" target="_blank" rel="noopener">Détails</a>.
+                                                    <span class="text-muted d-block mt-1">Le compte rendu fait partie du service offert pour ce type de rencontre. Si vous préférez une rencontre sans enregistrement, écrivez-nous à <a t-attf-href="mailto:#{_brand_support_email}"><t t-out="_brand_support_email"/></a>.</span>
+                                                </t>
                                             </label>
                                             <input type="hidden" name="recording_notice_version_id" t-att-value="booking_type.recording_notice_id.id and (env['privacy.notice.version'].sudo().search([('notice_id','=',booking_type.recording_notice_id.id)], order='effective_date desc, version desc', limit=1).id) or 0"/>
                                         </div>
                                         <div class="alert alert-info py-2 small d-none" id="bf_consent_recording_done">
                                             <i class="fa fa-check-circle me-1"/>
-                                            Consentement &#224; l'enregistrement d&#233;j&#224; au dossier (re&#231;u le <span data-bf-date="recording"></span>).
-                                            <a t-att-href="_privacy_url + '#retrait'" class="ms-1">G&#233;rer</a>
+                                            <t t-if="_en">
+                                                Recording consent already on file (received on <span data-bf-date="recording"></span>).
+                                                <a t-att-href="_privacy_url + '#retrait'" class="ms-1">Manage</a>
+                                            </t>
+                                            <t t-else="">
+                                                Consentement à l'enregistrement déjà au dossier (reçu le <span data-bf-date="recording"></span>).
+                                                <a t-att-href="_privacy_url + '#retrait'" class="ms-1">Gérer</a>
+                                            </t>
                                         </div>
                                     </t>
 
@@ -331,14 +350,24 @@
                                                    name="bf_consent_newsletter"
                                                    value="1"/>
                                             <label class="form-check-label small" for="bf_consent_newsletter">
-                                                <span class="text-muted">(optionnel)</span>
-                                                M&#8217;inscrire &#224; l&#8217;infolettre <t t-out="_company_name"/> (≈ 1 envoi par mois : articles, mises &#224; jour, &#233;v&#233;nements). D&#233;sabonnement en un clic dans chaque envoi.
+                                                <span class="text-muted" t-out="'(optional)' if _en else '(optionnel)'"/>
+                                                <t t-if="_en">
+                                                    Subscribe me to the <t t-out="_company_name"/> newsletter (≈ 1 email per month: articles, updates, events). One-click unsubscribe in every email.
+                                                </t>
+                                                <t t-else="">
+                                                    M’inscrire à l’infolettre <t t-out="_company_name"/> (≈ 1 envoi par mois : articles, mises à jour, événements). Désabonnement en un clic dans chaque envoi.
+                                                </t>
                                             </label>
                                             <input type="hidden" name="newsletter_notice_version_id" t-att-value="booking_type.newsletter_notice_id.id and (env['privacy.notice.version'].sudo().search([('notice_id','=',booking_type.newsletter_notice_id.id)], order='effective_date desc, version desc', limit=1).id) or 0"/>
                                         </div>
                                         <div class="alert alert-info py-2 small d-none" id="bf_consent_newsletter_done">
                                             <i class="fa fa-check-circle me-1"/>
-                                            Vous &#234;tes d&#233;j&#224; abonn&#233;(e) &#224; l'infolettre (depuis le <span data-bf-date="marketing"></span>).
+                                            <t t-if="_en">
+                                                You're already subscribed to the newsletter (since <span data-bf-date="marketing"></span>).
+                                            </t>
+                                            <t t-else="">
+                                                Vous êtes déjà abonné(e) à l'infolettre (depuis le <span data-bf-date="marketing"></span>).
+                                            </t>
                                         </div>
                                     </t>
 
@@ -346,7 +375,7 @@
                                     <button type="submit" class="btn w-100 text-white fw-semibold bf-btn-accent"
                                             t-attf-style="background-color: #{booking_type.color_hex or (booking_type.company_id and booking_type.company_id.appointment_brand_primary) or '#29ABE2'};">
                                         <i class="fa fa-calendar me-2"/>
-                                        Choisir un cr&#233;neau
+                                        <t t-out="'Pick a time' if _en else 'Choisir un créneau'"/>
                                     </button>
                                 </form>
                             </div>
@@ -362,12 +391,13 @@
         <t t-call="portal.portal_layout">
             <t t-set="breadcrumbs_searchbar" t-value="False"/>
             <t t-call="bf_appointment.appointment_brand_style"/>
+            <t t-set="_en" t-value="(env.context.get('lang') or 'fr_CA').lower().startswith('en')"/>
             <div class="bf-appointment-schedule">
                 <div class="bf-section-header text-center">
-                    <h3>Choisissez votre cr&#233;neau</h3>
+                    <h3 t-out="'Pick your time' if _en else 'Choisissez votre créneau'"/>
                     <p>
                         <t t-esc="booking_sudo.type_id.name"/>
-                        &#8212;
+                        —
                         <t t-esc="booking_sudo.get_duration_display()"/>
                     </p>
                 </div>
@@ -387,6 +417,7 @@
 
     <!-- Custom scheduling calendar adapted for public appointment flow -->
     <template id="appointment_scheduling_calendar" name="Appointment Scheduling Calendar">
+        <t t-set="_en" t-value="(env.context.get('lang') or 'fr_CA').lower().startswith('en')"/>
         <t t-set="confirm_url"
            t-value="'/appointment/b/%d/%s/confirm' % (booking.id, access_token)"/>
         <t t-set="schedule_base_url"
@@ -404,9 +435,9 @@
                     <a t-if="start &gt; now"
                        t-attf-href="#{schedule_base_url}/#{start_previous.year}/#{start_previous.month}#{tz_param}"
                        class="btn btn-sm bf-btn-nav"
-                       title="Mois pr&#233;c&#233;dent">
+                       t-att-title="'Previous month' if _en else 'Mois précédent'">
                         <i class="fa fa-chevron-left me-1"/>
-                        Pr&#233;c&#233;dent
+                        <t t-out="'Previous' if _en else 'Précédent'"/>
                     </a>
                 </div>
                 <h4 class="mb-0 fw-semibold text-capitalize"
@@ -414,8 +445,8 @@
                 <div>
                     <a t-attf-href="#{schedule_base_url}/#{start_next.year}/#{start_next.month}#{tz_param}"
                        class="btn btn-sm bf-btn-nav"
-                       title="Mois suivant">
-                        Suivant
+                       t-att-title="'Next month' if _en else 'Mois suivant'">
+                        <t t-out="'Next' if _en else 'Suivant'"/>
                         <i class="fa fa-chevron-right ms-1"/>
                     </a>
                 </div>
@@ -429,10 +460,10 @@
 
             <t t-if="not sorted_days">
                 <div class="alert alert-warning border-0 rounded-3 text-center">
-                    Aucun cr&#233;neau disponible ce mois-ci.
+                    <t t-out="'No times available this month.' if _en else 'Aucun créneau disponible ce mois-ci.'"/>
                     <a t-attf-href="#{schedule_base_url}/#{start_next.year}/#{start_next.month}#{tz_param}"
                        class="alert-link fw-semibold ms-1">
-                        Essayer le mois suivant
+                        <t t-out="'Try next month' if _en else 'Essayer le mois suivant'"/>
                         <i class="fa fa-chevron-right ms-1"/>
                     </a>
                 </div>
@@ -465,17 +496,18 @@
             <div class="bf-tz-picker text-muted small mt-3 d-flex align-items-center flex-wrap gap-2">
                 <label for="bf_tz_select" class="mb-0">
                     <i class="fa fa-globe me-1"/>
-                    Fuseau horaire :
+                    <t t-out="'Timezone:' if _en else 'Fuseau horaire :'"/>
                 </label>
                 <select id="bf_tz_select" class="form-select form-select-sm w-auto"
-                        aria-label="Choisir le fuseau horaire">
+                        t-att-aria-label="'Pick a timezone' if _en else 'Choisir le fuseau horaire'">
                     <t t-foreach="common_timezones" t-as="tz_opt">
                         <option t-att-value="tz_opt"
                                 t-att-selected="'selected' if tz_opt == effective_tz else None"
                                 t-esc="tz_opt"/>
                     </t>
                 </select>
-                <span class="text-muted small">Ajustez si vous r&#233;servez depuis un autre fuseau.</span>
+                <span class="text-muted small"
+                      t-out="'Adjust if you\'re booking from another timezone.' if _en else 'Ajustez si vous réservez depuis un autre fuseau.'"/>
             </div>
             <script>
                 (function () {
@@ -511,10 +543,12 @@
                         <div class="modal-content bf-modal">
                             <div class="modal-header bf-modal-header"
                                  t-attf-id="modal-title-#{int(slot.timestamp())}">
-                                <h5 class="mb-0 fw-semibold">Confirmer le rendez-vous</h5>
+                                <h5 class="mb-0 fw-semibold"
+                                    t-out="'Confirm the meeting' if _en else 'Confirmer le rendez-vous'"/>
                             </div>
                             <div class="modal-body p-4">
-                                <p class="text-muted mb-3">Vous &#234;tes sur le point de r&#233;server :</p>
+                                <p class="text-muted mb-3"
+                                   t-out="'You\'re about to book:' if _en else 'Vous êtes sur le point de réserver :'"/>
                                 <div class="d-flex flex-column gap-2">
                                     <div class="d-flex align-items-center">
                                         <i class="fa fa-calendar text-muted me-3" style="width:16px;"/>
@@ -532,13 +566,12 @@
                             </div>
                             <div class="modal-footer border-0">
                                 <button type="button" class="btn btn-outline-secondary"
-                                        data-bs-dismiss="modal">
-                                    Annuler
-                                </button>
+                                        data-bs-dismiss="modal"
+                                        t-out="'Cancel' if _en else 'Annuler'"/>
                                 <button type="submit" class="btn bf-btn-accent text-white bf-btn-confirm"
                                         t-attf-style="background-color: #{(booking_type.company_id and booking_type.company_id.appointment_brand_primary) or '#29ABE2'};">
                                     <i class="fa fa-check me-1"/>
-                                    Confirmer
+                                    <t t-out="'Confirm' if _en else 'Confirmer'"/>
                                 </button>
                             </div>
                         </div>
@@ -553,17 +586,17 @@
         <t t-call="portal.portal_layout">
             <t t-set="breadcrumbs_searchbar" t-value="False"/>
             <t t-call="bf_appointment.appointment_brand_style"/>
+            <t t-set="_en" t-value="(env.context.get('lang') or 'fr_CA').lower().startswith('en')"/>
             <div class="bf-appointment-cancelled text-center py-5">
                 <div class="bf-status-icon bf-status-success mx-auto mb-3">
                     <i class="fa fa-check"/>
                 </div>
-                <h3 class="fw-semibold">Rendez-vous annul&#233;</h3>
-                <p class="text-muted">
-                    Votre rendez-vous a &#233;t&#233; annul&#233; avec succ&#232;s.
-                </p>
+                <h3 class="fw-semibold" t-out="'Meeting cancelled' if _en else 'Rendez-vous annulé'"/>
+                <p class="text-muted"
+                   t-out="'Your meeting was cancelled successfully.' if _en else 'Votre rendez-vous a été annulé avec succès.'"/>
                 <a href="/appointment" class="btn bf-btn-accent text-white mt-3"
                    t-attf-style="background-color: #{(env.company and env.company.appointment_brand_primary) or '#29ABE2'};">
-                    Prendre un nouveau rendez-vous
+                    <t t-out="'Book another meeting' if _en else 'Prendre un nouveau rendez-vous'"/>
                 </a>
             </div>
         </t>

@@ -85,9 +85,21 @@ def _resolve_lang_from_accept_header():
 
 
 def _apply_locale_from_request():
-    """Switch request env lang based on Accept-Language. Idempotent."""
+    """Switch request env lang to match the booker's intent. Idempotent.
+
+    Trust order:
+      1. lang already in context — set by website middleware from URL prefix
+         (`/en/...`), `frontend_lang` cookie, or its own Accept-Language parse.
+         Respect it whenever it resolves to English so the language toggle
+         (which redirects to `/en/appointment`) actually flips the page.
+      2. Accept-Language fallback for non-website routes (email confirmation
+         links, cancel links) where middleware lang resolution may not run.
+    """
+    current = request.env.context.get("lang")
+    if current and current.lower().startswith("en"):
+        return
     lang = _resolve_lang_from_accept_header()
-    if request.env.context.get("lang") != lang:
+    if current != lang:
         request.update_context(lang=lang)
 
 
