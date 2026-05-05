@@ -261,11 +261,12 @@
                                             </t>
                                         </div>
                                     </t>
-                                    <!-- Loi 25: explicit consent for personal information collection.
-                                         Privacy URL is read from ir.config_parameter so each tenant
-                                         can point at its own privacy page. company_name comes from the
-                                         booking type's company so the wording stays accurate per tenant. -->
-                                    <div class="form-check mt-3 mb-3">
+                                    <t t-set="_privacy_url" t-value="env['ir.config_parameter'].sudo().get_param('bf_appointment.privacy_url', '/r/politique-de-confidentialite')"/>
+                                    <t t-set="_company_name" t-value="(booking_type.company_id.name if booking_type.company_id else (env.company.name or 'l&#8217;organisation'))"/>
+
+                                    <!-- C1 - Loi 25 baseline: explicit consent for collecting the form data
+                                         (name, email, phone, intake answers). Required to submit. -->
+                                    <div class="form-check mt-3 mb-2">
                                         <input type="checkbox"
                                                class="form-check-input"
                                                id="bf_consent"
@@ -273,11 +274,61 @@
                                                value="1"
                                                required="required"/>
                                         <label class="form-check-label small" for="bf_consent">
-                                            J&#8217;accepte que <t t-out="(booking_type.company_id.name if booking_type.company_id else (env.company.name or 'l&#8217;organisation'))"/> conserve mon nom, mon courriel et les informations fournies dans ce formulaire afin de planifier et faire le suivi de cette rencontre.
-                                            <t t-set="_privacy_url" t-value="env['ir.config_parameter'].sudo().get_param('bf_appointment.privacy_url', '/r/politique-de-confidentialite')"/>
+                                            <span class="text-danger">*</span>
+                                            J&#8217;accepte que <t t-out="_company_name"/> conserve mon nom, mon courriel et les informations fournies dans ce formulaire afin de planifier et faire le suivi de cette rencontre.
                                             <a t-att-href="_privacy_url" target="_blank" rel="noopener">Politique de confidentialit&#233;</a>.
                                         </label>
                                     </div>
+
+                                    <!-- C2 - Recording + AI transcription consent. Required when the
+                                         type ships with a meeting report as part of the service. Loi 25
+                                         "freely given" criterion is satisfied because alternative types
+                                         exist (Sync 2FA, support) where requires_recording_consent=False.
+                                         Refuse here -> book a different type or contact us another way. -->
+                                    <t t-if="booking_type.requires_recording_consent">
+                                        <div class="form-check mb-2 bf-consent-recording" id="bf_consent_recording_row">
+                                            <input type="checkbox"
+                                                   class="form-check-input"
+                                                   id="bf_consent_recording"
+                                                   name="bf_consent_recording"
+                                                   value="1"
+                                                   required="required"/>
+                                            <label class="form-check-label small" for="bf_consent_recording">
+                                                <span class="text-danger">*</span>
+                                                J&#8217;accepte que la rencontre soit <strong>enregistr&#233;e (audio et vid&#233;o)</strong> et <strong>transcrite localement</strong> sur les serveurs de <t t-out="_company_name"/> &#224; Montr&#233;al (votre voix ne quitte pas notre infrastructure). Le texte transcrit est ensuite analys&#233; par IA pour produire le compte rendu, sans utilisation de vos donn&#233;es pour entra&#238;nement. Conservation : 24 mois apr&#232;s la fin du mandat.
+                                                <a t-att-href="_privacy_url" target="_blank" rel="noopener">D&#233;tails</a>.
+                                                <span class="text-muted d-block mt-1">Le compte rendu fait partie du service offert pour ce type de rencontre. Si vous pr&#233;f&#233;rez une rencontre sans enregistrement, &#233;crivez-nous &#224; <a href="mailto:service@bluefoxconsultant.com">service@bluefoxconsultant.com</a>.</span>
+                                            </label>
+                                            <input type="hidden" name="recording_notice_version_id" t-att-value="booking_type.recording_notice_id.id and (env['privacy.notice.version'].sudo().search([('notice_id','=',booking_type.recording_notice_id.id)], order='effective_date desc, version desc', limit=1).id) or 0"/>
+                                        </div>
+                                        <div class="alert alert-info py-2 small d-none" id="bf_consent_recording_done">
+                                            <i class="fa fa-check-circle me-1"/>
+                                            Consentement &#224; l'enregistrement d&#233;j&#224; au dossier (re&#231;u le <span data-bf-date="recording"></span>).
+                                            <a t-att-href="_privacy_url + '#retrait'" class="ms-1">G&#233;rer</a>
+                                        </div>
+                                    </t>
+
+                                    <!-- C3 - Newsletter signup. Optional. Default UNCHECKED (LCAP). -->
+                                    <t t-if="booking_type.offers_newsletter_signup">
+                                        <div class="form-check mb-3 bf-consent-newsletter" id="bf_consent_newsletter_row">
+                                            <input type="checkbox"
+                                                   class="form-check-input"
+                                                   id="bf_consent_newsletter"
+                                                   name="bf_consent_newsletter"
+                                                   value="1"/>
+                                            <label class="form-check-label small" for="bf_consent_newsletter">
+                                                <span class="text-muted">(optionnel)</span>
+                                                M&#8217;inscrire &#224; l&#8217;infolettre <t t-out="_company_name"/> (≈ 1 envoi par mois : articles, mises &#224; jour, &#233;v&#233;nements). D&#233;sabonnement en un clic dans chaque envoi.
+                                            </label>
+                                            <input type="hidden" name="newsletter_notice_version_id" t-att-value="booking_type.newsletter_notice_id.id and (env['privacy.notice.version'].sudo().search([('notice_id','=',booking_type.newsletter_notice_id.id)], order='effective_date desc, version desc', limit=1).id) or 0"/>
+                                        </div>
+                                        <div class="alert alert-info py-2 small d-none" id="bf_consent_newsletter_done">
+                                            <i class="fa fa-check-circle me-1"/>
+                                            Vous &#234;tes d&#233;j&#224; abonn&#233;(e) &#224; l'infolettre (depuis le <span data-bf-date="marketing"></span>).
+                                        </div>
+                                    </t>
+
+                                    <input type="hidden" name="bf_slug" t-att-value="booking_type.slug"/>
                                     <button type="submit" class="btn w-100 text-white fw-semibold bf-btn-accent"
                                             t-attf-style="background-color: #{booking_type.color_hex or '#29ABE2'};">
                                         <i class="fa fa-calendar me-2"/>

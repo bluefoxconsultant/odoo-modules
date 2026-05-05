@@ -11,6 +11,7 @@ from dateutil.parser import isoparse
 
 import pytz
 
+from odoo import fields
 from odoo.exceptions import ValidationError
 from odoo.http import Controller, request, route
 
@@ -136,6 +137,52 @@ def _validate_location_format(value):
     return True
 
 
+# Rate limit for the consent-check AJAX endpoint. Per CRTC + CAI guidance, we
+# never reveal whether an email is in our DB unless rate-limited; this caps
+# enumeration to ~30 lookups / 5 min per IP. Same data store as token rate
+# limit, but a separate counter so a slow-typing booker is not penalized.
+_consent_lookup_lock = threading.Lock()
+_consent_lookup_data = defaultdict(list)
+_CONSENT_LOOKUP_MAX = 30
+_CONSENT_LOOKUP_WINDOW = 300
+
+
+def _check_consent_lookup_rate_limit():
+    ip = _client_ip()
+    now = time.monotonic()
+    with _consent_lookup_lock:
+        cutoff = now - _CONSENT_LOOKUP_WINDOW
+        _consent_lookup_data[ip] = [t for t in _consent_lookup_data[ip] if t > cutoff]
+        if len(_consent_lookup_data[ip]) >= _CONSENT_LOOKUP_MAX:
+            return False
+        _consent_lookup_data[ip].append(now)
+        return True
+
+
+def _lookup_active_consent(env, partner, purpose_code, current_notice_id):
+    """Return the active privacy.consent record for (partner, purpose) or False.
+
+    "Active" = status='granted', record active=True, not withdrawn, not
+    expired, AND attached to a notice version whose notice matches the
+    current type's notice (so a major notice rev forces re-consent).
+    """
+    if not partner or not purpose_code:
+        return False
+    Consent = env["privacy.consent"].sudo()
+    domain = [
+        ("subject_partner_id", "=", partner.id),
+        ("status", "=", "granted"),
+        ("active", "=", True),
+        ("withdrawn_at", "=", False),
+        ("purpose_id.code", "=", purpose_code),
+        "|", ("expires_at", "=", False), ("expires_at", ">", fields.Datetime.now()),
+    ]
+    if current_notice_id:
+        domain.append(("notice_id", "=", current_notice_id))
+    consent = Consent.search(domain, order="granted_at desc", limit=1)
+    return consent or False
+
+
 class AppointmentController(Controller):
 
     @route(
@@ -158,6 +205,55 @@ class AppointmentController(Controller):
             {"booking_types": types},
         )
         return _apply_security_headers(response)
+
+    @route(
+        "/appointment/_consent_check",
+        type="json",
+        auth="public",
+        methods=["POST"],
+        csrf=False,
+    )
+    def appointment_consent_check(self, email=None, slug=None, **kwargs):
+        """Return the active-consent state for a given email under both
+        purposes (recording, marketing) on the given booking type's notices.
+
+        Lets the public intake form silently hide consent checkboxes when
+        the booker has already granted (per Olivier's UX rule). Always
+        returns 200 + a uniform shape to avoid email enumeration via
+        timing or status code differences.
+        """
+        out = {
+            "recording": {"active": False, "granted_at": False},
+            "marketing": {"active": False, "granted_at": False},
+        }
+        if not _check_consent_lookup_rate_limit():
+            _logger.info("Consent lookup rate limit hit for IP %s", _client_ip())
+            return out
+        email = (email or "").strip()
+        if not email or not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+            return out
+        Partner = request.env["res.partner"].sudo()
+        partner = Partner.search([("email", "=ilike", email)], limit=1)
+        if not partner:
+            return out
+        booking_type = self._get_type_by_slug((slug or "").strip())
+        rec_notice_id = (booking_type.recording_notice_id.id
+                         if booking_type and booking_type.recording_notice_id else False)
+        mkt_notice_id = (booking_type.newsletter_notice_id.id
+                         if booking_type and booking_type.newsletter_notice_id else False)
+        rec = _lookup_active_consent(request.env, partner, "recording", rec_notice_id)
+        mkt = _lookup_active_consent(request.env, partner, "marketing", mkt_notice_id)
+        if rec:
+            out["recording"] = {
+                "active": True,
+                "granted_at": rec.granted_at.strftime("%Y-%m-%d") if rec.granted_at else False,
+            }
+        if mkt:
+            out["marketing"] = {
+                "active": True,
+                "granted_at": mkt.granted_at.strftime("%Y-%m-%d") if mkt.granted_at else False,
+            }
+        return out
 
     @route(
         "/appointment/<string:slug>",
@@ -267,6 +363,31 @@ class AppointmentController(Controller):
             # travelling) shouldn't have it blasted by the booking form.
             if tz and not partner.tz:
                 partner.tz = tz
+
+        # Recording consent (Loi 25 art. 12 + 14): required for types where
+        # the meeting report is part of the service offering. Exempted only
+        # when the partner already has an active consent on file for the
+        # same notice (no re-prompt). Types where recording is not part of
+        # the deal (Sync 2FA, support) bypass this entirely via
+        # requires_recording_consent=False.
+        recording_active = False
+        if booking_type.requires_recording_consent:
+            existing_rec = _lookup_active_consent(
+                request.env, partner, "recording",
+                booking_type.recording_notice_id.id if booking_type.recording_notice_id else False,
+            )
+            recording_active = bool(existing_rec)
+            checkbox_recording = bool(kwargs.get("bf_consent_recording"))
+            if not recording_active and not checkbox_recording:
+                msg = (
+                    "Le compte rendu fait partie du service pour ce type de "
+                    "rencontre. Veuillez accepter l'enregistrement et la "
+                    "transcription, ou nous écrire à "
+                    "service@bluefoxconsultant.com pour un format alternatif."
+                )
+                return request.redirect(
+                    f"/appointment/{slug}?error={quote_plus(msg)}"
+                )
         # Find a real user for organizer (first resource's user or admin)
         organizer_user = (
             booking_type.combination_rel_ids[:1]
@@ -309,6 +430,42 @@ class AppointmentController(Controller):
         self._save_intake_answers(booking, booking_type, kwargs)
         # Generate access token
         booking._portal_ensure_token()
+
+        # Persist Loi 25 / LCAP consents now that we have a partner + booking
+        # to anchor them to. Errors are logged but never block the booking
+        # (the consent record is the audit trail, not a hard precondition).
+        try:
+            self._record_booking_consents(
+                booking_type=booking_type,
+                booking=booking,
+                partner=partner,
+                kwargs=kwargs,
+                recording_already_active=recording_active,
+            )
+        except Exception as e:
+            _logger.exception(
+                "Failed to persist consent records for booking %d: %s",
+                booking.id, e,
+            )
+
+        # Intake acknowledgement: send the booker a branded "we got your
+        # request" email with a resumable link to /schedule. Configurable
+        # per type. Failure is non-fatal; the redirect to /schedule still
+        # happens so the booker isn't stuck.
+        if booking_type.sends_intake_acknowledgement:
+            try:
+                ack_template = request.env.ref(
+                    "bf_appointment.mail_template_intake_acknowledgement",
+                    raise_if_not_found=False,
+                )
+                if ack_template:
+                    booking._send_appointment_email(ack_template.sudo(), attach_ics=False)
+            except Exception as e:
+                _logger.warning(
+                    "Failed to send intake acknowledgement for booking %d: %s",
+                    booking.id, e,
+                )
+
         # Build schedule URL
         schedule_url = (
             f"/appointment/b/{booking.id}/{booking.access_token}/schedule"
@@ -316,6 +473,123 @@ class AppointmentController(Controller):
         if tz:
             schedule_url += f"?tz={tz}"
         return request.redirect(schedule_url)
+
+    def _record_booking_consents(self, booking_type, booking, partner, kwargs, recording_already_active):
+        """Write privacy.consent + privacy.consent.evidence records for the
+        recording and newsletter consents collected on the intake form.
+
+        Skips writing a duplicate when an active consent for the same
+        (partner, purpose, notice) is already on file. A short-lived
+        booking is logged in `context_ref` so the consent can be linked
+        back to the originating intake submission.
+        """
+        Consent = request.env["privacy.consent"].sudo()
+        Evidence = request.env["privacy.consent.evidence"].sudo()
+        NoticeVersion = request.env["privacy.notice.version"].sudo()
+        Purpose = request.env["privacy.purpose"].sudo()
+
+        env_meta = request.httprequest.environ
+        ip = _client_ip()
+        ua = env_meta.get("HTTP_USER_AGENT", "")[:512]
+        accept_lang = env_meta.get("HTTP_ACCEPT_LANGUAGE", "")[:128]
+        referer = env_meta.get("HTTP_REFERER", "")[:512]
+        # context_ref Selection only allows project.project / res.partner per
+        # privacy_consent module. Anchor on the partner; trace the originating
+        # booking via a structured prefix in `notes` so it's queryable.
+        ctx_ref = f"res.partner,{partner.id}"
+        booking_marker = f"resource.booking={booking.id}"
+
+        def _resolve_notice_version(notice):
+            if not notice:
+                return False
+            return NoticeVersion.search(
+                [("notice_id", "=", notice.id)],
+                order="effective_date desc, version desc",
+                limit=1,
+            )
+
+        def _record(purpose_code, granted, notice, checkbox_value):
+            """Create privacy.consent + evidence rows. Returns the consent record."""
+            purpose = Purpose.search([("code", "=", purpose_code)], limit=1)
+            if not purpose:
+                _logger.warning("privacy.purpose code=%s missing, skipping", purpose_code)
+                return False
+            version = _resolve_notice_version(notice)
+            consent_vals = {
+                "subject_partner_id": partner.id,
+                "purpose_id": purpose.id,
+                "notice_id": notice.id if notice else False,
+                "notice_version_id": version.id if version else False,
+                "status": "granted" if granted else "refused",
+                "collection_method": "portal",
+                "context_ref": ctx_ref,
+                "active": True,
+                "granted_at": fields.Datetime.now() if granted else False,
+                "refused_at": fields.Datetime.now() if not granted else False,
+                "notes": (
+                    f"Source: {booking_marker} (slug={booking_type.slug})\n"
+                    f"Checkbox value at submission: {checkbox_value}"
+                ),
+            }
+            consent = Consent.create(consent_vals)
+            Evidence.create({
+                "consent_id": consent.id,
+                "evidence_type": "portal_log",
+                "consent_action": "grant" if granted else "refuse",
+                "ip_address": ip,
+                "user_agent": ua,
+                "accept_language": accept_lang,
+                "referer_url": referer,
+                "request_method": "POST",
+                "session_id": request.session.sid if hasattr(request, "session") else False,
+                "timestamp_utc": fields.Datetime.now(),
+                "consent_snapshot": (version.body if version else "") + f"\n<!-- {booking_marker} checkbox={checkbox_value} -->",
+                "note": f"Collected via /appointment/{booking_type.slug}/book ({booking_marker})",
+            })
+            return consent
+
+        # Recording consent: only create a fresh record when the type
+        # requires it AND there's no active record on file. Otherwise we
+        # leave the existing consent alone (Olivier's "do not re-ask" rule).
+        if booking_type.requires_recording_consent and not recording_already_active:
+            checked = bool(kwargs.get("bf_consent_recording"))
+            _record(
+                "recording",
+                granted=checked,
+                notice=booking_type.recording_notice_id,
+                checkbox_value=checked,
+            )
+
+        # Newsletter consent: only when offered, only when checked, and
+        # only when not already on file. Refusing the newsletter on the
+        # booking form is NOT a refusal record (the booker simply did not
+        # opt in). LCAP only logs explicit grants.
+        if booking_type.offers_newsletter_signup and kwargs.get("bf_consent_newsletter"):
+            existing_mkt = _lookup_active_consent(
+                request.env, partner, "marketing",
+                booking_type.newsletter_notice_id.id if booking_type.newsletter_notice_id else False,
+            )
+            if not existing_mkt:
+                _record(
+                    "marketing",
+                    granted=True,
+                    notice=booking_type.newsletter_notice_id,
+                    checkbox_value=True,
+                )
+                # Best-effort: subscribe to a "BF Newsletter" mailing.list if
+                # the mass_mailing module is installed and a list named
+                # "Infolettre Blue Fox" exists. Failure is non-fatal.
+                try:
+                    MailingList = request.env["mailing.list"].sudo()
+                    bf_list = MailingList.search([("name", "ilike", "infolettre")], limit=1)
+                    if bf_list:
+                        request.env["mailing.contact"].sudo().create({
+                            "email": partner.email,
+                            "name": partner.name,
+                            "list_ids": [(4, bf_list.id)],
+                        })
+                except Exception:
+                    _logger.debug("mailing.list subscription skipped (module not installed?)")
 
     @route(
         [

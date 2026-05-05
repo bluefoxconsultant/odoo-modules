@@ -34,6 +34,23 @@
                            invisible="not is_public"
                            colspan="2"/>
                 </group>
+                <group string="Consentements (Loi 25 / LCAP)" invisible="not is_public">
+                    <group>
+                        <field name="requires_recording_consent"/>
+                        <field name="recording_notice_id"
+                               invisible="not requires_recording_consent"
+                               required="requires_recording_consent"/>
+                    </group>
+                    <group>
+                        <field name="offers_newsletter_signup"/>
+                        <field name="newsletter_notice_id"
+                               invisible="not offers_newsletter_signup"
+                               required="offers_newsletter_signup"/>
+                    </group>
+                </group>
+                <group string="Confirmation de demande" invisible="not is_public">
+                    <field name="sends_intake_acknowledgement"/>
+                </group>
                 <notebook invisible="not is_public">
                     <page string="Champs du formulaire" name="intake_fields">
                         <field name="intake_field_ids">

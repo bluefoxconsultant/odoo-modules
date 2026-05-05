@@ -3,6 +3,108 @@
     <data noupdate="1">
 
         <!-- ============================================================ -->
+        <!-- INTAKE ACKNOWLEDGEMENT (sent right after the form is posted, -->
+        <!-- before the booker picks a slot)                              -->
+        <!-- ============================================================ -->
+        <record id="mail_template_intake_acknowledgement" model="mail.template">
+            <field name="name">Rendez-vous : Accusé de réception</field>
+            <field name="model_id" ref="resource_booking.model_resource_booking"/>
+            <field name="subject">Demande de rendez-vous reçue - {{ object.type_id.name }}</field>
+            <field name="email_from">{{ (object.type_id.company_id.email_formatted or '') }}</field>
+            <field name="email_to">{{ object.partner_id.email }}</field>
+            <field name="lang">{{ object.partner_id.lang }}</field>
+            <field name="body_html"><![CDATA[
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#2D3031;">
+    <tbody><tr><td align="center" style="padding:24px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="width:600px; max-width:600px; margin:0 auto; background-color:#ffffff; border-radius:12px; border:1px solid #e5e7eb; border-collapse:collapse;">
+            <tbody>
+                <tr><td style="background-color:#22303B; padding:16px 24px; border-radius:12px 12px 0 0;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tbody><tr>
+                        <td align="left" style="color:#FFFFFF; font-family:'Lexend','Segoe UI',Arial,sans-serif; font-size:16px; font-weight:600;">
+                            <a href="https://www.bluefoxconsultant.com" style="text-decoration:none;">
+                                <img src="https://www.bluefoxconsultant.com/web/image/website/1/logo/Blue%20Fox?unique=803cc14" alt="Blue Fox" style="height:48px; width:auto; display:block; border:0;"/>
+                            </a>
+                        </td>
+                        <td align="right" style="color:#E6EDF3; font-family:'Lexend','Segoe UI',Arial,sans-serif; font-size:22px; font-weight:800;">Demande reçue</td>
+                    </tr></tbody></table>
+                </td></tr>
+                <tr><td style="height:4px; line-height:4px; background-color:#29ABE1;">&#160;</td></tr>
+                <tr><td style="padding:24px; font-family:'Lexend','Segoe UI',Arial,sans-serif;">
+                    <p style="font-size:16px; line-height:26px; color:#374151; margin:0 0 16px 0;">
+                        Bonjour <t t-out="object.partner_id.name or ''">Client</t>,
+                    </p>
+                    <p style="font-size:16px; line-height:26px; color:#374151; margin:0 0 16px 0;">
+                        Nous avons bien reçu votre demande de rendez-vous. Il ne reste qu'une étape : choisir le créneau qui vous convient le mieux.
+                    </p>
+                    <p style="text-align:center; margin:24px 0 16px 0;">
+                        <a t-attf-href="{{ object.get_base_url() }}/appointment/b/{{ object.id }}/{{ object.access_token }}/schedule"
+                           style="background-color:#29ABE1; color:#ffffff; padding:14px 40px; text-decoration:none; border-radius:6px; font-weight:600; font-size:15px; display:inline-block;">
+                            Choisir un créneau
+                        </a>
+                    </p>
+                    <p style="font-size:13px; line-height:20px; color:#6B7280; text-align:center; margin:0 0 24px 0;">
+                        Ce lien reste valide. Vous pouvez le rouvrir plus tard si vous fermez cette page.
+                    </p>
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:16px 0 8px 0; border:1px solid #e5e7eb; border-radius:8px; border-collapse:separate;">
+                        <tbody>
+                            <tr>
+                                <td style="padding:12px 16px; background-color:#f9fafb; border-bottom:1px solid #e5e7eb; color:#6B7280; font-size:14px; width:35%;">Type de rencontre</td>
+                                <td style="padding:12px 16px; background-color:#f9fafb; border-bottom:1px solid #e5e7eb; font-size:14px; font-weight:600; color:#374151;"><t t-out="object.type_id.name or ''"/></td>
+                            </tr>
+                            <tr>
+                                <td style="padding:12px 16px; border-bottom:1px solid #e5e7eb; color:#6B7280; font-size:14px;">Durée prévue</td>
+                                <td style="padding:12px 16px; border-bottom:1px solid #e5e7eb; font-size:14px; font-weight:600; color:#374151;"><t t-out="object.get_duration_display()"/></td>
+                            </tr>
+                            <t t-if="object.intake_answer_ids">
+                                <tr>
+                                    <td colspan="2" style="padding:12px 16px; background-color:#f9fafb; border-bottom:1px solid #e5e7eb; color:#6B7280; font-size:13px; font-weight:600;">Vos réponses</td>
+                                </tr>
+                                <t t-foreach="object.intake_answer_ids" t-as="answer">
+                                    <tr>
+                                        <td style="padding:8px 16px; border-bottom:1px solid #f3f4f6; color:#6B7280; font-size:13px; vertical-align:top;"><t t-out="answer.field_name or ''"/></td>
+                                        <td style="padding:8px 16px; border-bottom:1px solid #f3f4f6; font-size:13px; color:#374151; white-space:pre-wrap;"><t t-out="answer.value or ''"/></td>
+                                    </tr>
+                                </t>
+                            </t>
+                        </tbody>
+                    </table>
+                    <p style="font-size:12px; line-height:18px; color:#9CA3AF; margin:24px 0 0 0;">
+                        Référence interne : RDV-<t t-out="object.id"/>. Conservez ce courriel comme preuve de votre demande et de vos consentements (Loi 25).
+                    </p>
+                    <p style="font-size:13px; line-height:20px; color:#6B7280; margin:16px 0 0 0;">
+                        Pour toute question :
+                        <a href="mailto:service@bluefoxconsultant.com" style="color:#29ABE1; text-decoration:none;">service@bluefoxconsultant.com</a>
+                        | <a href="tel:+15145132535" style="color:#29ABE1; text-decoration:none;">514-513-2535</a>.
+                    </p>
+                </td></tr>
+                <tr><td style="height:1px; line-height:1px; background-color:#E5E7EB;">&#160;</td></tr>
+                <tr><td style="padding:16px 24px 24px 24px; background-color:#FFFFFF; border-radius:0 0 12px 12px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tbody><tr>
+                        <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif; font-size:12px; color:#6B7280;">
+                            <strong style="color:#22303B;">Rendez-vous par Blue Fox</strong><br/>
+                            Solutions éthiques et souveraines pour vos données.
+                        </td>
+                        <td align="right" style="font-family:'Lexend','Segoe UI',Arial,sans-serif; font-size:12px; color:#9CA3AF;">
+                            <a href="https://www.bluefoxconsultant.com/r/politique-de-confidentialite" style="color:#9CA3AF; text-decoration:underline;">Confidentialité</a>
+                            <span style="color:#9CA3AF;"> | </span>
+                            <a href="https://www.bluefoxconsultant.com/r/termes-et-conditions" style="color:#9CA3AF; text-decoration:underline;">Conditions</a>
+                        </td>
+                    </tr></tbody></table>
+                </td></tr>
+            </tbody>
+        </table>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="width:600px; max-width:600px; margin:12px auto 0;">
+            <tbody><tr>
+                <td style="height:3px; line-height:3px; background-color:#29ABE1; width:50%;">&#160;</td>
+                <td style="height:3px; line-height:3px; background-color:#22303B; width:50%;">&#160;</td>
+            </tr></tbody>
+        </table>
+    </td></tr></tbody>
+</table>
+]]></field>
+        </record>
+
+        <!-- ============================================================ -->
         <!-- CONFIRMATION EMAIL (sent immediately on booking)             -->
         <!-- ============================================================ -->
         <record id="mail_template_appointment_confirmation" model="mail.template">

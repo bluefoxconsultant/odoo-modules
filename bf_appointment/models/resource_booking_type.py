@@ -105,6 +105,42 @@ class ResourceBookingType(models.Model):
         "type_id",
         string="Email Schedules",
     )
+    requires_recording_consent = fields.Boolean(
+        string="Demander le consentement d'enregistrement",
+        default=True,
+        help="Affiche une case &#224; cocher distincte pour le consentement &#224; l'enregistrement "
+             "et &#224; la transcription par IA. Obligatoire pour les rencontres trait&#233;es par "
+             "le Meeting Processor (compte rendu auto). D&#233;sactivez pour les rendez-vous "
+             "techniques courts (Synchro 2FA, support) o&#249; aucun enregistrement n'est fait.",
+    )
+    recording_notice_id = fields.Many2one(
+        "privacy.notice",
+        string="Mod&#232;le de consentement d'enregistrement",
+        domain="[('purpose_id.code', 'in', ['recording', 'recording_audio'])]",
+        help="Notice Loi 25 utilis&#233;e quand le consentement d'enregistrement est demand&#233;.",
+    )
+    offers_newsletter_signup = fields.Boolean(
+        string="Offrir l'inscription &#224; l'infolettre",
+        default=True,
+        help="Affiche une case &#224; cocher OPTIONNELLE (non pr&#233;-coch&#233;e) pour s'inscrire &#224; "
+             "l'infolettre Blue Fox. D&#233;sactivez sur les rendez-vous de support o&#249; ce serait "
+             "tacky (Synchro 2FA, etc.).",
+    )
+    newsletter_notice_id = fields.Many2one(
+        "privacy.notice",
+        string="Mod&#232;le de consentement infolettre",
+        domain="[('purpose_id.code', '=', 'marketing')]",
+        help="Notice LCAP/Loi 25 utilis&#233;e quand l'inscription &#224; l'infolettre est offerte.",
+    )
+    sends_intake_acknowledgement = fields.Boolean(
+        string="Envoyer un accus&#233; de r&#233;ception",
+        default=False,
+        help="Envoie un courriel d&#232;s la soumission du formulaire (avant le choix "
+             "du cr&#233;neau). Donne au booker une trace &#233;crite + un lien pour reprendre "
+             "la s&#233;lection s'il a ferm&#233; l'onglet, et fournit une preuve horodat&#233;e "
+             "du consentement aux fins d'audit. Off par d&#233;faut, &#224; activer manuellement "
+             "type par type quand l'accus&#233; est utile.",
+    )
 
     _sql_constraints = [
         (
