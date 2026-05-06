@@ -13,12 +13,17 @@ export const bfNoteService = {
     dependencies: ["action", "dialog", "orm", "notification"],
     start(env, { action, dialog, orm, notification }) {
         const getCurrentContext = () => {
+            // Only auto-link when the user is on a form view of a single record.
+            // Falling back to context.active_id leaks stale ids from previous
+            // breadcrumbs and pins notes/activities on the wrong chatter.
             try {
                 const controller = action?.currentController;
                 if (!controller) return {};
+                const view = controller.view?.type || controller.props?.type;
+                if (view && view !== "form") return {};
                 const props = controller.props || {};
                 const resModel = props.resModel;
-                const resId = props.resId || props.context?.active_id;
+                const resId = props.resId;
                 if (resModel && typeof resId === "number" && resId) {
                     return { resModel, resId };
                 }

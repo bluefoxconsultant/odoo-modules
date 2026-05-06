@@ -27,6 +27,10 @@
                     <button name="action_open_activity_wizard"
                             type="object"
                             string="Personnaliser…"/>
+                    <button name="action_open_task_wizard"
+                            type="object"
+                            string="Convertir en tâche"
+                            class="btn-secondary"/>
                     <button name="action_toggle_pinned"
                             type="object"
                             string="Épingler"
@@ -51,6 +55,13 @@
                                 icon="fa-tasks"
                                 invisible="tracked_activity_count == 0">
                             <field name="tracked_activity_count" widget="statinfo" string="Activités"/>
+                        </button>
+                        <button name="action_open_tasks"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-check-square-o"
+                                invisible="tracked_task_count == 0">
+                            <field name="tracked_task_count" widget="statinfo" string="Tâches"/>
                         </button>
                     </div>
                     <widget name="web_ribbon" title="Archivée"

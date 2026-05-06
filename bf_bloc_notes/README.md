@@ -42,14 +42,14 @@ Une activité est créée par fiche liée (ex. note liée à 3 tâches → 3 act
 | --- | --- |
 | RPC injection sur `quick_create_from_context` | Whitelist explicite des clés (`name`, `body`, `tag_ids`, `pinned`, `color`, `deadline_date`, `is_shared`, `res_model`, `res_id`, `link_ids`). `user_id` est forcé à `env.user.id` indépendamment du payload. |
 | Énumération de modèles via `Reference` | `_selection_target_model` filtre par `ir.config_parameter` `bf_bloc_notes.reference_models` (10 modèles par défaut). |
-| AccessError sur fiche cible | `bf.note.link._compute_res_name` utilise `sudo()` + `try/except` pour le `display_name` ; le check d'accès se fait au clic « Voir la fiche ». |
+| AccessError sur fiche cible | `bf.note.link._compute_res_name` exécute `check_access_rights("read")` + `check_access_rule("read")` côté utilisateur appelant — pas de `sudo()` — et bascule à `False` en cas d'AccessError. `action_open` / `action_open_record` valident l'accès avant de retourner l'`act_window`. |
 | Visibilité notes | 2 ir.rule séparées : lecture (auteur OU `is_shared`), écriture/unlink (auteur seul). |
 | Smart button N+1 | `bf.note.link.mixin` utilise `read_group` batch — 1 query pour 200 records. |
 
 ### Performance
 - `bf_note_count` calculé en une seule requête via `read_group`, pas de N+1 sur listviews / kanban.
 - `res_name` stocké (compute store=True) sur `bf.note.link`, pas relu à chaque affichage.
-- Pas de `mail.activity.mixin` sur `bf.note` (overhead évité).
+- Tracking d'activités/tâches issues d'une note via deux m2m dédiés (`tracked_activity_ids`, `tracked_task_ids`) plutôt qu'un join coûteux sur `mail.activity`.
 
 ## Architecture
 
@@ -84,6 +84,14 @@ odoo -d <db> -u bf_bloc_notes --test-enable --test-tags /bf_bloc_notes --stop-af
 9 tests couvrent : auto-titre, multi-lien, batch count, RPC whitelist, visibilité privée/partagée (read + write), création d'activité par lien, garde-fou note non-liée.
 
 ## Changelog
+
+### 18.0.2.5.0 (2026-05-06)
+- Sécurité : `bf.note.link._compute_res_name` n'utilise plus `sudo()` ; ACL appliqué via `check_access_rights` / `check_access_rule` (évite la fuite de `display_name` vers des fiches non lisibles).
+- Sécurité : `action_open` (sur lien et note primaire) valide l'accès avant de retourner l'`act_window`.
+- UX : Alt+N place le focus sur le titre, pas le corps.
+- UX : nouveau bouton secondaire « Créer une tâche » dans le dialog quick-create — pré-remplit `default_name` / `default_description` (+ project / parent / partner si le contexte le permet) et ouvre une fiche `project.task` neuve sans créer la note.
+- Fix : `getCurrentContext()` (auto-link) ignore désormais `context.active_id` ; n'auto-link que sur une vraie vue form, pour éviter l'activité créée sur le mauvais chatter.
+- Tests : alignés sur l'API actuelle (`tracked_activity_count`, fallback création-sur-self) + nouveau test ACL pour `res_name`.
 
 ### 18.0.2.0.0 (2026-05-02)
 - Ajout : multi-liens via `bf.note.link` (m2m vers fiches).

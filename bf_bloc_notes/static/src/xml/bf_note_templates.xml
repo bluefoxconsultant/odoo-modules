@@ -21,6 +21,8 @@
                 <input type="text"
                        class="form-control mb-2"
                        placeholder="Titre (optionnel — auto-rempli depuis le contenu)"
+                       t-ref="title"
+                       t-on-keydown="onKeydownTitle"
                        t-model="state.name"/>
                 <div class="o_bf_note_editor form-control"
                      contenteditable="true"
@@ -99,6 +101,12 @@
                         t-on-click="onSave"
                         t-att-disabled="state.saving">
                     <i class="fa fa-floppy-o"/> Enregistrer
+                </button>
+                <button class="btn btn-secondary"
+                        t-on-click="onCreateTask"
+                        t-att-disabled="state.saving"
+                        title="Créer plutôt une tâche avec ce titre et ce contenu">
+                    <i class="fa fa-tasks"/> Créer une tâche
                 </button>
                 <button class="btn btn-secondary"
                         t-on-click="onSaveAndOpen"

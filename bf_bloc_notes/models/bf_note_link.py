@@ -1,4 +1,5 @@
 from odoo import api, fields, models
+from odoo.exceptions import AccessError
 
 
 class BfNoteLink(models.Model):
@@ -24,12 +25,18 @@ class BfNoteLink(models.Model):
 
     @api.depends("res_model", "res_id")
     def _compute_res_name(self):
+        # Run as the calling user so ACL applies — sudo() here would leak
+        # display_name of records the author cannot otherwise read.
         for link in self:
             if link.res_model and link.res_id and link.res_model in self.env:
                 try:
-                    rec = self.env[link.res_model].sudo().browse(link.res_id).exists()
-                    link.res_name = rec.display_name if rec else False
-                except Exception:
+                    rec = self.env[link.res_model].browse(link.res_id).exists()
+                    if not rec:
+                        link.res_name = False
+                        continue
+                    rec.check_access("read")
+                    link.res_name = rec.display_name
+                except (AccessError, Exception):
                     link.res_name = False
             else:
                 link.res_name = False
@@ -37,6 +44,14 @@ class BfNoteLink(models.Model):
     def action_open(self):
         self.ensure_one()
         if not (self.res_model and self.res_id and self.res_model in self.env):
+            return False
+        target = self.env[self.res_model].browse(self.res_id).exists()
+        if not target:
+            return False
+        try:
+            target.check_access_rights("read")
+            target.check_access_rule("read")
+        except AccessError:
             return False
         return {
             "type": "ir.actions.act_window",

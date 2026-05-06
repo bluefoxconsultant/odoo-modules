@@ -2,6 +2,7 @@ import re
 from datetime import timedelta
 
 from odoo import api, fields, models
+from odoo.exceptions import AccessError
 
 DEFAULT_REFERENCE_MODELS = (
     "res.partner",
@@ -89,6 +90,15 @@ class BfNote(models.Model):
     )
     tracked_activity_count = fields.Integer(compute="_compute_tracked_activity_count")
 
+    tracked_task_ids = fields.Many2many(
+        "project.task",
+        "bf_note_tracked_task_rel",
+        "note_id",
+        "task_id",
+        string="Tâches créées",
+    )
+    tracked_task_count = fields.Integer(compute="_compute_tracked_task_count")
+
     @api.model
     def _selection_target_model(self):
         param = self.env["ir.config_parameter"].sudo().get_param(
@@ -146,6 +156,11 @@ class BfNote(models.Model):
         for note in self:
             note.tracked_activity_count = len(note.tracked_activity_ids)
 
+    @api.depends("tracked_task_ids")
+    def _compute_tracked_task_count(self):
+        for note in self:
+            note.tracked_task_count = len(note.tracked_task_ids)
+
     @api.depends("body")
     def _compute_name(self):
         for note in self:
@@ -172,6 +187,13 @@ class BfNote(models.Model):
         self.ensure_one()
         primary = self.link_ids[:1]
         if not (primary and primary.res_model and primary.res_id and primary.res_model in self.env):
+            return False
+        target = self.env[primary.res_model].browse(primary.res_id).exists()
+        if not target:
+            return False
+        try:
+            target.check_access("read")
+        except AccessError:
             return False
         return {
             "type": "ir.actions.act_window",
@@ -219,6 +241,27 @@ class BfNote(models.Model):
             "view_mode": "form",
             "target": "new",
             "context": {"default_note_id": self.id},
+        }
+
+    def action_open_task_wizard(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Convertir en tâche",
+            "res_model": "bf.note.task.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"default_note_id": self.id},
+        }
+
+    def action_open_tasks(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Tâches créées depuis la note",
+            "res_model": "project.task",
+            "view_mode": "list,form",
+            "domain": [("id", "in", self.tracked_task_ids.ids)],
         }
 
     def _create_activities_for_links(self, offset_days=0, activity_type_id=None, custom_deadline=None, link_target_ref=None):

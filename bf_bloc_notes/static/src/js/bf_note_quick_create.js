@@ -30,13 +30,14 @@ export class BfNoteQuickCreateDialog extends Component {
             reminderDate: this._isoToday(),
         });
         this.bodyRef = useRef("body");
+        this.titleRef = useRef("title");
 
         this._fetchDefaultReminder();
         if (this.props.resModel && this.props.resId) {
             this._fetchLinkedLabel();
         }
         onMounted(() => {
-            const el = this.bodyRef.el;
+            const el = this.titleRef.el;
             if (el) {
                 el.focus();
             }
@@ -89,6 +90,13 @@ export class BfNoteQuickCreateDialog extends Component {
     }
 
     onKeydownBody(ev) {
+        if ((ev.ctrlKey || ev.metaKey) && ev.key === "Enter") {
+            ev.preventDefault();
+            this.onSave();
+        }
+    }
+
+    onKeydownTitle(ev) {
         if ((ev.ctrlKey || ev.metaKey) && ev.key === "Enter") {
             ev.preventDefault();
             this.onSave();
@@ -215,6 +223,61 @@ export class BfNoteQuickCreateDialog extends Component {
                 context: { search_default_my_notes: 1 },
             });
         });
+    }
+
+    async onCreateTask() {
+        if (this.state.saving) return;
+        const html = this.bodyRef.el?.innerHTML?.trim() || "";
+        const text = this.bodyRef.el?.innerText?.trim() || "";
+        const title = this.state.name.trim();
+        if (!title && !text) {
+            this.notification.add(_t("Saisis un titre ou un contenu pour créer la tâche."), { type: "warning" });
+            return;
+        }
+        this.state.saving = true;
+        try {
+            const ctx = {
+                default_name: title || text.slice(0, 80),
+                default_description: html,
+                default_user_ids: [user.userId],
+            };
+            const linkModel = this.props.resModel;
+            const linkId = this.props.resId;
+            if (linkModel && linkId) {
+                if (linkModel === "project.task") {
+                    const [task] = await this.orm.read(
+                        "project.task",
+                        [linkId],
+                        ["project_id", "partner_id"],
+                    );
+                    if (task?.project_id) ctx.default_project_id = task.project_id[0];
+                    if (task?.partner_id) ctx.default_partner_id = task.partner_id[0];
+                    ctx.default_parent_id = linkId;
+                } else if (linkModel === "project.project") {
+                    ctx.default_project_id = linkId;
+                    const [project] = await this.orm.read(
+                        "project.project",
+                        [linkId],
+                        ["partner_id"],
+                    );
+                    if (project?.partner_id) ctx.default_partner_id = project.partner_id[0];
+                } else if (linkModel === "res.partner") {
+                    ctx.default_partner_id = linkId;
+                }
+            }
+            await this.action.doAction({
+                type: "ir.actions.act_window",
+                name: _t("Nouvelle tâche"),
+                res_model: "project.task",
+                views: [[false, "form"]],
+                target: "current",
+                context: ctx,
+            });
+            this.props.close();
+        } catch (e) {
+            this.state.saving = false;
+            throw e;
+        }
     }
 
     onCancel() {

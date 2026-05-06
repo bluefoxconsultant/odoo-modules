@@ -1,6 +1,6 @@
 {
     "name": "BF Bloc-notes",
-    "version": "18.0.2.2.0",
+    "version": "18.0.2.5.0",
     "category": "Productivity",
     "summary": "Notes rapides riches, multi-liens, conversion en activité, raccourcis et systray",
     "author": "Blue Fox Inc",
@@ -14,6 +14,7 @@
         "views/bf_note_views.xml",
         "views/bf_note_tag_views.xml",
         "views/bf_note_activity_wizard_views.xml",
+        "views/bf_note_task_wizard_views.xml",
         "views/res_users_views.xml",
         "views/bf_note_menus.xml",
         "views/res_partner_views.xml",
