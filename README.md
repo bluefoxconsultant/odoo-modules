@@ -24,6 +24,7 @@ Custom Odoo 18 Community Edition modules developed by [Blue Fox Inc.](https://bl
 | `bf_timesheet_timer` | BF Timer - Feuilles de temps | 18.0.1.6.0 | LGPL-3 | Timer global de feuilles de temps avec multi-timer et interface OWL |
 | `bf_universal_search` | BF Recherche universelle | 18.0.1.3.0 | LGPL-3 | Recherche transversale dans tous les modules via la palette de commandes |
 | `bf_webmail` | Courriel Blue Fox | 18.0.1.1.0 | LGPL-3 | Accès au courriel SnappyMail depuis la barre Odoo |
+| `bureau` | Bureau — vues multi-panneaux | 18.0.2.1.1 | LGPL-3 | Tableaux de bord (« bureaux ») configurables par l'utilisateur : multi-panneaux d'actions Odoo, mises en page variées, raccourcis clavier, créneaux horaires |
 | `calendar_nextcloud_sync` | Calendar Nextcloud Sync | 18.0.1.23.0 | LGPL-3 | Synchronisation calendrier bidirectionnelle Odoo ↔ Nextcloud via n8n |
 | `contacts_nextcloud_sync` | Contacts Nextcloud Sync | 18.0.1.0.0 | LGPL-3 | Synchronisation des contacts Odoo avec le carnet Nextcloud via CardDAV |
 | `daily_todo_digest` | Daily To-Do Digest | 18.0.1.2.0 | LGPL-3 | Courriel quotidien regroupant activités, tâches en retard et aperçu de la semaine |
