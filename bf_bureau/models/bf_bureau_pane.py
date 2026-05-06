@@ -3,7 +3,7 @@ import ast
 from odoo import api, fields, models
 from odoo.exceptions import ValidationError
 
-from .bureau_desk import LAYOUT_SLOTS
+from .bf_bureau_desk import LAYOUT_SLOTS
 
 
 VIEW_TYPES = [
@@ -17,13 +17,13 @@ VIEW_TYPES = [
 ]
 
 
-class BureauPane(models.Model):
-    _name = "bureau.pane"
-    _description = "Panneau dans un bureau"
+class BfBureauPane(models.Model):
+    _name = "bf.bureau.pane"
+    _description = "BF Bureau — panneau dans un bureau"
     _order = "desk_id, slot"
 
     desk_id = fields.Many2one(
-        "bureau.desk",
+        "bf.bureau.desk",
         required=True,
         ondelete="cascade",
         index=True,

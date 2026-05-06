@@ -12,8 +12,8 @@ import { View } from "@web/views/view";
  * bureau client action's ID from the parent env.config, and saving an
  * `ir.filter` would persist it under the wrong action_id.
  */
-class BureauPaneView extends Component {
-    static template = "bureau.PaneView";
+class BfBureauPaneView extends Component {
+    static template = "bf_bureau.PaneView";
     static components = { View };
     static props = {
         actionId: { type: [Number, Boolean] },
@@ -78,7 +78,7 @@ const LAYOUT_DIM = {
     stacked_three:      { rows: 3, cols: 1 },
 };
 
-const SIDEBAR_KEY = "bureau.sidebar.visible";
+const SIDEBAR_KEY = "bf_bureau.sidebar.visible";
 
 function unwrapId(maybeTuple) {
     if (Array.isArray(maybeTuple)) return maybeTuple[0];
@@ -97,14 +97,14 @@ function safePyParse(expr, fallback) {
             .replace(/'/g, '"');
         return JSON.parse(json);
     } catch (e) {
-        console.warn("bureau: failed to parse override", expr, e);
+        console.warn("bf_bureau: failed to parse override", expr, e);
         return fallback;
     }
 }
 
-export class BureauDesk extends Component {
-    static template = "bureau.Desk";
-    static components = { View, BureauPaneView };
+export class BfBureauDesk extends Component {
+    static template = "bf_bureau.Desk";
+    static components = { View, BfBureauPaneView };
     static props = ["*"];
 
     setup() {
@@ -171,8 +171,8 @@ export class BureauDesk extends Component {
         // Fetch the rendered desk and the user's full desk list in parallel.
         const requested = this.props.action?.params?.desk_id || false;
         const [data, allDesks] = await Promise.all([
-            this.orm.call("bureau.desk", "read_desk_for_render", [requested]),
-            this.orm.call("bureau.desk", "list_user_desks", []),
+            this.orm.call("bf.bureau.desk", "read_desk_for_render", [requested]),
+            this.orm.call("bf.bureau.desk", "list_user_desks", []),
         ]);
 
         this.state.allDesks = allDesks;
@@ -210,7 +210,7 @@ export class BureauDesk extends Component {
     async _switchDesk(deskId) {
         await this.actionService.doAction({
             type: "ir.actions.client",
-            tag: "bureau_desk",
+            tag: "bf_bureau_desk",
             params: { desk_id: deskId },
             target: "current",
         });
@@ -321,7 +321,7 @@ export class BureauDesk extends Component {
 
     async saveLayout() {
         const writes = this.state.panes.map((pane) =>
-            this.orm.write("bureau.pane", [pane.id], {
+            this.orm.write("bf.bureau.pane", [pane.id], {
                 view_type: this.state.paneTypes[pane.id],
             })
         );
@@ -344,7 +344,7 @@ export class BureauDesk extends Component {
     async createNewDesk() {
         await this.actionService.doAction({
             type: "ir.actions.act_window",
-            res_model: "bureau.desk",
+            res_model: "bf.bureau.desk",
             views: [[false, "form"]],
             target: "current",
             context: { default_user_id: false },
@@ -355,7 +355,7 @@ export class BureauDesk extends Component {
         if (!this.state.desk) return;
         this.actionService.doAction({
             type: "ir.actions.act_window",
-            res_model: "bureau.desk",
+            res_model: "bf.bureau.desk",
             res_id: this.state.desk.id,
             views: [[false, "form"]],
             target: "current",
@@ -363,8 +363,8 @@ export class BureauDesk extends Component {
     }
 
     async openDeskList() {
-        await this.actionService.doAction("bureau.bureau_desk_action");
+        await this.actionService.doAction("bf_bureau.bf_bureau_desk_action");
     }
 }
 
-registry.category("actions").add("bureau_desk", BureauDesk);
+registry.category("actions").add("bf_bureau_desk", BfBureauDesk);

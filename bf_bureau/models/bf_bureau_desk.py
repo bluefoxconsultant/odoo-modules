@@ -30,9 +30,9 @@ ACTIVE_HOURS = {
 }
 
 
-class BureauDesk(models.Model):
-    _name = "bureau.desk"
-    _description = "Bureau (vue multi-panneaux configurable)"
+class BfBureauDesk(models.Model):
+    _name = "bf.bureau.desk"
+    _description = "BF Bureau — vue multi-panneaux configurable"
     _order = "sequence, id"
 
     name = fields.Char(required=True)
@@ -54,7 +54,7 @@ class BureauDesk(models.Model):
         default="two_top_one_bottom",
         required=True,
     )
-    pane_ids = fields.One2many("bureau.pane", "desk_id")
+    pane_ids = fields.One2many("bf.bureau.pane", "desk_id")
     active = fields.Boolean(default=True)
     shortcut_key = fields.Char(
         string="Raccourci clavier",
@@ -201,18 +201,18 @@ class BureauDesk(models.Model):
             pane.copy({"desk_id": copy.id})
         return {
             "type": "ir.actions.act_window",
-            "res_model": "bureau.desk",
+            "res_model": "bf.bureau.desk",
             "res_id": copy.id,
             "views": [[False, "form"]],
             "target": "current",
         }
 
     def action_open(self):
-        """Open this desk in the bureau client action."""
+        """Open this desk in the BF bureau client action."""
         self.ensure_one()
         return {
             "type": "ir.actions.client",
-            "tag": "bureau_desk",
+            "tag": "bf_bureau_desk",
             "params": {"desk_id": self.id},
             "target": "current",
         }

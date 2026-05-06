@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <record id="bureau_desk_view_tree" model="ir.ui.view">
-        <field name="name">bureau.desk.tree</field>
-        <field name="model">bureau.desk</field>
+    <record id="bf_bureau_desk_view_tree" model="ir.ui.view">
+        <field name="name">bf.bureau.desk.tree</field>
+        <field name="model">bf.bureau.desk</field>
         <field name="arch" type="xml">
             <list string="Mes bureaux">
                 <field name="sequence" widget="handle"/>
@@ -24,9 +24,9 @@
         </field>
     </record>
 
-    <record id="bureau_desk_view_form" model="ir.ui.view">
-        <field name="name">bureau.desk.form</field>
-        <field name="model">bureau.desk</field>
+    <record id="bf_bureau_desk_view_form" model="ir.ui.view">
+        <field name="name">bf.bureau.desk.form</field>
+        <field name="model">bf.bureau.desk</field>
         <field name="arch" type="xml">
             <form string="Bureau">
                 <header>
@@ -93,9 +93,9 @@
         </field>
     </record>
 
-    <record id="bureau_desk_action" model="ir.actions.act_window">
+    <record id="bf_bureau_desk_action" model="ir.actions.act_window">
         <field name="name">Mes bureaux</field>
-        <field name="res_model">bureau.desk</field>
+        <field name="res_model">bf.bureau.desk</field>
         <field name="view_mode">list,form</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
@@ -110,9 +110,9 @@
         </field>
     </record>
 
-    <record id="bureau_open_default_desk_action" model="ir.actions.client">
+    <record id="bf_bureau_open_default_desk_action" model="ir.actions.client">
         <field name="name">Mon bureau</field>
-        <field name="tag">bureau_desk</field>
+        <field name="tag">bf_bureau_desk</field>
     </record>
 
 </odoo>

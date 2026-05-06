@@ -8,7 +8,7 @@
         Other users start empty and create their own via "Mes bureaux".
     -->
 
-    <record id="default_desk_admin" model="bureau.desk">
+    <record id="default_desk_admin" model="bf.bureau.desk">
         <field name="name">Mon bureau</field>
         <field name="user_id" ref="base.user_admin"/>
         <field name="sequence">10</field>
@@ -16,21 +16,21 @@
         <field name="layout">two_top_one_bottom</field>
     </record>
 
-    <record id="default_pane_admin_top_left" model="bureau.pane">
+    <record id="default_pane_admin_top_left" model="bf.bureau.pane">
         <field name="desk_id" ref="default_desk_admin"/>
         <field name="slot">top_left</field>
         <field name="action_id" ref="mail.mail_activity_action_my"/>
         <field name="view_type">kanban</field>
     </record>
 
-    <record id="default_pane_admin_top_right" model="bureau.pane">
+    <record id="default_pane_admin_top_right" model="bf.bureau.pane">
         <field name="desk_id" ref="default_desk_admin"/>
         <field name="slot">top_right</field>
         <field name="action_id" ref="project.action_view_all_task"/>
         <field name="view_type">kanban</field>
     </record>
 
-    <record id="default_pane_admin_bottom" model="bureau.pane">
+    <record id="default_pane_admin_bottom" model="bf.bureau.pane">
         <field name="desk_id" ref="default_desk_admin"/>
         <field name="slot">bottom_full</field>
         <field name="action_id" ref="bf_email_management.bf_email_action"/>
