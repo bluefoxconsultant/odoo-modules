@@ -613,12 +613,34 @@ class HostingService(models.Model):
 
     @api.depends("health_check_ids", "health_check_ids.status", "health_check_ids.check_date")
     def _compute_health_status(self):
+        # LATERAL JOIN: one indexed lookup per service via
+        # (service_id, check_date DESC). DISTINCT ON would still scan every
+        # row in each service's history because Postgres has no skip-scan.
+        latest_by_service = {}
+        if self.ids:
+            self.env.cr.execute(
+                """
+                SELECT s.id, hc.status, hc.check_date
+                FROM (SELECT unnest(%s::integer[]) AS id) s
+                LEFT JOIN LATERAL (
+                    SELECT status, check_date
+                    FROM hosting_health_check
+                    WHERE service_id = s.id
+                    ORDER BY check_date DESC
+                    LIMIT 1
+                ) hc ON TRUE
+                """,
+                (list(self.ids),),
+            )
+            latest_by_service = {
+                row[0]: (row[1], row[2]) for row in self.env.cr.fetchall()
+            }
         for record in self:
-            latest_check = record.health_check_ids[:1]
-            if latest_check:
-                record.last_health_status = latest_check.status
-                record.last_health_check = latest_check.check_date
-                record.is_service_up = latest_check.status == "up"
+            status, check_date = latest_by_service.get(record.id, (None, None))
+            if status:
+                record.last_health_status = status
+                record.last_health_check = check_date
+                record.is_service_up = status == "up"
             else:
                 record.last_health_status = False
                 record.last_health_check = False
@@ -630,22 +652,42 @@ class HostingService(models.Model):
         Exclut les vérifications marquées `excluded_from_stats` (pannes
         tributaires de causes externes) pour éviter de biaiser la moyenne.
         """
-        now = fields.Datetime.now()
-        thirty_days_ago = now - timedelta(days=30)
-        for record in self:
-            checks = record.health_check_ids.filtered(
-                lambda c: c.check_date >= thirty_days_ago
-                and not c.excluded_from_stats
+        stats = {}
+        if self.ids:
+            thirty_days_ago = fields.Datetime.now() - timedelta(days=30)
+            self.env.cr.execute(
+                """
+                SELECT service_id,
+                       COUNT(*) FILTER (WHERE status = 'up') AS up_count,
+                       COUNT(*) AS total_count
+                FROM hosting_health_check
+                WHERE service_id IN %s
+                  AND check_date >= %s
+                  AND COALESCE(excluded_from_stats, false) = false
+                GROUP BY service_id
+                """,
+                (tuple(self.ids), thirty_days_ago),
             )
-            if checks:
-                up_count = len(checks.filtered(lambda c: c.status == "up"))
-                record.uptime_30d = (up_count / len(checks)) * 100
-            else:
-                record.uptime_30d = 100.0
+            stats = {row[0]: (row[1], row[2]) for row in self.env.cr.fetchall()}
+        for record in self:
+            up, total = stats.get(record.id, (0, 0))
+            record.uptime_30d = (up / total) * 100 if total else 100.0
 
     def _compute_health_check_count(self):
+        counts = {}
+        if self.ids:
+            self.env.cr.execute(
+                """
+                SELECT service_id, COUNT(*)
+                FROM hosting_health_check
+                WHERE service_id IN %s
+                GROUP BY service_id
+                """,
+                (tuple(self.ids),),
+            )
+            counts = dict(self.env.cr.fetchall())
         for record in self:
-            record.health_check_count = len(record.health_check_ids)
+            record.health_check_count = counts.get(record.id, 0)
 
     def _compute_maintenance_schedule_count(self):
         for record in self:

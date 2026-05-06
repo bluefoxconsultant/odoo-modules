@@ -68,5 +68,16 @@
             <field name="active">True</field>
         </record>
 
+        <!-- Tâche planifiée : Consolider les vérifications de santé en snapshots quotidiens et purger les données brutes au-delà de la rétention -->
+        <record id="ir_cron_hosting_health_check_consolidate_purge" model="ir.cron">
+            <field name="name">Hébergement : Consolider les vérifications de santé (snapshots + purge)</field>
+            <field name="model_id" ref="model_hosting_health_check"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_consolidate_and_purge()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="active">True</field>
+        </record>
+
     </data>
 </odoo>
