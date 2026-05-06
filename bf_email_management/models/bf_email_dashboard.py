@@ -30,6 +30,8 @@ class BfEmailDashboard(models.Model):
             "response_time": self._get_response_time(date_from, date_to),
             "top_partners": self._get_top_partners(date_from, date_to),
             "daily_volume": self._get_daily_volume(date_from, date_to),
+            "actionable": self._get_actionable(date_from, date_to),
+            "handled_rate": self._get_handled_rate(date_from, date_to),
         }
 
     # ------------------------------------------------------------------
@@ -44,6 +46,65 @@ class BfEmailDashboard(models.Model):
             "res_model": "bf.email",
             "views": [[False, "list"], [False, "form"]],
             "domain": [("status", "=", "new")],
+        }
+
+    # ------------------------------------------------------------------
+    # Actionable card navigation
+    # ------------------------------------------------------------------
+    @api.model
+    def action_view_inbox_active(self):
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Boîte de réception active",
+            "res_model": "bf.email",
+            "views": [[False, "list"], [False, "kanban"], [False, "form"]],
+            "domain": [
+                ("is_handled", "=", False),
+                "|", ("imap_in_inbox", "=", True), ("source", "in", ("chatter", "gateway")),
+            ],
+        }
+
+    @api.model
+    def action_view_awaiting_reply(self):
+        return {
+            "type": "ir.actions.act_window",
+            "name": "En attente de réponse",
+            "res_model": "bf.email",
+            "views": [[False, "list"], [False, "form"]],
+            "domain": [
+                ("direction", "=", "in"),
+                ("status", "in", ("new", "read")),
+                ("is_handled", "=", False),
+                ("external_age_hours", ">=", 24),
+            ],
+        }
+
+    @api.model
+    def action_view_unrouted_orphans(self):
+        return {
+            "type": "ir.actions.act_window",
+            "name": "IMAP orphelins à router",
+            "res_model": "bf.email",
+            "views": [[False, "list"], [False, "form"]],
+            "domain": [
+                ("source", "=", "imap"),
+                ("res_model", "=", False),
+                ("is_handled", "=", False),
+            ],
+        }
+
+    @api.model
+    def action_view_vip_pending(self):
+        return {
+            "type": "ir.actions.act_window",
+            "name": "VIP en attente",
+            "res_model": "bf.email",
+            "views": [[False, "list"], [False, "form"]],
+            "domain": [
+                ("direction", "=", "in"),
+                ("is_handled", "=", False),
+                ("priority", "in", ("2", "3")),
+            ],
         }
 
     @api.model
@@ -144,16 +205,59 @@ class BfEmailDashboard(models.Model):
 
     @api.model
     def _get_status_counts(self, date_from=False, date_to=False):
-        """Count by status."""
+        """Count by status. ``handled`` mirrors the legacy ``archived`` slot
+        (rows traited via the new is_handled boolean)."""
         BfEmail = self.env["bf.email"]
         dd = self._date_domain(date_from, date_to)
         return {
             "new": BfEmail.search_count([("status", "=", "new")] + dd),
             "read": BfEmail.search_count([("status", "=", "read")] + dd),
             "replied": BfEmail.search_count([("status", "=", "replied")] + dd),
-            "archived": BfEmail.with_context(active_test=False).search_count(
-                [("status", "=", "archived")] + dd
-            ),
+            "handled": BfEmail.search_count([("is_handled", "=", True)] + dd),
+        }
+
+    @api.model
+    def _get_actionable(self, date_from=False, date_to=False):
+        """Inbox-Zero actionable counts. Period filter respected."""
+        BfEmail = self.env["bf.email"]
+        dd = self._date_domain(date_from, date_to)
+        return {
+            "inbox_active": BfEmail.search_count([
+                ("is_handled", "=", False),
+                "|", ("imap_in_inbox", "=", True),
+                     ("source", "in", ("chatter", "gateway")),
+            ] + dd),
+            "awaiting_reply": BfEmail.search_count([
+                ("direction", "=", "in"),
+                ("status", "in", ("new", "read")),
+                ("is_handled", "=", False),
+                ("external_age_hours", ">=", 24),
+            ] + dd),
+            "unrouted_orphans": BfEmail.search_count([
+                ("source", "=", "imap"),
+                ("res_model", "=", False),
+                ("is_handled", "=", False),
+            ] + dd),
+            "vip_pending": BfEmail.search_count([
+                ("direction", "=", "in"),
+                ("is_handled", "=", False),
+                ("priority", "in", ("2", "3")),
+            ] + dd),
+        }
+
+    @api.model
+    def _get_handled_rate(self, date_from=False, date_to=False):
+        """Handled / total ratio for the selected period."""
+        BfEmail = self.env["bf.email"]
+        dd = self._date_domain(date_from, date_to)
+        total = BfEmail.search_count(dd) if dd else BfEmail.search_count([])
+        if not total:
+            return {"total": 0, "handled": 0, "rate": 0}
+        handled = BfEmail.search_count([("is_handled", "=", True)] + dd)
+        return {
+            "total": total,
+            "handled": handled,
+            "rate": round(100.0 * handled / total, 1),
         }
 
     @api.model
@@ -221,13 +325,26 @@ class BfEmailDashboard(models.Model):
 
     @api.model
     def _get_daily_volume(self, date_from=False, date_to=False):
-        """Daily email volume for the selected range (capped at 366 days)."""
+        """Daily email volume for the selected range (capped at 366 days).
+
+        When neither bound is provided (preset 'Tout'), derive the range
+        from the actual data — ``min(date)`` of bf.email rows to today.
+        Falls back to last 14 days only if the table is empty.
+        """
         if date_from and date_to:
             start = date_from
             end = date_to
         else:
             end = str(fields.Date.today())
-            start = str(fields.Date.today() - timedelta(days=14))
+            self.env.cr.execute(
+                "SELECT MIN(date)::date FROM bf_email WHERE active = TRUE"
+            )
+            row = self.env.cr.fetchone()
+            min_date = row[0] if row and row[0] else None
+            if min_date:
+                start = str(min_date)
+            else:
+                start = str(fields.Date.today() - timedelta(days=14))
         # Cap range to prevent DoS via unbounded generate_series
         max_days = 366
         start_dt = datetime.strptime(start, "%Y-%m-%d")

@@ -1,7 +1,13 @@
 import base64
+import email as email_mod
+import email.message
+import email.policy
+import email.utils
 import logging
+import mimetypes
 import re
-from datetime import timedelta
+import unicodedata
+from datetime import datetime, timedelta, timezone
 from email.utils import parseaddr
 
 from odoo import api, fields, models, tools
@@ -15,10 +21,24 @@ _DIRECTION_LABELS = {
     "out": "\u2192",
 }
 
+# Heuristic signals \u2014 see README \u00a7Research for citations.
+_QUESTION_RE = re.compile(r"\?")
+_ACTION_REQUEST_RE = re.compile(
+    r"\b(could you|can you|would you|please|kindly|"
+    r"pouvez-vous|pourriez-vous|pourrais-tu|peux-tu|merci de|svp|s\.v\.p\.|"
+    r"besoin de|j'ai besoin)\b",
+    re.IGNORECASE,
+)
+_BULK_DOMAINS = (
+    "mailchimp", "sendgrid", "constantcontact", "campaignmonitor",
+    "amazonses", "mandrillapp", "substack", "convertkit", "klaviyo",
+    "hubspot", "marketo", "eloqua", "salesforce", "intercom",
+)
+
 
 class BfEmail(models.Model):
     _name = "bf.email"
-    _inherit = ["mail.activity.mixin"]
+    _inherit = ["mail.thread", "mail.activity.mixin"]
     _description = "Courriel"
     _order = "date desc, id desc"
     _rec_name = "subject"
@@ -231,6 +251,112 @@ class BfEmail(models.Model):
     )
 
     # ------------------------------------------------------------------
+    # Inbox-Zero workflow (decoupled from status)
+    # ------------------------------------------------------------------
+    is_handled = fields.Boolean(
+        string="Traité",
+        default=False,
+        index=True,
+        help="Sorti de la boîte de réception. Indépendant du statut "
+             "(read/replied préservé). Inverse via « Remettre en boîte ».",
+    )
+    handled_at = fields.Datetime(
+        string="Traité le",
+        readonly=True,
+    )
+    snoozed_until = fields.Datetime(
+        string="Reporté jusqu'à",
+        index=True,
+        help="Masqué de la boîte de réception jusqu'à cette date. "
+             "Le cron de réveil flippe is_handled à False à l'échéance.",
+    )
+
+    imap_in_inbox = fields.Boolean(
+        string="Dans INBOX IMAP",
+        default=True,
+        index=True,
+        help="Reflète l'état IMAP réel : True si le message est encore "
+             "dans INBOX selon le dernier scan. Mis à jour par "
+             "_cron_imap_mirror toutes les 5 minutes.",
+    )
+
+    raw_headers = fields.Text(
+        string="En-têtes RFC 2822",
+        help="En-têtes complets (extraits de raw_rfc822 pour les rangées "
+             "IMAP, ou de mail.message pour le chatter). Sert à la "
+             "détection bulk via List-Unsubscribe.",
+    )
+
+    # ------------------------------------------------------------------
+    # Heuristic signals (evidence-based — see README §Research)
+    # ------------------------------------------------------------------
+    is_short = fields.Boolean(
+        string="Court",
+        compute="_compute_signals",
+        store=True,
+        help="Aperçu < 280 caractères. Whittaker & Sidner 1996 — "
+             "courriels courts répondus rapidement.",
+    )
+    is_question = fields.Boolean(
+        string="Question posée",
+        compute="_compute_signals",
+        store=True,
+        help="Point d'interrogation dans l'objet ou la dernière phrase. "
+             "Dabbish & Kraut 2006 — questions ~4× plus susceptibles "
+             "d'obtenir une réponse.",
+    )
+    is_action_request = fields.Boolean(
+        string="Demande d'action",
+        compute="_compute_signals",
+        store=True,
+        help="Verbe modal ou impératif détecté (please/pouvez-vous/merci de/…). "
+             "Dabbish & Kraut 2006 — corrélé à la priorité perçue.",
+    )
+    is_to_me = fields.Boolean(
+        string="À moi",
+        compute="_compute_signals",
+        store=True,
+        help="Mon adresse dans To: (pas seulement CC/BCC). "
+             "Dabbish & Kraut 2006 — direct-To ~3× plus de chance "
+             "de réponse vs CC.",
+    )
+    is_late_night = fields.Boolean(
+        string="Hors heures",
+        compute="_compute_signals",
+        store=True,
+        help="Heure ∉ [8..18] ou fin de semaine. Kooti et al. 2015 — "
+             "courriels hors heures penchent vers moins urgents.",
+    )
+    is_likely_thread = fields.Boolean(
+        string="Fil actif",
+        compute="_compute_signals",
+        store=True,
+        help="Plus d'un message dans le fil ET activité < 48h. "
+             "Whittaker 2011 — fils actifs = à traiter par lots.",
+    )
+    is_bulk = fields.Boolean(
+        string="En masse",
+        compute="_compute_signals",
+        store=True,
+        index=True,
+        help="List-Unsubscribe présent OU domaine connu (Mailchimp, etc.). "
+             "Grbovic et al. 2014 — signal le plus fort pour marketing.",
+    )
+    external_age_hours = fields.Float(
+        string="Âge en attente (h)",
+        compute="_compute_external_age",
+        help="Heures depuis réception jusqu'à réponse (ou maintenant). "
+             "Inbound seulement. Kooti 2015 — médiane des réponses < 47 min, "
+             "queue > 24h = vrai backlog.",
+    )
+    expected_reply_minutes = fields.Float(
+        string="Réponse attendue (min)",
+        help="Médiane glissante du temps de réponse pour ce contact (30j). "
+             "Mise à jour par cron nocturne. Kooti 2015 — référence "
+             "par-correspondant > seuils globaux.",
+    )
+
+    # ------------------------------------------------------------------
     # Constraints
     # ------------------------------------------------------------------
     _sql_constraints = [
@@ -367,6 +493,161 @@ class BfEmail(models.Model):
                     delta.total_seconds() / 3600, 2
                 )
 
+    # ------------------------------------------------------------------
+    # Heuristic signal computation (evidence-based — see README §Research)
+    # ------------------------------------------------------------------
+    @api.model
+    def _get_self_addresses(self):
+        """Lowercase set of email addresses the configured user owns.
+
+        Read from ICP `bf_email.imap_user` plus the partner email of the
+        OdooBot follower owners. Cached per-cursor via env context.
+        """
+        cache_key = "_bf_email_self_addresses"
+        cached = self.env.context.get(cache_key)
+        if cached is not None:
+            return set(cached)
+        ICP = self.env["ir.config_parameter"].sudo()
+        addrs = set()
+        imap_user = ICP.get_param("bf_email.imap_user", "").strip().lower()
+        if imap_user:
+            addrs.add(imap_user)
+        # Also pick up the partner row that matches the IMAP user, plus its
+        # aliases. Only internal users (user_ids set) count as "self".
+        if imap_user:
+            partner = self.env["res.partner"].sudo().search(
+                [("email_normalized", "=", imap_user)], limit=1,
+            )
+            if partner and partner.user_ids:
+                if partner.email:
+                    addrs.add(partner.email.strip().lower())
+        return addrs
+
+    @api.model
+    def _resolve_user_partner(self):
+        """Return the res.partner row matching ICP['bf_email.imap_user']."""
+        ICP = self.env["ir.config_parameter"].sudo()
+        imap_user = ICP.get_param("bf_email.imap_user", "").strip().lower()
+        if not imap_user:
+            return self.env["res.partner"].browse()
+        Partner = self.env["res.partner"].sudo()
+        partner = Partner.search([("email_normalized", "=", imap_user)], limit=1)
+        if partner:
+            return partner
+        return Partner.search([("email", "=ilike", imap_user)], limit=1)
+
+    @api.depends(
+        "subject", "body_preview", "email_to", "email_cc", "date",
+        "raw_headers", "email_from", "thread_root_id",
+    )
+    def _compute_signals(self):
+        self_addrs = self._get_self_addresses()
+        for rec in self:
+            preview = (rec.body_preview or "").strip()
+            subject = (rec.subject or "").strip()
+
+            rec.is_short = bool(preview) and len(preview) < 280
+
+            last_sentence = preview.rsplit(".", 1)[-1] if preview else ""
+            rec.is_question = bool(
+                _QUESTION_RE.search(subject) or _QUESTION_RE.search(last_sentence)
+            )
+
+            rec.is_action_request = bool(
+                _ACTION_REQUEST_RE.search(subject)
+                or _ACTION_REQUEST_RE.search(preview)
+            )
+
+            to_addrs = (rec.email_to or "").lower()
+            rec.is_to_me = any(addr in to_addrs for addr in self_addrs)
+
+            if rec.date:
+                hour = rec.date.hour
+                weekday = rec.date.weekday()
+                rec.is_late_night = hour < 8 or hour >= 18 or weekday >= 5
+            else:
+                rec.is_late_night = False
+
+            rec.is_likely_thread = False  # set below by SQL recomputation
+
+            headers = (rec.raw_headers or "").lower()
+            email_from = (rec.email_from or "").lower()
+            sender_domain = email_from.split("@")[-1] if "@" in email_from else ""
+            rec.is_bulk = (
+                "list-unsubscribe" in headers
+                or any(d in sender_domain for d in _BULK_DOMAINS)
+                or bool(self._NOTIFICATION_PATTERNS.search(email_from))
+            )
+
+        # is_likely_thread: per-thread sibling count + most-recent activity.
+        roots = [r.thread_root_id for r in self if r.thread_root_id]
+        if roots:
+            self.env.cr.execute(
+                """
+                SELECT thread_root_id, COUNT(*) AS cnt, MAX(date) AS last_date
+                FROM bf_email
+                WHERE thread_root_id = ANY(%s)
+                  AND active = TRUE
+                GROUP BY thread_root_id
+                """,
+                [roots],
+            )
+            stats = {row[0]: (row[1], row[2]) for row in self.env.cr.fetchall()}
+            cutoff = fields.Datetime.now() - timedelta(hours=48)
+            for rec in self:
+                if not rec.thread_root_id:
+                    continue
+                cnt, last_date = stats.get(rec.thread_root_id, (1, None))
+                rec.is_likely_thread = cnt > 1 and last_date and last_date >= cutoff
+
+    @api.depends("date", "direction", "status")
+    def _compute_external_age(self):
+        now = fields.Datetime.now()
+        for rec in self:
+            if rec.direction != "in" or not rec.date:
+                rec.external_age_hours = 0.0
+                continue
+            if rec.status == "replied":
+                rec.external_age_hours = rec.response_time_hours or 0.0
+            else:
+                delta = now - rec.date
+                rec.external_age_hours = round(delta.total_seconds() / 3600, 2)
+
+    # ------------------------------------------------------------------
+    # Nightly cron: recompute expected_reply_minutes per partner
+    # ------------------------------------------------------------------
+    @api.model
+    def _cron_recompute_expected_reply(self):
+        """Update expected_reply_minutes per partner via 30d rolling median.
+
+        Lightweight: one SQL aggregating reply times by partner_id, written
+        back to all matching bf.email rows. Runs once daily.
+        """
+        cutoff = fields.Datetime.now() - timedelta(days=30)
+        self.env.cr.execute(
+            """
+            WITH medians AS (
+                SELECT partner_id,
+                       PERCENTILE_CONT(0.5) WITHIN GROUP (
+                           ORDER BY response_time_hours
+                       ) * 60 AS median_minutes
+                  FROM bf_email
+                 WHERE response_time_hours > 0
+                   AND date >= %s
+                   AND partner_id IS NOT NULL
+                 GROUP BY partner_id
+            )
+            UPDATE bf_email be
+               SET expected_reply_minutes = m.median_minutes
+              FROM medians m
+             WHERE be.partner_id = m.partner_id
+            """,
+            [cutoff],
+        )
+        _logger.info(
+            "bf.email expected_reply_minutes: %s rows updated", self.env.cr.rowcount,
+        )
+
     @api.depends("thread_root_id", "company_id")
     def _compute_thread_count(self):
         for rec in self:
@@ -413,7 +694,50 @@ class BfEmail(models.Model):
             ], limit=1)
             if parent:
                 parent.write({"status": "replied"})
+        # Apply user-defined rules (auto-categorization, set_handled, etc.)
+        try:
+            records._apply_rules()
+        except Exception:
+            _logger.warning(
+                "bf.email: rule engine failed during create()", exc_info=True,
+            )
         return records
+
+    def _apply_rules(self):
+        """Run active bf.email.rule definitions over each record.
+
+        Rules are evaluated in (sequence, id) order. First matching rule per
+        target field wins; later rules can still set untouched fields unless
+        an earlier one set ``stop_processing=True``.
+        """
+        if not self:
+            return
+        rules = self.env["bf.email.rule"].sudo().search([])
+        if not rules:
+            return
+        for rec in self:
+            written_fields = set()
+            for rule in rules:
+                if not rule._match(rec):
+                    continue
+                vals = {}
+                if rule.set_category and "category" not in written_fields:
+                    vals["category"] = rule.set_category
+                    written_fields.add("category")
+                if rule.set_priority and "priority" not in written_fields:
+                    vals["priority"] = rule.set_priority
+                    written_fields.add("priority")
+                if rule.set_partner_id and "partner_id" not in written_fields:
+                    vals["partner_id"] = rule.set_partner_id.id
+                    written_fields.add("partner_id")
+                if rule.set_handled and not rec.is_handled:
+                    vals["is_handled"] = True
+                    vals["handled_at"] = fields.Datetime.now()
+                    written_fields.add("is_handled")
+                if vals:
+                    rec.write(vals)
+                if rule.stop_processing:
+                    break
 
     # ------------------------------------------------------------------
     # Actions
@@ -425,7 +749,148 @@ class BfEmail(models.Model):
         self.write({"status": "replied"})
 
     def action_archive(self):
-        self.write({"status": "archived", "active": False})
+        """Sortir de la boîte de réception sans toucher au statut.
+
+        Préserve `read`/`replied` afin de conserver l'historique. Par défaut,
+        déplace aussi le message dans Migadu vers `Archives/{YYYY}` (gate
+        ICP `bf_email.imap_writeback_archive`, on par défaut depuis 18.0.2.3.0).
+
+        Pour un seul enregistrement, ré-ouvre le formulaire avec un flag
+        de contexte ``bf_email_just_handled`` afin que le bouton « Remettre »
+        agisse comme un undo transitoire (disparaît au rechargement).
+        """
+        self.write({
+            "is_handled": True,
+            "handled_at": fields.Datetime.now(),
+        })
+        # Bilateral IMAP archive (on by default since 18.0.2.3.0)
+        ICP = self.env["ir.config_parameter"].sudo()
+        writeback = (
+            ICP.get_param("bf_email.imap_writeback_archive", "True").lower()
+            == "true"
+        )
+        if writeback:
+            try:
+                self._imap_writeback_archive()
+            except Exception:
+                _logger.warning(
+                    "bf.email IMAP writeback archive failed", exc_info=True,
+                )
+        # Only re-open the form (with undo context flag) when explicitly
+        # asked by the form-header caller. List inline / bulk callers
+        # don't pass the flag, so they get None back and the list simply
+        # refreshes in place — no navigation.
+        if len(self) == 1 and self.env.context.get("with_undo_redirect"):
+            return {
+                "type": "ir.actions.act_window",
+                "res_model": self._name,
+                "res_id": self.id,
+                "view_mode": "form",
+                "views": [[False, "form"]],
+                "target": "current",
+                "context": {**self.env.context, "bf_email_just_handled": True},
+            }
+
+    def action_unhandle(self):
+        """Remettre dans la boîte de réception."""
+        self.write({"is_handled": False, "handled_at": False, "snoozed_until": False})
+
+    def action_snooze(self):
+        """Open snooze wizard for selected emails."""
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Reporter",
+            "res_model": "bf.email.snooze",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"default_bf_email_ids": [(6, 0, self.ids)]},
+        }
+
+    def _imap_writeback_archive(self):
+        """Move corresponding IMAP messages from INBOX to Archives/{YYYY}.
+
+        Fast path: rows already tagged ``imap_uid`` + ``imap_folder='INBOX'``
+        get moved by UID. Fallback: rows with only ``message_id_header``
+        (gateway/chatter rows where the chatter cron won the race against
+        the IMAP cron, so no UID was ever recorded) get an IMAP
+        ``SEARCH HEADER Message-ID`` lookup against INBOX before COPY+STORE.
+        Uses the same connection params as ``_cron_sync_imap``.
+        """
+        candidates = self.filtered(lambda r: r.message_id_header)
+        if not candidates:
+            return
+
+        ICP = self.env["ir.config_parameter"].sudo()
+        host = ICP.get_param("bf_email.imap_host")
+        user = ICP.get_param("bf_email.imap_user")
+        password = ICP.get_param("bf_email.imap_password")
+        if not (host and user and password):
+            return
+        port = int(ICP.get_param("bf_email.imap_port", "993"))
+        archive_folder_tpl = ICP.get_param(
+            "bf_email.imap_archive_folder", "Archives/{YYYY}"
+        )
+
+        try:
+            conn = bf_email_imap.open_connection(host, port, user, password)
+        except bf_email_imap.ImapConnectionError as exc:
+            _logger.warning("bf.email IMAP writeback: %s", exc)
+            return
+
+        try:
+            if not bf_email_imap.select_folder(conn, "INBOX", readonly=False):
+                return
+            for rec in candidates:
+                uid = None
+                if rec.imap_uid and (rec.imap_folder or "").upper() == "INBOX":
+                    uid = rec.imap_uid
+                else:
+                    # Look the message up by Message-ID. Catches gateway/
+                    # chatter rows where IMAP cron lost the race plus rows
+                    # whose imap_folder is stale.
+                    try:
+                        status, data = conn.uid(
+                            "SEARCH", None, "HEADER",
+                            "Message-ID", rec.message_id_header,
+                        )
+                        if status == "OK" and data and data[0]:
+                            raw = data[0]
+                            if isinstance(raw, bytes):
+                                raw = raw.decode("ascii", errors="ignore")
+                            found = [x for x in raw.split() if x.isdigit()]
+                            uid = found[0] if found else None
+                    except Exception:
+                        _logger.debug(
+                            "bf.email writeback HEADER search failed "
+                            "for #%s (%s)", rec.id, rec.message_id_header,
+                            exc_info=True,
+                        )
+                if not uid:
+                    continue
+                year = (rec.date or fields.Datetime.now()).strftime("%Y")
+                target = archive_folder_tpl.replace("{YYYY}", year)
+                try:
+                    conn.uid("COPY", uid, f'"{target}"')
+                    conn.uid("STORE", uid, "+FLAGS", "(\\Deleted)")
+                    rec.write({
+                        "imap_uid": str(uid),
+                        "imap_folder": target,
+                        "imap_in_inbox": False,
+                    })
+                except Exception:
+                    _logger.warning(
+                        "bf.email IMAP writeback failed for UID %s",
+                        uid, exc_info=True,
+                    )
+            try:
+                conn.expunge()
+            except Exception:
+                pass
+        finally:
+            try:
+                conn.logout()
+            except Exception:
+                pass
 
     def action_open_source_record(self):
         self.ensure_one()
@@ -441,51 +906,70 @@ class BfEmail(models.Model):
             }
 
     def action_reply(self):
-        """Open mail composer pre-filled to reply on the source record."""
-        self.ensure_one()
-        if not self.res_model or not self.res_id:
-            return self.action_reply_standalone()
+        """Reply dispatcher \u2014 works for all 4 branches.
 
-        # Auto mark as replied
-        if self.status in ("new", "read"):
+        | direction | res_model | composer target               |
+        |-----------|-----------|-------------------------------|
+        | in        | yes       | source record (chatter)       |
+        | in        | no        | own res.partner (orphan IMAP) |
+        | out       | yes       | source record (chatter)       |
+        | out       | no        | own res.partner (orphan IMAP) |
+        """
+        self.ensure_one()
+        return self._open_composer(mode="reply")
+
+    def action_forward(self):
+        """Forward dispatcher \u2014 same 4 branches as reply, no default
+        partners, body wraps the original behind a 'Forwarded message'
+        header. Attachments re-attached for orphan IMAP rows."""
+        self.ensure_one()
+        return self._open_composer(mode="forward")
+
+    def _open_composer(self, mode="reply"):
+        """Build the composer action for reply or forward.
+
+        ``mode`` \u2208 {"reply", "forward"}.
+        """
+        self.ensure_one()
+        is_forward = mode == "forward"
+
+        # Mark as replied for genuine inbound replies only.
+        if (not is_forward and self.direction == "in"
+                and self.status in ("new", "read")):
             self.write({"status": "replied"})
 
-        # Build recipient list from original sender
-        partner_ids = []
-        if self.direction == "in" and self.email_from:
-            partner = self.env["res.partner"].search(
-                [("email", "=ilike", self.email_from.strip())], limit=1
-            )
-            if not partner:
-                partner = self.env["res.partner"].search(
-                    [("email_normalized", "=", self.email_from.strip().lower())],
-                    limit=1,
-                )
-            if partner:
-                partner_ids = partner.ids
-        elif self.partner_id:
-            partner_ids = [self.partner_id.id]
+        partner_ids = [] if is_forward else self._build_reply_recipients()
 
-        subject = self.subject or ""
-        if not subject.lower().startswith("re:"):
-            subject = f"Re: {subject}"
+        prefix = "Fwd:" if is_forward else "Re:"
+        subject = (self.subject or "").strip()
+        if not subject.lower().startswith(prefix.lower()):
+            subject = f"{prefix} {subject}".strip()
 
-        # Build quoted reply body via mail_quoted_reply pattern
-        quote_body = ""
-        if self.mail_message_id:
-            quote_body = self.mail_message_id._prep_quoted_reply_body()
+        if is_forward:
+            quote_body = self._build_forward_body()
+        else:
+            quote_body = self._build_reply_quote_body()
+
+        target_model, target_res_id = self._composer_target()
 
         ctx = {
-            "default_model": self.res_model,
-            "default_res_ids": [self.res_id],
+            "default_model": target_model,
+            "default_res_ids": [target_res_id],
             "default_composition_mode": "comment",
             "default_partner_ids": partner_ids,
             "default_subject": subject,
             "default_notify": True,
             "force_email": True,
-            "is_quoted_reply": True,
+            "is_quoted_reply": not is_forward,
             "quote_body": quote_body,
+            "mail_create_nosubscribe": True,
         }
+
+        # Forwards on orphans: ship the original attachments.
+        if is_forward and not self.mail_message_id and self.raw_rfc822:
+            attachment_ids = self._extract_orphan_attachments()
+            if attachment_ids:
+                ctx["default_attachment_ids"] = [(6, 0, attachment_ids)]
 
         action = self.env["ir.actions.actions"]._for_xml_id(
             "mail.action_email_compose_message_wizard"
@@ -493,20 +977,294 @@ class BfEmail(models.Model):
         action["context"] = ctx
         return action
 
-    def action_reply_standalone(self):
-        """Fallback reply when no source record: open source record search."""
+    def _composer_target(self):
+        """Resolve (model, res_id) for the composer.
+
+        If row has a chatter source record, post there. Otherwise post on
+        the configured user's own res.partner (orphan IMAP fallback). If
+        no IMAP user partner is found, post on the bf.email row itself.
+        """
         self.ensure_one()
+        if self.res_model and self.res_id:
+            return self.res_model, self.res_id
+        own = self._resolve_user_partner()
+        if own:
+            return "res.partner", own.id
+        return "bf.email", self.id
+
+    def _build_reply_recipients(self):
+        """Return [partner_id, ...] for a Reply.
+
+        Inbound: the original sender. Outbound: the original To: recipients.
+        Creates a transient res.partner for unknown emails so the composer
+        can render the recipient chip.
+        """
+        self.ensure_one()
+        Partner = self.env["res.partner"].sudo()
+        addrs = []
+        if self.direction == "in" and self.email_from:
+            addrs = [self.email_from.strip()]
+        elif self.direction == "out" and self.email_to:
+            addrs = [a.strip() for a in self.email_to.split(",") if a.strip()]
+        elif self.partner_id:
+            return [self.partner_id.id]
+
+        ids = []
+        for addr in addrs:
+            display_name, bare = parseaddr(addr)
+            bare = (bare or addr).strip()
+            if not bare:
+                continue
+            partner = Partner.search([("email", "=ilike", bare)], limit=1)
+            if not partner:
+                partner = Partner.search(
+                    [("email_normalized", "=", bare.lower())], limit=1,
+                )
+            if not partner:
+                try:
+                    partner = Partner.create({
+                        "name": display_name or bare,
+                        "email": bare,
+                    })
+                except Exception:
+                    continue
+            if partner.id not in ids:
+                ids.append(partner.id)
+        return ids
+
+    def _build_reply_quote_body(self):
+        """Build the quoted-reply HTML for the composer."""
+        self.ensure_one()
+        if self.mail_message_id:
+            try:
+                return self.mail_message_id._prep_quoted_reply_body() or ""
+            except Exception:
+                pass
+        body = self.body_html or ""
+        date = fields.Datetime.to_string(self.date) if self.date else ""
+        sender = self.email_from or ""
+        return (
+            '<blockquote style="border-left:3px solid #ccc;padding-left:8px;'
+            'margin:8px 0;color:#666;">'
+            f'<p><em>Le {date}, {sender} a \u00e9crit :</em></p>'
+            f'{body}'
+            '</blockquote>'
+        )
+
+    def _build_forward_body(self):
+        """Build the standard 'Forwarded message' wrapper for the composer."""
+        self.ensure_one()
+        date = fields.Datetime.to_string(self.date) if self.date else ""
+        body = self.body_html or ""
+        cc_line = (
+            f'<br/><strong>CC&nbsp;:</strong> {self.email_cc}'
+            if self.email_cc else ''
+        )
+        return (
+            '<p>---------- Forwarded message ---------- </p>'
+            f'<p><strong>De&nbsp;:</strong> {self.email_from or ""}<br/>'
+            f'<strong>Date&nbsp;:</strong> {date}<br/>'
+            f'<strong>Objet&nbsp;:</strong> {self.subject or ""}<br/>'
+            f'<strong>\u00c0&nbsp;:</strong> {self.email_to or ""}'
+            f'{cc_line}'
+            '</p>'
+            f'<div>{body}</div>'
+        )
+
+    def _extract_orphan_attachments(self):
+        """Materialize attachments from raw_rfc822 as ir.attachment ids.
+
+        Used by Forward on orphan IMAP rows \u2014 the composer expects
+        ir.attachment IDs, so we create them on the fly bound to the
+        bf.email row.
+        """
+        self.ensure_one()
+        if not self.raw_rfc822:
+            return []
+        try:
+            raw = base64.b64decode(self.raw_rfc822)
+        except Exception:
+            return []
+        try:
+            parsed = email_mod.message_from_bytes(raw, policy=email.policy.default)
+        except Exception:
+            return []
+        items = bf_email_imap.extract_attachments(parsed)
+        if not items:
+            return []
+        Attachment = self.env["ir.attachment"].sudo()
+        ids = []
+        for filename, payload in items:
+            try:
+                att = Attachment.create({
+                    "name": filename,
+                    "datas": base64.b64encode(payload).decode("ascii"),
+                    "res_model": self._name,
+                    "res_id": self.id,
+                })
+                ids.append(att.id)
+            except Exception:
+                continue
+        return ids
+
+    # ------------------------------------------------------------------
+    # .eml download
+    # ------------------------------------------------------------------
+    def action_download_eml(self):
+        """Materialize the message as an .eml file and stream it.
+
+        Strategy:
+        - If raw_rfc822 is populated (IMAP-direct rows), decode and use it
+          verbatim — preserves Received/DKIM-Signature headers.
+        - Otherwise (chatter/gateway rows), reconstruct an RFC 2822 message
+          from the linked mail.message + mail.message.attachment_ids.
+        """
+        self.ensure_one()
+        eml_bytes = self._build_eml_bytes()
+        attachment = self.env["ir.attachment"].sudo().create({
+            "name": self._eml_filename(),
+            "datas": base64.b64encode(eml_bytes).decode("ascii"),
+            "mimetype": "message/rfc822",
+            "res_model": self._name,
+            "res_id": self.id,
+        })
         return {
-            "type": "ir.actions.client",
-            "tag": "display_notification",
-            "params": {
-                "title": "Aucun enregistrement li\u00e9",
-                "message": "Ce courriel n'est pas li\u00e9 \u00e0 un enregistrement. "
-                           "Utilisez le bouton \u00ab\u00a0Enregistrement\u00a0\u00bb pour le lier d'abord.",
-                "type": "warning",
-                "sticky": False,
-            },
+            "type": "ir.actions.act_url",
+            "url": f"/web/content/{attachment.id}?download=true",
+            "target": "self",
         }
+
+    def _build_eml_bytes(self):
+        """Return the .eml bytes for this row.
+
+        Falls through to mail.message reconstruction if no raw_rfc822 and
+        a linked mail.message exists. Last resort: build from bf.email
+        fields directly (orphan rows without raw — should be rare).
+        """
+        self.ensure_one()
+        if self.raw_rfc822:
+            try:
+                return base64.b64decode(self.raw_rfc822)
+            except Exception:
+                _logger.warning("bf.email %s: raw_rfc822 base64 decode failed", self.id)
+        if self.mail_message_id:
+            return self.env["bf.email"]._build_eml_from_mail_message(self.mail_message_id)
+        return self._build_eml_from_self()
+
+    @api.model
+    def _build_eml_from_mail_message(self, message):
+        """Reconstruct .eml bytes from a mail.message record.
+
+        Preserves: From, To, Cc, Subject, Date, Message-ID, In-Reply-To,
+        References. Body becomes multipart/alternative (text + HTML).
+        Attachments from message.attachment_ids are included.
+        """
+        message.ensure_one()
+        msg = email.message.EmailMessage(policy=email.policy.SMTP)
+
+        author_email = (message.email_from or "").strip()
+        if not author_email and message.author_id:
+            author_email = message.author_id.email_formatted or message.author_id.email or ""
+        if author_email:
+            msg["From"] = author_email
+
+        recipient_addrs = []
+        for partner in message.partner_ids:
+            if partner.email_formatted:
+                recipient_addrs.append(partner.email_formatted)
+            elif partner.email:
+                recipient_addrs.append(partner.email)
+        if recipient_addrs:
+            msg["To"] = ", ".join(recipient_addrs)
+
+        if message.subject:
+            msg["Subject"] = message.subject
+
+        if message.date:
+            msg["Date"] = email.utils.format_datetime(
+                message.date if message.date.tzinfo else message.date.replace(tzinfo=timezone.utc)
+            )
+
+        if message.message_id:
+            msg["Message-ID"] = message.message_id
+
+        if message.parent_id and message.parent_id.message_id:
+            msg["In-Reply-To"] = message.parent_id.message_id
+            msg["References"] = message.parent_id.message_id
+
+        html_body = message.body or ""
+        text_body = tools.html2plaintext(html_body) if html_body else ""
+        msg.set_content(text_body or "")
+        if html_body:
+            msg.add_alternative(html_body, subtype="html")
+
+        for att in message.attachment_ids:
+            payload = att.raw if hasattr(att, "raw") and att.raw else (
+                base64.b64decode(att.datas) if att.datas else b""
+            )
+            if not payload:
+                continue
+            mimetype = att.mimetype or mimetypes.guess_type(att.name or "")[0] or "application/octet-stream"
+            maintype, _, subtype = mimetype.partition("/")
+            if not subtype:
+                maintype, subtype = "application", "octet-stream"
+            msg.add_attachment(payload, maintype=maintype, subtype=subtype,
+                               filename=att.name or "attachment")
+
+        return msg.as_bytes()
+
+    def _build_eml_from_self(self):
+        """Last-resort reconstruction from bf.email fields only.
+
+        Used when there is no raw_rfc822 AND no linked mail.message — rare,
+        but possible for some legacy or edge-case rows.
+        """
+        self.ensure_one()
+        msg = email.message.EmailMessage(policy=email.policy.SMTP)
+        if self.email_from:
+            msg["From"] = self.email_from
+        if self.email_to:
+            msg["To"] = self.email_to
+        if self.email_cc:
+            msg["Cc"] = self.email_cc
+        if self.subject:
+            msg["Subject"] = self.subject
+        if self.date:
+            msg["Date"] = email.utils.format_datetime(
+                self.date if self.date.tzinfo else self.date.replace(tzinfo=timezone.utc)
+            )
+        if self.message_id_header:
+            msg["Message-ID"] = self.message_id_header
+        if self.in_reply_to:
+            msg["In-Reply-To"] = self.in_reply_to
+        html_body = self.body_html or ""
+        text_body = tools.html2plaintext(html_body) if html_body else ""
+        msg.set_content(text_body or "")
+        if html_body:
+            msg.add_alternative(html_body, subtype="html")
+        return msg.as_bytes()
+
+    def _eml_filename(self):
+        """Build a safe filename: YYYY-MM-DD_from_subject.eml."""
+        self.ensure_one()
+        date_part = self.date.strftime("%Y-%m-%d") if self.date else "undated"
+        _, bare = parseaddr(self.email_from or "")
+        local = (bare.split("@", 1)[0] if bare else "") or "unknown"
+        local = self._eml_slug(local)
+        subject = self._eml_slug(self.subject or "")
+        parts = [p for p in (date_part, local, subject) if p]
+        stem = "_".join(parts) or f"message_{self.id}"
+        return f"{stem[:120]}.eml"
+
+    @staticmethod
+    def _eml_slug(text):
+        """ASCII-safe slug, max 60 chars, alphanum + dashes."""
+        if not text:
+            return ""
+        normalized = unicodedata.normalize("NFKD", text)
+        ascii_text = normalized.encode("ascii", "ignore").decode("ascii")
+        cleaned = re.sub(r"[^A-Za-z0-9]+", "-", ascii_text).strip("-")
+        return cleaned[:60].lower()
 
     def action_open_in_chatter(self):
         """Navigate to the source record form (chatter visible)."""
@@ -825,6 +1583,90 @@ class BfEmail(models.Model):
                 pass
 
     @api.model
+    def _cron_imap_mirror(self):
+        """Reconcile bf.email.imap_in_inbox against the live IMAP INBOX.
+
+        Runs every 5 minutes. For each row with ``imap_folder='INBOX'`` and
+        ``date >= now-90d``, check whether its UID is still present in the
+        live INBOX UID set. Flip ``imap_in_inbox`` accordingly.
+
+        Also wakes snoozed rows whose ``snoozed_until`` has passed.
+        """
+        # ---- Snooze wake-up first (cheap, no IMAP) ----
+        now = fields.Datetime.now()
+        woken = self.search([
+            ("snoozed_until", "!=", False),
+            ("snoozed_until", "<=", now),
+            ("is_handled", "=", True),
+        ])
+        if woken:
+            woken.write({"is_handled": False, "snoozed_until": False})
+            _logger.info("bf.email: woke %s snoozed rows", len(woken))
+
+        # ---- IMAP mirror pass ----
+        ICP = self.env["ir.config_parameter"].sudo()
+        host = ICP.get_param("bf_email.imap_host")
+        user = ICP.get_param("bf_email.imap_user")
+        password = ICP.get_param("bf_email.imap_password")
+        if not (host and user and password):
+            return
+        port = int(ICP.get_param("bf_email.imap_port", "993"))
+
+        try:
+            conn = bf_email_imap.open_connection(host, port, user, password)
+        except bf_email_imap.ImapConnectionError as exc:
+            _logger.warning("bf.email IMAP mirror: %s", exc)
+            return
+
+        try:
+            if not bf_email_imap.select_folder(conn, "INBOX", readonly=True):
+                return
+            status, data = conn.uid("SEARCH", None, "ALL")
+            if status != "OK" or not data or not data[0]:
+                live_uids = set()
+            else:
+                raw = data[0]
+                if isinstance(raw, bytes):
+                    raw = raw.decode("ascii", errors="ignore")
+                live_uids = {x for x in raw.split() if x.isdigit()}
+        finally:
+            try:
+                conn.logout()
+            except Exception:
+                pass
+
+        cutoff = fields.Datetime.now() - timedelta(days=90)
+        rows = self.search([
+            ("imap_folder", "ilike", "INBOX"),
+            ("date", ">=", cutoff),
+            ("imap_uid", "!=", False),
+        ])
+        flipped_in = flipped_out = auto_handled = 0
+        now = fields.Datetime.now()
+        for row in rows:
+            in_inbox = str(row.imap_uid) in live_uids
+            if in_inbox == row.imap_in_inbox:
+                continue
+            vals = {"imap_in_inbox": in_inbox}
+            if in_inbox:
+                flipped_in += 1
+            else:
+                flipped_out += 1
+                # External IMAP archive (moved out of INBOX by another
+                # client) → mirror as Traité if not already handled.
+                if not row.is_handled:
+                    vals["is_handled"] = True
+                    vals["handled_at"] = now
+                    auto_handled += 1
+            row.write(vals)
+        if flipped_in or flipped_out:
+            _logger.info(
+                "bf.email IMAP mirror: %s flipped to in-inbox, %s flipped out "
+                "(%s auto-marked Traité)",
+                flipped_in, flipped_out, auto_handled,
+            )
+
+    @api.model
     def _sync_imap_folder(self, conn, folder, configured_user, batch_size, ICP):
         """Pull ``batch_size`` new UIDs from one folder, advance watermark."""
         watermark_key = f"bf_email.imap_last_uid_{folder.lower().replace('/', '_')}"
@@ -891,11 +1733,15 @@ class BfEmail(models.Model):
         ], limit=1)
         if existing:
             # Already represented (chatter, gateway, or earlier IMAP poll).
-            # Backfill the IMAP UID/folder info on a pure orphan if missing.
-            if existing.source == "imap" and not existing.imap_uid:
+            # Backfill IMAP traceability on any source that lacks it — the
+            # chatter cron may have created the row first via gateway
+            # projection, and without a UID the writeback can't archive
+            # the message server-side when the user clicks « Traiter ».
+            if not existing.imap_uid:
                 existing.write({
                     "imap_uid": str(uid),
                     "imap_folder": folder,
+                    "imap_in_inbox": (folder or "").upper() == "INBOX",
                 })
             return False
 
@@ -954,6 +1800,15 @@ class BfEmail(models.Model):
 
         attachments = bf_email_imap.extract_attachments(msg)
 
+        # Extract raw headers for heuristic signals (List-Unsubscribe etc.).
+        raw_headers = ""
+        try:
+            raw_headers = "\n".join(
+                f"{k}: {v}" for k, v in msg.items()
+            )
+        except Exception:
+            raw_headers = ""
+
         return {
             "date": date_str or fields.Datetime.now(),
             "email_from": email_from,
@@ -976,7 +1831,9 @@ class BfEmail(models.Model):
             "company_id": self.env.company.id,
             "imap_uid": str(uid),
             "imap_folder": folder,
+            "imap_in_inbox": (folder or "").upper() == "INBOX",
             "raw_rfc822": bf_email_imap.attachment_to_b64(raw_bytes),
+            "raw_headers": raw_headers,
         }
 
     @api.model
@@ -1021,6 +1878,11 @@ class BfEmail(models.Model):
             )
             if last_after == last_before:
                 break
+
+        try:
+            self._cron_sync_imap()
+        except Exception:
+            _logger.exception("bf.email action_sync_now: IMAP pull failed")
 
         after_count = self.search_count([])
         created = after_count - before_count

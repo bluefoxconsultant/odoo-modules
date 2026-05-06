@@ -47,4 +47,18 @@
         <field name="value">0</field>
     </record>
 
+    <!-- Bilateral IMAP archive (Migadu writeback). When True,
+         action_archive() also COPY+EXPUNGE the message from INBOX into
+         the configured archive folder. On by default since 18.0.2.3.0;
+         set to False to disable bilateral archive. -->
+    <record id="bf_email_imap_writeback_archive" model="ir.config_parameter">
+        <field name="key">bf_email.imap_writeback_archive</field>
+        <field name="value">True</field>
+    </record>
+
+    <record id="bf_email_imap_archive_folder" model="ir.config_parameter">
+        <field name="key">bf_email.imap_archive_folder</field>
+        <field name="value">Archives/{YYYY}</field>
+    </record>
+
 </odoo>

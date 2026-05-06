@@ -126,6 +126,10 @@ export class BfEmailDashboard extends Component {
     openReceived() { this._doAction("action_view_received", [this.state.dateFrom, this.state.dateTo]); }
     openSent() { this._doAction("action_view_sent", [this.state.dateFrom, this.state.dateTo]); }
     openCategory(category) { this._doAction("action_view_by_category", [category, this.state.dateFrom, this.state.dateTo]); }
+    openInboxActive() { this._doAction("action_view_inbox_active"); }
+    openAwaitingReply() { this._doAction("action_view_awaiting_reply"); }
+    openUnroutedOrphans() { this._doAction("action_view_unrouted_orphans"); }
+    openVipPending() { this._doAction("action_view_vip_pending"); }
 
     openAllEmails() {
         this.action.doAction({

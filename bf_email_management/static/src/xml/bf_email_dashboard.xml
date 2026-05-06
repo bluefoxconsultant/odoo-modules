@@ -82,6 +82,83 @@
                     </div>
                 </div>
 
+                <!-- Actionable Inbox-Zero Cards -->
+                <div class="row mb-3 g-3">
+                    <div class="col-md-3 col-sm-6">
+                        <div class="card h-100 border-info" style="cursor: pointer;" t-on-click="openInboxActive">
+                            <div class="card-body text-center">
+                                <div class="text-muted small mb-1">
+                                    <i class="fa fa-inbox me-1"/>Boîte de réception
+                                </div>
+                                <div t-attf-class="fs-1 fw-bold {{state.data.actionable.inbox_active > 0 ? 'text-info' : 'text-success'}}">
+                                    <t t-esc="state.data.actionable.inbox_active"/>
+                                </div>
+                                <div class="text-muted small">à traiter</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <div class="card h-100 border-warning" style="cursor: pointer;" t-on-click="openAwaitingReply">
+                            <div class="card-body text-center">
+                                <div class="text-muted small mb-1">
+                                    <i class="fa fa-hourglass-half me-1"/>En attente &gt; 24h
+                                </div>
+                                <div t-attf-class="fs-1 fw-bold {{state.data.actionable.awaiting_reply > 0 ? 'text-warning' : 'text-success'}}">
+                                    <t t-esc="state.data.actionable.awaiting_reply"/>
+                                </div>
+                                <div class="text-muted small">sans réponse</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <div class="card h-100 border-secondary" style="cursor: pointer;" t-on-click="openUnroutedOrphans">
+                            <div class="card-body text-center">
+                                <div class="text-muted small mb-1">
+                                    <i class="fa fa-link me-1"/>IMAP orphelins
+                                </div>
+                                <div t-attf-class="fs-1 fw-bold {{state.data.actionable.unrouted_orphans > 0 ? 'text-secondary' : 'text-success'}}">
+                                    <t t-esc="state.data.actionable.unrouted_orphans"/>
+                                </div>
+                                <div class="text-muted small">à router</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <div class="card h-100 border-danger" style="cursor: pointer;" t-on-click="openVipPending">
+                            <div class="card-body text-center">
+                                <div class="text-muted small mb-1">
+                                    <i class="fa fa-star me-1"/>VIP en attente
+                                </div>
+                                <div t-attf-class="fs-1 fw-bold {{state.data.actionable.vip_pending > 0 ? 'text-danger' : 'text-success'}}">
+                                    <t t-esc="state.data.actionable.vip_pending"/>
+                                </div>
+                                <div class="text-muted small">priorité élevée+</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Handled rate badge -->
+                <div class="row mb-3" t-if="state.data.handled_rate.total > 0">
+                    <div class="col-12">
+                        <div class="alert alert-light border d-flex align-items-center gap-3 mb-0 py-2">
+                            <i class="fa fa-check-circle fa-2x text-success"/>
+                            <div class="flex-grow-1">
+                                <strong>Tout traité ?</strong>
+                                <t t-esc="state.data.handled_rate.handled"/> /
+                                <t t-esc="state.data.handled_rate.total"/>
+                                courriel(s) traité(s) sur la période —
+                                <strong><t t-esc="state.data.handled_rate.rate"/>%</strong>
+                            </div>
+                            <div class="progress flex-grow-1" style="height: 8px; max-width: 300px;">
+                                <div class="progress-bar bg-success"
+                                     role="progressbar"
+                                     t-att-style="'width: ' + state.data.handled_rate.rate + '%'"/>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- KPI Cards Row -->
                 <div class="row mb-4 g-3">
                     <!-- Received -->

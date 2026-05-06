@@ -4,6 +4,24 @@ All notable changes to `bf_email_management` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This module follows Odoo's `MAJOR.MINOR.PATCH` convention prefixed with the Odoo series (`18.0.X.Y.Z`).
 
+## [18.0.2.4.0] — 2026-05-06
+
+### Fixed
+- **IMAP writeback never archived gateway/chatter rows server-side** — when the chatter cron created the `bf.email` row before the IMAP cron saw the UID (a 5-minute race that played out for ~24% of inbound gateway rows), `_ingest_rfc822` skipped backfilling `imap_uid` because it only touched rows whose `source` was already `imap`. Without a UID, `_imap_writeback_archive` filtered those rows out and silently no-op'd. Two changes:
+  - `_ingest_rfc822` now backfills `imap_uid`/`imap_folder`/`imap_in_inbox` on any existing row that lacks them, regardless of source.
+  - `_imap_writeback_archive` falls back to `IMAP SEARCH HEADER Message-ID` against INBOX when the UID is missing or stale, so gateway/chatter rows still get archived even if they never picked up a UID via the cron path.
+
+### Migration
+- `migrations/18.0.2.4.0/post-migrate.py` — replays the IMAP writeback for `is_handled=True AND imap_in_inbox=True` rows from the last 180 days, in 50-row IMAP chunks. Catches up the historical backlog (~2.6k handled rows that never moved server-side).
+
+## [18.0.2.1.0] — 2026-05-05
+
+### Added
+- **Téléchargement .eml** — bouton « Télécharger .eml » dans l'en-tête du formulaire `bf.email`, et entrée « Télécharger en .eml » dans le menu kebab de chaque message de chatter (visible aux utilisateurs internes, sur les messages de type `email`). Pour les rangées avec `raw_rfc822` (ingestion IMAP directe), les bytes RFC 2822 originaux sont servis tels quels — `Received:`, `DKIM-Signature:`, etc. sont préservés. Pour les rangées chatter/gateway, le `.eml` est reconstruit à partir de `mail.message` (From/To/Cc/Subject/Date/Message-ID/In-Reply-To, corps multipart text+HTML, pièces jointes).
+- Nouvelle inheritance `mail.message` avec méthode `action_download_eml` qui délègue à un éventuel mirror `bf.email` (lookup par `Message-ID`) avant reconstruction.
+- Helpers sur `bf.email` : `_build_eml_bytes`, `_build_eml_from_mail_message` (classe), `_build_eml_from_self`, `_eml_filename`, `_eml_slug`.
+- Asset OWL `static/src/js/bf_email_chatter_action.js` enregistré dans le registry `mail.message/actions` (`sequence: 80`).
+
 ## [18.0.1.5.1] — 2026-04-28
 
 ### Fixed

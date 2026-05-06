@@ -7,3 +7,7 @@ access_bf_email_initial_sync_manager,bf.email.initial.sync.manager,model_bf_emai
 access_bf_email_reroute_user,bf.email.reroute.user,model_bf_email_reroute,group_email_user,1,1,1,1
 access_bf_email_reroute_manager,bf.email.reroute.manager,model_bf_email_reroute,group_email_manager,1,1,1,1
 access_bf_email_imap_backfill_manager,bf.email.imap.backfill.manager,model_bf_email_imap_backfill,group_email_manager,1,1,1,1
+access_bf_email_rule_user,bf.email.rule.user,model_bf_email_rule,group_email_user,1,0,0,0
+access_bf_email_rule_manager,bf.email.rule.manager,model_bf_email_rule,group_email_manager,1,1,1,1
+access_bf_email_snooze_user,bf.email.snooze.user,model_bf_email_snooze,group_email_user,1,1,1,1
+access_bf_email_snooze_manager,bf.email.snooze.manager,model_bf_email_snooze,group_email_manager,1,1,1,1

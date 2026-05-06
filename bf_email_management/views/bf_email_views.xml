@@ -8,10 +8,13 @@
         <field name="name">bf.email.tree</field>
         <field name="model">bf.email</field>
         <field name="arch" type="xml">
-            <list decoration-bf="status == 'new'"
-                  decoration-muted="status == 'archived'"
-                  decoration-warning="not res_model"
+            <list decoration-bf="status == 'new' and not is_handled"
+                  decoration-muted="is_handled"
+                  decoration-warning="not res_model and not is_handled"
+                  decoration-success="is_to_me and not is_handled"
                   default_order="date desc">
+                <field name="is_handled" column_invisible="True"/>
+                <field name="is_to_me" column_invisible="True"/>
                 <header>
                     <button name="%(action_bf_email_sync_now)d"
                             string="Synchroniser maintenant"
@@ -47,12 +50,22 @@
                        decoration-muted="status == 'archived'"/>
                 <field name="priority" widget="priority" optional="hide"/>
                 <field name="has_attachments" widget="boolean" optional="hide"/>
+                <field name="is_question" widget="boolean" optional="hide"
+                       string="?"/>
+                <field name="is_bulk" widget="boolean" optional="hide"/>
+                <field name="external_age_hours" optional="hide"/>
                 <button name="action_reroute"
                         string="Importer"
                         type="object"
                         icon="fa-sign-in"
                         invisible="res_model"
                         help="Router ce courriel IMAP orphelin vers un chatter."/>
+                <button name="action_archive"
+                        string="Traiter"
+                        type="object"
+                        icon="fa-check"
+                        invisible="is_handled"
+                        help="Sortir de la boîte de réception (préserve le statut)."/>
             </list>
         </field>
     </record>
@@ -70,12 +83,16 @@
                             string="R&#233;pondre"
                             type="object"
                             class="btn-primary"
-                            icon="fa-reply"
-                            invisible="not res_model"/>
-                    <button name="action_reroute"
-                            string="Importer dans un chatter"
+                            icon="fa-reply"/>
+                    <button name="action_forward"
+                            string="Transf&#233;rer"
                             type="object"
                             class="btn-primary"
+                            icon="fa-share"/>
+                    <button name="action_reroute"
+                            string="Lier &#224; un dossier"
+                            type="object"
+                            class="btn-secondary"
                             icon="fa-sign-in"
                             invisible="res_model"/>
                     <button name="action_mark_read"
@@ -89,27 +106,62 @@
                             class="btn-secondary"
                             invisible="status in ('replied', 'archived')"/>
                     <button name="action_archive"
-                            string="Archiver"
+                            string="Traiter"
+                            type="object"
+                            class="btn-success"
+                            icon="fa-check"
+                            context="{'with_undo_redirect': True}"
+                            invisible="is_handled"/>
+                    <button name="action_unhandle"
+                            string="Remettre en bo&#238;te"
                             type="object"
                             class="btn-secondary"
-                            invisible="status == 'archived'"/>
+                            icon="fa-undo"
+                            invisible="not is_handled or not context.get('bf_email_just_handled')"
+                            help="Annuler le traitement (visible jusqu'au rechargement de la page)."/>
+                    <button name="action_snooze"
+                            string="Reporter"
+                            type="object"
+                            class="btn-secondary"
+                            icon="fa-clock-o"
+                            invisible="is_handled"/>
                     <button name="action_create_reminder"
                             string="Cr&#233;er un rappel"
                             type="object"
                             class="btn-secondary"
                             icon="fa-bell"/>
+                    <button name="action_download_eml"
+                            string="T&#233;l&#233;charger .eml"
+                            type="object"
+                            class="btn-secondary"
+                            icon="fa-download"/>
                     <field name="status" widget="statusbar"
                            statusbar_visible="new,read,replied"/>
                 </header>
                 <sheet>
+                    <widget name="web_ribbon"
+                            title="Trait&#233;"
+                            bg_color="text-bg-success"
+                            invisible="not is_handled or snoozed_until"/>
+                    <widget name="web_ribbon"
+                            title="Report&#233;"
+                            bg_color="text-bg-info"
+                            invisible="not snoozed_until"/>
                     <div class="oe_button_box" name="button_box">
                         <button name="action_reply"
                                 type="object"
                                 class="oe_stat_button"
-                                icon="fa-reply"
-                                invisible="not res_model">
+                                icon="fa-reply">
                             <div class="o_stat_info">
                                 <span class="o_stat_text">R&#233;pondre</span>
+                            </div>
+                        </button>
+                        <button name="action_forward"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-share">
+                            <div class="o_stat_info">
+                                <span class="o_stat_text">Transf&#233;rer</span>
                             </div>
                         </button>
                         <button name="action_open_in_chatter"
@@ -168,6 +220,40 @@
                         <page string="Corps" name="body">
                             <field name="body_html" readonly="1" nolabel="1"/>
                         </page>
+                        <page string="Signaux" name="insights">
+                            <p class="text-muted small">
+                                Signaux heuristiques (Dabbish &amp; Kraut 2006,
+                                Whittaker &amp; Sidner 1996, Kooti et al. 2015,
+                                Grbovic et al. 2014). Voir README.
+                            </p>
+                            <group>
+                                <group string="Triage">
+                                    <field name="is_to_me"/>
+                                    <field name="is_question"/>
+                                    <field name="is_action_request"/>
+                                    <field name="is_short"/>
+                                </group>
+                                <group string="Contexte">
+                                    <field name="is_late_night"/>
+                                    <field name="is_likely_thread"/>
+                                    <field name="is_bulk"/>
+                                </group>
+                                <group string="Temporalit&#233;">
+                                    <field name="external_age_hours"
+                                           invisible="direction != 'in'"/>
+                                    <field name="expected_reply_minutes"
+                                           invisible="not partner_id"/>
+                                </group>
+                                <group string="Workflow">
+                                    <field name="is_handled" readonly="1"/>
+                                    <field name="handled_at" readonly="1"
+                                           invisible="not is_handled"/>
+                                    <field name="snoozed_until"/>
+                                    <field name="imap_in_inbox" readonly="1"
+                                           invisible="source != 'imap'"/>
+                                </group>
+                            </group>
+                        </page>
                         <page string="Pi&#232;ces jointes" name="attachments"
                               invisible="not has_attachments">
                             <field name="attachment_ids" nolabel="1" readonly="1">
@@ -209,6 +295,7 @@
                         </page>
                     </notebook>
                 </sheet>
+                <chatter/>
             </form>
         </field>
     </record>
@@ -255,12 +342,31 @@
                         string="R&#233;pondus"
                         domain="[('status', '=', 'replied')]"/>
                 <separator/>
+                <filter name="filter_inbox"
+                        string="Bo&#238;te de r&#233;ception"
+                        domain="[('is_handled', '=', False), '|', ('imap_in_inbox', '=', True), ('source', 'in', ('chatter', 'gateway'))]"
+                        help="Mime l'INBOX IMAP : courriels actifs en IMAP plus tous les chatters non trait&#233;s. Exclut les trait&#233;s."/>
                 <filter name="filter_to_reply"
                         string="&#192; r&#233;pondre"
-                        domain="[('direction', '=', 'in'), ('status', 'in', ('new', 'read')), ('category', 'in', ('client', 'vendor'))]"/>
+                        domain="[('direction', '=', 'in'), ('status', 'in', ('new', 'read')), ('is_handled', '=', False), ('category', 'in', ('client', 'vendor'))]"/>
                 <filter name="filter_stale"
                         string="Sans r&#233;ponse > 7 jours"
-                        domain="[('direction', '=', 'in'), ('status', '=', 'new'), ('date', '&lt;', (context_today() - datetime.timedelta(days=7)).strftime('%%Y-%%m-%%d'))]"/>
+                        domain="[('direction', '=', 'in'), ('status', 'in', ('new', 'read')), ('is_handled', '=', False), ('date', '&lt;', (context_today() - datetime.timedelta(days=7)).strftime('%%Y-%%m-%%d'))]"/>
+                <filter name="filter_vip"
+                        string="VIP / priorit&#233; &#233;lev&#233;e"
+                        domain="[('is_handled', '=', False), ('priority', 'in', ('2', '3'))]"/>
+                <filter name="filter_question"
+                        string="Questions pos&#233;es"
+                        domain="[('is_question', '=', True), ('is_handled', '=', False), ('direction', '=', 'in')]"/>
+                <filter name="filter_to_me"
+                        string="&#192; moi (To, pas CC)"
+                        domain="[('is_to_me', '=', True), ('is_handled', '=', False)]"/>
+                <filter name="filter_bulk"
+                        string="En masse / marketing"
+                        domain="[('is_bulk', '=', True)]"/>
+                <filter name="filter_snoozed"
+                        string="Report&#233;s"
+                        domain="[('snoozed_until', '!=', False)]"/>
                 <separator/>
                 <filter name="filter_last_24h"
                         string="Derni&#232;res 24 h"
@@ -293,8 +399,11 @@
                 <filter name="filter_attachments"
                         string="Avec pi&#232;ces jointes"
                         domain="[('has_attachments', '=', True)]"/>
-                <filter name="filter_archived"
-                        string="Archiv&#233;s"
+                <filter name="filter_handled"
+                        string="Trait&#233;s"
+                        domain="[('is_handled', '=', True)]"/>
+                <filter name="filter_archived_legacy"
+                        string="Archives IMAP (lecture seule)"
                         domain="[('active', '=', False)]"/>
                 <separator/>
                 <group expand="0" string="Grouper par">
@@ -334,10 +443,15 @@
         <field name="name">bf.email.kanban</field>
         <field name="model">bf.email</field>
         <field name="arch" type="xml">
-            <kanban default_group_by="status" class="o_kanban_small_column">
+            <kanban default_group_by="category" class="o_kanban_small_column"
+                    records_draggable="1">
                 <field name="direction"/>
                 <field name="status"/>
                 <field name="category"/>
+                <field name="is_handled"/>
+                <field name="is_to_me"/>
+                <field name="is_question"/>
+                <field name="priority"/>
                 <field name="has_attachments"/>
                 <templates>
                     <t t-name="card">
@@ -425,12 +539,21 @@
     </record>
 
     <record id="action_bf_email_archive" model="ir.actions.server">
-        <field name="name">Archiver</field>
+        <field name="name">Traiter (sortir de la bo&#238;te)</field>
         <field name="model_id" ref="model_bf_email"/>
         <field name="binding_model_id" ref="model_bf_email"/>
         <field name="binding_view_types">list</field>
         <field name="state">code</field>
         <field name="code">records.action_archive()</field>
+    </record>
+
+    <record id="action_bf_email_unhandle" model="ir.actions.server">
+        <field name="name">Remettre en bo&#238;te</field>
+        <field name="model_id" ref="model_bf_email"/>
+        <field name="binding_model_id" ref="model_bf_email"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">records.action_unhandle()</field>
     </record>
 
     <record id="action_bf_email_sync_now" model="ir.actions.server">
@@ -444,18 +567,20 @@
     <!-- ACTIONS                                                      -->
     <!-- ============================================================ -->
     <record id="bf_email_action" model="ir.actions.act_window">
-        <field name="name">Courriels</field>
+        <field name="name">Bo&#238;te de r&#233;ception</field>
         <field name="res_model">bf.email</field>
         <field name="view_mode">list,kanban,form,graph,pivot</field>
         <field name="search_view_id" ref="bf_email_view_search"/>
-        <field name="context">{}</field>
+        <field name="domain">[('is_handled', '=', False), '|', ('imap_in_inbox', '=', True), ('source', 'in', ('chatter', 'gateway'))]</field>
+        <field name="context">{'search_default_filter_inbox': 1}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
-                Aucun courriel synchronis&#233;
+                Inbox Zero atteint
             </p>
             <p>
-                Lancez la synchronisation initiale depuis le menu Configuration
-                pour importer les courriels existants.
+                Cette vue mime l'INBOX IMAP&#160;: courriels encore actifs sur Migadu
+                plus les chatters Odoo non trait&#233;s. Archiver via &#171;&#160;Traiter&#160;&#187;
+                conserve le statut (lu/r&#233;pondu).
             </p>
         </field>
     </record>
