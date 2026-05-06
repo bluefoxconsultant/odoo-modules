@@ -1,6 +1,6 @@
 {
     "name": "BF Bloc-notes",
-    "version": "18.0.2.1.0",
+    "version": "18.0.2.2.0",
     "category": "Productivity",
     "summary": "Notes rapides riches, multi-liens, conversion en activité, raccourcis et systray",
     "author": "Blue Fox Inc",

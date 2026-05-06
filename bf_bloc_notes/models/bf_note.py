@@ -50,6 +50,7 @@ class BfNote(models.Model):
         sanitize_style=True,
         strip_classes=True,
     )
+    active = fields.Boolean(default=True)
     pinned = fields.Boolean(default=False)
     color = fields.Integer(default=0)
     is_shared = fields.Boolean(

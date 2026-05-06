@@ -53,12 +53,16 @@
                             <field name="tracked_activity_count" widget="statinfo" string="Activités"/>
                         </button>
                     </div>
+                    <widget name="web_ribbon" title="Archivée"
+                            bg_color="text-bg-danger"
+                            invisible="active"/>
                     <widget name="web_ribbon" title="Épinglée"
                             bg_color="text-bg-warning"
-                            invisible="not pinned"/>
+                            invisible="not pinned or not active"/>
                     <widget name="web_ribbon" title="Partagée"
                             bg_color="text-bg-info"
-                            invisible="not is_shared"/>
+                            invisible="not is_shared or not active or pinned"/>
+                    <field name="active" invisible="1"/>
                     <field name="color" widget="color_picker"/>
                     <div class="oe_title">
                         <label for="name" class="oe_edit_only"/>
@@ -215,6 +219,8 @@
                         domain="[('deadline_date', '&lt;', context_today().strftime('%Y-%m-%d'))]"/>
                 <filter name="deadline_today" string="Échéance aujourd'hui"
                         domain="[('deadline_date', '=', context_today().strftime('%Y-%m-%d'))]"/>
+                <separator/>
+                <filter name="archived" string="Archivées" domain="[('active', '=', False)]"/>
                 <group expand="0" string="Regrouper par">
                     <filter name="group_user" string="Auteur" context="{'group_by': 'user_id'}"/>
                     <filter name="group_tag" string="Étiquette" context="{'group_by': 'tag_ids'}"/>
