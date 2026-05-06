@@ -1,7 +1,11 @@
+import json
 import logging
+import os
+import socket
+import threading
 from datetime import timedelta
 
-from markupsafe import escape
+from markupsafe import Markup, escape
 
 from odoo import api, fields, models
 from odoo.exceptions import UserError
@@ -13,6 +17,61 @@ CLOSED_TASK_STATES = ('1_done', '1_canceled')
 
 REMINDER_LEAD_DAYS = 7
 REMINDER_ACTIVITY_SUMMARY = "Envoyer l'ordre du jour avant la rencontre"
+
+_DEFAULT_BRIDGE_SOCKET = "/run/claude-bridge/bridge.sock"
+
+
+def _post_to_bridge(socket_path, endpoint, payload, timeout):
+    """Minimal HTTP-over-Unix-socket POST, returns parsed JSON response.
+
+    Mirrors the helper in meeting_record.py to keep this file standalone.
+    """
+    body = json.dumps(payload).encode()
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    sock.settimeout(timeout)
+    try:
+        sock.connect(socket_path)
+        req = (
+            f"POST {endpoint} HTTP/1.1\r\n"
+            f"Host: localhost\r\n"
+            f"Content-Type: application/json\r\n"
+            f"Content-Length: {len(body)}\r\n"
+            f"Connection: close\r\n"
+            f"\r\n"
+        ).encode() + body
+        sock.sendall(req)
+        chunks = []
+        while True:
+            chunk = sock.recv(8192)
+            if not chunk:
+                break
+            chunks.append(chunk)
+        raw = b"".join(chunks).decode()
+        header_end = raw.find("\r\n\r\n")
+        if header_end == -1:
+            raise ValueError("Malformed HTTP response from bridge")
+        status_line = raw[:raw.find("\r\n")]
+        status_code = int(status_line.split(" ", 2)[1])
+        resp_body = raw[header_end + 4:]
+        headers_block = raw[:header_end].lower()
+        if "transfer-encoding: chunked" in headers_block:
+            decoded = []
+            pos = 0
+            while pos < len(resp_body):
+                nl = resp_body.find("\r\n", pos)
+                if nl == -1:
+                    break
+                chunk_size = int(resp_body[pos:nl], 16)
+                if chunk_size == 0:
+                    break
+                decoded.append(resp_body[nl + 2:nl + 2 + chunk_size])
+                pos = nl + 2 + chunk_size + 2
+            resp_body = "".join(decoded)
+        if status_code >= 400:
+            raise ValueError(f"Bridge HTTP {status_code}: {resp_body[:200]}")
+        return json.loads(resp_body)
+    finally:
+        sock.close()
 
 
 class MeetingAgenda(models.Model):
@@ -164,6 +223,12 @@ class MeetingAgenda(models.Model):
         default=lambda self: self.env.company,
     )
     active = fields.Boolean(default=True)
+    refine_state = fields.Selection([
+        ('none', 'Aucun'),
+        ('queued', "En cours"),
+        ('done', 'Terminé'),
+        ('error', 'Erreur'),
+    ], string="Pré-remplissage TentaClaude", default='none', readonly=True, copy=False)
 
     @api.depends('project_id', 'date')
     def _compute_name(self):
@@ -259,7 +324,8 @@ class MeetingAgenda(models.Model):
             )
 
         # Constant — avoid recomputing each task during the sort.
-        sort_max_date = fields.Date.today().replace(year=9999)
+        # date_deadline is Datetime in Odoo 18; keep types aligned.
+        sort_max_date = fields.Datetime.now().replace(year=9999)
 
         for rec in active:
             collected = Task
@@ -290,12 +356,115 @@ class MeetingAgenda(models.Model):
             rec.agenda_task_ids = collected
             rec.agenda_task_count = len(collected)
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        ICP = self.env["ir.config_parameter"].sudo()
+        socket_path = ICP.get_param("bf_meeting.bridge_socket", _DEFAULT_BRIDGE_SOCKET)
+        auto = ICP.get_param("bf_meeting.agenda_auto_refine", "1") in ("1", "true", "True")
+        if not auto or not os.path.exists(socket_path):
+            return records
+        for rec in records:
+            if rec.state == 'draft' and rec.project_id and not self.env.context.get('skip_auto_refine'):
+                try:
+                    rec._launch_refine_agenda(silent=True)
+                except Exception as e:
+                    _logger.warning("Auto-refine agenda %s skipped: %s", rec.id, e)
+        return records
+
     def action_confirm(self):
         """Confirmer l'ordre du jour."""
         self.write({'state': 'confirmed'})
         for rec in self:
             if rec.auto_send_on_confirm:
                 rec.action_send_agenda()
+
+    def action_refine_agenda(self):
+        """Lancer le skill /refine-agenda via le bridge Claude.
+
+        Réservé aux gestionnaires (`bf_meeting.group_meeting_manager`) car le
+        bridge spawn `claude -p --dangerously-skip-permissions`, qui contourne
+        toute vérification de permissions côté Claude.
+        """
+        self.ensure_one()
+        if not self.env.user.has_group("bf_meeting.group_meeting_manager"):
+            raise UserError(
+                "Le pré-remplissage TentaClaude est réservé aux gestionnaires "
+                "(groupe « Rencontres / Gestionnaire »)."
+            )
+        if not self.project_id:
+            raise UserError("Sélectionner d'abord un projet pour le pré-remplissage.")
+        ICP = self.env["ir.config_parameter"].sudo()
+        socket_path = ICP.get_param("bf_meeting.bridge_socket", _DEFAULT_BRIDGE_SOCKET)
+        if not os.path.exists(socket_path):
+            raise UserError(
+                f"Bridge Claude non disponible (socket introuvable : {socket_path})."
+            )
+        self._launch_refine_agenda(silent=False)
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "type": "info",
+                "title": "Pré-remplissage lancé",
+                "message": (
+                    "TentaClaude pré-remplit l'ordre du jour. "
+                    "Le résultat apparaîtra dans le formulaire dans quelques minutes."
+                ),
+                "sticky": False,
+            },
+        }
+
+    def _launch_refine_agenda(self, silent=False):
+        """Spawn the bridge call in a background thread and post status to chatter."""
+        self.ensure_one()
+        ICP = self.env["ir.config_parameter"].sudo()
+        socket_path = ICP.get_param("bf_meeting.bridge_socket", _DEFAULT_BRIDGE_SOCKET)
+        timeout = int(ICP.get_param("bf_meeting.bridge_timeout", "480"))
+
+        agenda_id = self.id
+        db_name = self.env.cr.dbname
+        uid = self.env.user.id
+        triggered_by = self.env.user.login
+
+        # Mark queued so the form shows progress; safe to commit (we're in a
+        # request transaction). The thread will write the final state.
+        self.with_context(skip_auto_refine=True).write({'refine_state': 'queued'})
+
+        def _run():
+            from odoo import api as _api, registry as _registry
+            try:
+                resp = _post_to_bridge(
+                    socket_path, "/refine-agenda",
+                    {
+                        "agenda_id": agenda_id,
+                        "tenant": "bf",
+                        "triggered_by": triggered_by,
+                    },
+                    timeout,
+                )
+                status = resp.get("status", "?")
+                msg = resp.get("message", "")
+            except Exception as exc:
+                status, msg = "error", f"{type(exc).__name__}: {exc}"
+
+            with _registry(db_name).cursor() as new_cr:
+                new_env = _api.Environment(new_cr, uid, {})
+                rec = new_env["meeting.agenda"].browse(agenda_id).exists()
+                if not rec:
+                    return
+                final = 'done' if status == 'ok' else 'error'
+                rec.with_context(skip_auto_refine=True).write({'refine_state': final})
+                if not silent or status != 'ok':
+                    body = (
+                        f"<p><b>Pré-remplissage /refine-agenda</b> — statut : "
+                        f"<code>{escape(status)}</code></p>"
+                    )
+                    if msg:
+                        body += f"<p>{escape(msg)}</p>"
+                    rec.message_post(body=Markup(body), message_type="comment")
+
+        threading.Thread(target=_run, daemon=True).start()
 
     def action_done(self):
         """Marquer l'ordre du jour comme terminé."""

@@ -92,6 +92,11 @@
         <field name="arch" type="xml">
             <form>
                 <header>
+                    <button name="action_refine_meeting" type="object"
+                            string="Raffiner avec Claude"
+                            class="btn-primary"
+                            groups="bf_meeting.group_meeting_manager"
+                            confirm="Lancer le skill /refine-meeting sur ce compte rendu ? L'opération prend quelques minutes."/>
                     <button name="action_set_reviewed" type="object"
                             string="Marquer révisé"
                             class="btn-primary"

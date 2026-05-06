@@ -90,6 +90,19 @@ class ProjectTask(models.Model):
             'views': [[False, 'form']],
         }
 
+    def action_bf_view_meeting(self):
+        """Smart button : ouvrir le compte rendu d'origine de la tâche."""
+        self.ensure_one()
+        if not self.meeting_id:
+            return False
+        return {
+            'type': 'ir.actions.act_window',
+            'name': self.meeting_id.name,
+            'res_model': 'meeting.record',
+            'res_id': self.meeting_id.id,
+            'views': [[False, 'form']],
+        }
+
     def action_bf_tag_next_project(self):
         """Action rapide : tag la tâche pour la prochaine rencontre projet."""
         self.write({'bf_discuss_tag': 'next_project'})

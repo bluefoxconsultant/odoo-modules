@@ -1,11 +1,69 @@
 import json
 import logging
+import socket
+import threading
 
 from markupsafe import Markup, escape
 
 from odoo import api, fields, models
+from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
+
+_DEFAULT_BRIDGE_SOCKET = "/run/claude-bridge/bridge.sock"
+
+
+def _post_to_bridge(socket_path, endpoint, payload, timeout):
+    """Minimal HTTP-over-Unix-socket POST, returns parsed JSON response.
+
+    Mirrors the helper in bf_claude_chat to keep this module standalone.
+    """
+    body = json.dumps(payload).encode()
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    sock.settimeout(timeout)
+    try:
+        sock.connect(socket_path)
+        req = (
+            f"POST {endpoint} HTTP/1.1\r\n"
+            f"Host: localhost\r\n"
+            f"Content-Type: application/json\r\n"
+            f"Content-Length: {len(body)}\r\n"
+            f"Connection: close\r\n"
+            f"\r\n"
+        ).encode() + body
+        sock.sendall(req)
+        chunks = []
+        while True:
+            chunk = sock.recv(8192)
+            if not chunk:
+                break
+            chunks.append(chunk)
+        raw = b"".join(chunks).decode()
+        header_end = raw.find("\r\n\r\n")
+        if header_end == -1:
+            raise ValueError("Malformed HTTP response from bridge")
+        status_line = raw[:raw.find("\r\n")]
+        status_code = int(status_line.split(" ", 2)[1])
+        resp_body = raw[header_end + 4:]
+        headers_block = raw[:header_end].lower()
+        if "transfer-encoding: chunked" in headers_block:
+            decoded = []
+            pos = 0
+            while pos < len(resp_body):
+                nl = resp_body.find("\r\n", pos)
+                if nl == -1:
+                    break
+                chunk_size = int(resp_body[pos:nl], 16)
+                if chunk_size == 0:
+                    break
+                decoded.append(resp_body[nl + 2:nl + 2 + chunk_size])
+                pos = nl + 2 + chunk_size + 2
+            resp_body = "".join(decoded)
+        if status_code >= 400:
+            raise ValueError(f"Bridge HTTP {status_code}: {resp_body[:200]}")
+        return json.loads(resp_body)
+    finally:
+        sock.close()
 
 
 class MeetingRecord(models.Model):
@@ -396,6 +454,85 @@ class MeetingRecord(models.Model):
             'report_sent_date': fields.Datetime.now(),
         })
         return True
+
+    def action_refine_meeting(self):
+        """Lancer le skill /refine-meeting via le bridge Claude.
+
+        Le bridge est appelé en arrière-plan (thread) parce que /refine-meeting
+        peut prendre plusieurs minutes ; le résultat est posté au chatter.
+
+        Réservé aux gestionnaires (`bf_meeting.group_meeting_manager`) car le
+        bridge spawn `claude -p --dangerously-skip-permissions`, qui contourne
+        toute vérification de permissions côté Claude.
+        """
+        self.ensure_one()
+        if not self.env.user.has_group("bf_meeting.group_meeting_manager"):
+            raise UserError(
+                "Le raffinement automatique est réservé aux gestionnaires "
+                "(groupe « Rencontres / Gestionnaire »)."
+            )
+
+        import os as _os
+        ICP = self.env["ir.config_parameter"].sudo()
+        socket_path = ICP.get_param("bf_meeting.bridge_socket", _DEFAULT_BRIDGE_SOCKET)
+        timeout = int(ICP.get_param("bf_meeting.bridge_timeout", "480"))
+
+        if not _os.path.exists(socket_path):
+            raise UserError(
+                f"Bridge Claude non disponible (socket introuvable : {socket_path}).\n"
+                f"Configurer le paramètre système `bf_meeting.bridge_socket` "
+                f"vers le socket du service `claude-chatbot-bridge`."
+            )
+
+        record_id = self.id
+        db_name = self.env.cr.dbname
+        uid = self.env.user.id
+        triggered_by = self.env.user.login
+
+        def _run():
+            from odoo import api as _api, registry as _registry
+            try:
+                resp = _post_to_bridge(
+                    socket_path, "/refine-meeting",
+                    {
+                        "meeting_id": record_id,
+                        "tenant": "bf",
+                        "triggered_by": triggered_by,
+                    },
+                    timeout,
+                )
+                status = resp.get("status", "?")
+                msg = resp.get("message", "")
+            except Exception as exc:
+                status, msg = "error", f"{type(exc).__name__}: {exc}"
+
+            with _registry(db_name).cursor() as new_cr:
+                new_env = _api.Environment(new_cr, uid, {})
+                rec = new_env["meeting.record"].browse(record_id).exists()
+                if rec:
+                    body = (
+                        f"<p><b>Raffinement /refine-meeting</b> — statut : "
+                        f"<code>{escape(status)}</code></p>"
+                    )
+                    if msg:
+                        body += f"<p>{escape(msg)}</p>"
+                    rec.message_post(body=Markup(body), message_type="comment")
+
+        threading.Thread(target=_run, daemon=True).start()
+
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "type": "info",
+                "title": "Raffinement lancé",
+                "message": (
+                    "Le skill /refine-meeting est en cours d'exécution. "
+                    "Le résultat apparaîtra au chatter dans quelques minutes."
+                ),
+                "sticky": False,
+            },
+        }
 
     def action_import_attendance(self):
         """Importer les participants comme présences."""

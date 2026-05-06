@@ -18,6 +18,15 @@
                         <span class="o_stat_text">Prochaine rencontre</span>
                     </div>
                 </button>
+                <button name="action_bf_view_meeting" type="object"
+                        class="oe_stat_button" icon="fa-file-text-o"
+                        help="Ouvrir le compte rendu d'origine"
+                        invisible="not meeting_id">
+                    <div class="o_stat_info">
+                        <span class="o_stat_text">Compte rendu</span>
+                        <span class="o_stat_text">d'origine</span>
+                    </div>
+                </button>
             </xpath>
             <xpath expr="//field[@name='tag_ids']" position="after">
                 <field name="meeting_id" string="Compte rendu"

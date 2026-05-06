@@ -17,16 +17,19 @@
                             margin-right: 0 !important;
                         }
 
+                        .ma-page,
+                        .ma-page * {
+                            font-family: "Lexend", system-ui, -apple-system, sans-serif !important;
+                        }
                         .ma-page {
-                            font-family: "Lexend", system-ui, -apple-system, sans-serif;
-                            font-size: 9pt;
-                            line-height: 1.4;
+                            font-size: 11pt;
+                            line-height: 1.45;
                             color: #2E3132;
                         }
 
                         .ma-banner {
                             background: #2E3132;
-                            padding: 18pt 24pt 16pt 24pt;
+                            padding: 20pt 24pt 18pt 24pt;
                             display: table;
                             width: 100%;
                         }
@@ -37,36 +40,36 @@
                             padding-right: 18pt;
                         }
                         .ma-banner .banner-logo img {
-                            max-height: 50px;
-                            max-width: 80px;
+                            max-height: 54px;
+                            max-width: 84px;
                         }
                         .ma-banner .banner-content {
                             display: table-cell;
                             vertical-align: middle;
                         }
                         .ma-banner .doc-type {
-                            font-size: 8pt;
+                            font-size: 9.5pt;
                             font-weight: 600;
                             text-transform: uppercase;
                             letter-spacing: 2pt;
-                            color: #29ABE2;
-                            margin: 0 0 3pt 0;
+                            color: #29ABE1;
+                            margin: 0 0 4pt 0;
                         }
                         .ma-banner h1 {
-                            font-size: 16pt;
+                            font-size: 19pt;
                             font-weight: 600;
                             color: #ffffff;
-                            margin: 0 0 2pt 0;
+                            margin: 0 0 3pt 0;
                             line-height: 1.25;
                         }
                         .ma-banner .doc-subtitle {
-                            font-size: 10pt;
-                            color: rgba(255,255,255,0.7);
+                            font-size: 11.5pt;
+                            color: rgba(255,255,255,0.78);
                             margin: 0;
                         }
                         .ma-accent-bar {
                             height: 3px;
-                            background: #29ABE2;
+                            background: #29ABE1;
                             margin: 0;
                             width: 100%;
                         }
@@ -75,7 +78,7 @@
                             display: table;
                             width: 100%;
                             background: #f8f9fb;
-                            padding: 10pt 24pt;
+                            padding: 12pt 24pt;
                             border-bottom: 1px solid #eaedf0;
                         }
                         .ma-meta-item {
@@ -86,13 +89,13 @@
                             text-align: right;
                         }
                         .ma-meta-label {
-                            font-size: 8pt;
-                            color: #888;
+                            font-size: 9.5pt;
+                            color: #777;
                             text-transform: uppercase;
                             letter-spacing: 0.5pt;
                         }
                         .ma-meta-value {
-                            font-size: 11pt;
+                            font-size: 12.5pt;
                             font-weight: 600;
                             color: #2E3132;
                         }
@@ -100,13 +103,13 @@
                         .ma-kpi-grid {
                             display: table;
                             width: 100%;
-                            padding: 12pt 24pt 8pt 24pt;
+                            padding: 14pt 24pt 10pt 24pt;
                             table-layout: fixed;
                         }
                         .ma-kpi-card {
                             display: table-cell;
                             text-align: center;
-                            padding: 10pt 8pt;
+                            padding: 12pt 8pt;
                             border: 1px solid #eaedf0;
                             border-radius: 4px;
                             background: #fff;
@@ -115,29 +118,29 @@
                             border-left: none;
                         }
                         .ma-kpi-number {
-                            font-size: 18pt;
+                            font-size: 22pt;
                             font-weight: 700;
                             line-height: 1.2;
                             color: #2E3132;
                         }
                         .ma-kpi-label {
-                            font-size: 7.5pt;
-                            color: #888;
+                            font-size: 9pt;
+                            color: #777;
                             text-transform: uppercase;
                             letter-spacing: 0.5pt;
-                            margin-top: 2pt;
+                            margin-top: 3pt;
                         }
 
                         .ma-content {
-                            padding: 12pt 24pt;
+                            padding: 14pt 24pt;
                         }
                         .ma-section-title {
-                            font-size: 11pt;
+                            font-size: 13.5pt;
                             font-weight: 600;
                             color: #2E3132;
-                            margin: 16pt 0 8pt 0;
+                            margin: 18pt 0 9pt 0;
                             padding-bottom: 4pt;
-                            border-bottom: 2px solid #29ABE2;
+                            border-bottom: 2px solid #29ABE1;
                             display: inline-block;
                         }
                         .ma-section-title:first-child {
@@ -147,19 +150,19 @@
                         .ma-table {
                             width: 100%;
                             border-collapse: collapse;
-                            font-size: 8pt;
-                            margin-bottom: 6pt;
+                            font-size: 10pt;
+                            margin-bottom: 8pt;
                         }
                         .ma-table th {
                             background: #2E3132;
                             color: #fff;
-                            padding: 5pt 6pt;
+                            padding: 6pt 7pt;
                             text-align: left;
                             font-weight: 600;
-                            font-size: 7.5pt;
+                            font-size: 9.5pt;
                         }
                         .ma-table td {
-                            padding: 4pt 6pt;
+                            padding: 5pt 7pt;
                             border-bottom: 1px solid #eaedf0;
                             vertical-align: top;
                         }
@@ -167,26 +170,26 @@
                             background: #f8f9fb;
                         }
                         .ma-topic-desc {
-                            font-size: 7.5pt;
+                            font-size: 9.5pt;
                             color: #555;
-                            margin-top: 2pt;
+                            margin-top: 3pt;
                         }
                         .ma-topic-desc ul {
                             margin: 2pt 0;
                             padding-left: 14pt;
                         }
                         .ma-topic-desc li {
-                            margin-bottom: 1pt;
+                            margin-bottom: 2pt;
                         }
 
                         .ma-footer {
-                            padding: 8pt 24pt 0 24pt;
+                            padding: 10pt 24pt 0 24pt;
                             border-top: 1px solid #dde0e4;
                             display: table;
                             width: 100%;
-                            font-size: 8pt;
-                            color: #aaa;
-                            margin-top: 16pt;
+                            font-size: 9pt;
+                            color: #999;
+                            margin-top: 18pt;
                         }
                         .ma-footer-left {
                             display: table-cell;
@@ -252,6 +255,10 @@
                             <div class="ma-kpi-card">
                                 <div class="ma-kpi-number"><t t-out="data['topic_count']"/></div>
                                 <div class="ma-kpi-label">Sujets</div>
+                            </div>
+                            <div class="ma-kpi-card">
+                                <div class="ma-kpi-number"><t t-out="data['tagged_task_count']"/></div>
+                                <div class="ma-kpi-label">&#201;l&#233;ments d'action</div>
                             </div>
                         </div>
 

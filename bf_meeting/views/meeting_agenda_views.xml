@@ -43,6 +43,11 @@
                     <button name="action_send_agenda_wizard" type="object"
                             string="Envoyer avec options..."
                             invisible="state not in ('draft', 'confirmed')"/>
+                    <button name="action_refine_agenda" type="object"
+                            string="Pré-remplir avec TentaClaude"
+                            groups="bf_meeting.group_meeting_manager"
+                            invisible="state != 'draft' or refine_state == 'queued'"
+                            confirm="Lancer TentaClaude pour pré-remplir cet ordre du jour ? L'opération prend quelques minutes."/>
                     <button name="%(bf_meeting.action_report_meeting_agenda)d" type="action"
                             string="Imprimer PDF"
                             class="btn-secondary"/>
@@ -152,6 +157,10 @@
                                 <group>
                                     <field name="nc_path"/>
                                     <field name="sent_date"/>
+                                    <field name="refine_state" widget="badge"
+                                           decoration-info="refine_state == 'queued'"
+                                           decoration-success="refine_state == 'done'"
+                                           decoration-danger="refine_state == 'error'"/>
                                     <field name="company_id" groups="base.group_multi_company"/>
                                     <field name="active"/>
                                 </group>
