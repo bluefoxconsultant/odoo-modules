@@ -54,6 +54,8 @@
                        string="?"/>
                 <field name="is_bulk" widget="boolean" optional="hide"/>
                 <field name="external_age_hours" optional="hide"/>
+                <field name="snoozed_until" widget="remaining_days"
+                       optional="hide" string="R&#233;veil"/>
                 <button name="action_reroute"
                         string="Importer"
                         type="object"
@@ -84,6 +86,12 @@
                             type="object"
                             class="btn-primary"
                             icon="fa-reply"/>
+                    <button name="action_reply_all"
+                            string="R&#233;pondre &#224; tous"
+                            type="object"
+                            class="btn-secondary"
+                            icon="fa-reply-all"
+                            invisible="direction != 'in'"/>
                     <button name="action_forward"
                             string="Transf&#233;rer"
                             type="object"

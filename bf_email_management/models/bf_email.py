@@ -648,6 +648,69 @@ class BfEmail(models.Model):
             "bf.email expected_reply_minutes: %s rows updated", self.env.cr.rowcount,
         )
 
+    # ------------------------------------------------------------------
+    # Auto-link orphans cron: associate IMAP rows to partners' open task
+    # ------------------------------------------------------------------
+    @api.model
+    def _cron_auto_link_orphans(self):
+        """Auto-link IMAP orphan emails to a partner's single open task/ticket.
+
+        Conservative: only links if exactly one open project.task (or
+        helpdesk.ticket if installed) belongs to the partner — never if
+        ambiguous. Lookup window controlled by
+        ``bf_email.auto_link_threshold_days`` (default 14).
+
+        Does not post on the target chatter — it's a soft link only. The
+        user can still rerouter to push the body via the wizard.
+        """
+        Param = self.env["ir.config_parameter"].sudo()
+        try:
+            threshold_days = int(
+                Param.get_param("bf_email.auto_link_threshold_days", "14")
+            )
+        except (TypeError, ValueError):
+            threshold_days = 14
+        cutoff = fields.Datetime.now() - timedelta(days=threshold_days)
+        orphans = self.search([
+            ("source", "=", "imap"),
+            ("res_model", "=", False),
+            ("partner_id", "!=", False),
+            ("date", ">=", cutoff),
+            ("is_handled", "=", False),
+            ("category", "in", ["client", "vendor"]),
+        ], limit=200)
+        Task = self.env["project.task"]
+        Ticket = self.env["helpdesk.ticket"] if "helpdesk.ticket" in self.env else None
+        linked = 0
+        for email in orphans:
+            partner_id = email.partner_id.id
+            target = None
+            tasks = Task.search([
+                ("partner_id", "=", partner_id),
+                ("state", "in", ["01_in_progress", "02_changes_requested"]),
+                ("active", "=", True),
+            ], limit=2)
+            if len(tasks) == 1:
+                target = tasks
+            elif Ticket is not None:
+                tickets = Ticket.search([
+                    ("partner_id", "=", partner_id),
+                    ("closed", "=", False),
+                ], limit=2)
+                if len(tickets) == 1:
+                    target = tickets
+            if target:
+                email.write({
+                    "res_model": target._name,
+                    "res_id": target.id,
+                    "record_name": (target.display_name or "")[:200],
+                })
+                linked += 1
+        _logger.info(
+            "bf.email auto-link orphans: %s/%s rows linked",
+            linked, len(orphans),
+        )
+
     @api.depends("thread_root_id", "company_id")
     def _compute_thread_count(self):
         for rec in self:
@@ -918,6 +981,16 @@ class BfEmail(models.Model):
         self.ensure_one()
         return self._open_composer(mode="reply")
 
+    def action_reply_all(self):
+        """Reply-All: To = original sender, Cc = other thread participants.
+
+        Excludes the current user's own addresses and BF/PME internal
+        catchall/bounce aliases. Internal partners are kept (a BF colleague
+        included on the thread should remain in Cc).
+        """
+        self.ensure_one()
+        return self._open_composer(mode="reply_all")
+
     def action_forward(self):
         """Forward dispatcher \u2014 same 4 branches as reply, no default
         partners, body wraps the original behind a 'Forwarded message'
@@ -926,19 +999,29 @@ class BfEmail(models.Model):
         return self._open_composer(mode="forward")
 
     def _open_composer(self, mode="reply"):
-        """Build the composer action for reply or forward.
+        """Build the composer action for reply / reply_all / forward.
 
-        ``mode`` \u2208 {"reply", "forward"}.
+        ``mode`` \u2208 {"reply", "reply_all", "forward"}.
         """
         self.ensure_one()
         is_forward = mode == "forward"
+        is_reply_all = mode == "reply_all"
 
         # Mark as replied for genuine inbound replies only.
         if (not is_forward and self.direction == "in"
                 and self.status in ("new", "read")):
             self.write({"status": "replied"})
 
-        partner_ids = [] if is_forward else self._build_reply_recipients()
+        if is_forward:
+            to_partner_ids = []
+            cc_partner_ids = []
+        elif is_reply_all:
+            to_partner_ids, cc_partner_ids = self._build_reply_all_recipients()
+        else:
+            to_partner_ids = self._build_reply_recipients()
+            cc_partner_ids = []
+
+        partner_ids = list(set(to_partner_ids + cc_partner_ids))
 
         prefix = "Fwd:" if is_forward else "Re:"
         subject = (self.subject or "").strip()
@@ -963,6 +1046,12 @@ class BfEmail(models.Model):
             "is_quoted_reply": not is_forward,
             "quote_body": quote_body,
             "mail_create_nosubscribe": True,
+            # Activate the \u00c0 / C.c. / C.c.i. split composer (mail_compose_message
+            # override). Inactive on a stock composer opened from elsewhere.
+            "default_bf_email_split_recipients": True,
+            "default_bf_to_partner_ids": [(6, 0, to_partner_ids)],
+            "default_bf_cc_partner_ids": [(6, 0, cc_partner_ids)],
+            "default_bf_bcc_partner_ids": [(6, 0, [])],
         }
 
         # Forwards on orphans: ship the original attachments.
@@ -976,6 +1065,81 @@ class BfEmail(models.Model):
         )
         action["context"] = ctx
         return action
+
+    def _build_reply_all_recipients(self):
+        """Return (to_ids, cc_ids) for Reply-All.
+
+        TO = original sender (or original recipients if outbound).
+        CC = every other address in the thread's To+Cc, minus:
+             * the current user's own emails,
+             * BF/PME bounce + catchall aliases,
+             * the company's noreply alias.
+        """
+        self.ensure_one()
+        Partner = self.env["res.partner"].sudo()
+        to_partners = self._build_reply_recipients()
+
+        # Collect candidate Cc addresses from the source.
+        cc_candidates = []
+        if self.email_to:
+            cc_candidates.extend(
+                a.strip() for a in self.email_to.split(",") if a.strip()
+            )
+        if self.email_cc:
+            cc_candidates.extend(
+                a.strip() for a in self.email_cc.split(",") if a.strip()
+            )
+
+        # Build the exclusion set.
+        exclude = set()
+        user = self.env.user
+        if user.partner_id.email:
+            exclude.add(user.partner_id.email.lower())
+        if user.email:
+            exclude.add(user.email.lower())
+        if user.company_id.email:
+            exclude.add(user.company_id.email.lower())
+        Param = self.env["ir.config_parameter"].sudo()
+        for key in (
+            "mail.bounce.alias",
+            "mail.catchall.alias",
+            "mail.default.from",
+            "bf_email.imap_user",
+        ):
+            val = Param.get_param(key)
+            if val:
+                exclude.add(str(val).lower())
+        # Also exclude the original sender (already in TO).
+        if self.email_from:
+            _name, bare = parseaddr(self.email_from)
+            if bare:
+                exclude.add(bare.lower())
+
+        cc_ids = []
+        for addr in cc_candidates:
+            _name, bare = parseaddr(addr)
+            bare = (bare or addr).strip()
+            if not bare or bare.lower() in exclude:
+                continue
+            partner = Partner.search(
+                [("email", "=ilike", bare)], limit=1,
+            )
+            if not partner:
+                partner = Partner.search(
+                    [("email_normalized", "=", bare.lower())], limit=1,
+                )
+            if not partner:
+                try:
+                    partner = Partner.create({
+                        "name": _name or bare,
+                        "email": bare,
+                    })
+                except Exception:
+                    continue
+            if (partner.id not in cc_ids
+                    and partner.id not in to_partners):
+                cc_ids.append(partner.id)
+        return to_partners, cc_ids
 
     def _composer_target(self):
         """Resolve (model, res_id) for the composer.

@@ -61,4 +61,10 @@
         <field name="value">Archives/{YYYY}</field>
     </record>
 
+    <!-- Auto-link orphans: lookup window in days for the partner's open tasks. -->
+    <record id="bf_email_auto_link_threshold_days" model="ir.config_parameter">
+        <field name="key">bf_email.auto_link_threshold_days</field>
+        <field name="value">14</field>
+    </record>
+
 </odoo>

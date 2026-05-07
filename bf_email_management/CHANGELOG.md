@@ -4,6 +4,25 @@ All notable changes to `bf_email_management` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This module follows Odoo's `MAJOR.MINOR.PATCH` convention prefixed with the Odoo series (`18.0.X.Y.Z`).
 
+## [18.0.3.0.0] — 2026-05-07
+
+### Added
+- **Composer enrichi À / C.c. / C.c.i.** — l'override `mail.compose.message` ajoute trois Many2many distincts (`bf_to_partner_ids`, `bf_cc_partner_ids`, `bf_bcc_partner_ids`) activés par le flag `bf_email_split_recipients`. Quand le composer est ouvert depuis l'inbox unifiée (`bf.email.action_reply`, `action_reply_all`, `action_forward`), les trois champs apparaissent à la place de la liste `partner_ids` monolithique. Les trois listes sont fusionnées dans `partner_ids` à l'envoi pour respecter le flux standard de notifications, et `email_to`/`email_cc` sont injectés dans `_prepare_mail_values_*` pour que les en-têtes To et Cc sortants reflètent la séparation. Les destinataires C.c.i. reçoivent le courriel via `partner_ids` mais n'apparaissent ni dans To ni dans Cc (style Gmail). Sur tout composer ouvert ailleurs dans Odoo, le flag reste `False` et le comportement standard est intact.
+- **Bouton « Répondre à tous »** dans l'en-tête de la fiche `bf.email` pour les courriels entrants. Pré-remplit À avec l'expéditeur original et C.c. avec les autres destinataires du fil (To+Cc), en excluant l'utilisateur courant et les alias internes (`mail.bounce.alias`, `mail.catchall.alias`, `mail.default.from`, `bf_email.imap_user`).
+- **Recherche unifiée dans le wizard de réacheminement** — `bf.email.reroute` passe désormais le contexte `bf_email_reroute_search=True` au champ `target_reference`. Les overrides `name_search` sur `project.task`, `account.move` et `res.partner` détectent ce flag pour :
+  - accepter un entier brut (ex. `22299`) et résoudre à `id = 22299`,
+  - accepter le format facture/écriture (`INV/2026/00017`) en correspondance exacte sur `name`,
+  - retourner des libellés enrichis `#{id} — {display_name}` (et `… <email@…>` pour les contacts) afin que le menu déroulant affiche le nom complet.
+- **Champ « Lien rapide »** dans le wizard. Accepte une URL Odoo (`https://.../all-tasks/22299`, `/odoo/project/N/22299`), un préfixe (`task:22299`, `ticket:42`, `partner:1234`, `invoice:NNN`), un entier brut, ou un nom de facture. Résout `target_reference` automatiquement via onchange.
+- **Pré-remplissage `target_reference`** — quand toutes les rangées sélectionnées partagent un seul `partner_id`, le wizard cherche une seule tâche ouverte (`state in [01_in_progress, 02_changes_requested]`) ou un seul ticket helpdesk ouvert pour ce partenaire, et la pré-suggère.
+- **Colonne « Réveil »** (optionnelle, masquée par défaut) dans la liste `bf.email` — affiche `snoozed_until` avec le widget `remaining_days` pour visualiser quand les courriels remis à plus tard reviennent.
+- **Cron `_cron_auto_link_orphans`** (désactivé par défaut, intervalle 6 h) — auto-lie les rangées IMAP orphelines (`source='imap'`, `res_model=False`) à la seule tâche ou ticket ouvert du contact. Conservateur : un seul match exact, partenaire client ou fournisseur, fenêtre paramétrable via `bf_email.auto_link_threshold_days` (défaut 14 jours). Aucune publication sur le chatter — c'est un lien doux, le réacheminement reste à la discrétion de l'utilisateur.
+
+### Notes
+- Aucune migration nécessaire : les nouveaux Many2many sur `mail.compose.message` sont des champs de wizard transient (jamais persistés). Les nouveaux paramètres sont ajoutés via `noupdate="1"`.
+- Le cron auto-link reste `active=False` pour un déploiement prudent. Activer manuellement via Settings → Technical → Scheduled Actions une fois validé en review.
+- Le module ne dépend pas d'Helpdesk (`helpdesk_mgmt`) : la branche helpdesk dans le pré-remplissage et l'auto-link est gardée par `'helpdesk.ticket' in self.env`.
+
 ## [18.0.2.4.0] — 2026-05-06
 
 ### Fixed

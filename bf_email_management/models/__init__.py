@@ -3,6 +3,10 @@ from . import bf_email_dashboard
 from . import bf_email_rule
 from . import calendar_alarm_manager
 from . import calendar_attendee
+from . import inherit_account_move
+from . import inherit_project_task
+from . import inherit_res_partner
+from . import mail_compose_message
 from . import mail_message
 from . import mail_notification
 from . import mail_scheduled_message

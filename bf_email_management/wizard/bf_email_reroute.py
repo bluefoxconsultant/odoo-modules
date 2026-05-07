@@ -8,12 +8,29 @@ existing bf.email row from ``source='imap'`` orphan to a chatter row.
 
 import base64
 import logging
+import re
+from urllib.parse import urlparse
 
 from odoo import _, api, exceptions, fields, models
 
 from ..models import bf_email_imap
 
 _logger = logging.getLogger(__name__)
+
+# Quick-paste parsing patterns.
+_URL_TASK_RE = re.compile(r"/all-tasks/(\d+)|/odoo/project/\d+/(\d+)")
+_URL_GENERIC_ID_RE = re.compile(r"/(\d+)(?:[/?#]|$)")
+_PREFIX_RE = re.compile(r"^(task|ticket|partner|invoice|move|lead|order)\s*[:#]\s*(\d+)$", re.IGNORECASE)
+_INVOICE_NAME_RE = re.compile(r"^[A-Za-z0-9]+/\d{4}/\d+$")
+_PREFIX_TO_MODEL = {
+    "task": "project.task",
+    "ticket": "helpdesk.ticket",
+    "partner": "res.partner",
+    "invoice": "account.move",
+    "move": "account.move",
+    "lead": "crm.lead",
+    "order": "sale.order",
+}
 
 
 # Priority models surfaced first in the dropdown.
@@ -60,6 +77,12 @@ class BfEmailReroute(models.TransientModel):
              "contact, opportunité, événement, facture, etc.) sur lequel "
              "poster le courriel.",
     )
+    quick_paste = fields.Char(
+        string="Lien rapide",
+        help="Coller une URL Odoo, un numéro de tâche (ex. 22299), un nom de "
+             "facture (INV/2026/00017) ou un préfixe (task:22299, "
+             "ticket:42) — la cible se résoudra automatiquement.",
+    )
     mark_replied = fields.Boolean(
         string="Marquer comme répondu",
         default=False,
@@ -97,11 +120,139 @@ class BfEmailReroute(models.TransientModel):
             ids = ids[0][2] if len(ids[0]) > 2 else []
         if ids:
             vals.setdefault("bf_email_ids", [(6, 0, ids)])
-            # Default mark_replied=True if all selected rows are inbound.
             recs = self.env["bf.email"].browse(ids)
+            # Default mark_replied=True if all selected rows are inbound.
             if recs and all(r.direction == "in" for r in recs):
                 vals.setdefault("mark_replied", True)
+            # Pre-suggest target_reference: if all selected emails share a
+            # partner who has exactly one open task (or open ticket), use it.
+            suggested = self._suggest_target_reference(recs)
+            if suggested and "target_reference" in fields_list:
+                vals.setdefault(
+                    "target_reference",
+                    f"{suggested._name},{suggested.id}",
+                )
         return vals
+
+    @api.model
+    def _suggest_target_reference(self, bf_emails):
+        """Return a single record to pre-fill target_reference, or None.
+
+        Looks for an open project.task — and if helpdesk_mgmt is installed,
+        falls back to an open helpdesk.ticket — owned by the email's
+        partner_id. Only returns a suggestion when there's exactly one
+        match (no ambiguity).
+        """
+        if not bf_emails:
+            return None
+        partners = bf_emails.mapped("partner_id")
+        if len(partners) != 1 or not partners:
+            return None
+        partner = partners
+        Task = self.env["project.task"]
+        tasks = Task.search([
+            ("partner_id", "=", partner.id),
+            ("state", "in", ["01_in_progress", "02_changes_requested"]),
+            ("active", "=", True),
+        ], limit=2)
+        if len(tasks) == 1:
+            return tasks
+        if "helpdesk.ticket" in self.env:
+            Ticket = self.env["helpdesk.ticket"]
+            tickets = Ticket.search([
+                ("partner_id", "=", partner.id),
+                ("closed", "=", False),
+            ], limit=2)
+            if len(tickets) == 1:
+                return tickets
+        return None
+
+    @api.onchange("quick_paste")
+    def _onchange_quick_paste(self):
+        for wiz in self:
+            if not wiz.quick_paste:
+                continue
+            target = wiz._resolve_quick_paste(wiz.quick_paste.strip())
+            if target:
+                wiz.target_reference = f"{target._name},{target.id}"
+
+    @api.model
+    def _resolve_quick_paste(self, text):
+        """Parse an Odoo URL, ID or prefixed reference; return the record or None.
+
+        Accepted forms:
+          * https://.../action-XXXX/.../<id>             → /all-tasks/<id> for tasks
+          * https://.../odoo/project/<pid>/<task_id>     → project.task
+          * task:22299, ticket:42, partner:1234          → prefix mapping
+          * 22299                                         → if a single bf_email_ids
+            partner has a matching task / ticket, prefer that model
+          * INV/2026/00017                                → account.move by name
+        """
+        if not text:
+            return None
+        # 1. Odoo URLs.
+        if text.startswith(("http://", "https://")):
+            try:
+                parsed = urlparse(text)
+                m = _URL_TASK_RE.search(parsed.path)
+                if m:
+                    rid = int(m.group(1) or m.group(2))
+                    rec = self.env["project.task"].browse(rid)
+                    if rec.exists():
+                        return rec
+                # Generic /<id> tail in path: try to map via the action prefix
+                # if present (action-NNNN). Best effort — leave the user to
+                # pick the right model otherwise.
+                tail = _URL_GENERIC_ID_RE.findall(parsed.path)
+                if tail:
+                    # Pick last id segment.
+                    rid = int(tail[-1])
+                    # Try common models in order.
+                    for model in ("project.task", "helpdesk.ticket",
+                                  "account.move", "crm.lead", "res.partner"):
+                        if model not in self.env:
+                            continue
+                        rec = self.env[model].browse(rid)
+                        if rec.exists():
+                            return rec
+                return None
+            except (ValueError, KeyError):
+                return None
+        # 2. Prefix syntax (task:22299, ticket:42).
+        m = _PREFIX_RE.match(text)
+        if m:
+            prefix = m.group(1).lower()
+            try:
+                rid = int(m.group(2))
+            except ValueError:
+                return None
+            model = _PREFIX_TO_MODEL.get(prefix)
+            if model and model in self.env:
+                rec = self.env[model].browse(rid)
+                if rec.exists():
+                    return rec
+            return None
+        # 3. Pure digits → match against models we care about.
+        if text.isdigit():
+            try:
+                rid = int(text)
+            except ValueError:
+                return None
+            for model in ("project.task", "helpdesk.ticket", "account.move"):
+                if model not in self.env:
+                    continue
+                rec = self.env[model].browse(rid)
+                if rec.exists():
+                    return rec
+            return None
+        # 4. Odoo invoice/bill name.
+        if _INVOICE_NAME_RE.match(text):
+            rec = self.env["account.move"].search(
+                [("name", "=", text)], limit=1,
+            )
+            if rec:
+                return rec
+        return None
 
     @api.depends("bf_email_ids")
     def _compute_bf_email_count(self):
