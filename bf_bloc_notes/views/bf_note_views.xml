@@ -39,6 +39,17 @@
                             type="object"
                             string="Désépingler"
                             invisible="not pinned"/>
+                    <button name="toggle_active"
+                            type="object"
+                            string="Archiver"
+                            class="btn-secondary"
+                            invisible="not active"
+                            confirm="Archiver cette note ?"/>
+                    <button name="toggle_active"
+                            type="object"
+                            string="Désarchiver"
+                            class="btn-secondary"
+                            invisible="active"/>
                 </header>
                 <sheet>
                     <div class="oe_button_box" name="button_box">
@@ -126,7 +137,9 @@
         <field name="name">bf.note.list</field>
         <field name="model">bf.note</field>
         <field name="arch" type="xml">
-            <list string="Notes" decoration-warning="pinned" multi_edit="1">
+            <list string="Notes" decoration-warning="pinned"
+                  decoration-danger="deadline_date and deadline_date &lt; current_date"
+                  multi_edit="1">
                 <field name="pinned" widget="boolean_toggle"/>
                 <field name="is_shared" widget="boolean_toggle" optional="hide"/>
                 <field name="name"/>
@@ -149,9 +162,31 @@
                 <field name="color"/>
                 <field name="pinned"/>
                 <field name="is_shared"/>
+                <field name="active"/>
                 <templates>
                     <t t-name="kanban-box">
                         <div t-attf-class="oe_kanban_card oe_kanban_global_click o_bf_note_card #{kanban_color(record.color.raw_value)}">
+                            <div class="o_dropdown_kanban dropdown">
+                                <a role="button" class="dropdown-toggle btn px-1 py-0"
+                                   data-bs-toggle="dropdown" data-bs-display="static"
+                                   aria-label="Actions" title="Actions">
+                                    <span class="fa fa-ellipsis-v"/>
+                                </a>
+                                <div class="dropdown-menu" role="menu">
+                                    <a role="menuitem" type="edit" class="dropdown-item"
+                                       t-if="widget.editable">Modifier</a>
+                                    <a role="menuitem" type="object" name="toggle_active"
+                                       class="dropdown-item">
+                                        <t t-if="record.active.raw_value">Archiver</t>
+                                        <t t-else="">Désarchiver</t>
+                                    </a>
+                                    <a role="menuitem" type="delete" class="dropdown-item"
+                                       t-if="widget.deletable">Supprimer</a>
+                                    <div role="separator" class="dropdown-divider"/>
+                                    <ul class="oe_kanban_colorpicker" data-field="color"/>
+                                </div>
+                            </div>
+                            <div class="o_bf_note_card_color_strip"/>
                             <div class="o_bf_note_card_header d-flex align-items-start">
                                 <strong class="flex-grow-1">
                                     <field name="name"/>
@@ -180,7 +215,8 @@
                             <div t-if="record.res_name.raw_value" class="text-muted small mt-1">
                                 <i class="fa fa-link" title="Lié à"/> <field name="res_name"/>
                             </div>
-                            <div t-if="record.deadline_date.raw_value" class="text-muted small">
+                            <div t-if="record.deadline_date.raw_value"
+                                 t-attf-class="small #{record.deadline_date.raw_value &lt; (new Date()).toISOString().slice(0,10) ? 'text-danger fw-bold' : 'text-muted'}">
                                 <i class="fa fa-calendar" title="Échéance"/> <field name="deadline_date"/>
                             </div>
                         </div>
@@ -196,7 +232,7 @@
         <field name="arch" type="xml">
             <calendar string="Notes"
                       date_start="deadline_date"
-                      color="user_id"
+                      color="color"
                       mode="month"
                       quick_create="0">
                 <field name="name"/>
@@ -235,6 +271,7 @@
                 <group expand="0" string="Regrouper par">
                     <filter name="group_user" string="Auteur" context="{'group_by': 'user_id'}"/>
                     <filter name="group_tag" string="Étiquette" context="{'group_by': 'tag_ids'}"/>
+                    <filter name="group_color" string="Couleur" context="{'group_by': 'color'}"/>
                     <filter name="group_model" string="Modèle lié" context="{'group_by': 'res_model'}"/>
                     <filter name="group_deadline" string="Échéance" context="{'group_by': 'deadline_date'}"/>
                 </group>

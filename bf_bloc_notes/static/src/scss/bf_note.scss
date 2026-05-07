@@ -24,14 +24,29 @@
 
 .o_bf_note_kanban {
     .o_bf_note_card {
-        border-left: 4px solid transparent;
         min-height: 120px;
-
-        &.oe_kanban_color_2 { border-left-color: #f59e0b; }
-        &.oe_kanban_color_3 { border-left-color: #ef4444; }
-        &.oe_kanban_color_4 { border-left-color: #29ABE1; }
-        &.oe_kanban_color_7 { border-left-color: #6b7280; }
+        position: relative;
+        overflow: hidden;
     }
+    .o_bf_note_card_color_strip {
+        height: 8px;
+        margin: -8px -8px 8px -8px;
+        background: transparent;
+    }
+
+    // 11 couleurs standard Odoo (palette kanban_color)
+    .oe_kanban_color_1 .o_bf_note_card_color_strip { background: #f06050; }
+    .oe_kanban_color_2 .o_bf_note_card_color_strip { background: #f4a460; }
+    .oe_kanban_color_3 .o_bf_note_card_color_strip { background: #f7cd1f; }
+    .oe_kanban_color_4 .o_bf_note_card_color_strip { background: #6cc1ed; }
+    .oe_kanban_color_5 .o_bf_note_card_color_strip { background: #814968; }
+    .oe_kanban_color_6 .o_bf_note_card_color_strip { background: #eb7e7f; }
+    .oe_kanban_color_7 .o_bf_note_card_color_strip { background: #2c8397; }
+    .oe_kanban_color_8 .o_bf_note_card_color_strip { background: #475577; }
+    .oe_kanban_color_9 .o_bf_note_card_color_strip { background: #d6145f; }
+    .oe_kanban_color_10 .o_bf_note_card_color_strip { background: #30c381; }
+    .oe_kanban_color_11 .o_bf_note_card_color_strip { background: #9365b8; }
+
     .o_bf_note_card_body {
         max-height: 150px;
         overflow: hidden;
