@@ -13,7 +13,7 @@ _logger = logging.getLogger(__name__)
 class SmsArchiveThread(models.Model):
     _name = "sms.archive.thread"
     _description = "Fil de conversation SMS"
-    _order = "last_message_date desc, id desc"
+    _order = "last_message_date desc nulls last, id desc"
 
     phone_raw = fields.Char(
         string="Numéro original",
