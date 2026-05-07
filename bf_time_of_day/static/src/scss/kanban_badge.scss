@@ -1,0 +1,15 @@
+.bf_tod_badge {
+    font-size: 0.78rem;
+    line-height: 1.4;
+    margin-top: 2px;
+    margin-bottom: 2px;
+    max-width: fit-content;
+
+    .o_field_widget {
+        white-space: nowrap;
+    }
+
+    > i.fa {
+        font-size: 0.85rem;
+    }
+}

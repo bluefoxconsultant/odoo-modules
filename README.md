@@ -22,6 +22,7 @@ Custom Odoo 18 Community Edition modules developed by [Blue Fox Inc.](https://bl
 | `bf_meeting` | Rencontres | 18.0.3.6.0 | LGPL-3 | Ordres du jour, comptes rendus et tâches à discuter en rencontre, unifiés autour de `calendar.event` avec rappel automatique |
 | `bf_sms_archive` | Archive SMS & Appels | 18.0.1.3.0 | LGPL-3 | Archivage et recherche de SMS et journaux d'appels Android |
 | `bf_task_unblock_notify` | BF Notification de déblocage de tâche | 18.0.1.6.1 | LGPL-3 | Notifie les assignés quand leur tâche est débloquée |
+| `bf_time_of_day` | BF Time of Day | 18.0.1.0.0 | LGPL-3 | Plages horaires (Matinée / Midi / Fin de jour / Hors heures) pour tâches et activités, avec override personnel par utilisateur |
 | `bf_timesheet_timer` | BF Timer - Feuilles de temps | 18.0.1.6.0 | LGPL-3 | Timer global de feuilles de temps avec multi-timer et interface OWL |
 | `bf_universal_search` | BF Recherche universelle | 18.0.1.3.0 | LGPL-3 | Recherche transversale dans tous les modules via la palette de commandes |
 | `bf_webmail` | Courriel Blue Fox | 18.0.1.1.0 | LGPL-3 | Accès au courriel SnappyMail depuis la barre Odoo |
