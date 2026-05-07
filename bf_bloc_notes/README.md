@@ -1,79 +1,79 @@
 # BF Bloc-notes
 
-Notes rapides riches pour Odoo 18, avec multi-liens vers les fiches, conversion en activité en un clic, raccourcis clavier et icône systray.
+Rich quick notes for Odoo 18, with multi-record links, one-click activity conversion, keyboard shortcuts, and a systray icon.
 
 ## License
 
-LGPL-3 — voir `LICENSE`.
+LGPL-3 — see `LICENSE`.
 
 ## Features
 
-### Capture rapide
-- **Icône systray 📝** : clic gauche = nouvelle note, clic droit = liste filtrée sur tes notes.
-- **Raccourcis clavier** : `Alt+N` ouvre le dialog de capture, `Alt+Shift+N` ouvre la liste.
-- **Auto-link** : si tu es sur une fiche partner / task / project / lead, le dialog pré-remplit le lien.
-- **Drop-zone images** : colle (`Ctrl+V`) ou glisse une image dans l'éditeur, l'attachment est créé automatiquement et l'image insérée dans le corps de la note.
-- **Ctrl+Entrée** dans le dialog enregistre la note.
+### Quick capture
+- **Systray icon 📝**: left-click = new note, right-click = list filtered to your notes.
+- **Keyboard shortcuts**: `Alt+N` opens the capture dialog, `Alt+Shift+N` opens the list.
+- **Auto-link**: if you are on a partner / task / project / lead form, the dialog pre-fills the link.
+- **Image drop-zone**: paste (`Ctrl+V`) or drag an image into the editor — the attachment is created automatically and the image inserted into the note body.
+- **Ctrl+Enter** in the dialog saves the note.
 
-### Multi-lien (m2m)
-Une note peut être attachée à plusieurs fiches en même temps. Modèle `bf.note.link` (`note_id`, `res_model`, `res_id`) ; le champ `res_ref` reste comme « lien primaire » pour compat ascendante. Smart button « Notes (N) » sur partner / task / project / lead via la mixin batch.
+### Multi-link (m2m)
+A note can be attached to multiple records at once. Model `bf.note.link` (`note_id`, `res_model`, `res_id`); the `res_ref` field remains as the "primary link" for backward compatibility. "Notes (N)" smart button on partner / task / project / lead via the batch mixin.
 
-### Conversion en activité
-Depuis le form d'une note, boutons rapides dans le header :
-- **Aujourd'hui** (J)
-- **Demain** (J+1)
-- **+2 jours** / **+1 semaine**
-- **Personnaliser…** (wizard avec date, type d'activité, assignation, résumé éditable)
+### Conversion to activity
+From a note's form view, quick header buttons:
+- **Today** (D)
+- **Tomorrow** (D+1)
+- **+2 days** / **+1 week**
+- **Customize…** (wizard with date, activity type, assignment, editable summary)
 
-Une activité est créée par fiche liée (ex. note liée à 3 tâches → 3 activités). Type par défaut : **Tâche** (`mail.mail_activity_data_todo`). Smart button « Activités (N) » sur la note pour retrouver toutes les activités créées.
+One activity is created per linked record (e.g. a note linked to 3 tasks → 3 activities). Default type: **To-do** (`mail.mail_activity_data_todo`). "Activities (N)" smart button on the note for finding all created activities.
 
-### Visibilité hybride
-- Privée par défaut (`is_shared=False`) : seul l'auteur la voit.
-- Cocher « Partagée » la rend lisible par tous les internes ; seul l'auteur peut toujours modifier.
+### Hybrid visibility
+- Private by default (`is_shared=False`): only the author sees it.
+- Toggling "Shared" makes it readable by all internal users; only the author can still edit.
 
-### Vues
-- **Kanban** : cartes colorées (color picker), pin button intégré, snippet du body, étiquettes, lien primaire, échéance.
-- **Liste** : toggle pin direct, filtres « Mes notes / Épinglées / Partagées / Liées / Échéance dépassée ».
-- **Calendar** : si tu mets un `deadline_date`, la note apparaît sur ton calendrier (non confondue avec une activité).
-- **Form** : éditeur HTML, onglet « Liens » avec sequence handle pour réordonner.
+### Views
+- **Kanban**: colored cards (color picker), built-in pin button, body snippet, tags, primary link, deadline.
+- **List**: direct pin toggle, filters "My notes / Pinned / Shared / Linked / Overdue".
+- **Calendar**: if you set a `deadline_date`, the note appears in your calendar (not conflated with an activity).
+- **Form**: HTML editor, "Links" tab with a sequence handle for reordering.
 
-### Sécurité
-| Risque | Mitigation |
+### Security
+| Risk | Mitigation |
 | --- | --- |
-| RPC injection sur `quick_create_from_context` | Whitelist explicite des clés (`name`, `body`, `tag_ids`, `pinned`, `color`, `deadline_date`, `is_shared`, `res_model`, `res_id`, `link_ids`). `user_id` est forcé à `env.user.id` indépendamment du payload. |
-| Énumération de modèles via `Reference` | `_selection_target_model` filtre par `ir.config_parameter` `bf_bloc_notes.reference_models` (10 modèles par défaut). |
-| AccessError sur fiche cible | `bf.note.link._compute_res_name` exécute `check_access_rights("read")` + `check_access_rule("read")` côté utilisateur appelant — pas de `sudo()` — et bascule à `False` en cas d'AccessError. `action_open` / `action_open_record` valident l'accès avant de retourner l'`act_window`. |
-| Visibilité notes | 2 ir.rule séparées : lecture (auteur OU `is_shared`), écriture/unlink (auteur seul). |
-| Smart button N+1 | `bf.note.link.mixin` utilise `read_group` batch — 1 query pour 200 records. |
+| RPC injection on `quick_create_from_context` | Explicit key whitelist (`name`, `body`, `tag_ids`, `pinned`, `color`, `deadline_date`, `is_shared`, `res_model`, `res_id`, `link_ids`). `user_id` is forced to `env.user.id` regardless of payload. |
+| Model enumeration via `Reference` | `_selection_target_model` filters by the `ir.config_parameter` `bf_bloc_notes.reference_models` (10 models by default). |
+| AccessError on the target record | `bf.note.link._compute_res_name` runs `check_access_rights("read")` + `check_access_rule("read")` as the calling user — no `sudo()` — and falls back to `False` on AccessError. `action_open` / `action_open_record` validate access before returning the `act_window`. |
+| Note visibility | Two separate `ir.rule` records: read (author OR `is_shared`), write/unlink (author only). |
+| Smart-button N+1 | `bf.note.link.mixin` uses batched `read_group` — 1 query for 200 records. |
 
 ### Performance
-- `bf_note_count` calculé en une seule requête via `read_group`, pas de N+1 sur listviews / kanban.
-- `res_name` stocké (compute store=True) sur `bf.note.link`, pas relu à chaque affichage.
-- Tracking d'activités/tâches issues d'une note via deux m2m dédiés (`tracked_activity_ids`, `tracked_task_ids`) plutôt qu'un join coûteux sur `mail.activity`.
+- `bf_note_count` computed in a single `read_group` query — no N+1 on list views / kanban.
+- `res_name` stored (compute store=True) on `bf.note.link`, not recomputed on each render.
+- Tracking of activities/tasks born from a note via two dedicated m2m fields (`tracked_activity_ids`, `tracked_task_ids`) instead of an expensive join on `mail.activity`.
 
 ## Architecture
 
 ```
 bf.note ──┬── link_ids ──> bf.note.link ──(res_model, res_id)──> {res.partner, project.task, …}
           ├── tag_ids ──> bf.note.tag
-          └── activity_ids (m2m) ──> mail.activity (sur la fiche cible)
+          └── activity_ids (m2m) ──> mail.activity (on the target record)
 
 bf.note.link.mixin (AbstractModel)
    └─ inherited by: res.partner, project.task, project.project, crm.lead
         └─ adds: bf_note_count (batch), action_open_bf_notes
 ```
 
-## Dépendances
+## Dependencies
 
-- `web`, `mail` (toujours présents)
-- `project` (smart button + form heritage de `project.task`, `project.project`)
-- `crm` (smart button + form heritage de `crm.lead`) — Odoo Community
-- `contacts` (smart button + form heritage de `res.partner`)
+- `web`, `mail` (always present)
+- `project` (smart button + form heritage on `project.task`, `project.project`)
+- `crm` (smart button + form heritage on `crm.lead`) — Odoo Community
+- `contacts` (smart button + form heritage on `res.partner`)
 
 ## Configuration
 
-- **Modèles disponibles dans `Reference`** : `ir.config_parameter` clé `bf_bloc_notes.reference_models` (CSV). Défaut : `res.partner,project.project,project.task,crm.lead,helpdesk.ticket,calendar.event,account.move,sale.order,purchase.order,hr.employee`.
-- **Étiquettes seed** : Idée, À faire, Référence, Brouillon (créées une fois, `noupdate=1`).
+- **Models available in `Reference`**: `ir.config_parameter` key `bf_bloc_notes.reference_models` (CSV). Default: `res.partner,project.project,project.task,crm.lead,helpdesk.ticket,calendar.event,account.move,sale.order,purchase.order,hr.employee`.
+- **Seeded tags**: Idea, To-do, Reference, Draft (created once, `noupdate=1`).
 
 ## Tests
 
@@ -81,32 +81,36 @@ bf.note.link.mixin (AbstractModel)
 odoo -d <db> -u bf_bloc_notes --test-enable --test-tags /bf_bloc_notes --stop-after-init --http-port=0
 ```
 
-9 tests couvrent : auto-titre, multi-lien, batch count, RPC whitelist, visibilité privée/partagée (read + write), création d'activité par lien, garde-fou note non-liée.
+9 tests cover: auto-title, multi-link, batch count, RPC whitelist, private/shared visibility (read + write), per-link activity creation, unlinked-note guard.
 
 ## Changelog
 
 ### 18.0.2.5.0 (2026-05-06)
-- Sécurité : `bf.note.link._compute_res_name` n'utilise plus `sudo()` ; ACL appliqué via `check_access_rights` / `check_access_rule` (évite la fuite de `display_name` vers des fiches non lisibles).
-- Sécurité : `action_open` (sur lien et note primaire) valide l'accès avant de retourner l'`act_window`.
-- UX : Alt+N place le focus sur le titre, pas le corps.
-- UX : nouveau bouton secondaire « Créer une tâche » dans le dialog quick-create — pré-remplit `default_name` / `default_description` (+ project / parent / partner si le contexte le permet) et ouvre une fiche `project.task` neuve sans créer la note.
-- Fix : `getCurrentContext()` (auto-link) ignore désormais `context.active_id` ; n'auto-link que sur une vraie vue form, pour éviter l'activité créée sur le mauvais chatter.
-- Tests : alignés sur l'API actuelle (`tracked_activity_count`, fallback création-sur-self) + nouveau test ACL pour `res_name`.
+- Security: `bf.note.link._compute_res_name` no longer uses `sudo()`; ACLs applied via `check_access_rights` / `check_access_rule` (prevents leaking `display_name` for unreadable records).
+- Security: `action_open` (on link and primary note) validates access before returning the `act_window`.
+- UX: Alt+N focuses the title, not the body.
+- UX: new secondary "Create a task" button in the quick-create dialog — pre-fills `default_name` / `default_description` (+ project / parent / partner where the context allows) and opens a fresh `project.task` form without creating a note.
+- Fix: `getCurrentContext()` (auto-link) now ignores `context.active_id`; auto-links only on a real form view, to avoid creating an activity on the wrong chatter.
+- Tests: aligned with the current API (`tracked_activity_count`, fallback creation-on-self) + new ACL test for `res_name`.
 
 ### 18.0.2.0.0 (2026-05-02)
-- Ajout : multi-liens via `bf.note.link` (m2m vers fiches).
-- Ajout : conversion en activité (boutons rapides + wizard).
-- Ajout : visibilité hybride (`is_shared`).
-- Ajout : `deadline_date` + vue calendar.
-- Ajout : drop-zone images dans l'éditeur quick-create.
-- Ajout : pin/unpin direct depuis le kanban.
-- Sécurité : RPC `quick_create_from_context` whitelisté, `user_id` forcé.
-- Perf : mixin `bf.note.link.mixin` avec batch `read_group` (élimine N+1 sur smart buttons).
-- Stack : retiré `mail.activity.mixin` (overhead) et `tracking=True` (bruit chatter).
+- Added: multi-links via `bf.note.link` (m2m to records).
+- Added: conversion to activity (quick buttons + wizard).
+- Added: hybrid visibility (`is_shared`).
+- Added: `deadline_date` + calendar view.
+- Added: image drop-zone in the quick-create editor.
+- Added: pin/unpin directly from the kanban.
+- Security: RPC `quick_create_from_context` whitelisted, `user_id` forced.
+- Performance: `bf.note.link.mixin` with batched `read_group` (eliminates N+1 on smart buttons).
+- Stack: removed `mail.activity.mixin` (overhead) and `tracking=True` (chatter noise).
 
 ### 18.0.1.0.0 (2026-05-02)
-- Initial release : `bf.note` + `bf.note.tag`, systray, hotkeys Alt+N / Alt+Shift+N, smart buttons sur 4 modèles.
+- Initial release: `bf.note` + `bf.note.tag`, systray, hotkeys Alt+N / Alt+Shift+N, smart buttons on 4 models.
 
 ## Credits
 
 Blue Fox Inc — https://bluefoxconsultant.com
+
+---
+
+<sub>Authored and maintained by Blue Fox Inc. AI coding assistants were used as productivity tools during development.</sub>

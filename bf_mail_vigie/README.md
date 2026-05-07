@@ -1,37 +1,37 @@
 # bf_mail_vigie
 
-Ajoute un bouton "Re-router" à la liste et au formulaire de `bf.email`
-(module `bf_email_management`). Analyse les headers `In-Reply-To`,
-`References` et le `parent_id` du `mail.message` source pour suggérer
-une chatter cible plus pertinente. Sur confirmation, met à jour les
-colonnes `model` / `res_id` du `mail.message` (et la projection
-`bf.email` correspondante), sans renvoi ni notification.
+Adds a "Re-route" button to the list and form views of `bf.email`
+(module `bf_email_management`). Inspects the `In-Reply-To` and
+`References` headers and the `parent_id` of the source `mail.message`
+to suggest a more relevant target chatter. On confirmation, updates the
+`model` / `res_id` columns of the `mail.message` (and the matching
+`bf.email` projection), without resending or notifying.
 
-## Dépendances
+## Dependencies
 
 - `mail`
 - `bf_email_management`
 
-## Sécurité
+## Security
 
-- Aucune nouvelle donnée sensible stockée.
-- Opération de re-route = mutation de colonnes, aucun `message_post`,
-  aucun `send_mail`, aucun `mail.mail` créé.
-- Exige `write` sur l'enregistrement cible et sur le `bf.email` source,
-  `read` sur le `mail.message`.
-- Le wizard est accessible aux utilisateurs internes (`base.group_user`),
-  mais l'ACL sur chaque récord cible est vérifiée avant mutation.
+- No new sensitive data is stored.
+- The re-route operation = column mutation, no `message_post`,
+  no `send_mail`, no `mail.mail` created.
+- Requires `write` on the target record and on the source `bf.email`,
+  `read` on the `mail.message`.
+- The wizard is available to internal users (`base.group_user`),
+  but the ACL on each target record is checked before mutation.
 
 ## UX
 
-- Bouton "Re-router" dans le header du formulaire `bf.email`.
-- Menu d'action "Re-router ce courriel" accessible sur la liste
-  (sélection multiple: un wizard par enregistrement).
-- Champ `Cible` de type `Reference` qui combine un dropdown des 12
-  modèles courants (tâche, piste CRM, ticket helpdesk, contact, BC,
-  facture, etc.) et un picker Many2one filtré sur le modèle choisi.
-- Si une suggestion automatique existe (via headers ou parent_id),
-  un bouton "Appliquer la suggestion" pré-remplit le champ `Cible`.
+- "Re-route" button in the header of the `bf.email` form view.
+- "Re-route this email" action menu available in the list view
+  (multi-selection: one wizard per record).
+- `Target` field of type `Reference` combining a dropdown of the 12
+  common models (task, CRM lead, helpdesk ticket, contact, sale order,
+  invoice, etc.) and a Many2one picker filtered by the chosen model.
+- If an automatic suggestion is available (via headers or parent_id),
+  an "Apply suggestion" button pre-fills the `Target` field.
 
 ## Architecture
 
@@ -44,6 +44,10 @@ bf_mail_vigie/
 └── security/ir.model.access.csv
 ```
 
-## Licence
+## License
 
 LGPL-3
+
+---
+
+<sub>Authored and maintained by Blue Fox Inc. AI coding assistants were used as productivity tools during development.</sub>

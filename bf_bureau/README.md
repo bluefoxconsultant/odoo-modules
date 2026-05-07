@@ -1,61 +1,61 @@
 # BF Bureau
 
-Tableaux de bord (« bureaux ») configurables par l'utilisateur pour Odoo 18 : juxtapose plusieurs actions Odoo dans une seule vue, avec changement de type de vue par panneau, raccourcis clavier par bureau, créneaux horaires automatiques et barre latérale de bureaux sauvegardés.
+User-configurable dashboards ("desks") for Odoo 18: place several Odoo actions side-by-side in a single view, with per-pane view switching, per-desk keyboard shortcuts, automatic time-of-day defaults, and a sidebar of saved desks.
 
 ## License
 
-LGPL-3 — voir `LICENSE`.
+LGPL-3 — see `LICENSE`.
 
 ## Concepts
 
-Un **bureau** (`bf.bureau.desk`) est une mise en page nommée combinant plusieurs **panneaux** (`bf.bureau.pane`). Chaque panneau pointe vers une `ir.actions.act_window` existante (Mes activités, Toutes les tâches, Boîte de réception, etc.) et la rend en place via le composant `<View>` d'Odoo, avec ses propres barres de filtre, vue switcher, recherche favoris, et clic-pour-ouvrir.
+A **desk** (`bf.bureau.desk`) is a named layout combining several **panes** (`bf.bureau.pane`). Each pane points to an existing `ir.actions.act_window` (My activities, All tasks, Inbox, etc.) and renders it in place via Odoo's `<View>` component, with its own filter bar, view switcher, favorites, and click-to-open.
 
-Six mises en page disponibles :
+Six layouts are available:
 
-| Layout | Slots | Usage typique |
+| Layout | Slots | Typical use |
 | --- | --- | --- |
-| `single` | `full` | Un seul panneau plein écran (focus) |
-| `two_columns` | `left_full`, `right_full` | Deux côte-à-côte pleine hauteur |
-| `two_top_one_bottom` | `top_left`, `top_right`, `bottom_full` | 2 en haut + 1 large en bas (défaut) |
-| `two_bottom_one_top` | `top_full`, `bottom_left`, `bottom_right` | Inverse : 1 en haut + 2 en bas |
-| `four_quadrant` | `top_left`, `top_right`, `bottom_left`, `bottom_right` | Grille 2×2 |
-| `stacked_three` | `row_1`, `row_2`, `row_3` | Trois rangées empilées |
+| `single` | `full` | A single full-screen pane (focus mode) |
+| `two_columns` | `left_full`, `right_full` | Two side-by-side, full height |
+| `two_top_one_bottom` | `top_left`, `top_right`, `bottom_full` | 2 on top + 1 wide at the bottom (default) |
+| `two_bottom_one_top` | `top_full`, `bottom_left`, `bottom_right` | Inverse: 1 on top + 2 at the bottom |
+| `four_quadrant` | `top_left`, `top_right`, `bottom_left`, `bottom_right` | 2×2 grid |
+| `stacked_three` | `row_1`, `row_2`, `row_3` | Three stacked rows |
 
 ## Features
 
-### Mise en page
-- **Six layouts prédéfinis** sélectionnables depuis le formulaire de bureau ; une contrainte `_check_slot_layout` valide que le slot d'un panneau est compatible avec le layout du bureau parent.
-- **Poids 1–4** par panneau (`bf.bureau.pane.weight`) → ratios `fr` calculés JS-side pour `grid-template-rows / -columns`. Permet d'agrandir un panneau sans changer de layout.
-- **Domaine et contexte par panneau** (`domain_override`, `context_override`) : expressions Python (validées server-side via `ast.literal_eval`) appliquées en `AND` / `merge` par-dessus celles de l'action. Même action, plusieurs angles dans différents bureaux.
+### Layout
+- **Six predefined layouts** selectable from the desk form; a `_check_slot_layout` constraint validates that a pane's slot is compatible with its parent desk's layout.
+- **Weights 1–4** per pane (`bf.bureau.pane.weight`) → `fr` ratios computed JS-side for `grid-template-rows / -columns`. Lets you resize a pane without changing the layout.
+- **Per-pane domain and context** (`domain_override`, `context_override`): Python expressions (validated server-side via `ast.literal_eval`) applied as an `AND` / `merge` on top of the action's. Same action, different angles in different desks.
 
 ### Navigation
-- **View switcher par panneau** : kanban / liste / fiche / tableau croisé / graphique / calendrier / activité (selon `view_mode` de l'action). État persisté dans `bf.bureau.pane.view_type` au clic sur « 💾 Enregistrer la disposition ».
-- **Clic sur un enregistrement** ouvre le formulaire plein écran via le service action standard d'Odoo (préserve fil d'Ariane et contexte de recherche).
-- **Bouton « Nouveau »** lance le formulaire blanc de l'action.
-- **Bouton 🔄 par panneau** force un rechargement complet (re-mount du `<View>` via `t-key`).
-- **Filtres favoris** scoped à l'action embarquée (pas au bureau client) : un wrapper `BfBureauPaneView` fait `useSubEnv({ config: { actionId, getDisplayName } })` pour que `ir.filters.create_or_replace` enregistre sous le bon `action_id`. `loadIrFilters: true` charge les favoris au montage.
+- **Per-pane view switcher**: kanban / list / form / pivot / graph / calendar / activity (depending on the action's `view_mode`). State persisted to `bf.bureau.pane.view_type` when clicking "💾 Save layout".
+- **Click on a record** opens the full-screen form view via Odoo's standard action service (preserves breadcrumbs and search context).
+- **"New" button** launches the action's blank form.
+- **Per-pane 🔄 button** forces a full reload (re-mount of `<View>` via `t-key`).
+- **Favorite filters** scoped to the embedded action (not the desk client): a `BfBureauPaneView` wrapper does `useSubEnv({ config: { actionId, getDisplayName } })` so `ir.filters.create_or_replace` saves under the right `action_id`. `loadIrFilters: true` loads favorites at mount.
 
-### Multi-bureaux
-- **Barre latérale** (`bf-bureau-sidebar`) listant tous les bureaux de l'utilisateur, avec étoile « par défaut », chip raccourci clavier, surbrillance du bureau actif. Visibilité persistée dans `localStorage` (clé `bf_bureau.sidebar.visible`).
-- **Raccourcis clavier par bureau** (`bf.bureau.desk.shortcut_key`, ex. `alt+1`) — enregistrés via le service `hotkey` d'Odoo en mode `global` pour fonctionner depuis n'importe quelle vue. Les fermetures retournées par `hotkey.add()` sont stockées et appelées dans `onWillUnmount`.
-- **Créneau horaire** (`bf.bureau.desk.active_when` ∈ {`always`, `morning` 5–12, `afternoon` 12–18, `evening` 18–24, `night` 0–5}). `get_default_desk_id` ouvre prioritairement le bureau dont le créneau couvre l'heure courante, puis tombe sur le `is_default`, puis le premier bureau.
-- **Dupliquer** (`action_duplicate_for_me`) clone le bureau et ses panneaux pour l'utilisateur courant — utile pour A/B-tester un layout sans perdre l'original.
+### Multi-desk
+- **Sidebar** (`bf-bureau-sidebar`) listing all the user's desks, with a "default" star, a keyboard-shortcut chip, and highlight on the active desk. Visibility persisted in `localStorage` (key `bf_bureau.sidebar.visible`).
+- **Per-desk keyboard shortcuts** (`bf.bureau.desk.shortcut_key`, e.g. `alt+1`) — registered through Odoo's `hotkey` service in `global` mode so they work from any view. The closures returned by `hotkey.add()` are stored and called in `onWillUnmount`.
+- **Time-of-day** (`bf.bureau.desk.active_when` ∈ {`always`, `morning` 5–12, `afternoon` 12–18, `evening` 18–24, `night` 0–5}). `get_default_desk_id` first opens the desk whose slot covers the current hour, then falls back to `is_default`, then to the first desk.
+- **Duplicate** (`action_duplicate_for_me`) clones the desk and its panes for the current user — useful for A/B-testing a layout without losing the original.
 
-### Sécurité
-| Risque | Mitigation |
+### Security
+| Risk | Mitigation |
 | --- | --- |
-| Voir les bureaux d'un autre utilisateur | `ir.rule` `[('user_id', '=', user.id)]` sur `bf.bureau.desk`, cascade via `desk_id.user_id` sur `bf.bureau.pane`. Admins (`base.group_system`) bypass pour support. |
-| Bureau-par-défaut multiple | SQL exclusion constraint : `EXCLUDE (user_id WITH =) WHERE (is_default AND active)`. |
-| Raccourci clavier en collision | SQL exclusion : `EXCLUDE (user_id, shortcut_key)` quand non vide. |
-| Slot incompatible avec layout | `@api.constrains("slot", "desk_id")` ⇒ `_check_slot_layout`. |
-| `view_type` non supporté par l'action | `@api.constrains("view_type", "action_id")` ⇒ `_check_view_type_in_action`. |
-| `domain_override` / `context_override` malicieux | `ast.literal_eval` côté serveur (pas d'`eval`/`exec`), validation `isinstance(list)` / `isinstance(dict)`. |
-| Lecture d'action côté client | `read_desk_for_render` fait `pane.action_id.sudo().read([...])` mais seulement après `desk.check_access_rights("read")` + `check_access_rule("read")` sur le bureau. |
+| Seeing another user's desks | `ir.rule` `[('user_id', '=', user.id)]` on `bf.bureau.desk`, cascading via `desk_id.user_id` on `bf.bureau.pane`. Admins (`base.group_system`) bypass for support. |
+| Multiple default desks | SQL exclusion constraint: `EXCLUDE (user_id WITH =) WHERE (is_default AND active)`. |
+| Conflicting keyboard shortcuts | SQL exclusion: `EXCLUDE (user_id, shortcut_key)` when non-empty. |
+| Slot incompatible with layout | `@api.constrains("slot", "desk_id")` ⇒ `_check_slot_layout`. |
+| `view_type` not supported by the action | `@api.constrains("view_type", "action_id")` ⇒ `_check_view_type_in_action`. |
+| Malicious `domain_override` / `context_override` | `ast.literal_eval` server-side (no `eval`/`exec`), `isinstance(list)` / `isinstance(dict)` validation. |
+| Reading the action client-side | `read_desk_for_render` does `pane.action_id.sudo().read([...])` but only after `desk.check_access_rights("read")` + `check_access_rule("read")` on the desk. |
 
 ### Performance
-- `read_desk_for_render` retourne tout en un seul appel ORM (1 round-trip vs N+1).
-- `actionService.loadAction()` en parallèle pour tous les panneaux via `Promise.all`.
-- `Object.assign(env.config, ...)` mute la config locale du sub-env, pas celle du parent — pas de fuite entre panneaux.
+- `read_desk_for_render` returns everything in a single ORM call (1 round-trip instead of N+1).
+- `actionService.loadAction()` runs in parallel for all panes via `Promise.all`.
+- `Object.assign(env.config, ...)` mutates the local config of the sub-env, not the parent's — no leak between panes.
 
 ## Architecture
 
@@ -64,40 +64,44 @@ bf.bureau.desk ─┬─ pane_ids ──> bf.bureau.pane ──> ir.actions.act_
                 ├─ user_id ──> res.users  (record rule scope)
                 ├─ shortcut_key (Char, unique per user)
                 ├─ active_when (Selection: always / morning / afternoon / evening / night)
-                ├─ layout (Selection: 6 valeurs)
-                └─ is_default (Boolean, exclusion par user)
+                ├─ layout (Selection: 6 values)
+                └─ is_default (Boolean, exclusion per user)
 
-bf.bureau.pane ─┬─ slot (Selection : 12 valeurs, validé contre layout)
+bf.bureau.pane ─┬─ slot (Selection: 12 values, validated against layout)
                 ├─ view_type (kanban / list / form / pivot / graph / calendar / activity)
                 ├─ weight (1–4 → grid-template fr ratio)
-                ├─ name_override (Char optionnel)
+                ├─ name_override (Char optional)
                 ├─ domain_override (Char, ast.literal_eval list)
                 └─ context_override (Char, ast.literal_eval dict)
 ```
 
-Côté client (`static/src/js/bf_bureau_desk.js`) :
+Client side (`static/src/js/bf_bureau_desk.js`):
 
 ```
 BfBureauDesk (registry "actions" → tag "bf_bureau_desk")
-├── _load() : ORM call read_desk_for_render + list_user_desks en parallèle
-├── _registerHotkeys() : hotkey.add() pour chaque desk.shortcut_key
-├── BfBureauPaneView (wrapper par panneau)
+├── _load() : ORM call read_desk_for_render + list_user_desks in parallel
+├── _registerHotkeys() : hotkey.add() for each desk.shortcut_key
+├── BfBureauPaneView (wrapper per pane)
 │   └── useSubEnv({ config: { actionId, actionName, getDisplayName, ... }})
-│       └── <View>  (Odoo natif, type=kanban/list/...)
+│       └── <View>  (native Odoo, type=kanban/list/...)
 └── gridStyle() : compute grid-template-rows/columns from pane weights
 ```
 
 ## Installation
 
-Ajouter le module aux `addons_path` Odoo et l'installer depuis le menu Apps. Sur première installation, un bureau par défaut « Mon bureau » est seedé pour `base.user_admin` avec trois panneaux (Mes activités, Toutes les tâches, Boîte de réception). `noupdate="1"` ⇒ les modifications utilisateur ne sont pas écrasées aux upgrades subséquents.
+Add the module to Odoo's `addons_path` and install it from the Apps menu. On first install a default desk "My desk" is seeded for `base.user_admin` with three panes (My activities, All tasks, Inbox). `noupdate="1"` ⇒ user changes are not overwritten on subsequent upgrades.
 
-## Dépendances
+## Dependencies
 
-- `web`, `base`, `mail`, `project` (core Odoo)
-- `bf_email_management` (pour le panneau Boîte de réception du bureau seed)
+- `web`, `base`, `mail`, `project` (Odoo core)
+- `bf_email_management` (for the Inbox pane in the seeded desk)
 
 ## Configuration
 
-- **Mes bureaux** (sous-menu de Mon bureau) : créer / archiver / dupliquer / définir par défaut.
-- **Édition d'un bureau** : layout dropdown + tableau inline des panneaux (slot, action, view type, poids, overrides).
-- **Sidebar** : icône ☰ dans la barre du bureau pour basculer.
+- **My desks** (submenu of My desk): create / archive / duplicate / set as default.
+- **Editing a desk**: layout dropdown + inline pane table (slot, action, view type, weight, overrides).
+- **Sidebar**: ☰ icon in the desk's bar to toggle.
+
+---
+
+<sub>Authored and maintained by Blue Fox Inc. AI coding assistants were used as productivity tools during development.</sub>

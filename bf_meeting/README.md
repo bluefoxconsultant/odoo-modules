@@ -1,75 +1,75 @@
-# Rencontres (bf_meeting)
+# Meetings (bf_meeting)
 
-Module Odoo 18 Community couvrant le cycle complet d'une rencontre : ordre du jour, événement calendrier, compte rendu structuré, décisions, présences, et liaison bidirectionnelle avec les tâches et les matrices de connaissances.
+Odoo 18 Community module covering the full meeting lifecycle: agenda, calendar event, structured meeting record, decisions, attendance, and bidirectional links to tasks and knowledge matrices.
 
-## Cas d'usage
+## Use case
 
-Permettre à une équipe de projet de planifier, tenir et documenter ses rencontres à partir d'Odoo, sans outil externe : préparation de l'ordre du jour à partir des tâches en cours, envoi par courriel aux participants, prise de notes structurées, production d'un compte rendu PDF brandé, et suivi des décisions comme lignes de matrice de connaissances.
+Lets a project team plan, run, and document its meetings from inside Odoo, with no external tool: agenda preparation from open tasks, email dispatch to participants, structured note-taking, branded PDF report generation, and tracking of decisions as knowledge-matrix lines.
 
-## Fonctionnalités
+## Features
 
-- **Ordres du jour (`meeting.agenda`)** — titre, date, projet, participants, sujets planifiés, envoi par courriel aux destinataires
-- **Comptes rendus (`meeting.record`)** — sujets abordés, décisions, notes structurées JSON rendues en HTML sécurisé, rapport PDF, suivi de l'envoi
-- **Décisions (`meeting.decision`)** — décisionnaires, contexte, transfert optionnel vers les matrices de connaissances
-- **Présences (`meeting.attendance`)** — statut (présent / absent / excusé) et rôle par participant
-- **Tâches à discuter** — quatre modes de rattachement d'une `project.task` à une rencontre à venir :
-  - *Épinglée* : lien explicite vers un ordre du jour précis
-  - *Prochaine rencontre client* : apparaît au prochain OdJ admissible du client
-  - *Prochaine rencontre projet* : apparaît au prochain OdJ admissible du projet
-  - *Toutes les rencontres client/projet* : apparaît à chaque OdJ admissible tant que la tâche est ouverte
-- **Résolution dynamique** — les tâches taguées sont calculées à chaque ouverture de l'OdJ (formulaire, PDF, courriel) et disparaissent dès qu'elles sont fermées
-- **Annulation d'un OdJ** — les tâches hard-linkées sans tag soft reçoivent une activité « À faire » due aujourd'hui pour être réassignées ; les tâches taguées basculent automatiquement vers le prochain OdJ admissible
-- **Transfert vers compte rendu** — `action_create_meeting_record` transfère les tâches hard-linkées vers `meeting.record.task_ids` et efface le tag soft
-- **Smart buttons** — prochaine rencontre sur la tâche, comptes rendus et OdJ sur le projet et sur l'événement calendrier, tâches à discuter sur l'OdJ
-- **Courriels** — modèles pour l'envoi de l'ordre du jour et du compte rendu, avec section dédiée aux tâches à discuter
-- **Rapport PDF** — rendu brandé de l'ordre du jour avec section « Éléments d'action à discuter »
-- **Unification OdJ ↔ compte rendu ↔ événement calendrier** — un même `calendar.event` peut porter un OdJ et un compte rendu ; la création d'un compte rendu depuis un événement ayant déjà un OdJ rattache automatiquement les deux (`meeting.agenda.meeting_record_id`) et propage le projet
-- **Drapeau « Besoin d'un OdJ »** — sur `calendar.event`, champ calculé `bf_needs_agenda` (vrai si la rencontre est à venir, sans OdJ et non dispensée) ; bannière d'alerte sur le formulaire et filtre dédié dans la vue de recherche
-- **Opt-out par rencontre** — case à cocher `bf_skip_agenda` sur `calendar.event` pour les rencontres internes courtes ou récurrentes
-- **Rappel automatique avant rencontre** — cron quotidien `_cron_remind_unsent_agenda` qui crée une activité « À faire » due aujourd'hui sur l'organisateur (utilisateur interne uniquement) si la rencontre arrive dans les 7 prochains jours et que l'OdJ n'a pas encore été envoyé ; idempotent via le `summary` de l'activité
+- **Agendas (`meeting.agenda`)** — title, date, project, participants, planned topics, email dispatch to recipients
+- **Meeting records (`meeting.record`)** — discussed topics, decisions, structured JSON notes rendered as safe HTML, PDF report, send tracking
+- **Decisions (`meeting.decision`)** — decision-makers, context, optional transfer to knowledge matrices
+- **Attendance (`meeting.attendance`)** — status (present / absent / excused) and role per participant
+- **Tasks to discuss** — four ways to attach a `project.task` to an upcoming meeting:
+  - *Pinned*: explicit link to a specific agenda
+  - *Next client meeting*: shows up at the next eligible client agenda
+  - *Next project meeting*: shows up at the next eligible project agenda
+  - *All client/project meetings*: shows up at every eligible agenda as long as the task is open
+- **Dynamic resolution** — tagged tasks are computed on every agenda open (form, PDF, email) and disappear as soon as they close
+- **Cancelling an agenda** — hard-linked tasks without a soft tag receive a "To-do" activity due today for reassignment; tagged tasks automatically roll over to the next eligible agenda
+- **Transfer to meeting record** — `action_create_meeting_record` transfers hard-linked tasks to `meeting.record.task_ids` and clears the soft tag
+- **Smart buttons** — next meeting on the task, meeting records and agendas on the project and on the calendar event, tasks-to-discuss on the agenda
+- **Emails** — templates for sending the agenda and the meeting record, with a dedicated section for tasks-to-discuss
+- **PDF report** — branded agenda render with an "Action items to discuss" section
+- **Agenda ↔ meeting record ↔ calendar event unification** — the same `calendar.event` can carry an agenda and a meeting record; creating a meeting record from an event that already has an agenda automatically links the two (`meeting.agenda.meeting_record_id`) and propagates the project
+- **"Needs an agenda" flag** — on `calendar.event`, computed `bf_needs_agenda` (true if the meeting is upcoming, has no agenda, and is not opted out); banner alert on the form and a dedicated filter in the search view
+- **Per-meeting opt-out** — `bf_skip_agenda` checkbox on `calendar.event` for short or recurring internal meetings
+- **Pre-meeting reminder** — daily cron `_cron_remind_unsent_agenda` creating a "To-do" activity due today on the organizer (internal user only) if the meeting is within the next 7 days and the agenda has not yet been sent; idempotent via the activity `summary`
 
-## Architecture technique
+## Technical architecture
 
-### Modèles
+### Models
 
-| Modèle | Rôle |
+| Model | Role |
 |---|---|
-| `meeting.agenda` | Ordre du jour (projet, date, sujets, tâches, destinataires, état) |
-| `meeting.agenda.topic` | Sujet planifié dans un ordre du jour (séquence, durée, présentateur) |
-| `meeting.record` | Compte rendu structuré (projet, date, notes JSON, rapport PDF) |
-| `meeting.topic` | Sujet abordé dans un compte rendu (points clés, verbatim) |
-| `meeting.decision` | Décision prise lors d'une rencontre (contexte, décisionnaire) |
-| `meeting.attendance` | Présence d'un participant (statut, rôle) |
-| `project.task` (hérité) | Champs de rattachement à une rencontre (`meeting_id`, `bf_meeting_agenda_id`, `bf_discuss_tag`, `bf_next_agenda_id`) |
-| `project.project` (hérité) | Smart button « Comptes rendus » |
-| `calendar.event` (hérité) | Smart buttons « Comptes rendus » et « Ordre du jour », champs `meeting_agenda_ids/id/count`, `bf_skip_agenda` (opt-out), `bf_needs_agenda` (calculé), création d'un OdJ ou d'un compte rendu depuis l'événement |
-| `project.knowledge.item` (hérité) | Lien Many2many vers les comptes rendus qui référencent l'item |
+| `meeting.agenda` | Agenda (project, date, topics, tasks, recipients, state) |
+| `meeting.agenda.topic` | Topic planned in an agenda (sequence, duration, presenter) |
+| `meeting.record` | Structured meeting record (project, date, JSON notes, PDF report) |
+| `meeting.topic` | Topic discussed in a meeting record (key points, verbatim) |
+| `meeting.decision` | Decision made during a meeting (context, decision-maker) |
+| `meeting.attendance` | Participant attendance (status, role) |
+| `project.task` (inherited) | Meeting-attachment fields (`meeting_id`, `bf_meeting_agenda_id`, `bf_discuss_tag`, `bf_next_agenda_id`) |
+| `project.project` (inherited) | "Meeting records" smart button |
+| `calendar.event` (inherited) | "Meeting records" and "Agenda" smart buttons, fields `meeting_agenda_ids/id/count`, `bf_skip_agenda` (opt-out), `bf_needs_agenda` (computed), creation of an agenda or meeting record from the event |
+| `project.knowledge.item` (inherited) | Many2many link to meeting records that reference the item |
 
-### Dépendances
+### Dependencies
 
-| Module | Rôle |
+| Module | Role |
 |---|---|
-| `project` | Projets, tâches, rattachement des rencontres |
-| `mail` | Chatter, activités, modèles de courriel |
-| `calendar` | Lien avec les événements calendrier Odoo |
-| `project_knowledge_matrix` | Matrices de connaissances alimentées par les décisions |
+| `project` | Projects, tasks, meeting attachment |
+| `mail` | Chatter, activities, email templates |
+| `calendar` | Link to Odoo calendar events |
+| `project_knowledge_matrix` | Knowledge matrices fed by decisions |
 
-### Sécurité
+### Security
 
-- Groupe `group_meeting_user` — consulter et modifier les rencontres des projets auxquels l'utilisateur a accès (via `project.message_partner_ids`)
-- Groupe `group_meeting_manager` — accès complet à tous les comptes rendus, ordres du jour, décisions et présences
-- Règles `ir.rule` sur `meeting.record`, `meeting.agenda`, `meeting.topic`, `meeting.decision`, `meeting.agenda.topic`, `meeting.attendance`
-- ACL standard déclarées dans `security/ir.model.access.csv`
+- Group `group_meeting_user` — read and modify meetings of projects the user has access to (via `project.message_partner_ids`)
+- Group `group_meeting_manager` — full access to all meeting records, agendas, decisions and attendance
+- `ir.rule` on `meeting.record`, `meeting.agenda`, `meeting.topic`, `meeting.decision`, `meeting.agenda.topic`, `meeting.attendance`
+- Standard ACLs declared in `security/ir.model.access.csv`
 
-### Tâche planifiée
+### Scheduled task
 
-| Cron | Modèle | Fréquence | Rôle |
+| Cron | Model | Frequency | Role |
 |---|---|---|---|
-| `ir_cron_remind_unsent_agenda` | `meeting.agenda` | quotidien | Crée une activité « À faire » sur l'OdJ vers l'organisateur si la rencontre arrive dans 7 jours et que l'OdJ n'est pas envoyé |
+| `ir_cron_remind_unsent_agenda` | `meeting.agenda` | daily | Creates a "To-do" activity on the agenda for the organizer if the meeting is within 7 days and the agenda is not sent |
 
-### Rendu HTML sécurisé
+### Safe HTML rendering
 
-Les notes structurées JSON (titre de sujet, points, questions ouvertes) sont rendues en HTML via `markupsafe.escape()` avant concaténation, pour éviter toute injection lorsque le contenu provient d'une source externe (transcription IA, collage utilisateur).
+Structured JSON notes (topic title, bullets, open questions) are rendered to HTML through `markupsafe.escape()` before concatenation, to prevent any injection when the content comes from an external source (AI transcription, user paste).
 
 ## Installation
 
@@ -77,12 +77,12 @@ Les notes structurées JSON (titre de sujet, points, questions ouvertes) sont re
 docker compose exec odoo odoo -d <database> -i bf_meeting --stop-after-init --no-http
 ```
 
-Après installation, un groupe « Gestionnaire » est attribué par défaut à `base.user_admin` ; les autres utilisateurs reçoivent le groupe « Utilisateur » via les paramètres du profil.
+After install, the "Manager" group is granted to `base.user_admin` by default; other users get the "User" group via the user profile settings.
 
-## Licence
+## License
 
 LGPL-3
 
-## Remerciements
+---
 
-Créé et maintenu par Blue Fox Inc. Des assistants de codage IA ont été utilisés comme outils de productivité durant le développement.
+<sub>Authored and maintained by Blue Fox Inc. AI coding assistants were used as productivity tools during development.</sub>

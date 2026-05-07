@@ -458,3 +458,7 @@ This module is provided as-is, without warranty of any kind. Use at your own ris
 ## Support
 
 For issues and feature requests, please contact Blue Fox Inc. or open an issue on the project repository.
+
+---
+
+<sub>Authored and maintained by Blue Fox Inc. AI coding assistants were used as productivity tools during development.</sub>

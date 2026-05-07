@@ -154,4 +154,4 @@ For support, please contact Blue Fox Inc. or open an issue in the repository.
 
 ---
 
-Authored and maintained by Blue Fox Inc. AI coding assistants were used as productivity tools during development.
+<sub>Authored and maintained by Blue Fox Inc. AI coding assistants were used as productivity tools during development.</sub>

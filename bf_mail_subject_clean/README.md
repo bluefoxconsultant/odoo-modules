@@ -1,23 +1,23 @@
-# BF Nettoyage des sujets de courriel
+# BF Email Subject Cleanup
 
-Module Odoo 18 Community qui empêche l'empilement de préfixes `Re:` sur les sujets des messages envoyés via le chatter.
+Odoo 18 Community module that prevents `Re:` prefix stacking on subjects of messages sent through the chatter.
 
-## Cas d'usage
+## Use case
 
-Quand un échange courriel va et vient entre Odoo et un client externe (Outlook, Gmail, Apple Mail), chaque réponse ajoute un nouveau `Re:` au sujet. Après quelques allers-retours, on se retrouve avec `Re: Re: Re: Re: Sujet original` qui pollue l'inbox du destinataire et l'historique du chatter. Ce module ramène toujours à un seul `Re:`, sans modifier les courriels entrants.
+When an email exchange goes back and forth between Odoo and an external client (Outlook, Gmail, Apple Mail), each reply tacks on a new `Re:` to the subject. After a few round-trips you end up with `Re: Re: Re: Re: Original subject`, which clutters the recipient's inbox and the chatter history. This module always collapses to a single `Re:`, without modifying incoming emails.
 
-## Fonctionnalités
+## Features
 
-- **Collapse automatique des préfixes empilés** — `Re: Re: Re: Hello` devient `Re: Hello`
-- **Insensible à la casse** — `RE: Re: re: Hello` devient `Re: Hello`
-- **Compatibilité avec les compteurs BlackBerry/Outlook** — `Re[2]: Hello` et `Re(3): Hello` deviennent `Re: Hello`
-- **Tolérance d'espaces et de ponctuation** — `Re:Hello`, ` Re: Hello`, `Re : Hello` sont tous normalisés
-- **Aucune perte d'information** — les sujets sans préfixe `Re:` ne sont jamais touchés
-- **Application au compose et au post** — l'utilisateur voit immédiatement le sujet propre dans le wizard ; le `mail.message` stocké et le courriel sortant sont propres
-- **Préservation des sujets entrants** — l'IMAP gateway et `message_parse` ne sont pas affectés ; on garde la chaîne `Re:` originale telle que reçue
-- **Aucune dépendance externe** — uniquement la regex Python standard, pas de librairie supplémentaire
+- **Automatic collapse of stacked prefixes** — `Re: Re: Re: Hello` becomes `Re: Hello`
+- **Case-insensitive** — `RE: Re: re: Hello` becomes `Re: Hello`
+- **BlackBerry/Outlook counter compatibility** — `Re[2]: Hello` and `Re(3): Hello` become `Re: Hello`
+- **Tolerant to whitespace and punctuation** — `Re:Hello`, ` Re: Hello`, `Re : Hello` are all normalized
+- **No information loss** — subjects without a `Re:` prefix are never touched
+- **Applied at compose and post** — the user sees the clean subject in the wizard immediately; the stored `mail.message` and the outbound email are clean
+- **Incoming subjects preserved** — IMAP gateway and `message_parse` are not affected; the original `Re:` chain is kept as received
+- **No external dependencies** — only Python's standard `re` library, no extra package
 
-## Architecture technique
+## Technical architecture
 
 ### Structure
 
@@ -30,16 +30,16 @@ bf_mail_subject_clean/
     +-- __init__.py
     +-- common.py                    # helper normalize_reply_subject()
     +-- mail_compose_message.py      # override _compute_subject (UX wizard)
-    +-- mail_thread.py               # override message_post (chatter inline + RPC + Python)
+    +-- mail_thread.py               # override message_post (inline chatter + RPC + Python)
 ```
 
-### Dépendances
+### Dependencies
 
-| Module | Rôle |
+| Module | Role |
 |--------|------|
-| `mail` | Seule dépendance — fournit `mail.thread.message_post` et le wizard `mail.compose.message` |
+| `mail` | Sole dependency — provides `mail.thread.message_post` and the `mail.compose.message` wizard |
 
-### Helper de normalisation
+### Normalization helper
 
 ```python
 _REPLY_PREFIX_RE = re.compile(
@@ -56,39 +56,39 @@ def normalize_reply_subject(subject):
     return f'Re: {subject[match.end():]}'
 ```
 
-La regex est conçue pour résister au catastrophic backtracking : le `:` requis à chaque itération empêche toute séquence pathologique d'exploser. Mesuré à <1 ms sur 20 000 caractères de pire cas.
+The regex is designed to resist catastrophic backtracking: the `:` required at each iteration prevents any pathological sequence from blowing up. Measured at <1 ms on a 20,000-character worst case.
 
-### Points d'override
+### Override points
 
-| Modèle | Méthode | Effet |
-|--------|---------|-------|
-| `mail.compose.message` | `_compute_subject` | Nettoie le sujet pré-rempli depuis le parent quand l'utilisateur ouvre le compose plein écran |
-| `mail.thread` | `message_post` | Nettoie le `subject` kwarg avant de poster, ce qui couvre : chatter inline, RPC `message_post`, code Python métier, modules tiers qui appellent `message_post` |
+| Model | Method | Effect |
+|-------|--------|--------|
+| `mail.compose.message` | `_compute_subject` | Cleans the subject pre-filled from the parent when the user opens the full-screen composer |
+| `mail.thread` | `message_post` | Cleans the `subject` kwarg before posting, which covers: inline chatter, RPC `message_post`, business Python code, third-party modules calling `message_post` |
 
-L'override de `message_post` est appliqué sur le modèle abstrait `mail.thread` et est donc actif sur tous les modèles qui l'héritent (tâches, partenaires, factures, projets, tickets helpdesk, etc.).
+The `message_post` override is applied to the abstract `mail.thread` model and is therefore active on every model that inherits it (tasks, partners, invoices, projects, helpdesk tickets, etc.).
 
-### Sécurité
+### Security
 
-- Aucun nouveau modèle, aucune nouvelle table, aucun nouvel `ir.model.access.csv`
-- Aucun appel `sudo()`, aucune élévation de privilèges
-- Aucune ressource réseau, aucun secret, aucune ressource externe
-- Manipulation de chaînes pure — aucune injection SQL ou XSS possible
+- No new model, no new table, no new `ir.model.access.csv`
+- No `sudo()` call, no privilege escalation
+- No network resource, no secret, no external resource
+- Pure string manipulation — no SQL or XSS injection possible
 
-### Cas couverts
+### Cases covered
 
-| Entrée | Sortie |
-|--------|--------|
+| Input | Output |
+|-------|--------|
 | `Re: Re: Re: Hello` | `Re: Hello` |
 | `RE: Re: re: Hello` | `Re: Hello` |
 | `Re[2]: Hello` | `Re: Hello` |
 | `Re(3): Hello` | `Re: Hello` |
-| `Re:Hello` (sans espace) | `Re: Hello` |
-| ` Re: Hello` (espace en tête) | `Re: Hello` |
-| `Re: Hello` | `Re: Hello` (inchangé) |
-| `Hello` | `Hello` (inchangé) |
-| `Replied: but not really` | `Replied: but not really` (inchangé) |
-| `Fw: Re: Hello` | `Fw: Re: Hello` (inchangé — le module ne touche pas `Fw:`/`Tr:`) |
-| `""` ou `None` | tel quel |
+| `Re:Hello` (no space) | `Re: Hello` |
+| ` Re: Hello` (leading space) | `Re: Hello` |
+| `Re: Hello` | `Re: Hello` (unchanged) |
+| `Hello` | `Hello` (unchanged) |
+| `Replied: but not really` | `Replied: but not really` (unchanged) |
+| `Fw: Re: Hello` | `Fw: Re: Hello` (unchanged — the module doesn't touch `Fw:`/`Tr:`) |
+| `""` or `None` | as-is |
 
 ## Installation
 
@@ -96,20 +96,20 @@ L'override de `message_post` est appliqué sur le modèle abstrait `mail.thread`
 docker compose exec odoo odoo -d <database> -i bf_mail_subject_clean --stop-after-init
 ```
 
-Ou via l'interface : **Apps** → rafraîchir la liste → installer **BF Nettoyage des sujets de courriel**.
+Or from the UI: **Apps** → refresh the list → install **BF Email Subject Cleanup**.
 
-## Désinstallation
+## Uninstall
 
-Pas de migration de données nécessaire — aucune donnée n'est créée par ce module. Désinstaller le module via l'interface ou en CLI :
+No data migration required — no data is created by this module. Uninstall via the UI or CLI:
 
 ```bash
 docker compose exec odoo odoo -d <database> --stop-after-init -- shell -c "self.env['ir.module.module'].search([('name','=','bf_mail_subject_clean')]).button_immediate_uninstall()"
 ```
 
-## Licence
+## License
 
 LGPL-3
 
-## Remerciements
+---
 
-Créé et maintenu par Blue Fox Inc. Des assistants de codage IA ont été utilisés comme outils de productivité durant le développement.
+<sub>Authored and maintained by Blue Fox Inc. AI coding assistants were used as productivity tools during development.</sub>

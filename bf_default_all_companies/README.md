@@ -91,3 +91,7 @@ The module reads from `session` (a public, already-rendered object describing th
 ## License
 
 LGPL-3.
+
+---
+
+<sub>Authored and maintained by Blue Fox Inc. AI coding assistants were used as productivity tools during development.</sub>

@@ -401,3 +401,7 @@ Falls back to matching `nextcloud_user` against Odoo login if `calendar_owner_id
 ## License
 
 LGPL-3.0
+
+---
+
+<sub>Authored and maintained by Blue Fox Inc. AI coding assistants were used as productivity tools during development.</sub>

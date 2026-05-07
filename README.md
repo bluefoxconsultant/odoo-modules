@@ -6,32 +6,32 @@ Custom Odoo 18 Community Edition modules developed by [Blue Fox Inc.](https://bl
 
 | Directory | Name | Version | License | Description |
 |---|---|---|---|---|
-| `audit_ti` | Audit TI - Loi 25 | 18.0.1.17.0 | LGPL-3 | Gestion des audits de sécurité informatique pour la conformité Loi 25 |
-| `bf_appointment` | Blue Fox Appointment | 18.0.2.7.1 | AGPL-3 | Pages publiques de prise de rendez-vous en libre-service (étend `resource_booking`) |
-| `bf_bloc_notes` | BF Bloc-notes | 18.0.2.1.0 | LGPL-3 | Notes rapides riches, multi-liens vers fiches, conversion en activité, raccourcis et icône systray (Alt+N) |
-| `bf_bureau` | BF Bureau — vues multi-panneaux | 18.0.3.0.0 | LGPL-3 | Tableaux de bord (« bureaux ») configurables par l'utilisateur : multi-panneaux d'actions Odoo, six layouts, raccourcis clavier, créneaux horaires, barre latérale |
-| `bf_dark_mode` | Blue Fox Dark Mode | 18.0.1.0.0 | MIT | Mode sombre pour Odoo utilisant la palette Blue Fox |
-| `bf_default_all_companies` | BF Default All Companies | 18.0.1.0.0 | LGPL-3 | Pré-coche toutes les compagnies autorisées dans le sélecteur multi-cies à la première connexion |
-| `bf_document_nextcloud_sync` | Document Nextcloud Sync | 18.0.1.1.0 | LGPL-3 | Synchronisation documents Odoo ↔ Nextcloud via WebDAV |
-| `bf_email_management` | Gestion des courriels | 18.0.1.5.1 | LGPL-3 | Inbox unifiée IMAP + chatters Odoo, avec re-routage UI |
-| `bf_gamification` | Fox Quest | 18.0.2.1.0 | LGPL-3 | Système de gamification avec XP, niveaux, badges et récompenses |
-| `bf_hour_bank` | Banque d'heures | 18.0.1.6.0 | LGPL-3 | Suivi automatisé des banques d'heures client |
-| `bf_mail_import` | BF Import courriel (.eml) | 18.0.1.2.0 | LGPL-3 | Importer des fichiers .eml dans le chatter Odoo |
-| `bf_mail_subject_clean` | BF Nettoyage des sujets de courriel | 18.0.1.0.0 | LGPL-3 | Évite l'empilement « Re: Re: Re: » dans les sujets envoyés via le chatter |
-| `bf_mail_vigie` | BF Vigie courriels (re-router) | 18.0.2.0.0 | LGPL-3 | Bouton "Re-router" sur `bf.email` pour déplacer un courriel mal routé vers la bonne chatter |
-| `bf_meeting` | Rencontres | 18.0.3.6.0 | LGPL-3 | Ordres du jour, comptes rendus et tâches à discuter en rencontre, unifiés autour de `calendar.event` avec rappel automatique |
-| `bf_sms_archive` | Archive SMS & Appels | 18.0.1.3.0 | LGPL-3 | Archivage et recherche de SMS et journaux d'appels Android |
-| `bf_task_unblock_notify` | BF Notification de déblocage de tâche | 18.0.1.6.1 | LGPL-3 | Notifie les assignés quand leur tâche est débloquée |
-| `bf_time_of_day` | BF Time of Day | 18.0.1.0.0 | LGPL-3 | Plages horaires (Matinée / Midi / Fin de jour / Hors heures) pour tâches et activités, avec override personnel par utilisateur |
-| `bf_timesheet_timer` | BF Timer - Feuilles de temps | 18.0.1.6.0 | LGPL-3 | Timer global de feuilles de temps avec multi-timer et interface OWL |
-| `bf_universal_search` | BF Recherche universelle | 18.0.1.3.0 | LGPL-3 | Recherche transversale dans tous les modules via la palette de commandes |
-| `bf_webmail` | Courriel Blue Fox | 18.0.1.1.0 | LGPL-3 | Accès au courriel SnappyMail depuis la barre Odoo |
-| `calendar_nextcloud_sync` | Calendar Nextcloud Sync | 18.0.1.23.0 | LGPL-3 | Synchronisation calendrier bidirectionnelle Odoo ↔ Nextcloud via n8n |
-| `contacts_nextcloud_sync` | Contacts Nextcloud Sync | 18.0.1.0.0 | LGPL-3 | Synchronisation des contacts Odoo avec le carnet Nextcloud via CardDAV |
-| `daily_todo_digest` | Daily To-Do Digest | 18.0.1.2.0 | LGPL-3 | Courriel quotidien regroupant activités, tâches en retard et aperçu de la semaine |
-| `hosting_management` | Gestion d'hébergement | 18.0.2.29.0 | LGPL-3 | Gérer les services d'hébergement pour les clients avec suivi de versions et facturation |
-| `privacy_consent` | Suivi des consentements (Loi 25) | 18.0.3.0.1 | LGPL-3 | Vie privée, consentements et destruction documentaire (Loi 25) |
-| `project_knowledge_matrix` | Project Knowledge Matrix | 18.0.9.9.0 | LGPL-3 | Base de connaissances projets, politiques et documentation |
+| `audit_ti` | Audit TI - Loi 25 | 18.0.1.17.0 | LGPL-3 | IT security audit management for Quebec's Loi 25 compliance |
+| `bf_appointment` | Blue Fox Appointment | 18.0.2.7.1 | AGPL-3 | Self-service public booking pages (extends `resource_booking`) |
+| `bf_bloc_notes` | BF Bloc-notes | 18.0.2.1.0 | LGPL-3 | Rich quick notes with multi-record links, one-click activity conversion, keyboard shortcuts, and systray icon (Alt+N) |
+| `bf_bureau` | BF Bureau — multi-pane views | 18.0.3.0.0 | LGPL-3 | User-configurable dashboards ("desks") with multi-pane Odoo actions, six layouts, keyboard shortcuts, time slots, and a sidebar |
+| `bf_dark_mode` | Blue Fox Dark Mode | 18.0.1.0.0 | LGPL-3 | Dark mode for Odoo using the Blue Fox palette |
+| `bf_default_all_companies` | BF Default All Companies | 18.0.1.0.0 | LGPL-3 | Pre-selects every allowed company in the multi-company switcher on first login |
+| `bf_document_nextcloud_sync` | Document Nextcloud Sync | 18.0.1.1.0 | LGPL-3 | Document sync between Odoo and Nextcloud via WebDAV |
+| `bf_email_management` | Email Management | 18.0.1.5.1 | LGPL-3 | Unified IMAP inbox + Odoo chatter projection, with UI re-routing |
+| `bf_gamification` | Fox Quest | 18.0.2.1.0 | LGPL-3 | Gamification system with XP, levels, badges, and rewards |
+| `bf_hour_bank` | Hour Bank | 18.0.1.6.0 | LGPL-3 | Automated tracking of client hour banks |
+| `bf_mail_import` | BF Email Import (.eml) | 18.0.1.2.0 | LGPL-3 | Import .eml files into the Odoo chatter |
+| `bf_mail_subject_clean` | BF Email Subject Cleanup | 18.0.1.0.0 | LGPL-3 | Prevents "Re: Re: Re:" stacking on subjects sent through the chatter |
+| `bf_mail_vigie` | BF Email Re-router | 18.0.2.0.0 | LGPL-3 | "Re-route" button on `bf.email` to move a misrouted email to the correct chatter |
+| `bf_meeting` | Meetings | 18.0.3.6.0 | LGPL-3 | Agendas, meeting records, and discussion items unified around `calendar.event` with automatic reminders |
+| `bf_sms_archive` | SMS & Call Archive | 18.0.1.3.0 | LGPL-3 | Archive and search Android SMS and call logs |
+| `bf_task_unblock_notify` | BF Task Unblock Notify | 18.0.1.6.1 | LGPL-3 | Notifies assignees when their task becomes unblocked |
+| `bf_time_of_day` | BF Time of Day | 18.0.1.0.0 | LGPL-3 | Time-of-day slots (Morning / Noon / End of day / Off hours) for tasks and activities, with per-user overrides |
+| `bf_timesheet_timer` | BF Timesheet Timer | 18.0.1.6.0 | LGPL-3 | Global timesheet timer with multi-timer support and an OWL UI |
+| `bf_universal_search` | BF Universal Search | 18.0.1.3.0 | LGPL-3 | Cross-module search through the command palette |
+| `bf_webmail` | Blue Fox Webmail | 18.0.1.1.0 | LGPL-3 | Access SnappyMail webmail from the Odoo systray |
+| `calendar_nextcloud_sync` | Calendar Nextcloud Sync | 18.0.1.23.0 | LGPL-3 | Bidirectional calendar sync between Odoo and Nextcloud via n8n |
+| `contacts_nextcloud_sync` | Contacts Nextcloud Sync | 18.0.1.0.0 | LGPL-3 | Sync Odoo contacts with a Nextcloud address book via CardDAV |
+| `daily_todo_digest` | Daily To-Do Digest | 18.0.1.2.0 | LGPL-3 | Daily email digest with activities, overdue tasks, and a week-ahead view |
+| `hosting_management` | Hosting Management | 18.0.2.29.0 | LGPL-3 | Manage hosting services with version tracking and billing |
+| `privacy_consent` | Privacy & Consent Tracking (Loi 25) | 18.0.3.0.1 | LGPL-3 | Privacy, consents, and document destruction (Quebec Loi 25) |
+| `project_knowledge_matrix` | Project Knowledge Matrix | 18.0.9.9.0 | LGPL-3 | Project knowledge base, policies, and documentation |
 
 ## Installation
 
@@ -49,8 +49,12 @@ All modules target **Odoo 18.0 Community Edition**.
 
 ## License
 
-Unless stated otherwise in the module's `__manifest__.py`, modules are released under **LGPL-3**. The repository-level `LICENSE` file contains the full MIT text that applies to modules explicitly declaring MIT (currently `bf_dark_mode`).
+Unless stated otherwise in the module's `__manifest__.py`, modules are released under **LGPL-3**. See each module's manifest for its specific license.
 
 ## Credits
 
-Authored and maintained by Blue Fox Inc. AI coding assistants (including Anthropic's Claude) were used as productivity tools during development; architectural decisions, code review, testing and release responsibility rest with Blue Fox.
+Authored and maintained by [Blue Fox Inc.](https://bluefoxconsultant.com)
+
+---
+
+<sub>AI coding assistants were used as productivity tools during development; architectural decisions, code review, and release responsibility rest with Blue Fox Inc.</sub>

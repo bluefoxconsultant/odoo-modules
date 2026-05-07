@@ -593,6 +593,8 @@ This module is provided as-is, without warranty of any kind. Use at your own ris
 
 ## Acknowledgements
 
-Authored and maintained by Blue Fox Inc. AI coding assistants were used as productivity tools during development; all output was reviewed, tested, and validated by the Blue Fox Inc. development team.
+Authored and maintained by Blue Fox Inc. Built with Odoo 18 Community Edition and the OWL framework.
 
-Built with Odoo 18 Community Edition and the OWL framework.
+---
+
+<sub>AI coding assistants were used as productivity tools during development; all output was reviewed, tested, and validated by the Blue Fox Inc. development team.</sub>

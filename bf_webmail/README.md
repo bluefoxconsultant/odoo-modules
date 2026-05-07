@@ -1,19 +1,19 @@
-# Courriel Blue Fox
+# Blue Fox Webmail
 
-Module Odoo 18 Community ajoutant un accès direct à une instance SnappyMail (ou tout autre webmail) depuis la barre systray d'Odoo, sans quitter l'interface.
+Odoo 18 Community module that adds a one-click access to a SnappyMail instance (or any other webmail) from the Odoo systray, without leaving the interface.
 
-## Cas d'usage
+## Use case
 
-Les équipes utilisant Odoo comme environnement de travail principal doivent souvent basculer entre Odoo et leur webmail pour gérer leurs courriels. Ce module fournit un accès un-clic au webmail dans une fenêtre modale, préservant le contexte Odoo.
+Teams using Odoo as their primary work environment often have to switch between Odoo and their webmail to handle email. This module provides one-click access to webmail in a modal window, preserving the Odoo context.
 
-## Fonctionnalités
+## Features
 
-- **Icône courriel dans la systray** — bouton permanent en haut à droite d'Odoo
-- **Ouverture en modal** — le webmail s'affiche dans une fenêtre intégrée, pas un nouvel onglet
-- **URL configurable** — paramètre système pour pointer vers n'importe quel webmail (SnappyMail, Roundcube, etc.)
-- **Zéro persistance** — aucun modèle de données, configuration uniquement via `res.config.settings`
+- **Email icon in the systray** — permanent button at the top right of Odoo
+- **Opens in a modal** — webmail displays in an embedded window, not a new tab
+- **Configurable URL** — system parameter pointing to any webmail (SnappyMail, Roundcube, etc.)
+- **Zero persistence** — no data model, configuration only via `res.config.settings`
 
-## Architecture technique
+## Technical architecture
 
 ### Structure
 
@@ -34,19 +34,19 @@ bf_webmail/
     └── xml/bf_webmail.xml
 ```
 
-### Dépendances
+### Dependencies
 
-| Module | Rôle |
+| Module | Role |
 |---|---|
-| `base` | Seule dépendance — framework Odoo |
+| `base` | Sole dependency — Odoo framework |
 
 ### Configuration
 
-L'URL du webmail est stockée dans `ir.config_parameter` sous la clé `bf_webmail.url`. Modifiable via **Paramètres → Paramètres généraux → Blue Fox Webmail**.
+The webmail URL is stored in `ir.config_parameter` under the key `bf_webmail.url`. Editable via **Settings → General Settings → Blue Fox Webmail**.
 
-### Sécurité
+### Security
 
-Pas de modèle persistant, donc pas d'ACL spécifiques. La configuration est restreinte à `base.group_system` (administrateurs) via le pattern standard `res.config.settings`.
+No persistent model, so no specific ACLs. Configuration is restricted to `base.group_system` (administrators) via the standard `res.config.settings` pattern.
 
 ## Installation
 
@@ -54,12 +54,12 @@ Pas de modèle persistant, donc pas d'ACL spécifiques. La configuration est res
 docker compose exec odoo odoo -d <database> -i bf_webmail --stop-after-init
 ```
 
-Puis définir l'URL du webmail dans les paramètres généraux.
+Then set the webmail URL in the general settings.
 
-## Licence
+## License
 
 LGPL-3
 
-## Remerciements
+---
 
-Créé et maintenu par Blue Fox Inc. Des assistants de codage IA ont été utilisés comme outils de productivité durant le développement.
+<sub>Authored and maintained by Blue Fox Inc. AI coding assistants were used as productivity tools during development.</sub>

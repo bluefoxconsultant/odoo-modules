@@ -1,33 +1,33 @@
 # Audit TI - Loi 25
 
-Module Odoo 18 pour la gestion des audits de conformit&eacute; TI dans le cadre de la **Loi 25** (Loi sur la protection des renseignements personnels au Qu&eacute;bec).
+Odoo 18 module for managing IT compliance audits under Quebec's **Loi 25** (Act respecting the protection of personal information in the private sector).
 
-## Fonctionnalit&eacute;s
+## Features
 
-- **14 &eacute;l&eacute;ments d'audit** : grille d'&eacute;valuation structur&eacute;e couvrant les exigences Loi 25
-- **Matrice client &times; fournisseur** : &eacute;valuation par fournisseur pour chaque &eacute;l&eacute;ment, avec statuts (ad&eacute;quat, partiel, d&eacute;clar&eacute;, &agrave; valider, inad&eacute;quat, N/A)
-- **Tableau de bord OWL** : KPI en temps r&eacute;el, progression par client (barres empil&eacute;es : ad&eacute;quat, partiel, inad&eacute;quat, &agrave; valider/d&eacute;clar&eacute;/N.A.) avec badge 100% pour les clients compl&egrave;tement &eacute;valu&eacute;s, progression par fournisseur, distribution des statuts, points de vigilance ouverts
-- **Workflow de livraison** : &eacute;tat En cours / Livr&eacute; avec suivi (date, utilisateur), filtrage automatique dans le dashboard et la liste
-- **Points de vigilance** : suivi des risques par priorit&eacute; (haute, moyenne, basse) avec assignation
-- **Rapport PDF** : rapport d'avancement professionnel avec couverture des &eacute;l&eacute;ments, matrice fournisseurs, points de vigilance, barre de progression
-- **Impression en lot** : action serveur pour g&eacute;n&eacute;rer les rapports PDF de plusieurs clients depuis la liste
-- **Alias fournisseurs** : correspondance automatique des noms fournisseurs (variantes, abbr&eacute;viations)
-- **Chatter** : historique complet des changements d'&eacute;tat et notes sur chaque client
+- **14 audit elements**: structured evaluation grid covering Loi 25 requirements
+- **Client × supplier matrix**: per-supplier evaluation for each element, with statuses (adequate, partial, declared, to validate, inadequate, N/A)
+- **OWL dashboard**: real-time KPIs, per-client progress (stacked bars: adequate, partial, inadequate, to validate / declared / N/A) with a 100% badge for fully evaluated clients, per-supplier progress, status distribution, open watchpoints
+- **Delivery workflow**: In progress / Delivered states with tracking (date, user) and automatic filtering on the dashboard and list view
+- **Watchpoints**: track risks by priority (high, medium, low) with assignment
+- **PDF report**: professional progress report with element coverage, supplier matrix, watchpoints, and a progress bar
+- **Bulk printing**: server action to generate PDF reports for multiple clients from the list view
+- **Supplier aliases**: automatic matching of supplier names (variants, abbreviations)
+- **Chatter**: full history of state changes and notes per client
 
-## Mod&egrave;les
+## Models
 
-| Mod&egrave;le | Description |
+| Model | Description |
 |---|---|
-| `audit.element` | Les 14 &eacute;l&eacute;ments d'audit Loi 25 |
-| `audit.supplier` | Fournisseurs TI &eacute;valu&eacute;s |
-| `audit.supplier.alias` | Alias / variantes de noms fournisseurs |
-| `audit.client` | Clients audit&eacute;s (avec &eacute;tat En cours/Livr&eacute;) |
-| `audit.client.supplier` | Relation client-fournisseur avec r&ocirc;les |
-| `audit.assessment` | &Eacute;valuations (client &times; fournisseur &times; &eacute;l&eacute;ment) |
-| `audit.watchpoint` | Points de vigilance |
-| `audit.dashboard` | Tableau de bord OWL (vue `_auto=False`) |
+| `audit.element` | The 14 Loi 25 audit elements |
+| `audit.supplier` | Evaluated IT suppliers |
+| `audit.supplier.alias` | Supplier name aliases / variants |
+| `audit.client` | Audited clients (with In progress / Delivered state) |
+| `audit.client.supplier` | Client-supplier relationship with roles |
+| `audit.assessment` | Evaluations (client × supplier × element) |
+| `audit.watchpoint` | Watchpoints |
+| `audit.dashboard` | OWL dashboard (`_auto=False` view) |
 
-## D&eacute;pendances
+## Dependencies
 
 - `base`, `mail`, `project`
 
@@ -47,4 +47,4 @@ This module is provided as-is, without warranty of any kind. Use at your own ris
 
 ---
 
-Authored and maintained by Blue Fox Inc. AI coding assistants were used as productivity tools during development.
+<sub>Authored and maintained by Blue Fox Inc. AI coding assistants were used as productivity tools during development.</sub>

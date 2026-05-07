@@ -1,26 +1,26 @@
-# BF Import courriel (.eml)
+# BF Email Import (.eml)
 
-Module Odoo 18 Community permettant d'importer des fichiers `.eml` (RFC 2822) directement dans le chatter de n'importe quel enregistrement.
+Odoo 18 Community module for importing `.eml` files (RFC 2822) directly into the chatter of any record.
 
-## Cas d'usage
+## Use case
 
-Lorsque des courriels sont re&#231;us ou envoy&#233;s hors d'Odoo (client de messagerie externe, webmail, transfert entre coll&#232;gues), il n'existe aucun m&#233;canisme natif pour les rattacher &#224; un fil de discussion existant. Ce module comble ce manque en ajoutant un bouton d'import `.eml` dans le chatter.
+When emails are received or sent outside of Odoo (external mail client, webmail, forwarded between colleagues), there is no native way to attach them to an existing thread. This module fills that gap by adding an `.eml` import button to the chatter.
 
-## Fonctionnalit&#233;s
+## Features
 
-- **Bouton `.eml` dans le chatter** -- visible sur tout enregistrement h&#233;ritant de `mail.thread`
-- **Import multi-fichiers** -- t&#233;l&#233;versement de plusieurs `.eml` en une seule op&#233;ration
-- **Import direct** -- un seul clic pour importer (pas d'&#233;tape d'aper&#231;u)
-- **Ordre chronologique** -- les fichiers sont pr&#233;-tri&#233;s par date d'envoi avant import, garantissant un affichage chronologique dans le chatter
-- **Validation d'extension** -- seuls les fichiers `.eml` et `.msg` sont accept&#233;s
-- **D&#233;tection des doublons** -- v&#233;rification du `Message-ID` RFC 2822 avant insertion
-- **R&#233;solution automatique de l'auteur** -- recherche du `res.partner` correspondant &#224; l'adresse courriel de l'exp&#233;diteur
-- **Pr&#233;servation du threading** -- `parent_id` r&#233;solu via les en-t&#234;tes `In-Reply-To` / `References`, avec validation que le parent appartient au m&#234;me fil
-- **Z&#233;ro notification** -- l'import ne d&#233;clenche aucun courriel sortant ni auto-abonnement
-- **Pi&#232;ces jointes inline uniquement** -- seules les pi&#232;ces jointes contenues dans le courriel sont import&#233;es (pas de duplication du `.eml` original)
-- **Rapport d&#233;taill&#233;** -- le r&#233;sum&#233; d'import liste chaque fichier individuellement (import&#233;, doublon ignor&#233;, erreur)
+- **`.eml` button in the chatter** — visible on any record inheriting `mail.thread`
+- **Multi-file import** — upload multiple `.eml` files in a single operation
+- **Direct import** — single click to import (no preview step)
+- **Chronological order** — files are pre-sorted by send date before import, guaranteeing chronological display in the chatter
+- **Extension validation** — only `.eml` and `.msg` files are accepted
+- **Duplicate detection** — RFC 2822 `Message-ID` is checked before insertion
+- **Automatic author resolution** — looks up the `res.partner` matching the sender's email address
+- **Threading preservation** — `parent_id` resolved through `In-Reply-To` / `References` headers, with validation that the parent belongs to the same thread
+- **Zero notifications** — import does not trigger any outbound email or auto-subscription
+- **Inline attachments only** — only attachments contained in the email are imported (no duplication of the original `.eml`)
+- **Detailed report** — the import summary lists each file individually (imported, duplicate skipped, error)
 
-## Architecture technique
+## Technical architecture
 
 ### Structure
 
@@ -43,84 +43,84 @@ bf_mail_import/
             +-- chatter_import_patch.xml
 ```
 
-### D&#233;pendances
+### Dependencies
 
-| Module | R&#244;le |
+| Module | Role |
 |--------|------|
-| `mail` | Seule d&#233;pendance -- fournit `mail.thread`, `message_parse()`, `message_post()` |
+| `mail` | Sole dependency — provides `mail.thread`, `message_parse()`, `message_post()` |
 
-Aucune d&#233;pendance externe, aucune librairie Python suppl&#233;mentaire.
+No external dependencies, no additional Python libraries.
 
-### Parsing des courriels
+### Email parsing
 
-Le module d&#233;l&#232;gue **100 % du parsing RFC 2822** &#224; la cha&#238;ne standard :
+The module delegates **100% of RFC 2822 parsing** to the standard chain:
 
-1. `email.message_from_bytes(raw, policy=email.policy.default)` -- produit un `EmailMessage` (API moderne Python 3, requise par Odoo 18)
-2. `self.env['mail.thread'].message_parse(email_msg, save_original=False)` -- m&#233;thode publique `@api.model` d'Odoo
+1. `email.message_from_bytes(raw, policy=email.policy.default)` — produces an `EmailMessage` (modern Python 3 API, required by Odoo 18)
+2. `self.env['mail.thread'].message_parse(email_msg, save_original=False)` — public `@api.model` Odoo method
 
-Le dict retourn&#233; par `message_parse` contient : `message_id`, `subject`, `email_from`, `to`, `cc`, `body`, `date`, `parent_id`, `partner_ids`, `attachments`, `references`, `in_reply_to`, etc.
+The dict returned by `message_parse` contains: `message_id`, `subject`, `email_from`, `to`, `cc`, `body`, `date`, `parent_id`, `partner_ids`, `attachments`, `references`, `in_reply_to`, etc.
 
 ### Wizard (`bf.mail.import.wizard`)
 
-`TransientModel` &#224; 2 &#233;tats :
+Two-state `TransientModel`:
 
-| &#201;tat | Action utilisateur | Comportement |
-|------|-------------------|-------------|
-| `draft` | S&#233;lection de fichiers `.eml` + clic Importer | Widget `many2many_binary` li&#233; &#224; `ir.attachment`, import direct |
-| `done` | R&#233;sultat affich&#233; | R&#233;sum&#233; d&#233;taill&#233; par fichier : import&#233;s (+), doublons (-), erreurs (!) |
+| State | User action | Behavior |
+|-------|-------------|----------|
+| `draft` | Select `.eml` files + click Import | `many2many_binary` widget linked to `ir.attachment`, direct import |
+| `done` | Result displayed | Detailed per-file summary: imported (+), duplicates (-), errors (!) |
 
-**Pipeline d'import en 3 phases :**
+**Three-phase import pipeline:**
 
-1. **Parse** -- validation d'extension + parsing de chaque fichier via `message_parse()`
-2. **Tri** -- tri par date d'envoi croissante (le chatter affiche par `id DESC`, donc les IDs auto-incr&#233;ment&#233;s refl&#232;tent l'ordre chronologique)
-3. **Import** -- cr&#233;ation des messages via `message_post()` dans l'ordre tri&#233;
+1. **Parse** — extension validation + parsing of each file via `message_parse()`
+2. **Sort** — sort by ascending send date (the chatter displays by `id DESC`, so auto-incremented IDs reflect chronological order)
+3. **Import** — message creation via `message_post()` in sorted order
 
-**Appel `message_post` :**
+**`message_post` call:**
 
 ```python
 target.with_context(
-    mail_create_nosubscribe=True,      # pas d'auto-abonnement
-    mail_create_nolog=True,            # pas de log de cr&#233;ation
-    mail_notify_force_send=False,       # pas d'envoi imm&#233;diat
-    mail_auto_subscribe_no_notify=True, # pas de notification aux abonn&#233;s
-    tracking_disable=True,              # pas de tracking de champs
+    mail_create_nosubscribe=True,      # no auto-subscription
+    mail_create_nolog=True,            # no creation log
+    mail_notify_force_send=False,      # no immediate send
+    mail_auto_subscribe_no_notify=True,# no notification to followers
+    tracking_disable=True,             # no field tracking
 ).message_post(
     body=Markup(body_html),
-    message_type='email',              # affichage "courriel" dans le chatter
+    message_type='email',              # "email" display in the chatter
     subtype_xmlid='mail.mt_comment',
-    message_id=rfc2822_message_id,     # via **kwargs -> colonne mail.message
-    date=original_date,                # via **kwargs -> colonne mail.message
+    message_id=rfc2822_message_id,     # via **kwargs -> mail.message column
+    date=original_date,                # via **kwargs -> mail.message column
     ...
 )
 ```
 
-### Patch OWL (chatter)
+### OWL patch (chatter)
 
-Le bouton est inject&#233; via le pattern standard de patch Odoo 18 :
+The button is injected via the standard Odoo 18 patch pattern:
 
-- **JS** : `patch(Chatter.prototype, {...})` ajoute la m&#233;thode `onClickImportEml()`
-- **XML** : Template `t-inherit="mail.Chatter"` avec xpath apr&#232;s le bouton "Activit&#233;s"
-- **Rafra&#238;chissement** : `this.load(this.state.thread, ["messages"])` apr&#232;s fermeture du wizard
+- **JS**: `patch(Chatter.prototype, {...})` adds the `onClickImportEml()` method
+- **XML**: Template `t-inherit="mail.Chatter"` with xpath after the "Activities" button
+- **Refresh**: `this.load(this.state.thread, ["messages"])` after the wizard closes
 
-### S&#233;curit&#233;
+### Security
 
-- Acc&#232;s CRUD au wizard pour tous les utilisateurs internes (`base.group_user`)
-- Menu technique "Importer .eml" r&#233;serv&#233; aux administrateurs (`base.group_system`)
-- Le contr&#244;le d'acc&#232;s r&#233;el est celui de l'enregistrement cible -- `message_post` v&#233;rifie les droits d'&#233;criture
+- CRUD access to the wizard for all internal users (`base.group_user`)
+- Technical "Import .eml" menu reserved for administrators (`base.group_system`)
+- Real access control is the target record's — `message_post` checks write rights
 
-### Gestion des cas limites
+### Edge case handling
 
-| Cas | Comportement |
-|-----|-------------|
-| Extension non `.eml`/`.msg` | `UserError` avec nom du fichier, ajout&#233; aux erreurs, les autres fichiers continuent |
-| Fichier corrompu | Erreur captur&#233;e, ajout&#233;e au r&#233;sum&#233;, les autres fichiers continuent |
-| `Message-ID` d&#233;j&#224; pr&#233;sent dans `mail.message` | Fichier ignor&#233;, list&#233; dans les doublons |
-| `parent_id` d'un autre thread | Ignor&#233; silencieusement (mis &#224; `False`) pour &#233;viter les liens crois&#233;s |
-| Exp&#233;diteur sans `res.partner` | `email_from` affich&#233; tel quel dans le chatter (comportement natif Odoo) |
-| `.eml` sans corps | Message post&#233; avec body vide, sujet et PJ pr&#233;serv&#233;s |
-| Encodage non-UTF-8 | G&#233;r&#233; par `email.message_from_bytes()` + `message_parse()` |
-| Enregistrement cible supprim&#233; | `UserError` avant tentative d'import |
-| Mod&#232;le sans `mail.thread` | `UserError` dans `default_get()` |
+| Case | Behavior |
+|------|----------|
+| Extension other than `.eml`/`.msg` | `UserError` with file name, added to errors, other files continue |
+| Corrupt file | Error caught, added to summary, other files continue |
+| `Message-ID` already present in `mail.message` | File skipped, listed under duplicates |
+| `parent_id` from another thread | Silently ignored (set to `False`) to avoid cross-thread links |
+| Sender without `res.partner` | `email_from` displayed as-is in the chatter (Odoo native behavior) |
+| `.eml` without body | Message posted with empty body, subject and attachments preserved |
+| Non-UTF-8 encoding | Handled by `email.message_from_bytes()` + `message_parse()` |
+| Target record deleted | `UserError` before import attempt |
+| Model without `mail.thread` | `UserError` in `default_get()` |
 
 ## Installation
 
@@ -128,17 +128,17 @@ Le bouton est inject&#233; via le pattern standard de patch Odoo 18 :
 docker compose exec odoo odoo -d <database> -u bf_mail_import --stop-after-init
 ```
 
-## Utilisation
+## Usage
 
-1. Ouvrir n'importe quel enregistrement avec un chatter (projet, t&#226;che, partenaire, facture, ticket, etc.)
-2. Cliquer le bouton **`.eml`** dans la barre du chatter (&#224; c&#244;t&#233; de "Activit&#233;s")
-3. T&#233;l&#233;verser un ou plusieurs fichiers `.eml`
-4. **Importer** -- les messages apparaissent dans le chatter avec la date et l'exp&#233;diteur originaux
+1. Open any record with a chatter (project, task, partner, invoice, ticket, etc.)
+2. Click the **`.eml`** button in the chatter bar (next to "Activities")
+3. Upload one or more `.eml` files
+4. **Import** — the messages appear in the chatter with the original date and sender
 
-## Licence
+## License
 
 LGPL-3
 
-## Remerciements
+---
 
-Créé et maintenu par Blue Fox Inc. Des assistants de codage IA ont été utilisés comme outils de productivité durant le développement.
+<sub>Authored and maintained by Blue Fox Inc. AI coding assistants were used as productivity tools during development.</sub>

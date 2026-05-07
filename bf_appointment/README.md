@@ -1,46 +1,46 @@
 # Blue Fox Appointment
 
-Module Odoo 18 Community étendant `resource_booking` avec des pages de prise de rendez-vous publiques en libre-service, des rappels courriel automatisés et une détection du fuseau horaire côté client.
+Odoo 18 Community module that extends `resource_booking` with self-service public booking pages, automated email reminders, and client-side timezone detection.
 
-## Cas d'usage
+## Use case
 
-Permettre à un prospect ou à un client de réserver une rencontre (démo, consultation, suivi) sans créer de compte Odoo, avec confirmation, rappels et annulation par courriel — le tout s'intégrant au calendrier de la ressource réservée.
+Let a prospect or client book a meeting (demo, consultation, follow-up) without creating an Odoo account, with email-based confirmation, reminders, and cancellation — all integrated into the booked resource's calendar.
 
-## Fonctionnalités
+## Features
 
-- **Page publique de réservation** — une URL par type de réservation, accessible sans authentification
-- **Détection de fuseau horaire côté client** — JavaScript détecte la TZ du navigateur et convertit les créneaux affichés
-- **Questions d'accueil (intake)** — champs personnalisés par type de réservation collectés au moment de la prise de rendez-vous
-- **Modèles de courriel** — confirmation, rappel (J-1), courriel de suivi, annulation
-- **Séquence de rappels configurable** — planification de plusieurs envois avant la rencontre (modèle `appointment.email.schedule`)
-- **Cron de synchronisation** — envoie les courriels programmés selon le délai configuré
-- **Portail d'annulation** — lien signé dans les courriels permettant au client d'annuler lui-même
+- **Public booking page** — one URL per booking type, accessible without authentication
+- **Client-side timezone detection** — JavaScript detects the browser TZ and converts displayed slots
+- **Intake questions** — custom fields per booking type, collected when the appointment is made
+- **Email templates** — confirmation, reminder (D-1), follow-up email, cancellation
+- **Configurable reminder sequence** — schedule multiple sends before the meeting (`appointment.email.schedule` model)
+- **Dispatch cron** — sends scheduled emails according to the configured delay
+- **Cancellation portal** — signed link in the emails so the client can cancel themselves
 
-## Architecture technique
+## Technical architecture
 
-### Modèles
+### Models
 
-| Modèle | Rôle |
+| Model | Role |
 |---|---|
-| `resource.booking.type` (hérité) | Ajout de champs : URL publique, modèles courriel, fuseau horaire |
-| `resource.booking` (hérité) | Liaison aux questions d'accueil, état de notification |
-| `calendar.event` (hérité) | Propagation des données depuis la réservation |
-| `appointment.intake` | Questions d'accueil par type de réservation |
-| `appointment.email.schedule` | Planification de rappels automatiques |
-| `res.config.settings` (hérité) | Configuration globale (branding, URLs) |
+| `resource.booking.type` (inherited) | Adds: public URL, email templates, timezone |
+| `resource.booking` (inherited) | Link to intake answers, notification state |
+| `calendar.event` (inherited) | Propagates data from the booking |
+| `appointment.intake` | Intake questions per booking type |
+| `appointment.email.schedule` | Schedule for automated reminders |
+| `res.config.settings` (inherited) | Global configuration (branding, URLs) |
 
-### Dépendances
+### Dependencies
 
-| Module | Rôle |
+| Module | Role |
 |---|---|
-| `resource_booking` | Modèle de base pour les réservations |
-| `portal` | Accès non authentifié aux pages publiques |
-| `mail` | Modèles de courriel et envoi |
+| `resource_booking` | Base booking model |
+| `portal` | Unauthenticated access to public pages |
+| `mail` | Email templates and dispatch |
 
-### Sécurité
+### Security
 
-- Règle `ir.rule` bloquant l'accès direct aux `appointment.intake.answer` pour les utilisateurs publics (accès uniquement via contrôleur signé)
-- ACL standards pour utilisateurs internes
+- `ir.rule` blocking direct access to `appointment.intake.answer` for public users (only via the signed controller)
+- Standard ACLs for internal users
 
 ## Installation
 
@@ -48,12 +48,12 @@ Permettre à un prospect ou à un client de réserver une rencontre (démo, cons
 docker compose exec odoo odoo -d <database> -i bf_appointment --stop-after-init
 ```
 
-Configurer ensuite un `resource.booking.type` avec son URL publique et les modèles de courriel associés.
+Then configure a `resource.booking.type` with its public URL and the associated email templates.
 
-## Licence
+## License
 
 AGPL-3
 
-## Remerciements
+---
 
-Créé et maintenu par Blue Fox Inc. Des assistants de codage IA ont été utilisés comme outils de productivité durant le développement.
+<sub>Authored and maintained by Blue Fox Inc. AI coding assistants were used as productivity tools during development.</sub>

@@ -1,4 +1,4 @@
-# BF Recherche universelle
+# BF Universal Search
 
 A cross-module universal search for Odoo 18 that extends the native command palette (`Ctrl+K`). Type `*` followed by your query to search contacts, projects, tasks, hosting services, documents, tickets, calendar events, and more — all from a single input, on any screen.
 
@@ -304,3 +304,7 @@ SOFTWARE.
 ## Disclaimer
 
 This module is provided as-is, without warranty of any kind. Use at your own risk. Blue Fox Inc. assumes no liability for any damages arising from the use of this software.
+
+---
+
+<sub>Authored and maintained by Blue Fox Inc. AI coding assistants were used as productivity tools during development.</sub>

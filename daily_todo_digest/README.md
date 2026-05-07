@@ -1,104 +1,104 @@
 # Daily To-Do Digest
 
-Module Odoo 18 pour l'envoi automatique d'un digest quotidien par courriel contenant les activités et tâches de l'utilisateur, la météo locale et une citation inspirante.
+Odoo 18 module for sending an automatic daily email digest containing the user's activities and tasks, the local weather, and an inspirational quote.
 
-## Fonctionnalités
+## Features
 
-### Contenu du digest
+### Digest content
 
 | Section | Description |
 |---------|-------------|
-| **Météo** | Température actuelle avec emoji, min/max, précipitations pour la ville configurée (défaut: Montréal) |
-| **Activités en retard** | Activités `mail.activity` avec date d'échéance passée |
-| **Activités du jour** | Activités `mail.activity` avec date d'échéance aujourd'hui |
-| **Tâches en retard** | Tâches `project.task` avec date d'échéance passée |
-| **Tâches du jour** | Tâches `project.task` avec date d'échéance aujourd'hui |
-| **Aperçu 7 jours** | Grille visuelle cliquable des 7 prochains jours avec compteurs colorés (vert/jaune/rouge) |
-| **Tâches non visibles** | Résumé des tâches avec `display_in_project=False` (lien cliquable) |
-| **Citation inspirante** | Citation aléatoire parmi 120 citations d'artistes, poètes et penseurs |
+| **Weather** | Current temperature with emoji, min/max, precipitation for the configured city (default: Montreal) |
+| **Overdue activities** | `mail.activity` with a past due date |
+| **Today's activities** | `mail.activity` due today |
+| **Overdue tasks** | `project.task` with a past due date |
+| **Today's tasks** | `project.task` due today |
+| **7-day preview** | Clickable visual grid of the next 7 days with color-coded counters (green/yellow/red) |
+| **Hidden tasks** | Summary of tasks with `display_in_project=False` (clickable link) |
+| **Inspirational quote** | Random quote from a pool of 120 quotes by artists, poets, and thinkers |
 
-### Caractéristiques techniques
+### Technical features
 
-- **Fuseau horaire**: Conversion automatique UTC → America/Montreal pour les comparaisons de dates
-- **Filtre de visibilité**: Exclut les tâches avec `display_in_project=False` du listing détaillé
-- **Template stylise**: Template HTML avec les couleurs et polices personnalisees
-- **Liens cliquables**: Chaque tâche/activité contient un lien direct vers l'enregistrement Odoo
-- **Cron configurable**: Vérification toutes les heures, envoi à l'heure configurée
-- **Preheader email**: Aperçu rapide dans les clients mail (ex: "3 en retard | 5 aujourd'hui | ☀️ -8°C")
-- **Emojis météo**: Icônes visuelles selon les conditions (☀️🌧️❄️⛈️ etc.)
+- **Timezone**: automatic UTC → America/Montreal conversion for date comparisons
+- **Visibility filter**: excludes tasks with `display_in_project=False` from the detailed listing
+- **Styled template**: HTML template with custom colors and fonts
+- **Clickable links**: each task/activity contains a direct link to the Odoo record
+- **Configurable cron**: hourly check, dispatch at the configured time
+- **Email preheader**: quick preview in mail clients (e.g. "3 overdue | 5 today | ☀️ -8°C")
+- **Weather emojis**: visual icons for conditions (☀️🌧️❄️⛈️ etc.)
 
 ## Installation
 
-1. Copier le module dans le répertoire `addons`
-2. Mettre à jour la liste des modules dans Odoo
-3. Installer "Daily To-Do Digest"
+1. Copy the module into your `addons` directory
+2. Update the module list in Odoo
+3. Install "Daily To-Do Digest"
 
 ```bash
-# Mise à jour et installation
+# Update and install
 docker exec <container> odoo -d <database> -i daily_todo_digest --stop-after-init
 ```
 
 ## Configuration
 
-### Accès
+### Access
 
-**Paramètres → Technique → Digest quotidien → Configuration**
+**Settings → Technical → Daily Digest → Configuration**
 
-### Paramètres disponibles
+### Available parameters
 
-| Champ | Description | Défaut |
-|-------|-------------|--------|
-| Nom | Nom du digest | "Mon digest quotidien" |
-| Heure d'envoi | Heure d'envoi (0-23, fuseau America/Montreal) | 4 |
-| Destinataires | Utilisateurs qui recevront le digest | - |
-| Compagnie | Filtre optionnel par compagnie (non utilisé actuellement) | Compagnie courante |
+| Field | Description | Default |
+|-------|-------------|---------|
+| Name | Digest name | "My daily digest" |
+| Send hour | Send hour (0–23, America/Montreal timezone) | 4 |
+| Recipients | Users who receive the digest | - |
+| Company | Optional company filter (not used currently) | Current company |
 
-### Widgets activables
+### Toggleable widgets
 
 | Widget | Description |
 |--------|-------------|
-| Activités en retard | Inclure les activités passées |
-| Activités du jour | Inclure les activités du jour |
-| Tâches en retard | Inclure les tâches passées |
-| Tâches du jour | Inclure les tâches du jour |
-| Météo | Inclure la météo locale |
-| Citation inspirante | Inclure une citation aléatoire |
+| Overdue activities | Include past activities |
+| Today's activities | Include today's activities |
+| Overdue tasks | Include past tasks |
+| Today's tasks | Include today's tasks |
+| Weather | Include local weather |
+| Inspirational quote | Include a random quote |
 
-### Configuration météo
+### Weather configuration
 
-| Champ | Description | Défaut |
-|-------|-------------|--------|
-| Ville météo | Nom affiché de la ville | Montréal |
-| Latitude | Coordonnée latitude | 45.5017 |
-| Longitude | Coordonnée longitude | -73.5673 |
+| Field | Description | Default |
+|-------|-------------|---------|
+| Weather city | City display name | Montréal |
+| Latitude | Latitude coordinate | 45.5017 |
+| Longitude | Longitude coordinate | -73.5673 |
 
-**Coordonnées communes:**
+**Common coordinates:**
 - Montréal: 45.5017, -73.5673
 - Québec: 46.8139, -71.2080
 - Toronto: 43.6532, -79.3832
 - Ottawa: 45.4215, -75.6972
 
-## Citations
+## Quotes
 
-Le module inclut **120 citations** d'artistes, révolutionnaires, poètes et rêveurs, organisées par thèmes:
+The module ships with **120 quotes** from artists, revolutionaries, poets, and dreamers, organized by themes:
 
-- **Mutualisme et anarchisme**: Proudhon, Kropotkine, Emma Goldman, Bakunin
-- **Poètes et écrivains**: Rimbaud, Hugo, Neruda, García Lorca, Camus, Beauvoir, Galeano
-- **Artistes**: Frida Kahlo, Picasso, Oscar Wilde, Van Gogh
-- **Droits civiques**: Martin Luther King Jr., Nelson Mandela, Gandhi, Audre Lorde
-- **Féministes**: Maya Angelou, bell hooks, Virginia Woolf
-- **Penseurs**: Einstein, Sénèque, Socrate, Aristote
-- **Activistes contemporains**: Greta Thunberg, Paulo Freire, Aaron Swartz
-- **Penseurs décoloniaux**: Frantz Fanon, Aimé Césaire
-- **Proverbes du monde**: africains, chinois, japonais, amérindiens, persans
+- **Mutualism and anarchism**: Proudhon, Kropotkin, Emma Goldman, Bakunin
+- **Poets and writers**: Rimbaud, Hugo, Neruda, García Lorca, Camus, Beauvoir, Galeano
+- **Artists**: Frida Kahlo, Picasso, Oscar Wilde, Van Gogh
+- **Civil rights**: Martin Luther King Jr., Nelson Mandela, Gandhi, Audre Lorde
+- **Feminists**: Maya Angelou, bell hooks, Virginia Woolf
+- **Thinkers**: Einstein, Seneca, Socrates, Aristotle
+- **Contemporary activists**: Greta Thunberg, Paulo Freire, Aaron Swartz
+- **Decolonial thinkers**: Frantz Fanon, Aimé Césaire
+- **World proverbs**: African, Chinese, Japanese, Indigenous, Persian
 
-### Gestion des citations
+### Managing quotes
 
-**Paramètres → Technique → Digest quotidien → Citations**
+**Settings → Technical → Daily Digest → Quotes**
 
-Les citations peuvent être ajoutées, modifiées ou désactivées via l'interface.
+Quotes can be added, edited, or deactivated through the UI.
 
-## Structure du module
+## Module structure
 
 ```
 daily_todo_digest/
@@ -107,112 +107,112 @@ daily_todo_digest/
 ├── README.md
 ├── models/
 │   ├── __init__.py
-│   ├── daily_digest.py          # Modèle principal et logique d'envoi
-│   └── inspirational_quote.py   # Modèle des citations
+│   ├── daily_digest.py          # Main model and dispatch logic
+│   └── inspirational_quote.py   # Quote model
 ├── data/
-│   ├── daily_digest_cron.xml    # Tâche planifiée (cron)
-│   └── inspirational_quotes.xml # 120 citations pré-chargées
+│   ├── daily_digest_cron.xml    # Scheduled job (cron)
+│   └── inspirational_quotes.xml # 120 pre-loaded quotes
 ├── security/
-│   └── ir.model.access.csv      # Droits d'accès
+│   └── ir.model.access.csv      # Access rights
 └── views/
-    └── daily_digest_views.xml   # Vues et menus
+    └── daily_digest_views.xml   # Views and menus
 ```
 
-## Modèles
+## Models
 
 ### `daily.digest.config`
 
-Configuration du digest quotidien.
+Daily digest configuration.
 
-| Champ | Type | Description |
+| Field | Type | Description |
 |-------|------|-------------|
-| `name` | Char | Nom du digest |
-| `active` | Boolean | Actif/Inactif |
-| `user_ids` | Many2many | Destinataires |
-| `send_hour` | Integer | Heure d'envoi (0-23) |
-| `include_overdue_activities` | Boolean | Inclure activités en retard |
-| `include_today_activities` | Boolean | Inclure activités du jour |
-| `include_overdue_tasks` | Boolean | Inclure tâches en retard |
-| `include_today_tasks` | Boolean | Inclure tâches du jour |
-| `include_weather` | Boolean | Inclure météo |
-| `weather_city` | Char | Nom de la ville |
+| `name` | Char | Digest name |
+| `active` | Boolean | Active/Inactive |
+| `user_ids` | Many2many | Recipients |
+| `send_hour` | Integer | Send hour (0–23) |
+| `include_overdue_activities` | Boolean | Include overdue activities |
+| `include_today_activities` | Boolean | Include today's activities |
+| `include_overdue_tasks` | Boolean | Include overdue tasks |
+| `include_today_tasks` | Boolean | Include today's tasks |
+| `include_weather` | Boolean | Include weather |
+| `weather_city` | Char | City name |
 | `weather_latitude` | Float | Latitude |
 | `weather_longitude` | Float | Longitude |
-| `include_quote` | Boolean | Inclure citation |
-| `company_id` | Many2one | Compagnie (optionnel) |
-| `last_sent` | Datetime | Dernier envoi |
+| `include_quote` | Boolean | Include quote |
+| `company_id` | Many2one | Company (optional) |
+| `last_sent` | Datetime | Last send timestamp |
 
 ### `daily.digest.quote`
 
-Citations inspirantes.
+Inspirational quotes.
 
-| Champ | Type | Description |
+| Field | Type | Description |
 |-------|------|-------------|
-| `quote` | Text | Texte de la citation |
-| `author` | Char | Auteur |
-| `active` | Boolean | Actif/Inactif |
+| `quote` | Text | Quote text |
+| `author` | Char | Author |
+| `active` | Boolean | Active/Inactive |
 
-## API Météo
+## Weather API
 
-Le module utilise l'API **Open-Meteo** (gratuite, sans clé API requise).
+The module uses the **Open-Meteo** API (free, no API key required).
 
 - **URL**: `https://api.open-meteo.com/v1/forecast`
-- **Données récupérées**: température actuelle, min/max, précipitations, probabilité de précipitations, code météo
-- **Fuseau horaire**: America/Montreal
+- **Data fetched**: current temperature, min/max, precipitation, precipitation probability, weather code
+- **Timezone**: America/Montreal
 
-## Format du courriel
+## Email format
 
-### Sujet
+### Subject
 ```
-🌄 Votre journée | Jeudi, le 5 février 2026
+🌄 Your day | Thursday, February 5, 2026
 ```
 
-### Structure HTML
-- Header avec logo et titre
-- Barre d'accent cyan (#29ABE2)
-- Sections de contenu avec tableaux stylisés
-- Footer avec coordonnées
-- Barres d'accent bicolores en bas
+### HTML structure
+- Header with logo and title
+- Cyan accent bar (#29ABE2)
+- Content sections with styled tables
+- Footer with contact details
+- Two-tone accent bars at the bottom
 
-### Couleurs du theme
+### Theme colors
 
-| Élément | Couleur |
-|---------|---------|
-| Fond extérieur | #2E3132 |
+| Element | Color |
+|---------|-------|
+| Outer background | #2E3132 |
 | Header | #22303B |
 | Accent | #29ABE2 |
-| Texte clair | #E6EDF3 |
-| Texte gris | #6B7280 |
-| Rouge (retard) | #dc3545 |
-| Vert (succès) | #198754 |
+| Light text | #E6EDF3 |
+| Gray text | #6B7280 |
+| Red (overdue) | #dc3545 |
+| Green (success) | #198754 |
 
-### Police
+### Font
 `'Lexend', 'Segoe UI', Arial, sans-serif`
 
-## Envoi manuel
+## Manual send
 
-### Via l'interface
-- **Envoyer maintenant**: Envoie le digest à tous les destinataires configurés
-- **Test (moi seul)**: Envoie un test uniquement à l'utilisateur connecté
+### Through the UI
+- **Send now**: sends the digest to all configured recipients
+- **Test (me only)**: sends a test only to the connected user
 
-### Via le shell Odoo
+### Through the Odoo shell
 ```python
-config = env['daily.digest.config'].search([('name', '=', 'Mon digest')], limit=1)
+config = env['daily.digest.config'].search([('name', '=', 'My digest')], limit=1)
 config._send_digest()
 env.cr.commit()
 ```
 
-## Dépendances
+## Dependencies
 
 - `base`
 - `mail`
 - `project`
 
-### Librairies Python
-- `pytz` (inclus dans Odoo)
-- `requests` (inclus dans Odoo)
+### Python libraries
+- `pytz` (bundled with Odoo)
+- `requests` (bundled with Odoo)
 
-## Licence
+## License
 
 LGPL-3
 
@@ -220,6 +220,6 @@ LGPL-3
 
 This module is provided as-is, without warranty of any kind. Use at your own risk. Blue Fox Inc. assumes no liability for any damages arising from the use of this software.
 
-## Auteur
+---
 
-Authored and maintained by Blue Fox Inc. AI coding assistants were used as productivity tools during development.
+<sub>Authored and maintained by Blue Fox Inc. AI coding assistants were used as productivity tools during development.</sub>

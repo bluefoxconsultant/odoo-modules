@@ -32,3 +32,7 @@ docker exec <client>-odoo /usr/bin/odoo --stop-after-init -d <db> -u bf_survey_u
 
 - Odoo 18 (community, with `survey` module)
 - Tested with `survey` and `project` only; no PME-specific dependencies
+
+---
+
+<sub>Authored and maintained by Blue Fox Inc. AI coding assistants were used as productivity tools during development.</sub>

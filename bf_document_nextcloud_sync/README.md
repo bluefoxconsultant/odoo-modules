@@ -436,4 +436,4 @@ This module is provided as-is, without warranty of any kind. Use at your own ris
 
 ---
 
-Authored and maintained by Blue Fox Inc. AI coding assistants were used as productivity tools during development.
+<sub>Authored and maintained by Blue Fox Inc. AI coding assistants were used as productivity tools during development.</sub>
