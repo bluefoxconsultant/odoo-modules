@@ -614,7 +614,7 @@
                         </p>
                     </td></tr>
                     <tr><td style="height:1px; line-height:1px; background-color:#E5E7EB;">&#160;</td></tr>
-                    <tr><td style="padding:16px 24px 24px 24px; background-color:#FFFFFF; border-radius:0 0 12px 12px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tbody><tr><td style="font-family:'Lexend','Segoe UI',Arial,sans-serif; font-size:12px; color:#6B7280;"><strong t-attf-style="color:{{ (object.type_id.company_id and object.type_id.company_id.appointment_brand_dark) or '#22303B' }};">Notification interne Blue Fox</strong></td></tr></tbody></table></td></tr>
+                    <tr><td style="padding:16px 24px 24px 24px; background-color:#FFFFFF; border-radius:0 0 12px 12px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tbody><tr><td style="font-family:'Lexend','Segoe UI',Arial,sans-serif; font-size:12px; color:#6B7280;"><strong t-attf-style="color:{{ (object.type_id.company_id and object.type_id.company_id.appointment_brand_dark) or '#22303B' }};">Notification interne <t t-out="(object.type_id.company_id and object.type_id.company_id.appointment_brand_name) or 'Blue Fox'"/></strong></td></tr></tbody></table></td></tr>
                 </tbody>
             </table>
         </td></tr></tbody></table>
