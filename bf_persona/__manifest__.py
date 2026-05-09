@@ -1,0 +1,35 @@
+{
+    "name": "Persona des contacts",
+    "summary": "Préférences relationnelles, ton, payeur, KPIs et règles c.c. par contact",
+    "version": "18.0.1.2.0",
+    "category": "Sales/CRM",
+    "website": "https://bluefox.ca",
+    "author": "Blue Fox Inc.",
+    "license": "LGPL-3",
+    "application": False,
+    "installable": True,
+    "depends": [
+        "contacts",
+        "mail",
+        "account",
+        "project_knowledge_matrix",
+    ],
+    "data": [
+        "security/persona_security.xml",
+        "security/ir.model.access.csv",
+        "data/persona_categories.xml",
+        "data/payment_delay_cron.xml",
+        "data/persona_stale_cron.xml",
+        "views/contact_persona_category_views.xml",
+        "views/contact_cc_rule_views.xml",
+        "views/contact_persona_kpi_views.xml",
+        "views/contact_persona_views.xml",
+        "views/res_partner_views.xml",
+        "views/menu_views.xml",
+    ],
+    "assets": {
+        "web.assets_backend": [
+            "bf_persona/static/src/js/persona_chat_launcher.js",
+        ],
+    },
+}

@@ -21,6 +21,7 @@ Custom Odoo 18 Community Edition modules developed by [Blue Fox Inc.](https://bl
 | `bf_mail_subject_clean` | BF Email Subject Cleanup | 18.0.1.0.0 | LGPL-3 | Prevents "Re: Re: Re:" stacking on subjects sent through the chatter |
 | `bf_mail_vigie` | BF Email Re-router | 18.0.2.0.0 | LGPL-3 | "Re-route" button on `bf.email` to move a misrouted email to the correct chatter |
 | `bf_meeting` | Meetings | 18.0.3.6.0 | LGPL-3 | Agendas, meeting records, and discussion items unified around `calendar.event` with automatic reminders |
+| `bf_persona` | Persona des contacts | 18.0.1.2.0 | LGPL-3 | Contact relationship preferences (tu/vous, salutations, c.c. rules), bidirectional tone, payer behavior, KPIs, and stale-tone tracking |
 | `bf_sms_archive` | SMS & Call Archive | 18.0.1.3.0 | LGPL-3 | Archive and search Android SMS and call logs |
 | `bf_task_unblock_notify` | BF Task Unblock Notify | 18.0.1.6.1 | LGPL-3 | Notifies assignees when their task becomes unblocked |
 | `bf_time_of_day` | BF Time of Day | 18.0.1.0.0 | LGPL-3 | Time-of-day slots (Morning / Noon / End of day / Off hours) for tasks and activities, with per-user overrides |
