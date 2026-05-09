@@ -16,6 +16,7 @@ Custom Odoo 18 Community Edition modules developed by [Blue Fox Inc.](https://bl
 | `bf_document_nextcloud_sync` | Document Nextcloud Sync | 18.0.1.1.0 | LGPL-3 | Document sync between Odoo and Nextcloud via WebDAV |
 | `bf_email_management` | Email Management | 18.0.3.1.0 | LGPL-3 | Unified IMAP inbox + Odoo chatter projection, with UI re-routing |
 | `bf_gamification` | Fox Quest | 18.0.2.1.0 | LGPL-3 | Gamification system with XP, levels, badges, and rewards |
+| `bf_helpdesk` | Blue Fox — Helpdesk | 18.0.1.0.3 | LGPL-3 | Branded helpdesk extension : per-team public form, hour-bank ribbon, waiting states, ntfy critical hook |
 | `bf_hour_bank` | Hour Bank | 18.0.1.6.0 | LGPL-3 | Automated tracking of client hour banks |
 | `bf_mail_import` | BF Email Import (.eml) | 18.0.1.2.0 | LGPL-3 | Import .eml files into the Odoo chatter |
 | `bf_mail_subject_clean` | BF Email Subject Cleanup | 18.0.1.0.0 | LGPL-3 | Prevents "Re: Re: Re:" stacking on subjects sent through the chatter |

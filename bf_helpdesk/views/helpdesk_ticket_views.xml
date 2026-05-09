@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <record id="view_helpdesk_ticket_form_bf" model="ir.ui.view">
+    <field name="name">helpdesk.ticket.form.bf</field>
+    <field name="model">helpdesk.ticket</field>
+    <field name="inherit_id" ref="helpdesk_mgmt.ticket_view_form"/>
+    <field name="arch" type="xml">
+
+      <!-- Add waiting_state next to priority in the header -->
+      <xpath expr="//field[@name='priority']" position="after">
+        <field name="waiting_state" widget="badge"
+               decoration-warning="waiting_state == 'client'"
+               decoration-info="waiting_state == 'external'"/>
+      </xpath>
+
+      <!-- Hour bank balance row + low-balance ribbon -->
+      <xpath expr="//field[@name='partner_email']" position="after">
+        <field name="hour_bank_id" readonly="1"
+               invisible="not hour_bank_id"/>
+        <field name="hour_bank_balance" readonly="1"
+               string="Solde banque (h)"
+               invisible="not hour_bank_id"
+               decoration-danger="hour_bank_low"/>
+        <field name="hour_bank_low" invisible="1"/>
+      </xpath>
+
+      <xpath expr="//sheet" position="before">
+        <div class="alert alert-warning text-center mb-0"
+             role="alert"
+             invisible="not hour_bank_low">
+          <strong>⚠ Solde banque d'heures bas pour ce client.</strong>
+          Vérifier avant de poursuivre des heures non couvertes.
+        </div>
+      </xpath>
+
+    </field>
+  </record>
+
+  <record id="view_helpdesk_ticket_tree_bf" model="ir.ui.view">
+    <field name="name">helpdesk.ticket.tree.bf</field>
+    <field name="model">helpdesk.ticket</field>
+    <field name="inherit_id" ref="helpdesk_mgmt.ticket_view_tree"/>
+    <field name="arch" type="xml">
+      <xpath expr="//field[@name='priority']" position="after">
+        <field name="waiting_state" optional="show"
+               decoration-warning="waiting_state == 'client'"
+               decoration-info="waiting_state == 'external'"/>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="view_helpdesk_ticket_search_bf" model="ir.ui.view">
+    <field name="name">helpdesk.ticket.search.bf</field>
+    <field name="model">helpdesk.ticket</field>
+    <field name="inherit_id" ref="helpdesk_mgmt.helpdesk_ticket_view_search"/>
+    <field name="arch" type="xml">
+      <xpath expr="//search" position="inside">
+        <separator/>
+        <filter string="Attente — Client.e" name="filter_waiting_client"
+                domain="[('waiting_state', '=', 'client')]"/>
+        <filter string="Attente — Externe" name="filter_waiting_external"
+                domain="[('waiting_state', '=', 'external')]"/>
+        <group expand="0" string="Group By">
+          <filter string="État d'attente" name="group_waiting_state"
+                  context="{'group_by': 'waiting_state'}"/>
+        </group>
+      </xpath>
+    </field>
+  </record>
+
+</odoo>
