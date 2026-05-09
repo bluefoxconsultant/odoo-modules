@@ -1,6 +1,6 @@
 {
     "name": "Blue Fox Appointment",
-    "version": "18.0.2.15.5",
+    "version": "18.0.2.15.6",
     "category": "Appointments",
     "summary": "Public self-service booking pages extending Resource Booking",
     "author": "Blue Fox Inc",
@@ -21,6 +21,7 @@
     "assets": {
         "web.assets_frontend": [
             "bf_appointment/static/src/js/timezone_detect.js",
+            "bf_appointment/static/src/js/processing_buttons.js",
             "bf_appointment/static/src/scss/appointment.scss",
         ],
     },
