@@ -52,9 +52,17 @@ class MailMessage(models.Model):
         ])
         if not personas:
             return
+        # Wrap every IO in full silence to keep this hook from emitting any
+        # chatter / tracking / notification mails on the persona record.
+        silence = dict(
+            tracking_disable=True,
+            mail_create_nosubscribe=True,
+            mail_post_autofollow=False,
+            mail_notify_force_send=False,
+        )
         for persona in personas:
             if not persona.last_interaction_date or persona.last_interaction_date < today:
-                persona.write({"last_interaction_date": today})
+                persona.with_context(**silence).write({"last_interaction_date": today})
             # Idempotent KPI: skip if a 'Dernière interaction' row already exists for today.
             existing = Kpi.search([
                 ("persona_id", "=", persona.id),

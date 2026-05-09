@@ -341,9 +341,7 @@ class ContactPersona(models.Model):
         if "partner_id" in vals or "active" in vals:
             partners = self.mapped("partner_id")
             if partners:
-                self.env.add_to_compute(
-                    self.env["res.partner"]._fields["persona_id"], partners
-                )
+                partners.invalidate_recordset(["persona_id", "has_persona", "persona_summary"])
         if watch:
             for persona in self:
                 old = before.get(persona.id, (None, None))
@@ -606,21 +604,35 @@ class ContactPersona(models.Model):
 
     @api.model
     def cron_create_persona_refresh_activities(self, active_window_days=30):
-        """Create a 'Réévaluer le persona' activity on stale + recently active personas."""
+        """Create a 'Réévaluer le persona' activity on stale + recently active personas.
+
+        Off by default — opt-in via the cron record `bf_persona.cron_create_persona_refresh_activities`.
+        Even when on, all email side-effects are suppressed: no auto-subscribe of
+        the assignee, no field tracking, no chatter post, no immediate SMTP.
+        """
         cutoff = fields.Date.context_today(self) - timedelta(days=active_window_days)
         targets = self.search([
             ("tone_is_stale", "=", True),
             ("last_interaction_date", ">=", cutoff),
         ])
-        Activity = self.env["mail.activity"].sudo()
+        # Wrap every IO with full silence: prevent activity-induced auto-subscribe,
+        # tracking messages on the persona record, post-create chatter and outbound
+        # mail. The activity still appears in Olivier's systray.
+        silence_ctx = dict(
+            tracking_disable=True,
+            mail_create_nosubscribe=True,
+            mail_post_autofollow=False,
+            mail_notify_force_send=False,
+            mail_activity_quick_update=True,
+        )
+        Activity = self.env["mail.activity"].sudo().with_context(**silence_ctx)
         try:
             type_id = self.env.ref("mail.mail_activity_data_todo").id
         except ValueError:
             type_id = Activity.search([], limit=1).id
         model_id = self.env["ir.model"]._get_id("contact.persona")
-        olivier = self.env.ref("base.user_admin", raise_if_not_found=False) or self.env.user
-        # Try to find Olivier specifically (uid=2 on BF/PME per memory).
-        olivier_user = self.env["res.users"].browse(2).exists() or olivier
+        # Olivier is uid=2 on BF and PMEC.
+        olivier_user = self.env["res.users"].browse(2).exists() or self.env.user
         created = 0
         for persona in targets:
             existing = Activity.search([
@@ -637,14 +649,19 @@ class ContactPersona(models.Model):
                 "summary": "Réévaluer le persona",
                 "note": _(
                     "Le ton de %s n'a pas été évalué depuis plus de 6 mois "
-                    "et le contact reste actif (interaction <%dj). Lancer "
-                    "/persona refresh ou cliquer sur le bouton."
+                    "et le contact reste actif (interaction <%dj)."
                 ) % (persona.partner_id.display_name or "?", active_window_days),
                 "date_deadline": fields.Date.context_today(self) + timedelta(days=7),
                 "user_id": olivier_user.id,
             })
             created += 1
-        _logger.info("cron_create_persona_refresh_activities: %d activités créées", created)
+        # Also strip any followers re-added by the activity hook, just in case.
+        if created:
+            self.env["mail.followers"].sudo().search([
+                ("res_model", "=", "contact.persona"),
+                ("res_id", "in", targets.ids),
+            ]).unlink()
+        _logger.info("cron_create_persona_refresh_activities: %d activités créées (silence)", created)
         return created
 
     # ------------------------------------------------------------------
@@ -725,8 +742,12 @@ class ContactPersona(models.Model):
                         "persona %s (%s) degraded: score %.2f",
                         persona.id, persona.partner_id.display_name or "?", score,
                     )
-            # Use ``mail_notify_force_send=False`` to make sure the tracking
-            # entries created by ``write`` never trigger outbound SMTP to the
-            # partner — this is internal observation only.
-            persona.with_context(mail_notify_force_send=False).write(vals)
+            # Full silence: no field tracking message, no auto-subscribe,
+            # no chatter post, no immediate SMTP. Internal observation only.
+            persona.with_context(
+                tracking_disable=True,
+                mail_create_nosubscribe=True,
+                mail_post_autofollow=False,
+                mail_notify_force_send=False,
+            ).write(vals)
         return len(targets)

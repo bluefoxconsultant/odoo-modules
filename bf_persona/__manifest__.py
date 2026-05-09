@@ -1,7 +1,7 @@
 {
     "name": "Persona des contacts",
     "summary": "Préférences relationnelles, ton, payeur, KPIs et règles c.c. par contact",
-    "version": "18.0.2.0.0",
+    "version": "18.0.2.0.1",
     "category": "Sales/CRM",
     "website": "https://bluefox.ca",
     "author": "Blue Fox Inc.",
