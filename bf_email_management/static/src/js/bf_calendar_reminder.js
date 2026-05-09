@@ -15,11 +15,14 @@ import { browser } from "@web/core/browser/browser";
 import { ConnectionLostError, rpc } from "@web/core/network/rpc";
 import { registry } from "@web/core/registry";
 
+// Labels use non-breaking spaces ( ) so Odoo's notification toast
+// doesn't wrap them mid-word (e.g. "1 h" -> "1\nh"). Keep them short
+// because the toast renders 7+ buttons in a narrow strip.
 const SNOOZE_PRESETS = [
-    { label: _t("5 min"), minutes: 5 },
-    { label: _t("15 min"), minutes: 15 },
-    { label: _t("1 h"), minutes: 60 },
-    { label: _t("Demain 8 h"), minutes: null, kind: "tomorrow_8" },
+    { label: _t("5 min"), minutes: 5 },
+    { label: _t("15 min"), minutes: 15 },
+    { label: _t("1 h"), minutes: 60 },
+    { label: _t("Demain"), minutes: null, kind: "tomorrow_8" },
 ];
 
 function tomorrow8AmIso() {
@@ -47,6 +50,14 @@ export const bfCalendarNotificationService = {
         });
         bus_service.start();
 
+        // On service start, proactively pull any pending alarms via
+        // /calendar/notify. Without this, refreshing the page when an
+        // alarm has already fired (but is still pending — not snoozed
+        // or dismissed) silently drops it: bus.bus only re-emits when
+        // _notify_next_alarm is called server-side, not on client
+        // connect.
+        getNextCalendarNotif();
+
         function buildSnoozeButtons(notif, notificationRemove) {
             const buttons = SNOOZE_PRESETS.map((preset) => ({
                 name: preset.label,
@@ -66,7 +77,7 @@ export const bfCalendarNotificationService = {
                 },
             }));
             buttons.push({
-                name: _t("Personnalisé…"),
+                name: _t("Autre…"),
                 onClick: async () => {
                     const value = browser.prompt(
                         _t("Reporter de combien de minutes ?"),
@@ -89,7 +100,7 @@ export const bfCalendarNotificationService = {
                 },
             });
             buttons.push({
-                name: _t("Dismiss"),
+                name: _t("Ignorer"),
                 onClick: async () => {
                     await orm.call("calendar.attendee", "bf_dismiss", [notif.event_id]);
                     await rpc("/calendar/notify_ack");
@@ -97,7 +108,7 @@ export const bfCalendarNotificationService = {
                 },
             });
             buttons.push({
-                name: _t("Détails"),
+                name: _t("Ouvrir"),
                 onClick: async () => {
                     await action.doAction({
                         type: "ir.actions.act_window",
