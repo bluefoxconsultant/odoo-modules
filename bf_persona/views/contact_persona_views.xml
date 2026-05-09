@@ -17,7 +17,9 @@
                             help="Cherche les éléments de matrice où ce contact apparaît (décideur, consulté, informé) et les ajoute aux connaissances partagées."/>
                 </header>
                 <sheet>
-                    <widget name="web_ribbon" title="Ton à rafraîchir" bg_color="text-bg-warning" invisible="not tone_is_stale"/>
+                    <widget name="web_ribbon" title="Relation dégradée" bg_color="text-bg-danger" invisible="relationship_health != 'degraded'"/>
+                    <widget name="web_ribbon" title="À surveiller" bg_color="text-bg-warning" invisible="relationship_health != 'watch'"/>
+                    <widget name="web_ribbon" title="Ton à rafraîchir" bg_color="text-bg-warning" invisible="not tone_is_stale or relationship_health in ('degraded', 'watch')"/>
                     <div class="oe_title">
                         <h1>
                             <field name="name" readonly="1"/>
@@ -27,8 +29,11 @@
                         <group>
                             <field name="partner_id" options="{'no_create': True}"/>
                             <field name="preferred_language"/>
+                            <field name="last_interaction_date" readonly="1"/>
                         </group>
                         <group>
+                            <field name="relationship_health"/>
+                            <field name="tone_drift_score" readonly="1" widget="float" digits="[8,2]"/>
                             <field name="active" invisible="1"/>
                         </group>
                     </group>
@@ -114,15 +119,19 @@
         <field name="name">contact.persona.list</field>
         <field name="model">contact.persona</field>
         <field name="arch" type="xml">
-            <list decoration-warning="tone_is_stale">
+            <list decoration-warning="tone_is_stale or relationship_health == 'watch'"
+                  decoration-danger="relationship_health == 'degraded'">
                 <field name="partner_id"/>
                 <field name="addressing_style"/>
+                <field name="relationship_health"/>
+                <field name="last_interaction_date" optional="show"/>
                 <field name="tone_summary"/>
                 <field name="our_tone_summary" optional="show"/>
                 <field name="payer_quality"/>
                 <field name="avg_payment_delay_days"/>
-                <field name="tone_last_assessed"/>
+                <field name="tone_last_assessed" optional="hide"/>
                 <field name="tone_is_stale" optional="hide"/>
+                <field name="tone_drift_score" optional="hide"/>
             </list>
         </field>
     </record>
@@ -140,6 +149,13 @@
                 <filter string="Vouvoiement" name="filter_vous"
                         domain="[('addressing_style','=','vous')]"/>
                 <separator/>
+                <filter string="Relation dégradée" name="filter_health_degraded"
+                        domain="[('relationship_health','=','degraded')]"/>
+                <filter string="À surveiller" name="filter_health_watch"
+                        domain="[('relationship_health','=','watch')]"/>
+                <filter string="Saine" name="filter_health_healthy"
+                        domain="[('relationship_health','=','healthy')]"/>
+                <separator/>
                 <filter string="Ton tendu" name="filter_tense"
                         domain="[('tone_summary','=','tense')]"/>
                 <filter string="Notre ton tendu" name="filter_our_tense"
@@ -148,7 +164,11 @@
                         domain="[('tone_is_stale','=',True)]"/>
                 <filter string="Payeur lent ou mauvais" name="filter_slow_payer"
                         domain="[('payer_quality','in',('slow','poor'))]"/>
+                <filter string="Style à compléter (auto)" name="filter_addressing_auto"
+                        domain="[('addressing_style','=','auto')]"/>
                 <group expand="0" string="Regrouper par">
+                    <filter string="Santé relationnelle"
+                            name="group_health" context="{'group_by': 'relationship_health'}"/>
                     <filter string="Style"
                             name="group_style" context="{'group_by': 'addressing_style'}"/>
                     <filter string="Leur ton"

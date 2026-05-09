@@ -3,3 +3,6 @@ from . import contact_persona_kpi
 from . import contact_cc_rule
 from . import contact_persona
 from . import res_partner
+from . import res_config_settings
+from . import mail_message
+from . import mail_compose_message

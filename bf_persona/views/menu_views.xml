@@ -7,6 +7,12 @@
               sequence="80"
               groups="bf_persona.group_persona_user"/>
 
+    <menuitem id="menu_personas_dashboard"
+              name="Tableau de bord"
+              parent="menu_personas_root"
+              action="action_contact_persona_dashboard"
+              sequence="5"/>
+
     <menuitem id="menu_personas_list"
               name="Personas"
               parent="menu_personas_root"
