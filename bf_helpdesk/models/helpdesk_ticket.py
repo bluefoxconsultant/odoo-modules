@@ -41,6 +41,87 @@ class HelpdeskTicket(models.Model):
         compute="_compute_hour_bank_balance",
     )
 
+    # ------------------------------------------------------------------
+    # Persona panel — read-only mirror of contact.persona for quick
+    # composer hints when answering the ticket
+    # ------------------------------------------------------------------
+    persona_id = fields.Many2one(
+        comodel_name="contact.persona",
+        string="Persona",
+        compute="_compute_persona_id",
+        search="_search_persona_id",
+        store=False,
+    )
+
+    @api.model
+    def _search_persona_id(self, operator, value):
+        Persona = self.env["contact.persona"].sudo()
+        domain = [("id", operator, value)] if operator in ("=", "!=", "in", "not in") else [("id", operator, value)]
+        partners = Persona.search(domain).mapped("partner_id")
+        return [("partner_id", "in", partners.ids)]
+    persona_addressing_style = fields.Selection(
+        related="persona_id.addressing_style",
+        string="Style d'adresse",
+        readonly=True,
+    )
+    persona_preferred_salutation = fields.Char(
+        related="persona_id.preferred_salutation",
+        string="Salutation préférée",
+        readonly=True,
+    )
+    persona_closing_formula = fields.Char(
+        related="persona_id.closing_formula",
+        string="Formule de clôture",
+        readonly=True,
+    )
+    persona_tone_summary = fields.Selection(
+        related="persona_id.tone_summary",
+        string="Ton du contact",
+        readonly=True,
+    )
+    persona_our_tone_summary = fields.Selection(
+        related="persona_id.our_tone_summary",
+        string="Notre ton",
+        readonly=True,
+    )
+    persona_payer_quality = fields.Selection(
+        related="persona_id.payer_quality",
+        string="Qualité de paiement",
+        readonly=True,
+    )
+
+    @api.depends("partner_id")
+    def _compute_persona_id(self):
+        Persona = self.env["contact.persona"].sudo()
+        partners = self.mapped("partner_id")
+        if not partners:
+            for ticket in self:
+                ticket.persona_id = False
+            return
+        personas = Persona.search([("partner_id", "in", partners.ids)])
+        by_partner = {p.partner_id.id: p.id for p in personas}
+        for ticket in self:
+            ticket.persona_id = by_partner.get(ticket.partner_id.id, False)
+
+    def action_open_persona(self):
+        self.ensure_one()
+        if self.persona_id:
+            return {
+                "type": "ir.actions.act_window",
+                "res_model": "contact.persona",
+                "res_id": self.persona_id.id,
+                "view_mode": "form",
+                "target": "current",
+            }
+        # No persona yet — open create wizard pre-filled with the partner
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": "contact.persona",
+            "view_mode": "form",
+            "target": "current",
+            "context": {"default_partner_id": self.partner_id.id},
+        }
+
     @api.depends("team_id", "team_id.hour_bank_id")
     def _compute_hour_bank_id(self):
         for ticket in self:

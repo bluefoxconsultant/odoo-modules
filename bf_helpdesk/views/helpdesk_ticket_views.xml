@@ -34,6 +34,58 @@
         </div>
       </xpath>
 
+      <!-- Persona panel — quick composer hints when answering the ticket -->
+      <xpath expr="//notebook" position="inside">
+        <page string="Persona" name="bf_persona_panel"
+              invisible="not partner_id">
+          <group>
+            <group string="Communication">
+              <field name="persona_id" readonly="1"
+                     invisible="not persona_id"/>
+              <field name="persona_addressing_style" readonly="1"
+                     invisible="not persona_id"/>
+              <field name="persona_preferred_salutation" readonly="1"
+                     invisible="not persona_id"/>
+              <field name="persona_closing_formula" readonly="1"
+                     invisible="not persona_id"/>
+            </group>
+            <group string="Posture &amp; paiement">
+              <field name="persona_tone_summary" readonly="1"
+                     widget="badge"
+                     decoration-success="persona_tone_summary == 'warm'"
+                     decoration-info="persona_tone_summary == 'neutral'"
+                     decoration-warning="persona_tone_summary == 'tense'"
+                     invisible="not persona_id"/>
+              <field name="persona_our_tone_summary" readonly="1"
+                     widget="badge"
+                     decoration-success="persona_our_tone_summary == 'warm'"
+                     decoration-info="persona_our_tone_summary == 'neutral'"
+                     decoration-warning="persona_our_tone_summary == 'tense'"
+                     invisible="not persona_id"/>
+              <field name="persona_payer_quality" readonly="1"
+                     widget="badge"
+                     decoration-success="persona_payer_quality == 'excellent'"
+                     decoration-info="persona_payer_quality == 'good'"
+                     decoration-warning="persona_payer_quality in ('average', 'slow')"
+                     decoration-danger="persona_payer_quality == 'poor'"
+                     invisible="not persona_id"/>
+            </group>
+          </group>
+          <div class="text-center mt-3">
+            <button name="action_open_persona" type="object"
+                    string="Ouvrir la fiche persona"
+                    class="btn btn-primary"
+                    invisible="not persona_id"/>
+            <div class="alert alert-info" role="alert"
+                 invisible="persona_id">
+              Aucun persona pour ce contact.
+              <button name="action_open_persona" type="object"
+                      string="Créer maintenant" class="btn btn-link p-0"/>
+            </div>
+          </div>
+        </page>
+      </xpath>
+
     </field>
   </record>
 

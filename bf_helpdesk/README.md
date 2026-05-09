@@ -16,7 +16,7 @@ Fork-style extension of OCA `helpdesk_mgmt` with native Blue Fox integrations.
 ### ntfy webhook URL
 Set the system parameter once per deployment:
 ```
-bf_helpdesk.ntfy_webhook_url = http://push-webhook-relay:8090/hook/helpdesk-critical
+bf_helpdesk.ntfy_webhook_url = http://your-webhook-relay:8090/hook/your-key
 ```
 Then enable `ntfy_critical_enabled` per-team in the team form.
 
@@ -28,22 +28,22 @@ Then enable `ntfy_critical_enabled` per-team in the team form.
 
 ## Migration notes
 
-If you have a legacy `bf_helpdesk_website_form` band-aid module installed:
-
-1. Install `bf_helpdesk` — opt-in fields run automatically via `post_init_hook`
-2. Uninstall the legacy band-aid module (folded in here)
-3. If you have a `base.automation` rule that fires on `priority='3'` for helpdesk
-   tickets, disable it once team-level `ntfy_critical_enabled` is set, to avoid
-   double notifications.
+If you have a legacy band-aid module that opted in helpdesk fields for the website
+form builder, you can uninstall it after installing `bf_helpdesk` (the opt-in is
+folded in via `post_init_hook`). If you have a `base.automation` rule that fires
+on helpdesk priority changes, disable it once team-level `ntfy_critical_enabled`
+is set, to avoid double notifications.
 
 ## Roadmap
 
-Future versions may add:
+- Persona panel (`bf_persona`) on ticket form — **shipped in 18.0.2.0.0**
+- Triage IA via Claude
+- Knowledge matrix link → `knowledge.item`
+- Convert ticket → `meeting.record`
 
-- Persona panel on ticket form
-- IA triage (categorize / suggest stage+assignee / draft response)
-- Knowledge matrix link
-- Convert ticket → meeting record
-- CSAT survey on close
-- Dashboard tile
-- Native IMAP gateway hardening
+## Phase 3 (planned)
+
+- CSAT survey on close (`bf_survey_upload`)
+- Dashboard tile (`bf_dashboard`)
+- Branded portal templates fr_CA/en_CA
+- Native IMAP gateway gotcha handling (`bf_mail_import` lib)

@@ -1,5 +1,6 @@
 import base64
 import logging
+import re
 
 import werkzeug
 
@@ -8,6 +9,26 @@ from odoo.http import request
 from odoo.tools import plaintext2html
 
 _logger = logging.getLogger(__name__)
+
+# Basic RFC-5322-ish, good enough to reject obvious garbage. Server-side defense
+# in depth — the input has type="email" client-side too.
+EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$")
+
+# Per-attachment hard cap (MB). Defaults to ir.config_parameter
+# bf_helpdesk.public_form_max_attachment_mb (default 10 MB).
+ATTACHMENT_MB_PARAM = "bf_helpdesk.public_form_max_attachment_mb"
+# Total request payload cap (MB) — sum of all attachments.
+ATTACHMENT_TOTAL_MB_PARAM = "bf_helpdesk.public_form_max_total_attachment_mb"
+
+# Block obvious dangerous extensions (defense in depth — most should be
+# stopped at the proxy too).
+BLOCKED_EXTENSIONS = {
+    ".exe", ".bat", ".cmd", ".com", ".scr", ".pif",
+    ".sh", ".msi", ".vbs", ".vbe", ".js", ".jse", ".wsf", ".wsh",
+    ".jar", ".ps1", ".ps1xml", ".dll", ".lnk", ".chm", ".hta",
+    ".php", ".php3", ".php4", ".php5", ".phtml",
+    ".rb", ".py", ".pyc", ".pyo",
+}
 
 
 class BFHelpdeskPublicForm(http.Controller):
@@ -26,6 +47,22 @@ class BFHelpdeskPublicForm(http.Controller):
             ("active", "=", True),
             ("public_form_enabled", "=", True),
         ], limit=1)
+
+    def _attachment_limits(self):
+        IConf = request.env["ir.config_parameter"].sudo()
+        try:
+            per_file_mb = int(IConf.get_param(ATTACHMENT_MB_PARAM, "10"))
+        except (TypeError, ValueError):
+            per_file_mb = 10
+        try:
+            total_mb = int(IConf.get_param(ATTACHMENT_TOTAL_MB_PARAM, "25"))
+        except (TypeError, ValueError):
+            total_mb = 25
+        return per_file_mb * 1024 * 1024, total_mb * 1024 * 1024
+
+    def _is_extension_blocked(self, filename):
+        name = (filename or "").lower()
+        return any(name.endswith(ext) for ext in BLOCKED_EXTENSIONS)
 
     @http.route(["/support/<string:slug>"], type="http", auth="public", website=True, sitemap=True)
     def public_form(self, slug, **kw):
@@ -57,6 +94,18 @@ class BFHelpdeskPublicForm(http.Controller):
         if not team:
             return request.not_found()
 
+        # --- Spam honeypot: hidden 'website' field. Real users leave it empty;
+        # naive bots fill all visible-looking inputs. Silently 200 + thanks
+        # without creating anything (don't tip the bot off).
+        if (kw.get("website") or "").strip():
+            _logger.info(
+                "bf_helpdesk: honeypot triggered on /support/%s, dropping submission",
+                slug,
+            )
+            return request.render("bf_helpdesk.public_form_thanks", {
+                "team": team, "ticket": False,
+            })
+
         subject = (kw.get("subject") or "").strip()
         description = (kw.get("description") or "").strip()
         name = (kw.get("name") or "").strip()
@@ -73,22 +122,79 @@ class BFHelpdeskPublicForm(http.Controller):
             except ValueError:
                 selected_tag_id = False
 
-        missing_required = (
-            not subject or not description or not email
-            or (team.public_form_tag_required and not selected_tag_id)
-        )
-        if missing_required:
+        # Validation
+        error = None
+        if not subject or not description or not email:
+            error = _("Sujet, description et courriel sont requis.")
+        elif not EMAIL_RE.match(email):
+            error = _("Format de courriel invalide.")
+        elif team.public_form_tag_required and not selected_tag_id:
+            error = _("Veuillez sélectionner une catégorie.")
+
+        if error:
             return request.render("bf_helpdesk.public_form_page", {
                 "team": team,
                 "tags": team.public_form_tag_ids,
                 "prefill": {"name": name, "email": email,
                             "subject": subject, "description": description,
                             "tag_id": tag_id_raw},
-                "error": _("Sujet, description et courriel sont requis."),
+                "error": error,
                 "max_upload_size": request.env["ir.http"].session_info().get(
                     "max_file_upload_size", 25 * 1024 * 1024,
                 ),
             })
+
+        # Validate attachments BEFORE creating the ticket
+        per_file_max, total_max = self._attachment_limits()
+        attachment_files = request.httprequest.files.getlist("attachment")
+        accepted = []  # list of (filename, data)
+        total_size = 0
+        for c_file in attachment_files:
+            if not c_file or not c_file.filename:
+                continue
+            if self._is_extension_blocked(c_file.filename):
+                _logger.warning(
+                    "bf_helpdesk: blocked attachment extension on /support/%s: %s",
+                    slug, c_file.filename,
+                )
+                return request.render("bf_helpdesk.public_form_page", {
+                    "team": team,
+                    "tags": team.public_form_tag_ids,
+                    "prefill": {"name": name, "email": email,
+                                "subject": subject, "description": description,
+                                "tag_id": tag_id_raw},
+                    "error": _("Type de fichier non autorisé : %s") % c_file.filename,
+                    "max_upload_size": per_file_max,
+                })
+            data = c_file.read()
+            if not data:
+                continue
+            if len(data) > per_file_max:
+                return request.render("bf_helpdesk.public_form_page", {
+                    "team": team,
+                    "tags": team.public_form_tag_ids,
+                    "prefill": {"name": name, "email": email,
+                                "subject": subject, "description": description,
+                                "tag_id": tag_id_raw},
+                    "error": _("Fichier trop volumineux (max %s Mo) : %s") % (
+                        per_file_max // (1024 * 1024), c_file.filename,
+                    ),
+                    "max_upload_size": per_file_max,
+                })
+            total_size += len(data)
+            if total_size > total_max:
+                return request.render("bf_helpdesk.public_form_page", {
+                    "team": team,
+                    "tags": team.public_form_tag_ids,
+                    "prefill": {"name": name, "email": email,
+                                "subject": subject, "description": description,
+                                "tag_id": tag_id_raw},
+                    "error": _("Pièces jointes totales trop volumineuses (max %s Mo).") % (
+                        total_max // (1024 * 1024),
+                    ),
+                    "max_upload_size": per_file_max,
+                })
+            accepted.append((c_file.filename, data))
 
         Ticket = request.env["helpdesk.ticket"].sudo()
         partner_id = False
@@ -117,16 +223,10 @@ class BFHelpdeskPublicForm(http.Controller):
 
         ticket = Ticket.create(vals)
 
-        # Attachments
-        attachment_files = request.httprequest.files.getlist("attachment")
-        for c_file in attachment_files:
-            if not c_file or not c_file.filename:
-                continue
-            data = c_file.read()
-            if not data:
-                continue
+        # Attach pre-validated files
+        for filename, data in accepted:
             request.env["ir.attachment"].sudo().create({
-                "name": c_file.filename,
+                "name": filename,
                 "datas": base64.b64encode(data),
                 "res_model": "helpdesk.ticket",
                 "res_id": ticket.id,

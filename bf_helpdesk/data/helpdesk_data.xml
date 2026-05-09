@@ -4,7 +4,7 @@
 
     <!-- ntfy webhook URL — set per-deployment via system parameter.
          Leaving the default empty: the hook is a no-op until configured.
-         BF prod: http://push-webhook-relay:8090/hook/helpdesk-critical -->
+         Example: http://your-webhook-relay:8090/hook/helpdesk-critical -->
     <record id="ir_config_ntfy_webhook_url" model="ir.config_parameter">
       <field name="key">bf_helpdesk.ntfy_webhook_url</field>
       <field name="value"></field>
@@ -13,6 +13,16 @@
     <record id="ir_config_ntfy_webhook_timeout" model="ir.config_parameter">
       <field name="key">bf_helpdesk.ntfy_webhook_timeout</field>
       <field name="value">5</field>
+    </record>
+
+    <!-- Public form attachment limits (MB) -->
+    <record id="ir_config_pubform_max_attachment_mb" model="ir.config_parameter">
+      <field name="key">bf_helpdesk.public_form_max_attachment_mb</field>
+      <field name="value">10</field>
+    </record>
+    <record id="ir_config_pubform_max_total_attachment_mb" model="ir.config_parameter">
+      <field name="key">bf_helpdesk.public_form_max_total_attachment_mb</field>
+      <field name="value">25</field>
     </record>
 
   </data>

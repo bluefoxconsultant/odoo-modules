@@ -22,6 +22,12 @@
           <form t-attf-action="/support/#{team.slug}/submit"
                 method="post" enctype="multipart/form-data" class="bf-support-form">
             <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+            <!-- Honeypot: real users leave this empty. Hidden via inline CSS
+                 + label aria, name="website" matches a common bot heuristic. -->
+            <div style="position:absolute;left:-9999px;top:-9999px;height:0;width:0;overflow:hidden;" aria-hidden="true">
+              <label for="bf_support_website">Site web (laisser vide)</label>
+              <input type="text" id="bf_support_website" name="website" tabindex="-1" autocomplete="off"/>
+            </div>
 
             <div class="mb-3">
               <label class="form-label" for="bf_support_name">Nom <span class="text-muted">(optionnel)</span></label>
@@ -87,10 +93,12 @@
         <div class="container py-5 text-center" style="max-width: 640px;">
           <div class="bf-support-success-card">
             <h1 class="bf-support-title">Merci, c'est reçu.</h1>
-            <p class="bf-support-tagline">Votre demande a été enregistrée sous le numéro
+            <p t-if="ticket" class="bf-support-tagline">Votre demande a été enregistrée sous le numéro
               <strong t-esc="ticket.number"/>. Un membre de l'équipe <strong t-esc="team.name"/>
               prendra contact avec vous bientôt.
             </p>
+            <p t-else="" class="bf-support-tagline">Un membre de l'équipe <strong t-esc="team.name"/>
+              prendra contact avec vous bientôt.</p>
             <div t-if="team.public_form_success_html" class="bf-support-intro mt-4">
               <t t-out="team.public_form_success_html"/>
             </div>
