@@ -88,17 +88,26 @@ def _apply_locale_from_request():
     """Switch request env lang to match the booker's intent. Idempotent.
 
     Trust order:
-      1. lang already in context — set by website middleware from URL prefix
+      1. lang already in context - set by website middleware from URL prefix
          (`/en/...`), `frontend_lang` cookie, or its own Accept-Language parse.
          Respect it whenever it resolves to English so the language toggle
          (which redirects to `/en/appointment`) actually flips the page.
       2. Accept-Language fallback for non-website routes (email confirmation
          links, cancel links) where middleware lang resolution may not run.
+
+    Falls back to fr_CA if the resolved lang is not installed on this tenant
+    (e.g. mono-lingual PMEC ships fr_CA only - setting en_CA would 400).
     """
     current = request.env.context.get("lang")
     if current and current.lower().startswith("en"):
         return
     lang = _resolve_lang_from_accept_header()
+    if lang != _BF_DEFAULT_LANG:
+        installed = request.env["res.lang"].sudo().search(
+            [("code", "=", lang), ("active", "=", True)], limit=1
+        )
+        if not installed:
+            lang = _BF_DEFAULT_LANG
     if current != lang:
         request.update_context(lang=lang)
 
@@ -391,11 +400,16 @@ class AppointmentController(Controller):
             recording_active = bool(existing_rec)
             checkbox_recording = bool(kwargs.get("bf_consent_recording"))
             if not recording_active and not checkbox_recording:
+                fallback_email = (
+                    (booking_type.company_id and booking_type.company_id.email)
+                    or request.env.company.email
+                    or "service@bluefoxconsultant.com"
+                )
                 msg = (
                     "Le compte rendu fait partie du service pour ce type de "
                     "rencontre. Veuillez accepter l'enregistrement et la "
-                    "transcription, ou nous écrire à "
-                    "service@bluefoxconsultant.com pour un format alternatif."
+                    f"transcription, ou nous écrire à {fallback_email} "
+                    "pour un format alternatif."
                 )
                 return request.redirect(
                     f"/appointment/{slug}?error={quote_plus(msg)}"

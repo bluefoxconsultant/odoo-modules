@@ -1,7 +1,7 @@
 from odoo import fields, models
 
 
-# Defaults match Blue Fox Inc — keep them so a fresh install (no data file
+# Defaults match Blue Fox Inc - keep them so a fresh install (no data file
 # loaded yet, or a new company created post-install) ships with usable
 # branding even before an admin touches Settings. Per-tenant deployments
 # override these via res.config.settings or directly on res.company.

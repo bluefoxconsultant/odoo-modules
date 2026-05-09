@@ -10,11 +10,11 @@
             <field name="name">Rendez-vous : Accusé de réception</field>
             <field name="model_id" ref="resource_booking.model_resource_booking"/>
             <field name="subject">Demande de rendez-vous reçue - {{ object.type_id.name }}</field>
-            <field name="email_from">{{ (object.type_id.company_id.email_formatted or '') }}</field>
+            <field name="email_from">{{ (object.user_id.email_formatted or object.type_id.company_id.email_formatted or '') }}</field>
             <field name="email_to">{{ object.partner_id.email }}</field>
             <field name="lang">{{ object.partner_id.lang }}</field>
             <field name="body_html"><![CDATA[
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#2D3031;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F8FAFC;">
     <tbody><tr><td align="center" style="padding:24px;">
         <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="width:600px; max-width:600px; margin:0 auto; background-color:#ffffff; border-radius:12px; border:1px solid #e5e7eb; border-collapse:collapse;">
             <tbody>
@@ -111,7 +111,7 @@
             <field name="name">Rendez-vous : Confirmation</field>
             <field name="model_id" ref="resource_booking.model_resource_booking"/>
             <field name="subject">Confirmation de votre rendez-vous - {{ object.type_id.name }}</field>
-            <field name="email_from">{{ (object.type_id.company_id.email_formatted or '') }}</field>
+            <field name="email_from">{{ (object.user_id.email_formatted or object.type_id.company_id.email_formatted or '') }}</field>
             <field name="email_to">{{ object.partner_id.email }}</field>
             <field name="lang">{{ object.partner_id.lang }}</field>
             <field name="body_html"><![CDATA[
@@ -251,7 +251,7 @@
             <field name="name">Rendez-vous : Rappel 2 jours</field>
             <field name="model_id" ref="resource_booking.model_resource_booking"/>
             <field name="subject">Rappel - Votre rendez-vous dans 2 jours : {{ object.type_id.name }}</field>
-            <field name="email_from">{{ (object.type_id.company_id.email_formatted or '') }}</field>
+            <field name="email_from">{{ (object.user_id.email_formatted or object.type_id.company_id.email_formatted or '') }}</field>
             <field name="email_to">{{ object.partner_id.email }}</field>
             <field name="lang">{{ object.partner_id.lang }}</field>
             <field name="body_html"><![CDATA[
@@ -331,7 +331,7 @@
             <field name="name">Rendez-vous : Rappel 1 jour</field>
             <field name="model_id" ref="resource_booking.model_resource_booking"/>
             <field name="subject">Rappel - Votre rendez-vous demain : {{ object.type_id.name }}</field>
-            <field name="email_from">{{ (object.type_id.company_id.email_formatted or '') }}</field>
+            <field name="email_from">{{ (object.user_id.email_formatted or object.type_id.company_id.email_formatted or '') }}</field>
             <field name="email_to">{{ object.partner_id.email }}</field>
             <field name="lang">{{ object.partner_id.lang }}</field>
             <field name="body_html"><![CDATA[
@@ -372,7 +372,7 @@
             <field name="name">Rendez-vous : Rappel 2 heures</field>
             <field name="model_id" ref="resource_booking.model_resource_booking"/>
             <field name="subject">Dans 2 heures - {{ object.type_id.name }}</field>
-            <field name="email_from">{{ (object.type_id.company_id.email_formatted or '') }}</field>
+            <field name="email_from">{{ (object.user_id.email_formatted or object.type_id.company_id.email_formatted or '') }}</field>
             <field name="email_to">{{ object.partner_id.email }}</field>
             <field name="lang">{{ object.partner_id.lang }}</field>
             <field name="body_html"><![CDATA[
@@ -410,7 +410,7 @@
             <field name="name">Rendez-vous : Rappel 1 heure</field>
             <field name="model_id" ref="resource_booking.model_resource_booking"/>
             <field name="subject">Dans 1 heure - {{ object.type_id.name }}</field>
-            <field name="email_from">{{ (object.type_id.company_id.email_formatted or '') }}</field>
+            <field name="email_from">{{ (object.user_id.email_formatted or object.type_id.company_id.email_formatted or '') }}</field>
             <field name="email_to">{{ object.partner_id.email }}</field>
             <field name="lang">{{ object.partner_id.lang }}</field>
             <field name="body_html"><![CDATA[
@@ -452,7 +452,7 @@
             <field name="name">Rendez-vous : Suivi imm&#233;diat</field>
             <field name="model_id" ref="resource_booking.model_resource_booking"/>
             <field name="subject">Merci pour votre rendez-vous - {{ object.type_id.name }}</field>
-            <field name="email_from">{{ (object.type_id.company_id.email_formatted or '') }}</field>
+            <field name="email_from">{{ (object.user_id.email_formatted or object.type_id.company_id.email_formatted or '') }}</field>
             <field name="email_to">{{ object.partner_id.email }}</field>
             <field name="lang">{{ object.partner_id.lang }}</field>
             <field name="body_html"><![CDATA[
@@ -472,7 +472,7 @@
                             Si vous avez des questions ou si vous souhaitez planifier un suivi, n'h&#233;sitez pas &#224; nous contacter.
                         </p>
                         <p style="text-align:center; margin:24px 0 16px 0;">
-                            <a href="https://www.bluefoxconsultant.com/appointment" t-attf-style="background-color:{{ (object.type_id.company_id and object.type_id.company_id.appointment_brand_primary) or '#29ABE2' }}; color:#ffffff; padding:12px 32px; text-decoration:none; border-radius:6px; font-weight:600; font-size:14px; display:inline-block;">Prendre un autre rendez-vous</a>
+                            <a t-attf-href="{{ object.get_base_url() }}/appointment" t-attf-style="background-color:{{ (object.type_id.company_id and object.type_id.company_id.appointment_brand_primary) or '#29ABE2' }}; color:#ffffff; padding:12px 32px; text-decoration:none; border-radius:6px; font-weight:600; font-size:14px; display:inline-block;">Prendre un autre rendez-vous</a>
                         </p>
                         <p style="font-size:13px; line-height:20px; color:#6B7280; margin:16px 0 0 0;">Pour toute question : <a t-attf-href="mailto:{{ (object.type_id.company_id and object.type_id.company_id.appointment_brand_support_email) or 'service@bluefoxconsultant.com' }}" t-attf-style="color:{{ (object.type_id.company_id and object.type_id.company_id.appointment_brand_primary) or '#29ABE2' }}; text-decoration:none;"><t t-out="(object.type_id.company_id and object.type_id.company_id.appointment_brand_support_email) or 'service@bluefoxconsultant.com'"/></a> | <a t-attf-href="tel:{{ (object.type_id.company_id and object.type_id.company_id.appointment_brand_support_phone) or '+15145132535' }}" t-attf-style="color:{{ (object.type_id.company_id and object.type_id.company_id.appointment_brand_primary) or '#29ABE2' }}; text-decoration:none;"><t t-out="(object.type_id.company_id and object.type_id.company_id.appointment_brand_support_phone_display) or '514-513-2535'"/></a></p>
                     </td></tr>
@@ -494,7 +494,7 @@
             <field name="name">Rendez-vous : Suivi 1 heure apr&#232;s</field>
             <field name="model_id" ref="resource_booking.model_resource_booking"/>
             <field name="subject">Suite &#224; notre rendez-vous - {{ object.type_id.name }}</field>
-            <field name="email_from">{{ (object.type_id.company_id.email_formatted or '') }}</field>
+            <field name="email_from">{{ (object.user_id.email_formatted or object.type_id.company_id.email_formatted or '') }}</field>
             <field name="email_to">{{ object.partner_id.email }}</field>
             <field name="lang">{{ object.partner_id.lang }}</field>
             <field name="body_html"><![CDATA[
@@ -512,7 +512,7 @@
                             N'h&#233;sitez pas &#224; nous faire part de vos commentaires ou questions.
                         </p>
                         <p style="text-align:center; margin:24px 0 16px 0;">
-                            <a href="https://www.bluefoxconsultant.com/appointment" t-attf-style="background-color:{{ (object.type_id.company_id and object.type_id.company_id.appointment_brand_primary) or '#29ABE2' }}; color:#ffffff; padding:12px 32px; text-decoration:none; border-radius:6px; font-weight:600; font-size:14px; display:inline-block;">Prendre un autre rendez-vous</a>
+                            <a t-attf-href="{{ object.get_base_url() }}/appointment" t-attf-style="background-color:{{ (object.type_id.company_id and object.type_id.company_id.appointment_brand_primary) or '#29ABE2' }}; color:#ffffff; padding:12px 32px; text-decoration:none; border-radius:6px; font-weight:600; font-size:14px; display:inline-block;">Prendre un autre rendez-vous</a>
                         </p>
                         <p style="font-size:13px; line-height:20px; color:#6B7280; margin:16px 0 0 0;">Pour toute question : <a t-attf-href="mailto:{{ (object.type_id.company_id and object.type_id.company_id.appointment_brand_support_email) or 'service@bluefoxconsultant.com' }}" t-attf-style="color:{{ (object.type_id.company_id and object.type_id.company_id.appointment_brand_primary) or '#29ABE2' }}; text-decoration:none;"><t t-out="(object.type_id.company_id and object.type_id.company_id.appointment_brand_support_email) or 'service@bluefoxconsultant.com'"/></a> | <a t-attf-href="tel:{{ (object.type_id.company_id and object.type_id.company_id.appointment_brand_support_phone) or '+15145132535' }}" t-attf-style="color:{{ (object.type_id.company_id and object.type_id.company_id.appointment_brand_primary) or '#29ABE2' }}; text-decoration:none;"><t t-out="(object.type_id.company_id and object.type_id.company_id.appointment_brand_support_phone_display) or '514-513-2535'"/></a></p>
                     </td></tr>
@@ -534,7 +534,7 @@
             <field name="name">Rendez-vous : Suivi 2 heures apr&#232;s</field>
             <field name="model_id" ref="resource_booking.model_resource_booking"/>
             <field name="subject">R&#233;sum&#233; de votre rendez-vous - {{ object.type_id.name }}</field>
-            <field name="email_from">{{ (object.type_id.company_id.email_formatted or '') }}</field>
+            <field name="email_from">{{ (object.user_id.email_formatted or object.type_id.company_id.email_formatted or '') }}</field>
             <field name="email_to">{{ object.partner_id.email }}</field>
             <field name="lang">{{ object.partner_id.lang }}</field>
             <field name="body_html"><![CDATA[
@@ -556,7 +556,7 @@
                             Vous pouvez &#233;galement r&#233;server un nouveau rendez-vous en tout temps.
                         </p>
                         <p style="text-align:center; margin:24px 0 16px 0;">
-                            <a href="https://www.bluefoxconsultant.com/appointment" t-attf-style="background-color:{{ (object.type_id.company_id and object.type_id.company_id.appointment_brand_primary) or '#29ABE2' }}; color:#ffffff; padding:12px 32px; text-decoration:none; border-radius:6px; font-weight:600; font-size:14px; display:inline-block;">Prendre un autre rendez-vous</a>
+                            <a t-attf-href="{{ object.get_base_url() }}/appointment" t-attf-style="background-color:{{ (object.type_id.company_id and object.type_id.company_id.appointment_brand_primary) or '#29ABE2' }}; color:#ffffff; padding:12px 32px; text-decoration:none; border-radius:6px; font-weight:600; font-size:14px; display:inline-block;">Prendre un autre rendez-vous</a>
                         </p>
                         <p style="font-size:13px; line-height:20px; color:#6B7280; margin:16px 0 0 0;">Pour toute question : <a t-attf-href="mailto:{{ (object.type_id.company_id and object.type_id.company_id.appointment_brand_support_email) or 'service@bluefoxconsultant.com' }}" t-attf-style="color:{{ (object.type_id.company_id and object.type_id.company_id.appointment_brand_primary) or '#29ABE2' }}; text-decoration:none;"><t t-out="(object.type_id.company_id and object.type_id.company_id.appointment_brand_support_email) or 'service@bluefoxconsultant.com'"/></a> | <a t-attf-href="tel:{{ (object.type_id.company_id and object.type_id.company_id.appointment_brand_support_phone) or '+15145132535' }}" t-attf-style="color:{{ (object.type_id.company_id and object.type_id.company_id.appointment_brand_primary) or '#29ABE2' }}; text-decoration:none;"><t t-out="(object.type_id.company_id and object.type_id.company_id.appointment_brand_support_phone_display) or '514-513-2535'"/></a></p>
                     </td></tr>
@@ -628,7 +628,7 @@
             <field name="name">Rendez-vous : Rappel (ancien)</field>
             <field name="model_id" ref="resource_booking.model_resource_booking"/>
             <field name="subject">Rappel - Votre rendez-vous demain : {{ object.type_id.name }}</field>
-            <field name="email_from">{{ (object.type_id.company_id.email_formatted or '') }}</field>
+            <field name="email_from">{{ (object.user_id.email_formatted or object.type_id.company_id.email_formatted or '') }}</field>
             <field name="email_to">{{ object.partner_id.email }}</field>
             <field name="lang">{{ object.partner_id.lang }}</field>
             <field name="body_html"><![CDATA[<p>Ce mod&#232;le est remplac&#233; par les rappels planifi&#233;s. Voir Rendez-vous &gt; Configuration &gt; Mod&#232;les de courriel.</p>]]></field>
@@ -641,7 +641,7 @@
             <field name="name">Rendez-vous : Annulation (client)</field>
             <field name="model_id" ref="resource_booking.model_resource_booking"/>
             <field name="subject">Annulation de votre rendez-vous - {{ object.type_id.name }}</field>
-            <field name="email_from">{{ (object.type_id.company_id.email_formatted or '') }}</field>
+            <field name="email_from">{{ (object.user_id.email_formatted or object.type_id.company_id.email_formatted or '') }}</field>
             <field name="email_to">{{ object.partner_id.email }}</field>
             <field name="lang">{{ object.partner_id.lang }}</field>
             <field name="body_html"><![CDATA[

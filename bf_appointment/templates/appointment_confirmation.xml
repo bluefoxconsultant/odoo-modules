@@ -136,6 +136,14 @@
                     </div>
                     <t t-if="booking_sudo.state in ('confirmed', 'scheduled')">
                         <div class="card-footer bg-transparent border-top py-3">
+                            <div class="text-center mb-3">
+                                <a t-attf-href="/appointment/b/#{booking_sudo.id}/#{access_token}/schedule"
+                                   class="btn bf-btn-accent text-white btn-sm me-2"
+                                   t-attf-style="background-color: #{(booking_sudo.type_id.company_id and booking_sudo.type_id.company_id.appointment_brand_primary) or '#29ABE2'};">
+                                    <i class="fa fa-calendar me-1"/>
+                                    <t t-out="'Reschedule' if _en else 'Replanifier'"/>
+                                </a>
+                            </div>
                             <form t-attf-action="/appointment/b/#{booking_sudo.id}/#{access_token}/cancel"
                                   method="post"
                                   t-att-onsubmit="'return confirm(\'Are you sure you want to cancel this meeting?\');' if _en else 'return confirm(\'Êtes-vous certain de vouloir annuler ce rendez-vous ?\');'">

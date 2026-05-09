@@ -189,7 +189,7 @@ $bf-anthracite-themed: var(--bf-appt-dark, #{$bf-anthracite});
     padding: 0.35rem 0.65rem;
 
     &:hover {
-        // hover lightening uses the SCSS literal — falls back to BF anthracite
+        // hover lightening uses the SCSS literal - falls back to BF anthracite
         // when the tenant theme is set, but the difference is subtle.
         background-color: lighten($bf-anthracite, 10%);
         color: #fff;

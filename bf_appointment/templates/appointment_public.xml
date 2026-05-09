@@ -397,7 +397,7 @@
                     <h3 t-out="'Pick your time' if _en else 'Choisissez votre créneau'"/>
                     <p>
                         <t t-esc="booking_sudo.type_id.name"/>
-                        —
+                        -
                         <t t-esc="booking_sudo.get_duration_display()"/>
                     </p>
                 </div>
@@ -569,7 +569,7 @@
                                         data-bs-dismiss="modal"
                                         t-out="'Cancel' if _en else 'Annuler'"/>
                                 <button type="submit" class="btn bf-btn-accent text-white bf-btn-confirm"
-                                        t-attf-style="background-color: #{(booking_type.company_id and booking_type.company_id.appointment_brand_primary) or '#29ABE2'};">
+                                        t-attf-style="background-color: #{(booking.type_id.company_id and booking.type_id.company_id.appointment_brand_primary) or '#29ABE2'};">
                                     <i class="fa fa-check me-1"/>
                                     <t t-out="'Confirm' if _en else 'Confirmer'"/>
                                 </button>
