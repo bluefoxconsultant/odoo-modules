@@ -576,15 +576,20 @@ class ContactPersona(models.Model):
             ("active", "=", True),
         ])
         seeded = 0
+        # Avoid auto-subscribing the partner and emitting chatter mails for
+        # background-created personas. Otherwise the related contact gets
+        # notified by SMTP every time we seed/observe their relationship.
+        Persona = self.with_context(
+            mail_create_nosubscribe=True,
+            mail_create_nolog=True,
+            tracking_disable=True,
+            mail_notify_force_send=False,
+        )
         for partner in candidates:
             try:
                 vals = {"partner_id": partner.id}
                 vals.update(self._infer_persona_from_emails(partner.id, window_days=window_days))
-                persona = self.create(vals)
-                persona.message_post(
-                    body=_("Persona seedé automatiquement (heuristiques courriel)."),
-                    subtype_xmlid="mail.mt_note",
-                )
+                Persona.create(vals)
                 seeded += 1
                 if seeded % batch == 0:
                     self.env.cr.commit()
@@ -716,13 +721,12 @@ class ContactPersona(models.Model):
                 vals["relationship_health"] = new_health
                 if new_health == "degraded":
                     vals["tone_summary"] = "tense"
-                    persona.message_post(
-                        body=_(
-                            "Détection de dérive : score %.2f sur 30j vs 90j "
-                            "(volume/longueur/marqueurs négatifs). "
-                            "relationship_health → degraded, tone_summary → tense."
-                        ) % score,
-                        subtype_xmlid="mail.mt_note",
+                    _logger.info(
+                        "persona %s (%s) degraded: score %.2f",
+                        persona.id, persona.partner_id.display_name or "?", score,
                     )
-            persona.write(vals)
+            # Use ``mail_notify_force_send=False`` to make sure the tracking
+            # entries created by ``write`` never trigger outbound SMTP to the
+            # partner — this is internal observation only.
+            persona.with_context(mail_notify_force_send=False).write(vals)
         return len(targets)
