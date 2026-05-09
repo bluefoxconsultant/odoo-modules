@@ -62,6 +62,11 @@
                                            placeholder="https://example.com"/>
                                 </div>
                                 <div class="row mt8">
+                                    <label for="appointment_brand_tagline" class="col-3 col-lg-4"/>
+                                    <field name="appointment_brand_tagline" class="col-9 col-lg-8"
+                                           placeholder="Solutions éthiques et souveraines pour vos données."/>
+                                </div>
+                                <div class="row mt8">
                                     <label for="appointment_brand_primary" class="col-3 col-lg-4"/>
                                     <field name="appointment_brand_primary" widget="color"
                                            class="col-9 col-lg-8"/>

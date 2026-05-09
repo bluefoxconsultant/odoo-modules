@@ -22,6 +22,7 @@ _BF_DEFAULT_PRIVACY_URL = (
 _BF_DEFAULT_TERMS_URL = (
     "https://www.bluefoxconsultant.com/r/termes-et-conditions"
 )
+_BF_DEFAULT_TAGLINE = "Solutions éthiques et souveraines pour vos données."
 
 
 class ResCompany(models.Model):
@@ -78,4 +79,9 @@ class ResCompany(models.Model):
         string="Appointment Terms & Conditions URL",
         default=_BF_DEFAULT_TERMS_URL,
         help="Terms & conditions URL shown in email footers.",
+    )
+    appointment_brand_tagline = fields.Char(
+        string="Appointment Brand Tagline",
+        default=_BF_DEFAULT_TAGLINE,
+        help="Short tagline shown under the brand name in email footers.",
     )

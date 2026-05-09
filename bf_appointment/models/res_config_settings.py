@@ -71,6 +71,9 @@ class ResConfigSettings(models.TransientModel):
     appointment_brand_terms_url = fields.Char(
         related="company_id.appointment_brand_terms_url", readonly=False,
     )
+    appointment_brand_tagline = fields.Char(
+        related="company_id.appointment_brand_tagline", readonly=False,
+    )
 
     def set_values(self):
         res = super().set_values()
