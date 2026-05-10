@@ -137,9 +137,13 @@ class HelpdeskTicket(models.Model):
     def _compute_sla_breach(self):
         now = fields.Datetime.now()
         for ticket in self:
-            # Response breach: deadline passed and no outbound message yet from staff
+            # Response breach: deadline passed, ticket still open, no outbound message from staff
             response_breach = False
-            if ticket.sla_response_deadline and ticket.sla_response_deadline < now:
+            if (
+                ticket.sla_response_deadline
+                and ticket.sla_response_deadline < now
+                and not ticket.stage_id.closed
+            ):
                 outbound = ticket.message_ids.filtered(
                     lambda m: m.message_type == "comment"
                     and m.author_id
@@ -158,6 +162,7 @@ class HelpdeskTicket(models.Model):
         """Daily cron — drop a follow-up activity on tickets newly in breach."""
         breached = self.search([
             ("active", "=", True),
+            ("stage_id.closed", "=", False),
             "|",
             ("sla_response_breach", "=", True),
             ("sla_resolve_breach", "=", True),
