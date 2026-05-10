@@ -53,6 +53,12 @@ is set, to avoid double notifications.
 | 18.0.3.2.0 | Dashboard tile on `bf.dashboard` (open/unattended/critical/waiting per team) |
 | 18.0.3.3.0 | IMAP gateway hardening (drop autoresponder loops + bulk + bounce subjects) |
 
+## Phase 4 features (shipped)
+
+| Version | Feature |
+|---|---|
+| 18.0.4.0.0 | SLA per-team (response + resolve hours), breach ribbons on ticket, daily cron drops follow-up activities. **Macros**: reusable canned responses with team scoping, applied via wizard from the ticket header. **Auto-acknowledgement**: branded immediate confirmation email when a ticket is created via `/support/<slug>`. **Auto-tag rules**: per-team regex → tag mapping applied at ticket creation. |
+
 ## Triage IA
 
 The "Triage IA" button on a ticket calls the Anthropic Messages API with

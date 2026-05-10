@@ -2,6 +2,7 @@ import json
 import logging
 import urllib.error
 import urllib.request
+from datetime import timedelta
 
 from odoo import api, fields, models
 from odoo.exceptions import UserError
@@ -91,6 +92,127 @@ class HelpdeskTicket(models.Model):
         string="Qualité de paiement",
         readonly=True,
     )
+
+    # ------------------------------------------------------------------
+    # SLA — first response + resolution deadlines
+    # ------------------------------------------------------------------
+    sla_response_deadline = fields.Datetime(
+        string="Échéance première réponse",
+        compute="_compute_sla_deadlines",
+        store=True,
+    )
+    sla_resolve_deadline = fields.Datetime(
+        string="Échéance résolution",
+        compute="_compute_sla_deadlines",
+        store=True,
+    )
+    sla_response_breach = fields.Boolean(
+        string="SLA réponse dépassée",
+        compute="_compute_sla_breach",
+    )
+    sla_resolve_breach = fields.Boolean(
+        string="SLA résolution dépassée",
+        compute="_compute_sla_breach",
+    )
+
+    @api.depends("create_date", "team_id.sla_response_hours", "team_id.sla_resolve_hours")
+    def _compute_sla_deadlines(self):
+        for ticket in self:
+            base = ticket.create_date
+            if not base:
+                ticket.sla_response_deadline = False
+                ticket.sla_resolve_deadline = False
+                continue
+            response_hours = ticket.team_id.sla_response_hours or 0.0
+            resolve_hours = ticket.team_id.sla_resolve_hours or 0.0
+            ticket.sla_response_deadline = (
+                base + timedelta(hours=response_hours)
+            ) if response_hours else False
+            ticket.sla_resolve_deadline = (
+                base + timedelta(hours=resolve_hours)
+            ) if resolve_hours else False
+
+    @api.depends("sla_response_deadline", "sla_resolve_deadline",
+                 "stage_id.closed", "message_ids", "closed_date")
+    def _compute_sla_breach(self):
+        now = fields.Datetime.now()
+        for ticket in self:
+            # Response breach: deadline passed and no outbound message yet from staff
+            response_breach = False
+            if ticket.sla_response_deadline and ticket.sla_response_deadline < now:
+                outbound = ticket.message_ids.filtered(
+                    lambda m: m.message_type == "comment"
+                    and m.author_id
+                    and m.author_id != ticket.partner_id
+                )
+                response_breach = not outbound
+            ticket.sla_response_breach = response_breach
+            # Resolve breach: deadline passed and ticket still open
+            resolve_breach = False
+            if ticket.sla_resolve_deadline and ticket.sla_resolve_deadline < now:
+                resolve_breach = not ticket.stage_id.closed
+            ticket.sla_resolve_breach = resolve_breach
+
+    @api.model
+    def _cron_sla_breach_activity(self):
+        """Daily cron — drop a follow-up activity on tickets newly in breach."""
+        breached = self.search([
+            ("active", "=", True),
+            "|",
+            ("sla_response_breach", "=", True),
+            ("sla_resolve_breach", "=", True),
+        ])
+        for ticket in breached:
+            existing = self.env["mail.activity"].search([
+                ("res_model", "=", self._name),
+                ("res_id", "=", ticket.id),
+                ("summary", "=", "SLA dépassé"),
+            ], limit=1)
+            if existing:
+                continue
+            ticket.activity_schedule(
+                act_type_xmlid="mail.mail_activity_data_todo",
+                summary="SLA dépassé",
+                note=(
+                    "<p>Ce ticket a dépassé un SLA configuré sur l'équipe. "
+                    "Vérifier et réagir.</p>"
+                ),
+                user_id=ticket.user_id.id or self.env.uid,
+            )
+
+    # ------------------------------------------------------------------
+    # Macros
+    # ------------------------------------------------------------------
+    def action_apply_macro(self):
+        """Open the macro picker wizard (single-select)."""
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Appliquer une macro",
+            "res_model": "helpdesk.macro.apply.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"default_ticket_id": self.id},
+        }
+
+    # ------------------------------------------------------------------
+    # Auto-tag — apply matching rules at creation
+    # ------------------------------------------------------------------
+    def _apply_auto_tag_rules(self):
+        """Scan team rules against subject + description and add matching tags."""
+        for ticket in self:
+            if not ticket.team_id:
+                continue
+            rules = ticket.team_id.auto_tag_rule_ids.filtered(lambda r: r.active)
+            if not rules:
+                continue
+            text = (ticket.name or "") + " " + (ticket.description or "")
+            tag_ids = []
+            for rule in rules:
+                if rule._matches(text):
+                    tag_ids.append(rule.tag_id.id)
+            if tag_ids:
+                ticket.write({"tag_ids": [(4, tid) for tid in tag_ids]})
 
     # ------------------------------------------------------------------
     # CSAT — auto-send survey on close
@@ -458,6 +580,7 @@ class HelpdeskTicket(models.Model):
     def create(self, vals_list):
         tickets = super().create(vals_list)
         for ticket in tickets:
+            ticket._apply_auto_tag_rules()
             ticket._maybe_notify_ntfy_critical(reason="created")
         return tickets
 

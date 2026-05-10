@@ -235,6 +235,24 @@ class BFHelpdeskPublicForm(http.Controller):
         if partner_id:
             ticket.message_subscribe(partner_ids=[partner_id])
 
+        # Auto-acknowledgement (per-team toggle) — fires immediate "we received"
+        # email to the requester so they have a paper trail in their inbox.
+        if team.public_form_auto_ack:
+            ack_template = request.env.ref(
+                "bf_helpdesk.mail_template_public_form_ack",
+                raise_if_not_found=False,
+            )
+            if ack_template:
+                try:
+                    ack_template.sudo().send_mail(
+                        ticket.id, force_send=False,
+                        email_layout_xmlid="bluefox_branding.bf_mail_layout",
+                    )
+                except Exception:
+                    _logger.exception(
+                        "bf_helpdesk: auto-ack send failed for ticket %s", ticket.id,
+                    )
+
         # Redirect logged-in users to portal; anonymous to a thank-you page
         if partner_id:
             return werkzeug.utils.redirect(f"/my/ticket/{ticket.id}")

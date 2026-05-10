@@ -66,6 +66,32 @@ class HelpdeskTicketTeam(models.Model):
         help="Sondage envoyé automatiquement à la fermeture d'un ticket de cette équipe.",
     )
 
+    # --- SLA ---
+    sla_response_hours = fields.Float(
+        string="SLA — Première réponse (h)",
+        default=0.0,
+        help="Délai max avant la première réponse. 0 = pas de SLA.",
+    )
+    sla_resolve_hours = fields.Float(
+        string="SLA — Résolution (h)",
+        default=0.0,
+        help="Délai max avant la fermeture du ticket. 0 = pas de SLA.",
+    )
+
+    # --- Auto-acknowledgement on public form ---
+    public_form_auto_ack = fields.Boolean(
+        string="Accusé réception auto",
+        default=True,
+        help="Envoie un courriel d'accusé réception immédiat quand un ticket est créé via le formulaire public.",
+    )
+
+    # --- Auto-tag rules ---
+    auto_tag_rule_ids = fields.One2many(
+        comodel_name="helpdesk.auto.tag.rule",
+        inverse_name="team_id",
+        string="Règles auto-tag",
+    )
+
     public_form_tag_ids = fields.Many2many(
         comodel_name="helpdesk.ticket.tag",
         relation="helpdesk_team_public_form_tag_rel",

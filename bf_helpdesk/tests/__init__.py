@@ -11,3 +11,4 @@ from . import test_ticket_meeting
 from . import test_ticket_triage
 from . import test_ticket_csat
 from . import test_imap_gateway
+from . import test_phase4

@@ -17,6 +17,10 @@
         </button>
       </xpath>
       <xpath expr="//header" position="inside">
+        <button name="action_apply_macro" type="object"
+                string="Appliquer macro"
+                class="btn-secondary"
+                groups="helpdesk_mgmt.group_helpdesk_user_team"/>
         <button name="action_create_meeting_record" type="object"
                 string="Convertir en rencontre"
                 class="btn-secondary"
@@ -83,6 +87,30 @@
                decoration-danger="scope_aligned == 'out_of_scope'"
                decoration-muted="scope_aligned == 'unset'"
                readonly="1"/>
+      </xpath>
+
+      <!-- SLA breach ribbons -->
+      <xpath expr="//sheet" position="before">
+        <div class="alert alert-danger text-center mb-0"
+             role="alert"
+             invisible="not sla_response_breach">
+          <strong>⚠ SLA première réponse dépassé.</strong>
+          Aucune réponse de l'équipe avant l'échéance.
+        </div>
+        <div class="alert alert-danger text-center mb-0"
+             role="alert"
+             invisible="not sla_resolve_breach">
+          <strong>⚠ SLA résolution dépassé.</strong>
+          Le ticket aurait dû être fermé.
+        </div>
+      </xpath>
+      <xpath expr="//field[@name='closed_date']" position="after">
+        <field name="sla_response_deadline" readonly="1"
+               invisible="not sla_response_deadline"/>
+        <field name="sla_resolve_deadline" readonly="1"
+               invisible="not sla_resolve_deadline"/>
+        <field name="sla_response_breach" invisible="1"/>
+        <field name="sla_resolve_breach" invisible="1"/>
       </xpath>
 
       <!-- CSAT response link -->
