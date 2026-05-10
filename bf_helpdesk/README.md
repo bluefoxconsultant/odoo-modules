@@ -34,12 +34,32 @@ folded in via `post_init_hook`). If you have a `base.automation` rule that fires
 on helpdesk priority changes, disable it once team-level `ntfy_critical_enabled`
 is set, to avoid double notifications.
 
-## Roadmap
+## Phase 2 features (shipped)
 
-- Persona panel (`bf_persona`) on ticket form — **shipped in 18.0.2.0.0**
-- Triage IA via Claude
-- Knowledge matrix link → `knowledge.item`
-- Convert ticket → `meeting.record`
+| Version | Feature |
+|---|---|
+| 18.0.2.0.0 | Persona panel on ticket form (addressing style, tones, payer quality) |
+| 18.0.2.1.0 | Spam honeypot + email regex + attachment caps + extension blocklist |
+| 18.0.2.2.0 | Knowledge matrix link with scope alignment badge |
+| 18.0.2.3.0 | Convert ticket → meeting record |
+| 18.0.2.4.0 | Triage IA via Claude (one-shot Anthropic Messages API call) |
+
+## Triage IA
+
+The "Triage IA" button on a ticket calls the Anthropic Messages API with
+the ticket subject, description, available stages, and team members,
+and asks for a categorization, suggested stage, suggested assignee, and
+a draft first response. The result is stored on `triage_suggestion_html`
+and shown in the "Triage IA" tab.
+
+API key resolution priority:
+1. `ir.config_parameter` `bf_helpdesk.anthropic_api_key` (plain — handy for
+   tests / per-tenant override)
+2. `bf_claude_chat` encrypted key (Fernet, requires the same module's setup)
+
+Network failures persist a soft-error on the ticket (`triage_state=error`)
+without raising a popup; configuration errors (missing API key) raise a
+popup.
 
 ## Phase 3 (planned)
 

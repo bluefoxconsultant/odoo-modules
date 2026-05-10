@@ -7,6 +7,43 @@
     <field name="inherit_id" ref="helpdesk_mgmt.ticket_view_form"/>
     <field name="arch" type="xml">
 
+      <!-- Convert-to-meeting button + smart-button counter -->
+      <xpath expr="//div[@name='button_box']" position="inside">
+        <button name="action_view_meeting_records" type="object"
+                class="oe_stat_button" icon="fa-comments-o"
+                invisible="meeting_record_count == 0">
+          <field name="meeting_record_count" widget="statinfo"
+                 string="Rencontres"/>
+        </button>
+      </xpath>
+      <xpath expr="//header" position="inside">
+        <button name="action_create_meeting_record" type="object"
+                string="Convertir en rencontre"
+                class="btn-secondary"
+                groups="helpdesk_mgmt.group_helpdesk_user_team"/>
+        <button name="action_triage_with_claude" type="object"
+                string="Triage IA"
+                class="btn-secondary"
+                groups="helpdesk_mgmt.group_helpdesk_user_team"
+                invisible="triage_state == 'pending'"
+                confirm="Lancer un appel Anthropic pour suggérer stage, assignation et brouillon de réponse ?"/>
+      </xpath>
+
+      <!-- Triage suggestion panel -->
+      <xpath expr="//notebook" position="inside">
+        <page string="Triage IA" name="bf_triage_panel"
+              invisible="triage_state == 'none'">
+          <group>
+            <field name="triage_state" widget="badge"
+                   decoration-info="triage_state == 'pending'"
+                   decoration-success="triage_state == 'done'"
+                   decoration-danger="triage_state == 'error'"/>
+            <field name="triage_last_run" readonly="1"/>
+          </group>
+          <field name="triage_suggestion_html" readonly="1" nolabel="1"/>
+        </page>
+      </xpath>
+
       <!-- Add waiting_state next to priority in the header -->
       <xpath expr="//field[@name='priority']" position="after">
         <field name="waiting_state" widget="badge"
@@ -32,6 +69,20 @@
           <strong>⚠ Solde banque d'heures bas pour ce client.</strong>
           Vérifier avant de poursuivre des heures non couvertes.
         </div>
+      </xpath>
+
+      <!-- Knowledge matrix scope validation -->
+      <xpath expr="//field[@name='category_id']" position="after">
+        <field name="knowledge_item_id"
+               options="{'no_create': True, 'no_create_edit': True}"/>
+        <field name="knowledge_matrix_id" readonly="1"
+               invisible="not knowledge_matrix_id"/>
+        <field name="scope_aligned" widget="badge"
+               decoration-success="scope_aligned == 'aligned'"
+               decoration-info="scope_aligned == 'pending'"
+               decoration-danger="scope_aligned == 'out_of_scope'"
+               decoration-muted="scope_aligned == 'unset'"
+               readonly="1"/>
       </xpath>
 
       <!-- Persona panel — quick composer hints when answering the ticket -->

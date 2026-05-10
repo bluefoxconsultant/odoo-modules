@@ -1,8 +1,10 @@
 import json
 import logging
+import urllib.error
 import urllib.request
 
 from odoo import api, fields, models
+from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
 
@@ -89,6 +91,253 @@ class HelpdeskTicket(models.Model):
         string="Qualité de paiement",
         readonly=True,
     )
+
+    # ------------------------------------------------------------------
+     # Knowledge matrix link — quick scope validation
+    # ------------------------------------------------------------------
+    knowledge_item_id = fields.Many2one(
+        comodel_name="project.knowledge.item",
+        string="Élément matrice",
+        help="Lie ce ticket à un élément de la matrice de connaissances du projet "
+             "pour valider l'alignement avec le scope du mandat.",
+    )
+    knowledge_matrix_id = fields.Many2one(
+        comodel_name="project.knowledge.matrix",
+        string="Matrice",
+        related="knowledge_item_id.matrix_id",
+        readonly=True,
+        store=False,
+    )
+    knowledge_item_state = fields.Selection(
+        related="knowledge_item_id.state",
+        string="État de l'élément",
+        readonly=True,
+    )
+    scope_aligned = fields.Selection(
+        selection=[
+            ("aligned", "Dans le scope"),
+            ("pending", "Élément en attente"),
+            ("out_of_scope", "Hors scope"),
+            ("unset", "Non vérifié"),
+        ],
+        string="Validation scope",
+        compute="_compute_scope_aligned",
+        store=False,
+    )
+
+    # ------------------------------------------------------------------
+    # Convert ticket → meeting.record
+    # ------------------------------------------------------------------
+    meeting_record_ids = fields.One2many(
+        comodel_name="meeting.record",
+        inverse_name="helpdesk_ticket_id",
+        string="Rencontres liées",
+    )
+    meeting_record_count = fields.Integer(
+        string="Nb. rencontres",
+        compute="_compute_meeting_record_count",
+    )
+
+    @api.depends("meeting_record_ids")
+    def _compute_meeting_record_count(self):
+        for ticket in self:
+            ticket.meeting_record_count = len(ticket.meeting_record_ids)
+
+    def action_create_meeting_record(self):
+        """Create a draft meeting.record from this ticket and open it.
+
+        Pre-fills the meeting with the ticket title, links it back to the
+        ticket and to the team's hour bank project (if any).
+        """
+        self.ensure_one()
+        Meeting = self.env["meeting.record"]
+        project = (
+            self.knowledge_item_id.matrix_id.project_id
+            or self.team_id.hour_bank_id.project_ids[:1]
+            or self.env["project.project"].browse()
+        )
+        meeting = Meeting.create({
+            "name": f"[{self.number}] {self.name}",
+            "date": fields.Datetime.now(),
+            "project_id": project.id if project else False,
+            "helpdesk_ticket_id": self.id,
+        })
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": "meeting.record",
+            "res_id": meeting.id,
+            "view_mode": "form",
+            "target": "current",
+        }
+
+    # ------------------------------------------------------------------
+    # Triage IA via Claude — one-shot Anthropic API call
+    # ------------------------------------------------------------------
+    triage_state = fields.Selection(
+        selection=[
+            ("none", "Pas de triage"),
+            ("pending", "En cours"),
+            ("done", "Triage prêt"),
+            ("error", "Erreur"),
+        ],
+        default="none",
+        copy=False,
+    )
+    triage_suggestion_html = fields.Html(
+        string="Suggestion IA",
+        readonly=True,
+        copy=False,
+        sanitize=True,
+    )
+    triage_last_run = fields.Datetime(
+        string="Dernier triage",
+        readonly=True,
+        copy=False,
+    )
+
+    def _triage_prompt(self):
+        self.ensure_one()
+        team_stages = self.team_id._get_applicable_stages().mapped("name") or ["Nouveau", "En cours", "Terminé"]
+        team_users = self.team_id.user_ids.mapped("name") or ["—"]
+        partner = self.partner_name or (self.partner_id.name if self.partner_id else "Inconnu")
+        # Strip HTML from description to keep prompt small
+        desc = self.description or ""
+        desc_text = self.env["mail.render.mixin"]._replace_local_links(desc)
+        return (
+            "Tu es un.e adjoint.e helpdesk Blue Fox. Voici un nouveau ticket :\n\n"
+            f"# Ticket {self.number}\n"
+            f"**Sujet** : {self.name}\n"
+            f"**Client** : {partner}\n"
+            f"**Équipe** : {self.team_id.name}\n"
+            f"**Stages disponibles** : {', '.join(team_stages)}\n"
+            f"**Membres de l'équipe** : {', '.join(team_users)}\n\n"
+            f"**Description (HTML)** :\n{desc_text}\n\n"
+            "Réponds en français, en HTML simple (p, ul, li, strong), avec ces 3 sections :\n"
+            "1. **Catégorisation** — 1 phrase qui résume le type de demande.\n"
+            "2. **Stage suggéré** — 1 stage parmi la liste, avec justification.\n"
+            "3. **Assignation suggérée** — 1 membre de l'équipe (ou « non-assigné si X »), avec justification.\n"
+            "4. **Brouillon de première réponse** — 2-3 phrases qui acknowledge la demande "
+            "et indiquent les prochaines étapes. Ton chaleureux mais concis.\n"
+            "Pas de bla-bla. Pas d'introduction. Pas de conclusion."
+        )
+
+    def _call_anthropic_network(self, prompt):
+        """Call Anthropic Messages API directly. Returns assistant text.
+
+        Raises UserError for configuration issues (missing key) or HTTP errors.
+        Lets network exceptions propagate (caller catches and persists 'error').
+        """
+        IConf = self.env["ir.config_parameter"].sudo()
+        api_key = self._bf_helpdesk_get_anthropic_api_key()
+        if not api_key:
+            raise UserError(
+                "Clé API Anthropic non configurée. Voir Settings → Claude Chat ou paramètre "
+                "système 'bf_helpdesk.anthropic_api_key'."
+            )
+        model = IConf.get_param("bf_claude_chat.model", "claude-sonnet-4-6")
+        timeout = float(IConf.get_param("bf_helpdesk.triage_timeout", "30"))
+        payload = {
+            "model": model,
+            "max_tokens": 1024,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        req = urllib.request.Request(
+            "https://api.anthropic.com/v1/messages",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                body = resp.read().decode("utf-8", errors="replace")
+                data = json.loads(body)
+        except urllib.error.HTTPError as e:
+            raise UserError(f"Anthropic API a retourné HTTP {e.code} : {e.read()[:200].decode('utf-8', errors='replace')}")
+        # Extract text from content blocks
+        content = data.get("content") or []
+        parts = [c.get("text", "") for c in content if c.get("type") == "text"]
+        return "\n".join(parts).strip()
+
+    def _bf_helpdesk_get_anthropic_api_key(self):
+        """Resolve the Anthropic API key.
+
+        Priority:
+        1. ir.config_parameter 'bf_helpdesk.anthropic_api_key' (plain — for tests)
+        2. bf_claude_chat encrypted key, decrypted via the same Fernet pattern.
+        """
+        IConf = self.env["ir.config_parameter"].sudo()
+        plain = (IConf.get_param("bf_helpdesk.anthropic_api_key", "") or "").strip()
+        if plain:
+            return plain
+        encrypted = IConf.get_param("bf_claude_chat.api_key_encrypted", "")
+        if not encrypted:
+            return ""
+        try:
+            ResConfig = self.env["res.config.settings"]
+            return ResConfig._decrypt_api_key(self.env, encrypted)
+        except Exception:
+            _logger.exception("bf_helpdesk: cannot decrypt bf_claude_chat API key")
+            return ""
+
+    def action_triage_with_claude(self):
+        """Run Claude triage on this ticket.
+
+        - Configuration errors (missing API key, etc.) raise UserError and
+          surface as a popup; the form state is unchanged.
+        - Network/transient errors are caught, the suggestion field shows
+          the error, and the state goes to 'error' so the user can retry.
+        """
+        self.ensure_one()
+        prompt = self._triage_prompt()
+        try:
+            response_text = self._call_anthropic_network(prompt)
+        except (ConnectionError, urllib.error.URLError, TimeoutError, OSError) as e:
+            _logger.warning(
+                "bf_helpdesk: triage network failure on ticket %s: %s",
+                self.number, e,
+            )
+            self.write({
+                "triage_state": "error",
+                "triage_suggestion_html": f"<p><strong>Erreur réseau :</strong> {e}</p>",
+                "triage_last_run": fields.Datetime.now(),
+            })
+            return True
+        self.write({
+            "triage_state": "done",
+            "triage_suggestion_html": response_text,
+            "triage_last_run": fields.Datetime.now(),
+        })
+        return True
+
+    def action_view_meeting_records(self):
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": "meeting.record",
+            "view_mode": "list,form",
+            "domain": [("helpdesk_ticket_id", "=", self.id)],
+            "context": {"default_helpdesk_ticket_id": self.id},
+        }
+
+    @api.depends("knowledge_item_id", "knowledge_item_id.state")
+    def _compute_scope_aligned(self):
+        for ticket in self:
+            if not ticket.knowledge_item_id:
+                ticket.scope_aligned = "unset"
+                continue
+            state = ticket.knowledge_item_id.state
+            if state in ("done", "accepted"):
+                ticket.scope_aligned = "aligned"
+            elif state in ("pending", "in_progress", "proposed"):
+                ticket.scope_aligned = "pending"
+            elif state in ("rejected", "na", "superseded"):
+                ticket.scope_aligned = "out_of_scope"
+            else:
+                ticket.scope_aligned = "unset"
 
     @api.depends("partner_id")
     def _compute_persona_id(self):
