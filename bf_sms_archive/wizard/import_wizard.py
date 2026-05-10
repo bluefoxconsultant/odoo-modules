@@ -3,9 +3,13 @@ import hashlib
 import io
 import logging
 import os
+import shutil
 import zipfile
 from datetime import datetime
+from io import BytesIO
+from pathlib import Path
 from urllib.parse import quote as url_quote
+from xml.etree.ElementTree import tostring as _et_tostring
 
 import requests as http_requests
 from defusedxml.ElementTree import iterparse
@@ -51,11 +55,36 @@ _PRESENTATION_MAP = {
 _SKIP_MIME = {"application/smil"}
 
 # Max file size: 1 GB (SMS Backup & Restore exports can exceed 600 MB)
+# Applies to the form upload path, which goes through fields.Binary
+# (base64 + in-memory decode). For larger files, drop them in
+# /mnt/sms-inbox on the host and use the disk import cron instead.
 _MAX_FILE_SIZE = 1024 * 1024 * 1024
-# Max file size for the Nextcloud watch cron (must fit in worker memory
-# for download + base64-encode; 200 MB raw ≈ 270 MB b64 ≈ 470 MB total)
-_NC_WATCH_MAX_SIZE = 200 * 1024 * 1024
+# Direct-import threshold for the Nextcloud watch cron (≤ this size, the file
+# is downloaded fully in memory, base64-encoded, and passed to the wizard;
+# 200 MB raw ≈ 270 MB b64 ≈ 470 MB total).
+_NC_WATCH_DIRECT_MAX = 200 * 1024 * 1024
+# Above _NC_WATCH_DIRECT_MAX, the file is streamed to disk in /mnt/sms-inbox
+# and split into chunks of this size before per-chunk import.
+_CHUNK_MAX_BYTES = 80 * 1024 * 1024
 _BATCH_SIZE = 500
+
+# Disk-based import folder (mounted via docker-compose, no size limit).
+_DISK_INBOX = "/mnt/sms-inbox"
+# Subfolder under _DISK_INBOX used as scratch space for stream-download + split.
+_SPLIT_STAGING_SUBDIR = ".split-staging"
+
+# XML wrapper templates for split chunks — the import wizard expects a
+# complete XML document per chunk.
+_SMS_CHUNK_HEADER = (
+    b"<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>\n"
+    b'<smses count="{count}" type="full">\n'
+)
+_SMS_CHUNK_FOOTER = b"</smses>\n"
+_CALL_CHUNK_HEADER = (
+    b"<?xml version='1.0' encoding='UTF-8' standalone='yes' ?>\n"
+    b'<calls count="{count}" type="full">\n'
+)
+_CALL_CHUNK_FOOTER = b"</calls>\n"
 
 
 class SmsArchiveImportWizard(models.TransientModel):
@@ -75,13 +104,14 @@ class SmsArchiveImportWizard(models.TransientModel):
     )
 
     @staticmethod
-    def _detect_file_type(xml_data):
+    def _detect_file_type(stream):
         """Detect whether XML is SMS (<smses>) or call log (<calls>).
 
-        Peeks at the first 500 bytes for the root element tag.
+        Peeks at the first 500 bytes of the stream then rewinds.
         Returns 'sms' or 'calls'.
         """
-        head = xml_data[:500].lower()
+        head = stream.read(500).lower()
+        stream.seek(0)
         if b"<calls" in head:
             return "calls"
         return "sms"
@@ -94,7 +124,11 @@ class SmsArchiveImportWizard(models.TransientModel):
 
         raw = base64.b64decode(self.file_data)
         if len(raw) > _MAX_FILE_SIZE:
-            raise UserError(_("Le fichier dépasse la limite de 200 Mo."))
+            raise UserError(_(
+                "Le fichier dépasse la limite de %d Mo pour l'import par "
+                "formulaire. Pour les fichiers plus volumineux, déposez-les "
+                "dans /mnt/sms-inbox côté serveur (voir README)."
+            ) % (_MAX_FILE_SIZE // (1024 * 1024)))
 
         fname = (self.file_name or "").lower()
         if fname.endswith(".zip"):
@@ -108,12 +142,13 @@ class SmsArchiveImportWizard(models.TransientModel):
         all_call_stats = []
 
         for xml_name, xml_data in xml_files:
-            file_type = self._detect_file_type(xml_data)
+            stream = io.BytesIO(xml_data)
+            file_type = self._detect_file_type(stream)
             if file_type == "calls":
-                stats = self._parse_and_import_calls(xml_data)
+                stats = self._parse_and_import_calls(stream)
                 all_call_stats.append(stats)
             else:
-                stats = self._parse_and_import(xml_data)
+                stats = self._parse_and_import(stream)
                 all_sms_stats.append(stats)
 
         lines = ["Import terminé :"]
@@ -219,8 +254,12 @@ class SmsArchiveImportWizard(models.TransientModel):
 
         return "\n".join(texts), binary_parts
 
-    def _parse_and_import(self, xml_data):
-        """Stream-parse XML and import SMS + MMS messages."""
+    def _parse_and_import(self, stream):
+        """Stream-parse XML and import SMS + MMS messages.
+
+        `stream` is any file-like object (BytesIO for in-memory paths,
+        or an open file handle for disk-based imports of huge XMLs).
+        """
         Thread = self.env["sms.archive.thread"]
         Message = self.env["sms.archive.message"]
         normalize = Thread.normalize_phone
@@ -249,7 +288,6 @@ class SmsArchiveImportWizard(models.TransientModel):
         new_threads = {}  # phone_norm -> {contact_name, phone_raw}
         backup_set = ""
 
-        stream = io.BytesIO(xml_data)
         for event, elem in iterparse(stream, events=("end",)):
             # Capture backup_set from root <smses> tag
             if elem.tag == "smses":
@@ -453,8 +491,11 @@ class SmsArchiveImportWizard(models.TransientModel):
     # Call log import
     # ------------------------------------------------------------------
 
-    def _parse_and_import_calls(self, xml_data):
-        """Stream-parse call log XML and import calls."""
+    def _parse_and_import_calls(self, stream):
+        """Stream-parse call log XML and import calls.
+
+        `stream` is any file-like object.
+        """
         Thread = self.env["sms.archive.thread"]
         Call = self.env["call.archive.call"]
         normalize = Thread.normalize_phone
@@ -482,7 +523,6 @@ class SmsArchiveImportWizard(models.TransientModel):
         new_threads = {}
         backup_set = ""
 
-        stream = io.BytesIO(xml_data)
         for event, elem in iterparse(stream, events=("end",)):
             if elem.tag == "calls":
                 backup_set = elem.get("backup_set", "")
@@ -621,6 +661,104 @@ class SmsArchiveImportWizard(models.TransientModel):
         return created
 
     # ------------------------------------------------------------------
+    # Disk-based import (for multi-GB XMLs that can't fit in Binary/HTTP)
+    # ------------------------------------------------------------------
+
+    @api.model
+    def _cron_disk_import(self):
+        """Scan /mnt/sms-inbox for XML files and import them via iterparse
+        directly from disk — no HTTP upload, no base64, no Binary field.
+
+        Files are moved to done/ on success or failed/ on error.
+        Suitable for files of any size (limited only by disk / parser time).
+
+        Config via ir.config_parameter:
+          - bf_sms_archive.disk_watch_user_id : Odoo user ID to own imports (default 2)
+        """
+        ICP = self.env["ir.config_parameter"].sudo()
+        owner_uid = int(ICP.get_param("bf_sms_archive.disk_watch_user_id", "2"))
+
+        if not os.path.isdir(_DISK_INBOX):
+            _logger.debug("SMS disk import: %s not mounted, skipping", _DISK_INBOX)
+            return
+
+        done_dir = os.path.join(_DISK_INBOX, "done")
+        failed_dir = os.path.join(_DISK_INBOX, "failed")
+        os.makedirs(done_dir, exist_ok=True)
+        os.makedirs(failed_dir, exist_ok=True)
+
+        # List XML files in the inbox root (not subdirs)
+        try:
+            entries = sorted(os.listdir(_DISK_INBOX))
+        except OSError:
+            _logger.exception("SMS disk import: cannot list %s", _DISK_INBOX)
+            return
+
+        for name in entries:
+            src = os.path.join(_DISK_INBOX, name)
+            if not os.path.isfile(src):
+                continue
+            if not name.lower().endswith(".xml"):
+                continue
+
+            _logger.info("SMS disk import: processing %s", src)
+            try:
+                # Run as the configured owner so threads/messages get
+                # the right ownership.
+                env_as_owner = self.env(user=owner_uid)
+                wiz = env_as_owner["sms.archive.import.wizard"]
+
+                with open(src, "rb") as fh:
+                    file_type = wiz._detect_file_type(fh)
+                    if file_type == "calls":
+                        stats = wiz._parse_and_import_calls(fh)
+                        kind = "Appels"
+                    else:
+                        stats = wiz._parse_and_import(fh)
+                        kind = "SMS/MMS"
+
+                _logger.info(
+                    "SMS disk import: %s (%s) — traités=%d, créés=%d, "
+                    "doublons=%d, fils=%d, contacts=%d",
+                    name, kind,
+                    stats.get("processed", 0),
+                    stats.get("created", 0),
+                    stats.get("duplicates", 0),
+                    stats.get("threads", 0),
+                    stats.get("partners_matched", 0),
+                )
+
+                os.rename(src, os.path.join(done_dir, name))
+                self.env.cr.commit()
+
+            except Exception:
+                _logger.exception("SMS disk import: failed on %s", name)
+                self.env.cr.rollback()
+                try:
+                    os.rename(src, os.path.join(failed_dir, name))
+                except OSError:
+                    _logger.exception(
+                        "SMS disk import: could not move %s to failed/", name,
+                    )
+
+    def action_disk_import_now(self):
+        """Manual trigger for the disk import (button on the wizard)."""
+        self.ensure_one()
+        self._cron_disk_import()
+        self.result_message = _(
+            "Import depuis /mnt/sms-inbox déclenché.\n"
+            "Consultez le journal Odoo pour les détails, ou le dossier "
+            "sms-inbox/done (succès) / sms-inbox/failed (erreurs)."
+        )
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": self._name,
+            "res_id": self.id,
+            "view_mode": "form",
+            "target": "new",
+        }
+
+    # ------------------------------------------------------------------
     # Nextcloud folder watcher (cron)
     # ------------------------------------------------------------------
 
@@ -689,60 +827,141 @@ class SmsArchiveImportWizard(models.TransientModel):
             _logger.info("SMS watch: processing %s", file_path)
 
             try:
-                # Check file size via HEAD before downloading
                 file_size = self._nc_get_size(
                     webdav_base, file_path, nc_user, nc_pass,
                 )
-                if not file_size or file_size > _NC_WATCH_MAX_SIZE:
+                if not file_size:
                     _logger.warning(
-                        "SMS watch: %s is too large (%s MB, limit %d MB)"
+                        "SMS watch: %s — cannot determine size, skipping",
+                        fname,
+                    )
+                    continue
+
+                is_xml = fname.lower().endswith(".xml")
+                env_as_owner = self.env(user=owner_uid)
+
+                if file_size <= _NC_WATCH_DIRECT_MAX:
+                    # Direct path: download in memory and pass to wizard.
+                    raw = self._nc_download(
+                        webdav_base, file_path, nc_user, nc_pass,
+                    )
+                    if not raw:
+                        continue
+                    wizard = env_as_owner["sms.archive.import.wizard"].create({
+                        "file_data": base64.b64encode(raw),
+                        "file_name": fname,
+                    })
+                    del raw
+                    wizard.action_import()
+                    result = wizard.result_message or ""
+                    _logger.info(
+                        "SMS watch: %s — %s",
+                        fname, result.replace("\n", " | "),
+                    )
+                    self._nc_move(
+                        webdav_base, file_path,
+                        done_path + "/" + fname, nc_user, nc_pass,
+                    )
+                    _logger.info("SMS watch: moved %s to done/", fname)
+                    self.env.cr.commit()
+                    continue
+
+                # Big-file path: only XML can be split. ZIPs over the
+                # threshold land in too_large/ for manual handling.
+                if not is_xml:
+                    _logger.warning(
+                        "SMS watch: %s is %d MB > %d MB and not XML"
                         " — moving to too_large/",
                         fname,
-                        file_size // (1024 * 1024) if file_size else "unknown",
-                        _NC_WATCH_MAX_SIZE // (1024 * 1024),
+                        file_size // (1024 * 1024),
+                        _NC_WATCH_DIRECT_MAX // (1024 * 1024),
                     )
-                    dest = too_large_path + "/" + fname
                     self._nc_move(
-                        webdav_base, file_path, dest, nc_user, nc_pass,
+                        webdav_base, file_path,
+                        too_large_path + "/" + fname,
+                        nc_user, nc_pass,
                     )
                     continue
 
-                # Download file
-                raw = self._nc_download(webdav_base, file_path, nc_user, nc_pass)
-                if not raw:
-                    continue
+                # Stream-download to staging, split, import each chunk.
+                staging = (
+                    Path(_DISK_INBOX) / _SPLIT_STAGING_SUBDIR
+                    / Path(fname).stem
+                )
+                # Clean any leftover from a prior aborted run.
+                if staging.exists():
+                    shutil.rmtree(staging, ignore_errors=True)
+                staging.mkdir(parents=True, exist_ok=True)
+                src_local = staging / fname
+                _logger.info(
+                    "SMS watch: %s is %d MB — streaming to %s for split",
+                    fname, file_size // (1024 * 1024), staging,
+                )
+                try:
+                    if not self._nc_stream_to_path(
+                        webdav_base, file_path, nc_user, nc_pass, src_local,
+                    ):
+                        raise IOError(f"stream download failed for {fname}")
 
-                # Double-check actual size after download
-                if len(raw) > _NC_WATCH_MAX_SIZE:
-                    _logger.warning(
-                        "SMS watch: %s downloaded size %d MB exceeds limit"
+                    chunks = self._split_xml_to_chunks(
+                        src_local, staging, _CHUNK_MAX_BYTES,
+                    )
+                    if not chunks:
+                        raise ValueError(f"split produced 0 chunks for {fname}")
+
+                    _logger.info(
+                        "SMS watch: importing %d chunks for %s",
+                        len(chunks), fname,
+                    )
+                    for idx, chunk_path in enumerate(chunks, 1):
+                        chunk_size_mb = chunk_path.stat().st_size // (1024 * 1024)
+                        _logger.info(
+                            "SMS watch: %s chunk %d/%d (%d MB) — importing",
+                            fname, idx, len(chunks), chunk_size_mb,
+                        )
+                        wizard = env_as_owner["sms.archive.import.wizard"].create({
+                            "file_data": base64.b64encode(chunk_path.read_bytes()),
+                            "file_name": chunk_path.name,
+                        })
+                        wizard.action_import()
+                        result = wizard.result_message or ""
+                        _logger.info(
+                            "SMS watch: %s chunk %d — %s",
+                            fname, idx, result.replace("\n", " | "),
+                        )
+                        # Commit per chunk: resume-safe if a later chunk fails.
+                        self.env.cr.commit()
+
+                    self._nc_move(
+                        webdav_base, file_path,
+                        done_path + "/" + fname, nc_user, nc_pass,
+                    )
+                    _logger.info(
+                        "SMS watch: moved %s to done/ after split-import",
+                        fname,
+                    )
+                except Exception:
+                    # Split path-specific failure: route to too_large/ so it
+                    # does not get retried on next cron tick. failed/ remains
+                    # reserved for direct-path errors handled below.
+                    _logger.exception(
+                        "SMS watch: split-import failed for %s"
                         " — moving to too_large/",
-                        fname, len(raw) // (1024 * 1024),
+                        fname,
                     )
-                    dest = too_large_path + "/" + fname
-                    self._nc_move(
-                        webdav_base, file_path, dest, nc_user, nc_pass,
-                    )
-                    del raw
-                    continue
-
-                # Import using the wizard logic with owner's env
-                env_as_owner = self.env(user=owner_uid)
-                wizard = env_as_owner["sms.archive.import.wizard"].create({
-                    "file_data": base64.b64encode(raw),
-                    "file_name": fname,
-                })
-                del raw  # free memory before import processing
-                wizard.action_import()
-                result = wizard.result_message or ""
-                _logger.info("SMS watch: %s — %s", fname, result.replace("\n", " | "))
-
-                # Move to done/ subfolder
-                dest_path = done_path + "/" + fname
-                self._nc_move(webdav_base, file_path, dest_path, nc_user, nc_pass)
-                _logger.info("SMS watch: moved %s to done/", fname)
-
-                self.env.cr.commit()
+                    self.env.cr.rollback()
+                    try:
+                        self._nc_move(
+                            webdav_base, file_path,
+                            too_large_path + "/" + fname,
+                            nc_user, nc_pass,
+                        )
+                    except Exception:
+                        _logger.exception(
+                            "SMS watch: could not move %s to too_large/", fname,
+                        )
+                finally:
+                    shutil.rmtree(staging, ignore_errors=True)
 
             except Exception:
                 _logger.exception("SMS watch: failed to process %s", fname)
@@ -832,6 +1051,39 @@ class SmsArchiveImportWizard(models.TransientModel):
         return None
 
     @staticmethod
+    def _nc_stream_to_path(webdav_base, path, user, password, dest_path):
+        """Stream-download a file from Nextcloud to a local filesystem path.
+
+        Used for files too large to materialize in worker memory. Writes 8 MB
+        chunks to disk. Returns the destination path on success, None on failure.
+        """
+        url = webdav_base + url_quote(path)
+        dest = Path(dest_path)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            with http_requests.get(
+                url, auth=(user, password), stream=True, timeout=(30, 600),
+            ) as resp:
+                if resp.status_code != 200:
+                    _logger.error(
+                        "SMS watch: stream GET %s returned %s",
+                        path, resp.status_code,
+                    )
+                    return None
+                with open(dest, "wb") as f:
+                    for chunk in resp.iter_content(chunk_size=8 * 1024 * 1024):
+                        if chunk:
+                            f.write(chunk)
+            return dest
+        except Exception:
+            _logger.exception("SMS watch: stream download failed for %s", path)
+            try:
+                dest.unlink(missing_ok=True)
+            except Exception:
+                pass
+            return None
+
+    @staticmethod
     def _nc_get_size(webdav_base, path, user, password):
         """Get the size in bytes of a file on Nextcloud via PROPFIND.
 
@@ -898,3 +1150,69 @@ class SmsArchiveImportWizard(models.TransientModel):
                 _logger.error("SMS watch: MOVE %s -> %s returned %s", src_path, dest_path, resp.status_code)
         except Exception:
             _logger.exception("SMS watch: MOVE failed %s -> %s", src_path, dest_path)
+
+    @staticmethod
+    def _split_xml_to_chunks(src_path, out_dir, chunk_max_bytes):
+        """Split a SMS Backup & Restore XML into chunk files <= chunk_max_bytes.
+
+        Streams via iterparse to avoid loading the whole file into memory.
+        Auto-detects SMS (<smses>, with <sms>/<mms> children) vs call log
+        (<calls>, with <call> children). Each chunk is a complete, parseable
+        XML document with the appropriate root wrapper.
+
+        Returns a list of pathlib.Path to chunk files (out_dir / chunk_NNN.xml).
+        """
+        src = Path(src_path)
+        out_dir = Path(out_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        with open(src, "rb") as f:
+            head = f.read(500).lower()
+        if b"<calls" in head:
+            valid_tags = ("call",)
+            header_tpl = _CALL_CHUNK_HEADER
+            footer = _CALL_CHUNK_FOOTER
+        else:
+            valid_tags = ("sms", "mms")
+            header_tpl = _SMS_CHUNK_HEADER
+            footer = _SMS_CHUNK_FOOTER
+
+        chunks = []
+        buf = BytesIO()
+        count = 0
+        total = 0
+
+        def _flush():
+            nonlocal buf, count
+            if count == 0:
+                return
+            chunk_path = out_dir / f"chunk_{len(chunks):03d}.xml"
+            header = header_tpl.replace(b"{count}", str(count).encode())
+            with open(chunk_path, "wb") as out:
+                out.write(header)
+                out.write(buf.getvalue())
+                out.write(footer)
+            chunks.append(chunk_path)
+            buf = BytesIO()
+            count = 0
+
+        # iterparse(path) streams from disk without loading the full file.
+        for event, elem in iterparse(str(src), events=("end",)):
+            if elem.tag not in valid_tags:
+                continue
+            raw = _et_tostring(elem, encoding="unicode", short_empty_elements=True)
+            raw_bytes = ("  " + raw + "\n").encode("utf-8")
+            # Flush before append if this element would push us past the cap.
+            if buf.tell() + len(raw_bytes) + len(footer) + 200 > chunk_max_bytes and count > 0:
+                _flush()
+            buf.write(raw_bytes)
+            count += 1
+            total += 1
+            elem.clear()
+
+        _flush()
+        _logger.info(
+            "SMS watch: split %s into %d chunks (%d elements)",
+            src.name, len(chunks), total,
+        )
+        return chunks

@@ -1,7 +1,7 @@
 {
     "name": "Archive SMS & Appels",
     "summary": "Archivage et recherche de SMS et journaux d'appels Android (SMS Backup & Restore)",
-    "version": "18.0.1.3.1",
+    "version": "18.0.1.5.0",
     "category": "Tools",
     "author": "Olivier Morneau",
     "license": "LGPL-3",

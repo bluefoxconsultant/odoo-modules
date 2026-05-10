@@ -1,4 +1,4 @@
-# SMS & Call Archive for Odoo 18
+# Archive SMS & Appels for Odoo 18
 
 A personal SMS and call log archiving module for Odoo 18. Import Android SMS/MMS backups and call history from [SMS Backup & Restore](https://www.synctech.com.au/sms-backup-restore/), search conversations, browse call logs, link records to project tasks, export branded PDF reports, and manage confidential threads.
 
