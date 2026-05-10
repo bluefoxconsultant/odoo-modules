@@ -1,0 +1,520 @@
+import logging
+import re
+
+from odoo import _, api, fields, models
+from odoo.exceptions import AccessError, UserError, ValidationError
+
+_logger = logging.getLogger(__name__)
+
+FIELD_NAME_RE = re.compile(r"^x_studio_[a-z0-9_]+$")
+PATH_PART_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
+SUPPORTED_TYPES = [
+    ("char", "Text (single line)"),
+    ("text", "Text (multi-line)"),
+    ("html", "HTML"),
+    ("integer", "Integer"),
+    ("float", "Decimal"),
+    ("monetary", "Monetary"),
+    ("boolean", "Checkbox"),
+    ("date", "Date"),
+    ("datetime", "Date & time"),
+    ("selection", "Selection"),
+    ("many2one", "Link to record"),
+]
+
+# Models we refuse to touch by default (covers field creation and related
+# path traversal). Bypass requires the dedicated unlocked group, NOT the
+# regular admin group, NOT a context flag.
+LOCKED_MODEL_PREFIXES = (
+    "ir.",
+    "base.",
+    "auth_",
+    "auth.",
+    "bus.",
+    "mail.",
+    "account.",
+    "payment.",
+    "res.config.",
+)
+LOCKED_MODELS_EXACT = {
+    "res.users",
+    "res.groups",
+    "res.users.log",
+    "res.users.apikeys",
+    "res.users.identitycheck",
+    "ir.ui.view",
+    "ir.model",
+    "ir.model.fields",
+    "ir.model.fields.selection",
+    "ir.model.access",
+    "ir.rule",
+    "ir.actions.actions",
+    "ir.actions.act_window",
+    "ir.actions.server",
+    "ir.cron",
+    "ir.config_parameter",
+    "ir.attachment",
+    "ir.module.module",
+    "studio.light.field",
+    "studio.light.field.selection",
+    "studio.light.view.injection",
+    "studio.light.wizard",
+    "studio.light.smart.button",
+    "studio.light.smart.button.wizard",
+}
+
+# Field names whose contents should never leak through a related field,
+# regardless of which model they live on.
+SENSITIVE_FIELD_NAMES = frozenset(
+    {
+        "password",
+        "password_crypt",
+        "new_password",
+        "totp_secret",
+        "api_key",
+        "key",
+        "secret",
+        "client_secret",
+        "private_key",
+        "access_token",
+        "refresh_token",
+        "oauth_access_token",
+        "oauth_refresh_token",
+        "smtp_pass",
+        "imap_password",
+        "consumer_secret",
+        "webhook_secret",
+    }
+)
+
+
+def is_model_locked(model_name):
+    if not model_name:
+        return True
+    if model_name in LOCKED_MODELS_EXACT:
+        return True
+    return any(model_name.startswith(p) for p in LOCKED_MODEL_PREFIXES)
+
+
+def slugify_field_name(label):
+    """Build a valid x_studio_* field name from a free-text label."""
+    s = (label or "").lower().strip()
+    s = re.sub(r"[^a-z0-9]+", "_", s)
+    s = re.sub(r"_+", "_", s).strip("_")
+    if not s:
+        s = "field"
+    candidate = f"x_studio_{s}"[:63]
+    return candidate
+
+
+class StudioLightFieldSelection(models.Model):
+    _name = "studio.light.field.selection"
+    _description = "Studio Light — Selection value"
+    _order = "sequence, id"
+
+    field_id = fields.Many2one(
+        "studio.light.field",
+        required=True,
+        ondelete="cascade",
+        index=True,
+    )
+    sequence = fields.Integer(default=10)
+    key = fields.Char(required=True, help="Stored value, e.g. 'gold'.")
+    label = fields.Char(
+        required=True, translate=True, help="Displayed label, e.g. 'Gold member'."
+    )
+
+    _sql_constraints = [
+        (
+            "unique_key_per_field",
+            "unique(field_id, key)",
+            "Selection keys must be unique within a field.",
+        ),
+    ]
+
+    @api.constrains("key")
+    def _check_key_chars(self):
+        # Selection keys go straight into ir.model.fields.selection.value and
+        # are then referenced from view arch. Restrict to identifier chars to
+        # avoid quoting headaches and downstream injection.
+        for rec in self:
+            if not re.match(r"^[a-zA-Z0-9_-]+$", rec.key or ""):
+                raise ValidationError(
+                    _("Selection keys must use letters, digits, _ or -.")
+                )
+
+
+class StudioLightField(models.Model):
+    """Persistent metadata for a custom field added through Studio Light.
+
+    The corresponding ``ir.model.fields`` record is recreated on demand
+    (post_init, integrity cron) so the field survives ``-u all`` upgrades.
+    """
+
+    _name = "studio.light.field"
+    _description = "Studio Light — Custom field"
+    _order = "model_id, name"
+
+    name = fields.Char(
+        required=True,
+        index=True,
+        help="Technical name. Must start with x_studio_ and use a-z 0-9 _ only.",
+    )
+    label = fields.Char(required=True, translate=True)
+    help_text = fields.Char(string="Help", translate=True)
+    model_id = fields.Many2one(
+        "ir.model",
+        required=True,
+        ondelete="cascade",
+        index=True,
+        domain="[('transient', '=', False)]",
+    )
+    model_name = fields.Char(related="model_id.model", store=True, index=True)
+
+    field_type = fields.Selection(SUPPORTED_TYPES, required=True, default="char")
+    required = fields.Boolean(default=False)
+
+    # Type-specific extras
+    selection_ids = fields.One2many(
+        "studio.light.field.selection",
+        "field_id",
+        string="Selection values",
+    )
+    relation_model_id = fields.Many2one(
+        "ir.model",
+        string="Related model (Many2one)",
+        help="Required for type = many2one.",
+    )
+    relation_ondelete = fields.Selection(
+        [("set null", "Set NULL"), ("restrict", "Restrict"), ("cascade", "Cascade")],
+        default="set null",
+    )
+
+    # Related field support (Tier 2.2)
+    is_related = fields.Boolean(
+        string="Computed from another field",
+        help="If checked, this field reads its value from a related path "
+        "(e.g. partner_id.email) instead of being stored directly.",
+    )
+    related_path = fields.Char(
+        string="Related path",
+        help="Dotted path from this model to the source field, e.g. partner_id.email.",
+    )
+
+    active = fields.Boolean(default=True)
+    failed_count = fields.Integer(
+        default=0, readonly=True, help="Consecutive integrity-recovery failures."
+    )
+    last_failure_message = fields.Char(readonly=True)
+    ir_model_field_id = fields.Many2one(
+        "ir.model.fields",
+        string="Underlying ir.model.fields",
+        readonly=True,
+        ondelete="set null",
+    )
+    view_injection_ids = fields.One2many(
+        "studio.light.view.injection",
+        "studio_field_id",
+    )
+
+    _sql_constraints = [
+        (
+            "unique_name_per_model",
+            "unique(model_id, name)",
+            "A custom field with this technical name already exists on this model.",
+        ),
+    ]
+
+    # ------------------------------------------------------------------
+    # Validation
+    # ------------------------------------------------------------------
+    def _is_unlocked(self):
+        return self.env.user.has_group(
+            "bf_studio_light.group_studio_light_unlocked"
+        )
+
+    @api.constrains("name")
+    def _check_name_format(self):
+        for rec in self:
+            if not FIELD_NAME_RE.match(rec.name or ""):
+                raise ValidationError(
+                    _("Field name %s is invalid. Must match x_studio_[a-z0-9_]+.")
+                    % rec.name
+                )
+
+    @api.constrains("model_id")
+    def _check_model_allowed(self):
+        for rec in self:
+            if is_model_locked(rec.model_name) and not rec._is_unlocked():
+                raise ValidationError(
+                    _(
+                        "Model %s is locked by Studio Light. The dedicated "
+                        "'Studio Light: Bypass model lock' group is required "
+                        "to override (and must be granted by a sysadmin)."
+                    )
+                    % rec.model_name
+                )
+
+    @api.constrains("field_type", "selection_ids", "relation_model_id")
+    def _check_type_extras(self):
+        for rec in self:
+            if rec.is_related:
+                # Related fields don't need selection/relation declarations;
+                # the target field's own metadata is reused.
+                continue
+            if rec.field_type == "selection" and not rec.selection_ids:
+                raise ValidationError(
+                    _("Selection fields must define at least one value.")
+                )
+            if rec.field_type == "many2one" and not rec.relation_model_id:
+                raise ValidationError(
+                    _("Many2one fields must specify a related model.")
+                )
+
+    @api.constrains("is_related", "related_path", "model_id", "field_type")
+    def _check_related_path(self):
+        for rec in self:
+            if not rec.is_related:
+                continue
+            if not rec.related_path:
+                raise ValidationError(
+                    _("Tick 'Computed from another field' requires a related path.")
+                )
+            try:
+                rec._resolve_related_target()
+            except (KeyError, AccessError) as e:
+                raise ValidationError(
+                    _("Related path %s is invalid or forbidden: %s")
+                    % (rec.related_path, e)
+                )
+
+    def _resolve_related_target(self):
+        """Walk related_path step by step and return the final ir.model.fields.
+
+        Refuses to traverse into locked models or to expose sensitive fields,
+        even if the user is in the unlocked group.
+        """
+        self.ensure_one()
+        IMF = self.env["ir.model.fields"].sudo()
+        current_model = self.model_name
+        parts = self.related_path.split(".")
+        last = None
+        for i, part in enumerate(parts):
+            if not PATH_PART_RE.match(part):
+                raise KeyError(f"path segment {part!r} is not a valid identifier")
+            if part in SENSITIVE_FIELD_NAMES:
+                raise AccessError(
+                    f"field {current_model}.{part} is on the sensitive denylist"
+                )
+            f = IMF.search(
+                [("model", "=", current_model), ("name", "=", part)], limit=1
+            )
+            if not f:
+                raise KeyError(f"{current_model}.{part} does not exist")
+            last = f
+            if i < len(parts) - 1:
+                if f.ttype not in ("many2one", "one2many", "many2many"):
+                    raise KeyError(
+                        f"{current_model}.{part} is {f.ttype}, cannot traverse further"
+                    )
+                if is_model_locked(f.relation):
+                    raise AccessError(
+                        f"cannot traverse into locked model {f.relation}"
+                    )
+                current_model = f.relation
+        return last
+
+    # ------------------------------------------------------------------
+    # Field provisioning
+    # ------------------------------------------------------------------
+    def _build_ir_model_fields_vals(self):
+        self.ensure_one()
+        ttype = self.field_type
+        if self.is_related:
+            target = self._resolve_related_target()
+            ttype = target.ttype
+        vals = {
+            "name": self.name,
+            "model_id": self.model_id.id,
+            "field_description": self.label,
+            "ttype": ttype,
+            "state": "manual",
+            "required": self.required and not self.is_related,
+        }
+        if self.is_related:
+            vals["related"] = self.related_path
+            vals["readonly"] = True
+            target = self._resolve_related_target()
+            if target.ttype in ("many2one", "one2many", "many2many"):
+                vals["relation"] = target.relation
+        if self.help_text:
+            vals["help"] = self.help_text
+        if self.field_type == "many2one" and not self.is_related:
+            vals["relation"] = self.relation_model_id.model
+            vals["on_delete"] = self.relation_ondelete or "set null"
+        if self.field_type == "selection" and not self.is_related:
+            vals["selection_ids"] = [
+                (
+                    0,
+                    0,
+                    {
+                        "value": s.key,
+                        "name": s.label,
+                        "sequence": s.sequence or 10,
+                    },
+                )
+                for s in self.selection_ids.sorted("sequence")
+            ]
+        return vals
+
+    def _ensure_ir_model_field(self):
+        """Create the ir.model.fields row if missing; return it."""
+        IMF = self.env["ir.model.fields"].sudo()
+        for rec in self:
+            if rec.ir_model_field_id and rec.ir_model_field_id.exists():
+                continue
+            existing = IMF.search(
+                [("model_id", "=", rec.model_id.id), ("name", "=", rec.name)],
+                limit=1,
+            )
+            if existing:
+                rec.ir_model_field_id = existing.id
+                continue
+            try:
+                imf = IMF.create(rec._build_ir_model_fields_vals())
+                rec.ir_model_field_id = imf.id
+                rec.failed_count = 0
+                rec.last_failure_message = False
+                _logger.info(
+                    "Studio Light: created ir.model.fields %s on %s",
+                    rec.name,
+                    rec.model_name,
+                )
+            except Exception as e:
+                _logger.exception(
+                    "Studio Light: failed to create field %s on %s",
+                    rec.name,
+                    rec.model_name,
+                )
+                raise UserError(
+                    _("Failed to create field %s on %s: %s")
+                    % (rec.name, rec.model_name, e)
+                )
+        return self.mapped("ir_model_field_id")
+
+    def _sync_selection_values(self):
+        """Push current selection_ids into ir.model.fields.selection rows."""
+        IMFS = self.env["ir.model.fields.selection"].sudo()
+        for rec in self:
+            if rec.field_type != "selection" or rec.is_related:
+                continue
+            if not rec.ir_model_field_id:
+                continue
+            current = {s.value: s for s in rec.ir_model_field_id.selection_ids}
+            wanted = {s.key: s for s in rec.selection_ids}
+            for value, sel in current.items():
+                if value not in wanted:
+                    sel.unlink()
+            for seq, (key, our) in enumerate(wanted.items(), start=10):
+                existing = current.get(key)
+                vals = {
+                    "field_id": rec.ir_model_field_id.id,
+                    "value": key,
+                    "name": our.label,
+                    "sequence": our.sequence or seq,
+                }
+                if existing:
+                    existing.write(vals)
+                else:
+                    IMFS.create(vals)
+
+    # ------------------------------------------------------------------
+    # CRUD
+    # ------------------------------------------------------------------
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            label = vals.get("label")
+            if not vals.get("name") and label:
+                vals["name"] = slugify_field_name(label)
+        records = super().create(vals_list)
+        records._ensure_ir_model_field()
+        records._sync_selection_values()
+        return records
+
+    def write(self, vals):
+        forwarded = {}
+        if "label" in vals:
+            forwarded["field_description"] = vals["label"]
+        if "help_text" in vals:
+            forwarded["help"] = vals["help_text"]
+        if "required" in vals and not any(r.is_related for r in self):
+            forwarded["required"] = vals["required"]
+        res = super().write(vals)
+        if forwarded:
+            for rec in self:
+                if rec.ir_model_field_id:
+                    rec.ir_model_field_id.sudo().write(forwarded)
+        if "selection_ids" in vals or any(
+            k in vals for k in ("field_type", "relation_model_id")
+        ):
+            self._sync_selection_values()
+        return res
+
+    def unlink(self):
+        self.mapped("view_injection_ids").unlink()
+        for rec in self:
+            if rec.ir_model_field_id:
+                try:
+                    rec.ir_model_field_id.sudo().unlink()
+                except Exception as e:
+                    _logger.warning(
+                        "Studio Light: could not unlink ir.model.fields %s: %s",
+                        rec.name,
+                        e,
+                    )
+        return super().unlink()
+
+    # ------------------------------------------------------------------
+    # Integrity (called from hook + cron)
+    # ------------------------------------------------------------------
+    @api.model
+    def _ensure_all_provisioned(self):
+        """Recreate any ir.model.fields whose backing record was lost.
+
+        Records that fail 3 times in a row are auto-deactivated to keep
+        logs sane.
+        """
+        for rec in self.search([("active", "=", True)]):
+            try:
+                rec._ensure_ir_model_field()
+                rec._sync_selection_values()
+            except Exception as e:
+                rec.failed_count = (rec.failed_count or 0) + 1
+                rec.last_failure_message = str(e)[:512]
+                _logger.error(
+                    "Studio Light: integrity provisioning failed for %s.%s "
+                    "(attempt %s): %s",
+                    rec.model_name,
+                    rec.name,
+                    rec.failed_count,
+                    e,
+                )
+                if rec.failed_count >= 3:
+                    rec.active = False
+                    _logger.warning(
+                        "Studio Light: auto-deactivated %s.%s after 3 failures",
+                        rec.model_name,
+                        rec.name,
+                    )
+        self.env["studio.light.view.injection"]._ensure_all_provisioned()
+        self.env["studio.light.smart.button"]._ensure_all_provisioned()
+
+    def action_toggle_active(self):
+        for rec in self:
+            rec.active = not rec.active
+            if rec.active:
+                rec.failed_count = 0
+                rec.last_failure_message = False
+        return True
