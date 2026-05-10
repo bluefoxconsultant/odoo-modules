@@ -34,7 +34,7 @@
         <field name="name">Partenaire client_rank > 0 → Client (priorité Élevée)</field>
         <field name="sequence">40</field>
         <field name="condition_type">partner_tag</field>
-        <field name="condition_value">getattr(partner, 'customer_rank', 0) > 0</field>
+        <field name="condition_value">(p.customer_rank or 0) > 0</field>
         <field name="set_category">client</field>
         <field name="set_priority">2</field>
         <field name="description">Tout courriel d'un client connu (customer_rank) passe en priorité Élevée.</field>
@@ -44,7 +44,7 @@
         <field name="name">Partenaire supplier_rank > 0 → Fournisseur</field>
         <field name="sequence">50</field>
         <field name="condition_type">partner_tag</field>
-        <field name="condition_value">getattr(partner, 'supplier_rank', 0) > 0</field>
+        <field name="condition_value">(p.supplier_rank or 0) > 0</field>
         <field name="set_category">vendor</field>
         <field name="description">Fournisseurs connus.</field>
     </record>

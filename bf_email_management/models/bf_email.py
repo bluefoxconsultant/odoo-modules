@@ -1021,8 +1021,6 @@ class BfEmail(models.Model):
             to_partner_ids = self._build_reply_recipients()
             cc_partner_ids = []
 
-        partner_ids = list(set(to_partner_ids + cc_partner_ids))
-
         prefix = "Fwd:" if is_forward else "Re:"
         subject = (self.subject or "").strip()
         if not subject.lower().startswith(prefix.lower()):
@@ -1035,23 +1033,24 @@ class BfEmail(models.Model):
 
         target_model, target_res_id = self._composer_target()
 
+        # Cc/Bcc plumbing comes from mail_composer_cc_bcc (partner_cc_ids /
+        # partner_bcc_ids fields, already wired into mail.message and outbound
+        # rendering). We only feed the lists; the override on
+        # _compute_partner_cc_bcc_ids in this module honors these defaults so
+        # they survive the inherited recompute.
         ctx = {
             "default_model": target_model,
             "default_res_ids": [target_res_id],
             "default_composition_mode": "comment",
-            "default_partner_ids": partner_ids,
+            "default_partner_ids": [(6, 0, to_partner_ids)],
+            "default_partner_cc_ids": [(6, 0, cc_partner_ids)],
+            "default_partner_bcc_ids": [(6, 0, [])],
             "default_subject": subject,
             "default_notify": True,
             "force_email": True,
             "is_quoted_reply": not is_forward,
             "quote_body": quote_body,
             "mail_create_nosubscribe": True,
-            # Activate the \u00c0 / C.c. / C.c.i. split composer (mail_compose_message
-            # override). Inactive on a stock composer opened from elsewhere.
-            "default_bf_email_split_recipients": True,
-            "default_bf_to_partner_ids": [(6, 0, to_partner_ids)],
-            "default_bf_cc_partner_ids": [(6, 0, cc_partner_ids)],
-            "default_bf_bcc_partner_ids": [(6, 0, [])],
         }
 
         # Forwards on orphans: ship the original attachments.

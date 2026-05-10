@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Settings page: Settings → Inbox unifiée. -->
+    <record id="res_config_settings_view_form_bf_email" model="ir.ui.view">
+        <field name="name">res.config.settings.form.bf_email</field>
+        <field name="model">res.config.settings</field>
+        <field name="priority" eval="50"/>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app data-string="Inbox unifiée" string="Inbox unifiée"
+                     name="bf_email_management"
+                     groups="base.group_system">
+                    <block title="Compte courriel IMAP"
+                           name="bf_email_imap_account"
+                           help="Identifiants pour la synchronisation IMAP directe (cron 5 min). Un seul compte pour le moment.">
+                        <setting id="bf_email_imap_credentials" string="Connexion IMAP"
+                                 help="Renseignez les identifiants puis cliquez sur « Tester la connexion » avant d'enregistrer.">
+                            <div class="content-group">
+                                <div class="row mt16">
+                                    <label string="Serveur" for="bf_email_imap_host" class="col-3 o_light_label"/>
+                                    <field name="bf_email_imap_host" placeholder="imap.example.com"/>
+                                </div>
+                                <div class="row">
+                                    <label string="Port" for="bf_email_imap_port" class="col-3 o_light_label"/>
+                                    <field name="bf_email_imap_port" class="oe_inline"/>
+                                    <span class="text-muted ms-2">993 (IMAP4_SSL)</span>
+                                </div>
+                                <div class="row">
+                                    <label string="Utilisateur" for="bf_email_imap_user" class="col-3 o_light_label"/>
+                                    <field name="bf_email_imap_user" placeholder="you@example.com"/>
+                                </div>
+                                <div class="row">
+                                    <label string="Mot de passe" for="bf_email_imap_password" class="col-3 o_light_label"/>
+                                    <field name="bf_email_imap_password" password="True"/>
+                                </div>
+                                <div class="mt8">
+                                    <button name="action_bf_email_test_imap"
+                                            type="object"
+                                            string="Tester la connexion"
+                                            class="btn btn-secondary"
+                                            icon="fa-plug"/>
+                                    <span class="text-muted ms-2">
+                                        Sauvegarde d'abord, puis teste avec les valeurs enregistrées.
+                                    </span>
+                                </div>
+                            </div>
+                        </setting>
+                        <setting id="bf_email_imap_archive" string="Archivage bilatéral"
+                                 help="Quand activé, archiver dans Odoo COPY+EXPUNGE le courriel sur le serveur IMAP vers le dossier configuré (gabarit avec {YYYY}).">
+                            <field name="bf_email_imap_writeback_archive"/>
+                            <div class="content-group" invisible="not bf_email_imap_writeback_archive">
+                                <div class="row mt8">
+                                    <label string="Dossier cible" for="bf_email_imap_archive_folder" class="col-3 o_light_label"/>
+                                    <field name="bf_email_imap_archive_folder" placeholder="Archives/{YYYY}"/>
+                                </div>
+                            </div>
+                        </setting>
+                        <setting id="bf_email_imap_tuning" string="Paramètres avancés"
+                                 help="Réglages des crons. Modifier seulement si vous savez pourquoi.">
+                            <div class="content-group">
+                                <div class="row mt8">
+                                    <label string="Taille de lot" for="bf_email_imap_batch_size" class="col-4 o_light_label"/>
+                                    <field name="bf_email_imap_batch_size" class="oe_inline"/>
+                                    <span class="text-muted ms-2">UIDs par exécution du cron</span>
+                                </div>
+                                <div class="row">
+                                    <label string="Auto-lien (jours)" for="bf_email_auto_link_threshold_days" class="col-4 o_light_label"/>
+                                    <field name="bf_email_auto_link_threshold_days" class="oe_inline"/>
+                                    <span class="text-muted ms-2">Fenêtre pour lier une orpheline à la seule tâche/ticket ouvert du contact</span>
+                                </div>
+                            </div>
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Action: open the BF Email settings page directly. -->
+    <record id="action_bf_email_settings" model="ir.actions.act_window">
+        <field name="name">Paramètres Inbox unifiée</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="target">inline</field>
+        <field name="context">{'module': 'bf_email_management'}</field>
+    </record>
+
+</odoo>

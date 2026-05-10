@@ -78,6 +78,12 @@
               groups="group_email_manager"
               sequence="90"/>
 
+    <menuitem id="menu_bf_email_settings"
+              name="Param&#232;tres (compte IMAP)"
+              parent="menu_bf_email_config"
+              action="action_bf_email_settings"
+              sequence="1"/>
+
     <menuitem id="menu_bf_email_sync_now"
               name="Synchroniser maintenant"
               parent="menu_bf_email_config"

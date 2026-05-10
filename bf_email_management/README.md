@@ -79,20 +79,23 @@ The 8 heuristic signals are based on empirical email-overload research:
 
 - Odoo 18 Community or Enterprise.
 - `mail` module (included in Odoo) — provides `mail.message`, `mail.thread`, `mail.scheduled.message`.
+- `mail_composer_cc_bcc` (community / OCA-style; e.g. https://github.com/OCA/mail) — provides the `partner_cc_ids` / `partner_bcc_ids` fields the bf.email Reply-All flow populates.
 - Python 3.10+ (uses standard library `imaplib`, `email.policy.default`, no extra pip deps).
 - Optional: `mail_quoted_reply` for quoted-reply composer body.
 
 ## Installation
 
 1. Copy the `bf_email_management` directory to your Odoo addons path.
-2. Install via the Apps menu.
-3. **Configure IMAP credentials** (Settings → Technical → Parameters):
-   - `bf_email.imap_host` — your IMAP server hostname
-   - `bf_email.imap_port` — typically `993` (IMAPS)
-   - `bf_email.imap_user` — IMAP username (usually the email address)
-   - `bf_email.imap_password` — IMAP password or app password
-4. The cron `Courriels : ingestion IMAP directe` runs every 5 minutes and silently skips when credentials are unset, so the module is safe to install before configuring IMAP.
-5. To backfill historical emails from an archive folder, open *Courriels → Configuration → Rattrapage IMAP (Archives)*.
+2. Install `mail_composer_cc_bcc` from a community source (see Requirements above).
+3. Install `bf_email_management` via the Apps menu.
+4. **Configure IMAP credentials** via *Settings → Inbox unifiée* (or the shortcut *Courriels → Configuration → Paramètres (compte IMAP)*):
+   - **Serveur** — your IMAP server hostname
+   - **Port** — typically `993` (IMAPS)
+   - **Utilisateur** — IMAP username (usually the email address)
+   - **Mot de passe** — IMAP password or app password
+   - Click **Tester la connexion** to verify credentials before saving them in production.
+5. The cron `Courriels : ingestion IMAP directe` runs every 5 minutes and silently skips when credentials are unset, so the module is safe to install before configuring IMAP.
+6. To backfill historical emails from an archive folder, open *Courriels → Configuration → Rattrapage IMAP (Archives)*.
 
 ## Architecture Notes
 
