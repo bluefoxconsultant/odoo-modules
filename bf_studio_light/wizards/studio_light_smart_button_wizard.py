@@ -64,9 +64,23 @@ class StudioLightSmartButtonWizard(models.TransientModel):
             }
         )
         return {
-            "type": "ir.actions.act_window",
-            "res_model": "studio.light.smart.button",
-            "res_id": sb.id,
-            "view_mode": "form",
-            "target": "current",
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("Smart button created"),
+                "message": _(
+                    "Button %s is live on %s. Reload your browser tab "
+                    "to see it on existing forms — Odoo caches view "
+                    "metadata per session."
+                ) % (sb.label, sb.source_model_name),
+                "type": "success",
+                "sticky": False,
+                "next": {
+                    "type": "ir.actions.act_window",
+                    "res_model": "studio.light.smart.button",
+                    "res_id": sb.id,
+                    "view_mode": "form",
+                    "target": "current",
+                },
+            },
         }

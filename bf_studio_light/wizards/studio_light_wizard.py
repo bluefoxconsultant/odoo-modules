@@ -178,9 +178,23 @@ class StudioLightWizard(models.TransientModel):
             )
 
         return {
-            "type": "ir.actions.act_window",
-            "res_model": "studio.light.field",
-            "res_id": studio_field.id,
-            "view_mode": "form",
-            "target": "current",
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("Custom field created"),
+                "message": _(
+                    "Field %s is live on %s. Reload your browser tab "
+                    "to see it on existing forms — Odoo caches view "
+                    "metadata per session."
+                ) % (studio_field.name, studio_field.model_name),
+                "type": "success",
+                "sticky": False,
+                "next": {
+                    "type": "ir.actions.act_window",
+                    "res_model": "studio.light.field",
+                    "res_id": studio_field.id,
+                    "view_mode": "form",
+                    "target": "current",
+                },
+            },
         }

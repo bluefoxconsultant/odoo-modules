@@ -405,3 +405,34 @@ class StudioLightViewInjection(models.Model):
                         "after 3 failures",
                         rec.id,
                     )
+        self._cleanup_orphan_views()
+
+    @api.model
+    def _cleanup_orphan_views(self):
+        """Drop ``ir.ui.view`` rows we generated whose injection record
+        no longer claims them.
+
+        ``unlink()`` on this model swallows view-unlink errors (so a
+        broken parent view doesn't block deleting the injection), which
+        can leave orphan rows behind. The cron picks them up on its
+        next run and removes them so they don't keep affecting the
+        combined arch."""
+        Views = self.env["ir.ui.view"].sudo()
+        claimed_ids = set(
+            self.with_context(active_test=False).search([])
+            .mapped("ir_view_id").ids
+        )
+        candidates = Views.search([("name", "=like", "studio_light.%")])
+        orphans = candidates.filtered(lambda v: v.id not in claimed_ids)
+        if not orphans:
+            return
+        _logger.info(
+            "Studio Light: cleaning %s orphan ir.ui.view rows: %s",
+            len(orphans), orphans.ids,
+        )
+        try:
+            orphans.unlink()
+        except Exception as e:
+            _logger.warning(
+                "Studio Light: orphan view cleanup failed: %s", e,
+            )
