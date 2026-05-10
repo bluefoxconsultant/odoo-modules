@@ -44,6 +44,15 @@ is set, to avoid double notifications.
 | 18.0.2.3.0 | Convert ticket → meeting record |
 | 18.0.2.4.0 | Triage IA via Claude (one-shot Anthropic Messages API call) |
 
+## Phase 3 features (shipped)
+
+| Version | Feature |
+|---|---|
+| 18.0.3.0.0 | CSAT survey auto-sent on close (per-team `survey.survey`, branded BF mail layout) |
+| 18.0.3.1.0 | Branded portal templates (Lexend + BF palette on `/my/ticket/<id>`) |
+| 18.0.3.2.0 | Dashboard tile on `bf.dashboard` (open/unattended/critical/waiting per team) |
+| 18.0.3.3.0 | IMAP gateway hardening (drop autoresponder loops + bulk + bounce subjects) |
+
 ## Triage IA
 
 The "Triage IA" button on a ticket calls the Anthropic Messages API with

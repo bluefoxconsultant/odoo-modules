@@ -58,6 +58,14 @@ class HelpdeskTicketTeam(models.Model):
         compute="_compute_public_form_url",
     )
 
+    # --- CSAT survey ---
+    csat_survey_id = fields.Many2one(
+        comodel_name="survey.survey",
+        string="Sondage CSAT",
+        domain="[('active', '=', True)]",
+        help="Sondage envoyé automatiquement à la fermeture d'un ticket de cette équipe.",
+    )
+
     public_form_tag_ids = fields.Many2many(
         comodel_name="helpdesk.ticket.tag",
         relation="helpdesk_team_public_form_tag_rel",

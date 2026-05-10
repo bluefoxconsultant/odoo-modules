@@ -85,6 +85,18 @@
                readonly="1"/>
       </xpath>
 
+      <!-- CSAT response link -->
+      <xpath expr="//field[@name='closed_date']" position="after">
+        <field name="csat_user_input_id" readonly="1"
+               invisible="not csat_user_input_id"/>
+        <field name="csat_state" readonly="1"
+               widget="badge"
+               decoration-success="csat_state == 'done'"
+               decoration-info="csat_state == 'in_progress'"
+               decoration-muted="csat_state == 'new'"
+               invisible="not csat_user_input_id"/>
+      </xpath>
+
       <!-- Persona panel — quick composer hints when answering the ticket -->
       <xpath expr="//notebook" position="inside">
         <page string="Persona" name="bf_persona_panel"

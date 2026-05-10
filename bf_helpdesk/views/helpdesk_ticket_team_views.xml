@@ -52,6 +52,9 @@
                 <field name="ntfy_priority_threshold"
                        invisible="not ntfy_critical_enabled"/>
               </group>
+              <group string="CSAT">
+                <field name="csat_survey_id"/>
+              </group>
             </group>
           </page>
         </notebook>

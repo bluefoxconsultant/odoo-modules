@@ -9,3 +9,5 @@ from . import test_public_form_security
 from . import test_ticket_knowledge
 from . import test_ticket_meeting
 from . import test_ticket_triage
+from . import test_ticket_csat
+from . import test_imap_gateway

@@ -93,7 +93,55 @@ class HelpdeskTicket(models.Model):
     )
 
     # ------------------------------------------------------------------
-     # Knowledge matrix link — quick scope validation
+    # CSAT — auto-send survey on close
+    # ------------------------------------------------------------------
+    csat_user_input_id = fields.Many2one(
+        comodel_name="survey.user_input",
+        string="Réponse CSAT",
+        copy=False,
+        readonly=True,
+    )
+    csat_state = fields.Selection(
+        related="csat_user_input_id.state",
+        string="État CSAT",
+        readonly=True,
+    )
+
+    def _send_csat_invite(self):
+        self.ensure_one()
+        team = self.team_id
+        if not team or not team.csat_survey_id:
+            return False
+        if self.csat_user_input_id:
+            return False  # already sent
+        partner = self.partner_id
+        email = self.partner_email or (partner.email if partner else None)
+        if not email:
+            return False
+        survey = team.csat_survey_id.sudo()
+        try:
+            user_input = survey._create_answer(
+                partner=partner if partner else False,
+                email=email,
+            )
+        except Exception:
+            _logger.exception(
+                "bf_helpdesk: CSAT _create_answer failed for ticket %s", self.number,
+            )
+            return False
+        self.write({"csat_user_input_id": user_input.id})
+        template = self.env.ref(
+            "survey.mail_template_user_input_invite", raise_if_not_found=False,
+        )
+        if template:
+            template.sudo().send_mail(
+                user_input.id, force_send=False,
+                email_layout_xmlid="bluefox_branding.bf_mail_layout",
+            )
+        return user_input
+
+    # ------------------------------------------------------------------
+    # Knowledge matrix link — quick scope validation
     # ------------------------------------------------------------------
     knowledge_item_id = fields.Many2one(
         comodel_name="project.knowledge.item",
@@ -415,12 +463,68 @@ class HelpdeskTicket(models.Model):
 
     def write(self, vals):
         old_priority = {t.id: t.priority for t in self}
+        before_closed = {t.id: bool(t.stage_id.closed) for t in self}
         res = super().write(vals)
         if "priority" in vals:
             for ticket in self:
                 if old_priority.get(ticket.id) != ticket.priority:
                     ticket._maybe_notify_ntfy_critical(reason="escalated")
+        if "stage_id" in vals:
+            for ticket in self:
+                if ticket.stage_id.closed and not before_closed.get(ticket.id):
+                    ticket._send_csat_invite()
         return res
+
+    # ------------------------------------------------------------------
+    # IMAP gateway hardening
+    # ------------------------------------------------------------------
+    @api.model
+    def message_new(self, msg, custom_values=None):
+        """Defensive overrides on top of OCA's mail.thread message_new:
+
+        - Drop autoresponder loops (Auto-Submitted, X-AutoReply, Precedence: bulk)
+          — these create noise tickets when a customer's mail server bounces
+          back our notification.
+        - Strip the most obvious quoted-tail noise from the body so the ticket
+          opens with the actual question, not the quoted previous reply.
+        - Skip empty subjects with body length < 10 chars (likely cron blow-back).
+        """
+        if self._is_autoresponder(msg):
+            _logger.info(
+                "bf_helpdesk: dropping autoresponder mail-gateway message "
+                "(subject=%r, from=%r)",
+                msg.get("subject"), msg.get("from"),
+            )
+            # Return an empty record so mail.thread treats this as handled
+            return self.browse()
+        return super().message_new(msg, custom_values=custom_values)
+
+    @api.model
+    def _is_autoresponder(self, msg):
+        """Detect common autoresponder/loop signals across SMTP and X- headers."""
+        headers = msg.get("custom_headers") or {}
+        # mail.thread normalizes some headers into msg dict; others are in raw headers
+        auto_submitted = (
+            (msg.get("auto-submitted") or headers.get("Auto-Submitted") or "")
+            .strip().lower()
+        )
+        if auto_submitted and auto_submitted != "no":
+            return True
+        x_auto = headers.get("X-Auto-Response-Suppress") or headers.get("X-AutoReply")
+        if x_auto:
+            return True
+        precedence = (headers.get("Precedence") or "").strip().lower()
+        if precedence in ("bulk", "auto_reply", "list", "junk"):
+            return True
+        # Subject prefixes that almost always mean automation
+        subject = (msg.get("subject") or "").lower()
+        if subject.startswith(("auto:", "automatic reply", "out of office",
+                               "absent du bureau", "réponse automatique",
+                               "delivery status notification",
+                               "undeliverable:", "mail delivery failed",
+                               "mailer-daemon")):
+            return True
+        return False
 
     def _maybe_notify_ntfy_critical(self, reason="created"):
         self.ensure_one()
