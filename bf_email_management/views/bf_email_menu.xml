@@ -53,6 +53,12 @@
               action="action_mail_scheduled_message"
               sequence="30"/>
 
+    <menuitem id="menu_bf_email_browser"
+              name="Navigateur IMAP"
+              parent="menu_bf_email_emails"
+              action="action_bf_email_browser_owl"
+              sequence="40"/>
+
     <!-- Analyse -->
     <menuitem id="menu_bf_email_analysis"
               name="Analyse"

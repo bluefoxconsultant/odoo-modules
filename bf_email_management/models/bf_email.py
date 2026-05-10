@@ -10,7 +10,8 @@ import unicodedata
 from datetime import datetime, timedelta, timezone
 from email.utils import parseaddr
 
-from odoo import api, fields, models, tools
+from odoo import _, api, fields, models, tools
+from odoo.exceptions import UserError
 
 from . import bf_email_imap
 
@@ -778,6 +779,7 @@ class BfEmail(models.Model):
         rules = self.env["bf.email.rule"].sudo().search([])
         if not rules:
             return
+        auto_handled = self.browse()
         for rec in self:
             written_fields = set()
             for rule in rules:
@@ -797,10 +799,28 @@ class BfEmail(models.Model):
                     vals["is_handled"] = True
                     vals["handled_at"] = fields.Datetime.now()
                     written_fields.add("is_handled")
+                    auto_handled |= rec
                 if vals:
                     rec.write(vals)
                 if rule.stop_processing:
                     break
+        # Mirror action_archive's bilateral IMAP writeback for rule-driven
+        # auto-handles. Without this, rules like "List-Unsubscribe → Traité"
+        # mark rows handled in Odoo but leave the message in Migadu INBOX.
+        if auto_handled:
+            ICP = self.env["ir.config_parameter"].sudo()
+            writeback = (
+                ICP.get_param("bf_email.imap_writeback_archive", "True").lower()
+                == "true"
+            )
+            if writeback:
+                try:
+                    auto_handled._imap_writeback_archive()
+                except Exception:
+                    _logger.warning(
+                        "bf.email rule auto-handle IMAP writeback failed",
+                        exc_info=True,
+                    )
 
     # ------------------------------------------------------------------
     # Actions
@@ -2143,3 +2163,419 @@ class BfEmail(models.Model):
             updated, len(self),
         )
         return updated
+
+    # ------------------------------------------------------------------
+    # OWL IMAP browser RPC surface (called from the JS client action).
+    # All methods return plain dicts / lists JSON-serialisable for OWL.
+    # ------------------------------------------------------------------
+    @api.model
+    def _imap_browser_check_folder(self, folder):
+        """Reject folder names that could break out of the IMAP quoted
+        string (no double quotes, no backslashes). Allows ``/`` so
+        hierarchical paths like ``Archives/2026`` still pass.
+        """
+        if not isinstance(folder, str) or not folder:
+            raise UserError(_("Nom de dossier invalide."))
+        if '"' in folder or "\\" in folder or "\r" in folder or "\n" in folder:
+            raise UserError(_(
+                "Caractère interdit dans le nom de dossier : %s", folder,
+            ))
+        return folder
+
+    @api.model
+    def _imap_browser_open_conn(self):
+        ICP = self.env["ir.config_parameter"].sudo()
+        host = ICP.get_param("bf_email.imap_host")
+        user = ICP.get_param("bf_email.imap_user")
+        password = ICP.get_param("bf_email.imap_password")
+        if not (host and user and password):
+            raise UserError(_(
+                "Les paramètres IMAP ne sont pas configurés. "
+                "Paramètres → Inbox unifiée → Compte IMAP."
+            ))
+        port = int(ICP.get_param("bf_email.imap_port", "993"))
+        return bf_email_imap.open_connection(host, port, user, password)
+
+    @api.model
+    def imap_browser_get_folders(self):
+        """Return ``[{name, has_children, total_count, unread_count}]`` from IMAP.
+
+        Combines ``LIST`` (folder discovery) with one ``STATUS`` per folder
+        to surface unread counts in the sidebar. Folders that refuse STATUS
+        (e.g. ``\\Noselect`` parents like ``Archives`` on some servers)
+        return ``None`` for the counts.
+        """
+        try:
+            conn = self._imap_browser_open_conn()
+        except bf_email_imap.ImapConnectionError as exc:
+            raise UserError(_("Connexion IMAP impossible : %s", exc)) from exc
+        try:
+            status, raw = conn.list()
+            folders = []
+            if status == "OK" and raw:
+                for line in raw:
+                    if not line:
+                        continue
+                    decoded = (
+                        line.decode("utf-8", errors="replace")
+                        if isinstance(line, bytes) else line
+                    )
+                    tokens = decoded.rsplit(None, 1)
+                    name = (
+                        tokens[-1].strip().strip('"') if tokens else decoded
+                    )
+                    if not name:
+                        continue
+                    folders.append({
+                        "name": name,
+                        "has_children": "\\HasChildren" in decoded,
+                        "noselect": "\\Noselect" in decoded,
+                        "total_count": None,
+                        "unread_count": None,
+                    })
+            # STATUS for each selectable folder. One round-trip per folder.
+            for f in folders:
+                if f.get("noselect"):
+                    continue
+                try:
+                    s_status, s_data = conn.status(
+                        f'"{f["name"]}"', "(MESSAGES UNSEEN)"
+                    )
+                    if s_status != "OK" or not s_data:
+                        continue
+                    raw_line = s_data[0]
+                    if isinstance(raw_line, bytes):
+                        raw_line = raw_line.decode("ascii", errors="ignore")
+                    msgs_match = re.search(r"MESSAGES (\d+)", raw_line or "")
+                    unseen_match = re.search(r"UNSEEN (\d+)", raw_line or "")
+                    if msgs_match:
+                        f["total_count"] = int(msgs_match.group(1))
+                    if unseen_match:
+                        f["unread_count"] = int(unseen_match.group(1))
+                except Exception:
+                    _logger.debug(
+                        "imap_browser_get_folders: STATUS %s failed",
+                        f["name"], exc_info=True,
+                    )
+            # Stable order: INBOX first, then Sent, then alphabetical.
+            def sort_key(f):
+                if f["name"] == "INBOX":
+                    return (0, "")
+                if f["name"] == "Sent":
+                    return (1, "")
+                return (2, f["name"])
+            folders.sort(key=sort_key)
+            return folders
+        finally:
+            try:
+                conn.logout()
+            except Exception:
+                pass
+
+    @api.model
+    def imap_browser_get_messages(self, folder, offset=0, limit=100):
+        """Return ``{messages: [...], total: N}`` for a folder page (newest-first)."""
+        self._imap_browser_check_folder(folder)
+        offset = max(0, int(offset or 0))
+        limit = max(1, min(int(limit or 100), 500))
+        try:
+            conn = self._imap_browser_open_conn()
+        except bf_email_imap.ImapConnectionError as exc:
+            raise UserError(_("Connexion IMAP impossible : %s", exc)) from exc
+        try:
+            if not bf_email_imap.select_folder(conn, folder, readonly=True):
+                raise UserError(_("Dossier introuvable : %s", folder))
+            all_uids = bf_email_imap.search_uids_in_range(conn)
+            total = len(all_uids)
+            all_uids.reverse()  # newest first
+            page_uids = all_uids[offset:offset + limit]
+            headers = bf_email_imap.fetch_headers_bulk(conn, page_uids)
+        finally:
+            try:
+                conn.logout()
+            except Exception:
+                pass
+
+        # Dedup against bf.email by Message-ID in a single query.
+        msg_ids = [
+            str(headers[u][0].get("Message-ID", "")).strip()
+            for u in page_uids if u in headers
+        ]
+        msg_ids = [m for m in msg_ids if m]
+        existing = set()
+        if msg_ids:
+            existing = set(
+                self.with_context(active_test=False).sudo().search([
+                    ("message_id_header", "in", msg_ids),
+                    ("company_id", "=", self.env.company.id),
+                ]).mapped("message_id_header")
+            )
+
+        messages = []
+        for uid in page_uids:
+            entry = headers.get(uid)
+            if not entry:
+                messages.append({
+                    "uid": str(uid),
+                    "date": False,
+                    "from": "",
+                    "sender_name": "",
+                    "subject": "(impossible de lire l'en-tête)",
+                    "message_id": False,
+                    "already_in_bf_email": False,
+                    "seen": True,
+                })
+                continue
+            msg, seen = entry
+            mid = str(msg.get("Message-ID", "")).strip() or None
+            parsed_date = bf_email_imap.parse_date(msg.get("Date"))
+            from_raw = str(msg.get("From", ""))
+            display_name, addr = email.utils.parseaddr(from_raw)
+            sender_name = display_name or addr or from_raw
+            messages.append({
+                "uid": str(uid),
+                "date": parsed_date or False,
+                "from": from_raw[:255],
+                "sender_name": sender_name[:255],
+                "subject": str(msg.get("Subject", ""))[:255],
+                "message_id": mid,
+                "already_in_bf_email": bool(mid and mid in existing),
+                "seen": seen,
+            })
+        return {
+            "folder": folder,
+            "messages": messages,
+            "total": total,
+            "offset": offset,
+            "limit": limit,
+        }
+
+    @api.model
+    def imap_browser_get_body(self, folder, uid):
+        """Return ``{subject, from, to, date, body_html, already_in_bf_email, bf_email_id}``."""
+        self._imap_browser_check_folder(folder)
+        if not uid:
+            raise UserError(_("UID manquant."))
+        try:
+            conn = self._imap_browser_open_conn()
+        except bf_email_imap.ImapConnectionError as exc:
+            raise UserError(_("Connexion IMAP impossible : %s", exc)) from exc
+        try:
+            if not bf_email_imap.select_folder(conn, folder, readonly=True):
+                raise UserError(_("Dossier introuvable : %s", folder))
+            raw = bf_email_imap.fetch_rfc822(conn, int(uid))
+        finally:
+            try:
+                conn.logout()
+            except Exception:
+                pass
+        if not raw:
+            raise UserError(_("Impossible de récupérer le UID %s.", uid))
+        msg = bf_email_imap.parse_rfc822(raw)
+        body_html, body_plain = bf_email_imap.extract_body(msg)
+        body = body_html or (
+            "<pre>%s</pre>" % (body_plain or "") if body_plain else ""
+        )
+        mid = str(msg.get("Message-ID", "")).strip() or None
+        bf_email = False
+        if mid:
+            bf_email = self.with_context(active_test=False).sudo().search([
+                ("message_id_header", "=", mid),
+                ("company_id", "=", self.env.company.id),
+            ], limit=1)
+        parsed_date = bf_email_imap.parse_date(msg.get("Date"))
+        return {
+            "subject": str(msg.get("Subject", ""))[:255],
+            "from": str(msg.get("From", ""))[:255],
+            "to": str(msg.get("To", ""))[:255],
+            "date": parsed_date or False,
+            "body_html": body,
+            "already_in_bf_email": bool(bf_email),
+            "bf_email_id": bf_email.id if bf_email else False,
+            "message_id": mid,
+        }
+
+    @api.model
+    def imap_browser_ingest(self, folder, uid):
+        """Ingest a UID into bf.email via _ingest_rfc822. Returns the new id."""
+        self._imap_browser_check_folder(folder)
+        if not uid:
+            raise UserError(_("UID manquant."))
+        try:
+            conn = self._imap_browser_open_conn()
+        except bf_email_imap.ImapConnectionError as exc:
+            raise UserError(_("Connexion IMAP impossible : %s", exc)) from exc
+        try:
+            if not bf_email_imap.select_folder(conn, folder, readonly=True):
+                raise UserError(_("Dossier introuvable : %s", folder))
+            raw = bf_email_imap.fetch_rfc822(conn, int(uid))
+        finally:
+            try:
+                conn.logout()
+            except Exception:
+                pass
+        if not raw:
+            raise UserError(_("Impossible de récupérer le UID %s.", uid))
+        ICP = self.env["ir.config_parameter"].sudo()
+        configured_user = ICP.get_param("bf_email.imap_user") or ""
+        self.sudo()._ingest_rfc822(raw, int(uid), folder, configured_user)
+        # Look up the resulting row (may have existed already via dedup).
+        msg = bf_email_imap.parse_rfc822(raw)
+        mid = str(msg.get("Message-ID", "")).strip() or None
+        bf_email_id = False
+        if mid:
+            row = self.with_context(active_test=False).sudo().search([
+                ("message_id_header", "=", mid),
+                ("company_id", "=", self.env.company.id),
+            ], limit=1)
+            bf_email_id = row.id if row else False
+        return {"bf_email_id": bf_email_id}
+
+    @api.model
+    def imap_browser_ingest_and_reroute(self, folder, uid):
+        """Ingest + return an act_window action opening the Reroute wizard."""
+        result = self.imap_browser_ingest(folder, uid)
+        bf_email_id = result.get("bf_email_id")
+        if not bf_email_id:
+            raise UserError(_(
+                "Ingestion réussie mais ligne bf.email introuvable."
+            ))
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": "bf.email.reroute",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"default_bf_email_ids": [(6, 0, [bf_email_id])]},
+        }
+
+    @api.model
+    def imap_browser_reply(self, folder, uid):
+        """Ingest if needed, then open the mail composer in reply mode."""
+        result = self.imap_browser_ingest(folder, uid)
+        bf_email_id = result.get("bf_email_id")
+        if not bf_email_id:
+            raise UserError(_("Ingestion requise avant de répondre."))
+        return self.browse(bf_email_id).action_reply()
+
+    @api.model
+    def imap_browser_forward(self, folder, uid):
+        """Ingest if needed, then open the mail composer in forward mode."""
+        result = self.imap_browser_ingest(folder, uid)
+        bf_email_id = result.get("bf_email_id")
+        if not bf_email_id:
+            raise UserError(_("Ingestion requise avant de transférer."))
+        return self.browse(bf_email_id).action_forward()
+
+    @api.model
+    def imap_browser_mark_handled(self, folder, uid):
+        """Ingest if needed, then run action_archive on the bf.email row.
+
+        ``action_archive`` sets ``is_handled=True`` and (since 18.0.2.3.0
+        with the writeback ICP on) COPY+EXPUNGE the message from INBOX to
+        ``Archives/{YYYY}`` server-side.
+        """
+        result = self.imap_browser_ingest(folder, uid)
+        bf_email_id = result.get("bf_email_id")
+        if not bf_email_id:
+            raise UserError(_("Ingestion requise avant de traiter."))
+        self.browse(bf_email_id).action_archive()
+        return {"bf_email_id": bf_email_id, "is_handled": True}
+
+    @api.model
+    def imap_browser_reply_all(self, folder, uid):
+        """Ingest if needed, then open the mail composer in reply-all mode."""
+        result = self.imap_browser_ingest(folder, uid)
+        bf_email_id = result.get("bf_email_id")
+        if not bf_email_id:
+            raise UserError(_("Ingestion requise avant de répondre."))
+        return self.browse(bf_email_id).action_reply_all()
+
+    @api.model
+    def imap_browser_move(self, folder, uid, dst_folder):
+        """COPY a UID to ``dst_folder``, EXPUNGE in ``folder``.
+
+        Used by drag-and-drop in the OWL browser. Refuses when destination
+        is empty or identical to the source. Does NOT touch ``bf.email``.
+        """
+        self._imap_browser_check_folder(folder)
+        self._imap_browser_check_folder(dst_folder)
+        if not uid:
+            raise UserError(_("UID manquant."))
+        if dst_folder == folder:
+            raise UserError(_(
+                "Source et destination identiques (%s).", folder,
+            ))
+        try:
+            conn = self._imap_browser_open_conn()
+        except bf_email_imap.ImapConnectionError as exc:
+            raise UserError(_("Connexion IMAP impossible : %s", exc)) from exc
+        try:
+            if not bf_email_imap.select_folder(conn, folder, readonly=False):
+                raise UserError(_("Dossier source introuvable : %s", folder))
+            uid_str = str(uid)
+            try:
+                copy_status, _data = conn.uid(
+                    "COPY", uid_str, f'"{dst_folder}"',
+                )
+                if copy_status != "OK":
+                    raise UserError(_(
+                        "COPY refusé par le serveur (cible %s).", dst_folder,
+                    ))
+                conn.uid("STORE", uid_str, "+FLAGS", "(\\Deleted)")
+                conn.expunge()
+            except UserError:
+                raise
+            except Exception as exc:
+                raise UserError(_(
+                    "Échec du déplacement vers %s : %s", dst_folder, exc,
+                )) from exc
+        finally:
+            try:
+                conn.logout()
+            except Exception:
+                pass
+        return {
+            "moved_uid": str(uid),
+            "src_folder": folder,
+            "dst_folder": dst_folder,
+        }
+
+    @api.model
+    def imap_browser_move_to_trash(self, folder, uid):
+        """COPY a UID to Trash, then EXPUNGE in the current folder.
+
+        Does NOT touch bf.email — the user can re-ingest from Trash if
+        needed. Refuses if the current folder already starts with
+        ``Trash`` (the user asked to delete a trashed message — that's
+        a different operation; we don't support permanent delete here).
+        """
+        self._imap_browser_check_folder(folder)
+        if not uid:
+            raise UserError(_("UID manquant."))
+        if folder.lower().startswith("trash"):
+            raise UserError(_(
+                "Ce message est déjà dans Trash. La suppression définitive "
+                "n'est pas exposée par ce navigateur — passez par Migadu webmail."
+            ))
+        try:
+            conn = self._imap_browser_open_conn()
+        except bf_email_imap.ImapConnectionError as exc:
+            raise UserError(_("Connexion IMAP impossible : %s", exc)) from exc
+        try:
+            if not bf_email_imap.select_folder(conn, folder, readonly=False):
+                raise UserError(_("Dossier introuvable : %s", folder))
+            uid_str = str(uid)
+            try:
+                conn.uid("COPY", uid_str, '"Trash"')
+                conn.uid("STORE", uid_str, "+FLAGS", "(\\Deleted)")
+                conn.expunge()
+            except Exception as exc:
+                raise UserError(_(
+                    "Échec du déplacement vers Trash : %s", exc,
+                )) from exc
+        finally:
+            try:
+                conn.logout()
+            except Exception:
+                pass
+        return {"deleted_uid": str(uid), "folder": folder}

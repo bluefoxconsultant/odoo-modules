@@ -4,6 +4,87 @@ All notable changes to `bf_email_management` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This module follows Odoo's `MAJOR.MINOR.PATCH` convention prefixed with the Odoo series (`18.0.X.Y.Z`).
 
+## [18.0.3.8.0] — 2026-05-10
+
+### Added
+- **Préférences du Navigateur IMAP** — bouton engrenage à côté de la barre de recherche, ouvre un panneau avec 5 réglages persistés dans `localStorage` (clé `bf_email_browser_settings_v1`, schéma versionné) :
+  - **Format de date** : relatif (« aujourd'hui 14:35 », défaut) vs absolu (« 2026-05-10 14:35 »).
+  - **Affichage de l'expéditeur** : nom seul (défaut), adresse seule, ou « Nom &lt;adresse&gt; ».
+  - **Messages par page** : 50 / 100 (défaut) / 200 / 500 — recharge le dossier courant à la modification.
+  - **Densité d'affichage** : confortable (défaut) ou compacte (`table-sm`).
+  - **Mettre les non-lus en gras** : on (défaut) / off.
+
+### Notes
+- Le panneau est purement client : aucun aller-retour serveur, aucune table Odoo. Multi-navigateur = pas synchronisé (volontaire — chaque poste règle son confort). Sync per-user via `res.users` viendra si le besoin se manifeste.
+
+## [18.0.3.7.0] — 2026-05-10
+
+### Added
+- **Navigateur IMAP — round UX 2** : 10 améliorations façon Apple Mail / Thunderbird, un seul commit.
+  - **Arbre de dossiers** dans la barre latérale : `Archives` se déplie en `2024 / 2025 / 2026` (parsed sur `/`). Toggle `▸ / ▾`, parents auto-dépliés au premier chargement.
+  - **Compteurs non lus + total** par dossier : `imap_browser_get_folders` appelle `STATUS folder (MESSAGES UNSEEN)` après le `LIST`. Badge bleu quand non-lus > 0, gris muted sinon.
+  - **Lignes en gras quand non lues** : `fetch_headers_bulk` récupère désormais les `FLAGS` IMAP en plus des en-têtes ; absence de `\Seen` → `fw-bold`.
+  - **Nom d'expéditeur parsé** : `email.utils.parseaddr` côté serveur ; la colonne *Expéditeur* affiche « Blue Fox » au lieu de « Blue Fox &lt;notifications@github.com&gt; ». Adresse complète en tooltip.
+  - **Dates relatives** style Apple Mail : `aujourd'hui 14:35` / `hier 09:12` / `lun. 14:35` / `5 mai` / `2024-12-05` selon l'ancienneté.
+  - **Raccourcis clavier** via `useHotkey` (Odoo core) : `J/K` ou `↓/↑` naviguer · `R` répondre · `Shift+R` répondre à tous · `F` transférer · `E` Traité · `Suppr`/`Retour` Trash · `Y` router · `/` focus recherche · `Échap` effacer recherche.
+  - **Recherche dans la page chargée** : `<input type="search">` au-dessus de la liste, filtre `subject` + `sender_name` + `from` côté client en temps réel.
+  - **Bouton « Traité » par ligne** : icône `✓` à droite de chaque ligne. Pas besoin de cliquer la ligne avant — un seul clic ingère + archive + saut à la ligne suivante.
+  - **Saut automatique vers le message suivant** après Traité / Supprimer / drag-and-drop. Plus de panneau d'aperçu vide en plein triage.
+  - **Défilement infini** : disparition des boutons Précédent / Suivant, remplacés par un `IntersectionObserver` qui charge la page suivante quand on scrolle vers le bas (rootMargin 200 px). Les pages déjà chargées restent visibles.
+  - **Drag-and-drop entre dossiers** : tirer une ligne sur un dossier dans la barre latérale = `imap_browser_move` côté serveur (COPY + EXPUNGE).
+
+### Added (server)
+- `bf_email_imap.fetch_headers_bulk` retourne désormais `{uid: (msg, seen)}` au lieu de `{uid: msg}`. Deux call sites mis à jour (`bf.email.imap_browser_get_messages` et `bf.email.browser.action_load_page`).
+- `bf.email.imap_browser_reply_all(folder, uid)` pour le raccourci Shift+R, mirroir d'`imap_browser_reply`.
+- `bf.email.imap_browser_move(folder, uid, dst_folder)` pour le drag-and-drop. Refuse cible vide ou égale à la source.
+
+## [18.0.3.6.0] — 2026-05-10
+
+### Changed
+- **Navigateur IMAP : aperçu en iframe + actions complètes** — le corps des courriels est désormais rendu dans une `<iframe sandbox="allow-same-origin" srcdoc="…">` avec un mini HTML conteneur (Lexend / system fallback, marges 12 px, `img { max-width: 100% }`, `pre { white-space: pre-wrap }`, citations gris-bleu). Plus de fuite de CSS entre l'email et l'interface Odoo, plus de débordement horizontal sur les courriels avec tableaux 800 px de large.
+- **Barre d'actions sous le sujet** : *Répondre* (auto-ingestion + composer pointé sur la ligne bf.email), *Transférer* (idem mode forward), *Traité* (auto-ingestion + `action_archive` qui COPY+EXPUNGE vers `Archives/{YYYY}`), *Router* (uniquement si pas encore ingéré), et *Supprimer* à droite (déplace vers `Trash` côté Migadu via COPY+EXPUNGE, sans toucher à bf.email). Après *Traité* ou *Supprimer*, le message est retiré de la liste en mémoire.
+
+### Added
+- 4 nouvelles méthodes RPC sur `bf.email` consommées par le client OWL :
+  - `imap_browser_reply(folder, uid)` — ingestion conditionnelle + `action_reply()`
+  - `imap_browser_forward(folder, uid)` — ingestion conditionnelle + `action_forward()`
+  - `imap_browser_mark_handled(folder, uid)` — ingestion conditionnelle + `action_archive()` (writeback bilatéral)
+  - `imap_browser_move_to_trash(folder, uid)` — IMAP `COPY uid Trash` + `EXPUNGE` dans le dossier source
+
+### Notes
+- *Supprimer* refuse explicitement si le dossier source est déjà `Trash/*` — pas de suppression définitive depuis ce navigateur, passer par Migadu webmail.
+- L'iframe a `allow-same-origin` mais aucun `allow-scripts` : les scripts dans les emails sont neutralisés.
+
+## [18.0.3.5.0] — 2026-05-10
+
+### Changed
+- **Navigateur IMAP refait en deux-panneaux façon Apple Mail / Thunderbird** — l'action passe d'une vue formulaire `bf.email.browser` à un client action OWL (`bf_email_browser`). Layout : barre latérale gauche (240 px) avec la liste des dossiers IMAP en LIST, panneau droit divisé verticalement (50/50) entre la liste des messages en haut et le corps en bas. Clic sur un dossier → charge la première page (newest-first, 100 messages). Clic sur un message → charge le corps via FETCH RFC822 et l'affiche dans le panneau bas avec les boutons *Ingérer* / *Ingérer + router*. Toute l'I/O IMAP passe par 5 nouvelles méthodes RPC `imap_browser_*` sur `bf.email` ; la TransientModel `bf.email.browser` reste comme action diagnostique non liée à un menu.
+- Pagination réelle (Précédent / Suivant 100 messages) avec compteur « 1–100 / 7219 » dans l'en-tête de la liste.
+
+### Notes
+- L'action `action_bf_email_browser` est désormais `ir.actions.client` (tag `bf_email_browser`) — le menu pointe au même endroit, mais ouvre la vue OWL au lieu du formulaire transient.
+- La version 18.0.3.4.0 ajoutait la TransientModel + son formulaire ; 18.0.3.5.0 garde cette base comme fallback et fait du OWL le chemin par défaut.
+
+## [18.0.3.4.0] — 2026-05-10
+
+### Added
+- **Navigateur IMAP** — wizard `bf.email.browser` (menu : Courriels → Navigateur IMAP) qui ouvre n'importe quel dossier IMAP (Archives/2024, Trash, Junk, Drafts, Brouillons, Templates, Snoozed, …) en lecture seule, sans ingestion automatique. Affiche jusqu'à 500 messages par page (newest-first), avec un aperçu plein écran (sujet / expéditeur / corps HTML), une indication « Déjà ingéré » par ligne, et trois actions par row : *Aperçu*, *Ingérer* (crée la ligne `bf.email`), *Ingérer + router* (ouvre le wizard Reroute pré-rempli). Réutilise les helpers existants de `bf_email_imap` (`open_connection`, `select_folder`, `search_uids_in_range`, `fetch_rfc822`, `parse_rfc822`, `extract_body`) et l'ingestion de `bf.email._ingest_rfc822`.
+- **`bf_email_imap.fetch_headers_bulk(conn, uids)`** — nouveau helper qui fait un seul `FETCH (BODY.PEEK[HEADER.FIELDS (DATE FROM SUBJECT MESSAGE-ID)])` sur N UIDs et retourne `{uid: email.message.EmailMessage}`. Évite N round-trips IMAP pour peupler le tableau du navigateur.
+- **« Deviner et importer »** — server action de masse sur la liste `bf.email` (Action → Deviner et importer). Pour chaque ligne IMAP-orpheline sélectionnée, exécute `bf.email.reroute._suggest_target_reference` *par ligne* (et non globalement) afin de pré-remplir une cible distincte par courriel quand le contact a exactement une tâche / un ticket ouvert. Affiche une liste éditable avec badge de confiance (élevée / aucune) que l'utilisateur peut corriger avant de confirmer. Une seule confirmation route N lignes vers N cibles indépendantes via `bf.email.reroute._reroute_one`, en propageant les flags `mark_replied` / `archive_after`.
+
+### Notes
+- Le navigateur IMAP n'écrit jamais côté Migadu (toutes les sélections sont `readonly=True`). Aucun risque d'ingestion accidentelle de Trash / Junk : il faut un clic explicite par message.
+- « Deviner et importer » et le wizard Reroute existant cohabitent : le Reroute classique reste utile quand toutes les lignes sélectionnées vont à la *même* cible. Le nouveau wizard est pour N→N indépendant.
+- Aucune migration nécessaire — les deux nouveaux modèles sont des `TransientModel`. Les tables sont créées automatiquement à l'install / upgrade.
+
+## [18.0.3.3.0] — 2026-05-10
+
+### Fixed
+- **Rule-driven auto-handle never archived on IMAP** — `_apply_rules` wrote `is_handled=True` directly via `rec.write(vals)` and never invoked `_imap_writeback_archive`. Rules like *"List-Unsubscribe → Marketing + Traité"* and *"Expéditeurs noreply → Notification + Traité"* therefore left every matching message in Migadu INBOX while marking it Traité in Odoo. The 18.0.2.4.0 backfill caught the chatter/gateway race cohort but not this one — they were two distinct root causes. `_apply_rules` now collects records that transitioned to handled and calls `_imap_writeback_archive` on the batch (gated on the same ICP `bf_email.imap_writeback_archive`, exception caught + warned).
+
+### Migration
+- `migrations/18.0.3.3.0/post-migrate.py` — same 180-day handled-but-still-in-inbox replay as 18.0.2.4.0, in 50-row IMAP chunks. Catches up rows accumulated between the 2.4.0 deployment and the 3.3.0 fix.
+
 ## [18.0.3.2.0] — 2026-05-10
 
 ### Changed

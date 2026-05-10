@@ -11,3 +11,11 @@ access_bf_email_rule_user,bf.email.rule.user,model_bf_email_rule,group_email_use
 access_bf_email_rule_manager,bf.email.rule.manager,model_bf_email_rule,group_email_manager,1,1,1,1
 access_bf_email_snooze_user,bf.email.snooze.user,model_bf_email_snooze,group_email_user,1,1,1,1
 access_bf_email_snooze_manager,bf.email.snooze.manager,model_bf_email_snooze,group_email_manager,1,1,1,1
+access_bf_email_browser_user,bf.email.browser.user,model_bf_email_browser,group_email_user,1,1,1,1
+access_bf_email_browser_manager,bf.email.browser.manager,model_bf_email_browser,group_email_manager,1,1,1,1
+access_bf_email_browser_line_user,bf.email.browser.line.user,model_bf_email_browser_line,group_email_user,1,1,1,1
+access_bf_email_browser_line_manager,bf.email.browser.line.manager,model_bf_email_browser_line,group_email_manager,1,1,1,1
+access_bf_email_guess_route_user,bf.email.guess.route.user,model_bf_email_guess_route,group_email_user,1,1,1,1
+access_bf_email_guess_route_manager,bf.email.guess.route.manager,model_bf_email_guess_route,group_email_manager,1,1,1,1
+access_bf_email_guess_route_line_user,bf.email.guess.route.line.user,model_bf_email_guess_route_line,group_email_user,1,1,1,1
+access_bf_email_guess_route_line_manager,bf.email.guess.route.line.manager,model_bf_email_guess_route_line,group_email_manager,1,1,1,1

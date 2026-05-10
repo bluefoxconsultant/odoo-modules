@@ -101,6 +101,52 @@ def fetch_rfc822(conn, uid):
     return None
 
 
+def fetch_headers_bulk(conn, uids):
+    """Fetch DATE/FROM/SUBJECT/MESSAGE-ID + FLAGS for many UIDs in one round-trip.
+
+    Used by the IMAP browser to populate the line tree without pulling
+    full RFC 2822 bodies (which can include MB-scale attachments). Returns
+    ``{uid: (parsed_email_message, seen_bool)}`` per UID — ``seen_bool``
+    is True when the ``\\Seen`` flag is set.
+    """
+    if not uids:
+        return {}
+    uid_set = ",".join(str(u) for u in uids)
+    status, data = conn.uid(
+        "FETCH",
+        uid_set,
+        "(FLAGS BODY.PEEK[HEADER.FIELDS (DATE FROM SUBJECT MESSAGE-ID)])",
+    )
+    if status != "OK" or not data:
+        return {}
+    result = {}
+    # IMAP returns alternating tuples and ")" close-parens; the tuple shape
+    # is (b"<uid> (UID 123 FLAGS (\\Seen) ... {<size>}", header_bytes).
+    for item in data:
+        if not isinstance(item, tuple) or len(item) < 2:
+            continue
+        prefix, header_bytes = item[0], item[1]
+        if isinstance(prefix, bytes):
+            prefix = prefix.decode("ascii", errors="ignore")
+        m = re.search(r"UID (\d+)", prefix or "")
+        if not m:
+            continue
+        uid = int(m.group(1))
+        # FLAGS extraction: ``FLAGS (\Seen \Answered)`` → look for \Seen token.
+        flags_match = re.search(r"FLAGS \(([^)]*)\)", prefix or "")
+        seen = False
+        if flags_match:
+            flags_blob = flags_match.group(1)
+            seen = "\\Seen" in flags_blob
+        if not header_bytes:
+            continue
+        try:
+            result[uid] = (parse_rfc822(header_bytes), seen)
+        except Exception:
+            _logger.debug("fetch_headers_bulk: parse failed for UID %s", uid, exc_info=True)
+    return result
+
+
 def parse_rfc822(raw_bytes):
     """Parse raw RFC 2822 bytes into a ``email.message.EmailMessage``."""
     return email.message_from_bytes(raw_bytes, policy=email.policy.default)

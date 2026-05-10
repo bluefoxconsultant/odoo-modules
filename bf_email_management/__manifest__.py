@@ -1,7 +1,7 @@
 {
     "name": "Gestion des courriels",
     "summary": "Inbox unifiée IMAP + chatters Odoo, avec re-routage UI",
-    "version": "18.0.3.2.0",
+    "version": "18.0.3.8.0",
     "category": "Productivity",
     "website": "https://bluefox.ca",
     "author": "Blue Fox Inc.",
@@ -31,6 +31,8 @@
         "wizard/bf_email_reroute_views.xml",
         "wizard/bf_email_imap_backfill_views.xml",
         "wizard/bf_email_snooze_views.xml",
+        "wizard/bf_email_browser_views.xml",
+        "wizard/bf_email_guess_route_views.xml",
         "views/bf_email_views.xml",
         "views/bf_email_rule_views.xml",
         "views/bf_email_dashboard_views.xml",
@@ -44,7 +46,9 @@
             "bf_email_management/static/src/js/bf_email_dashboard.js",
             "bf_email_management/static/src/js/bf_email_chatter_action.js",
             "bf_email_management/static/src/js/bf_calendar_reminder.js",
+            "bf_email_management/static/src/js/bf_email_browser.js",
             "bf_email_management/static/src/xml/bf_email_dashboard.xml",
+            "bf_email_management/static/src/xml/bf_email_browser.xml",
         ],
     },
 }

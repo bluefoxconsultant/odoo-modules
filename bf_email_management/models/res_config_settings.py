@@ -35,7 +35,7 @@ class ResConfigSettings(models.TransientModel):
     bf_email_imap_host = fields.Char(
         string="Serveur IMAP",
         config_parameter="bf_email.imap_host",
-        help="Nom d'hôte du serveur IMAP (ex. imap.example.com).",
+        help="Nom d'hôte du serveur IMAP (ex. imap.migadu.com).",
     )
     bf_email_imap_port = fields.Integer(
         string="Port IMAP",
@@ -46,7 +46,7 @@ class ResConfigSettings(models.TransientModel):
     bf_email_imap_user = fields.Char(
         string="Utilisateur IMAP",
         config_parameter="bf_email.imap_user",
-        help="Adresse de connexion (ex. you@example.com).",
+        help="Adresse de connexion (ex. user@example.com).",
     )
     bf_email_imap_password = fields.Char(
         string="Mot de passe IMAP",
@@ -129,12 +129,12 @@ class ResConfigSettings(models.TransientModel):
                     if not raw:
                         continue
                     line = raw.decode("utf-8", errors="replace") if isinstance(raw, bytes) else raw
-                    # Standard IMAP LIST line: (\HasChildren) "/" "Folder"
-                    parts = line.rsplit('"', 2)
-                    if len(parts) >= 2:
-                        folders.append(parts[-2])
-                    else:
-                        folders.append(line)
+                    # LIST shape: ``(\Flags) "delim" name`` where name may be
+                    # quoted ("My Folder") or unquoted (Brouillons).
+                    tokens = line.rsplit(None, 1)
+                    name = tokens[-1].strip().strip('"') if tokens else line
+                    if name:
+                        folders.append(name)
         finally:
             try:
                 conn.logout()

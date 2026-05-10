@@ -20,7 +20,7 @@
                             <div class="content-group">
                                 <div class="row mt16">
                                     <label string="Serveur" for="bf_email_imap_host" class="col-3 o_light_label"/>
-                                    <field name="bf_email_imap_host" placeholder="imap.example.com"/>
+                                    <field name="bf_email_imap_host" placeholder="imap.migadu.com"/>
                                 </div>
                                 <div class="row">
                                     <label string="Port" for="bf_email_imap_port" class="col-3 o_light_label"/>
@@ -29,7 +29,7 @@
                                 </div>
                                 <div class="row">
                                     <label string="Utilisateur" for="bf_email_imap_user" class="col-3 o_light_label"/>
-                                    <field name="bf_email_imap_user" placeholder="you@example.com"/>
+                                    <field name="bf_email_imap_user" placeholder="user@example.com"/>
                                 </div>
                                 <div class="row">
                                     <label string="Mot de passe" for="bf_email_imap_password" class="col-3 o_light_label"/>

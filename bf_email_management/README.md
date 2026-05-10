@@ -1,6 +1,6 @@
 # Email Management for Odoo 18
 
-A centralized email management module for Odoo 18 that provides a single, deduplicated inbox combining **direct IMAP ingestion** with **chatter projection** from `mail.message`. Includes UI re-routing of orphan IMAP emails into any Odoo record's chatter, RFC 2822 thread tracking, and an interactive OWL dashboard.
+A centralized email management module for Odoo 18 that provides a single, deduplicated inbox combining **direct IMAP ingestion** with **chatter projection** from `mail.message`. Includes a two-pane IMAP folder browser (Apple Mail / Thunderbird layout), UI re-routing of orphan IMAP emails into any Odoo record's chatter, bulk per-row target inference, RFC 2822 thread tracking, and an interactive OWL dashboard.
 
 ## Features
 
@@ -51,6 +51,32 @@ A centralized email management module for Odoo 18 that provides a single, dedupl
 - KPI cards: received, sent, unread, average response time.
 - Category breakdown, top contacts, daily volume chart.
 
+### IMAP Folder Browser (3.5+, OWL client action)
+A mail-client-style view of any IMAP folder, no permanent ingestion required.
+
+- **Two-pane layout** — collapsible folder tree on the left (parent / child via `/` separator, e.g. `Archives > 2024 / 2025 / 2026`), message list and body preview stacked on the right.
+- **Live folder metadata** — `LIST` discovery + `STATUS folder (MESSAGES UNSEEN)` per folder surfaces total / unread counts in the sidebar.
+- **Unread display** — `\Seen` IMAP flag drives bold rows. Selecting a row auto-unbolds it locally; the server `\Seen` flag flips on next mail-client open.
+- **Body rendering** — message bodies are rendered in a sandboxed `<iframe srcdoc>` so email-specific CSS (and large tables) don't bleed into Odoo's UI. Scripts inside emails are neutralised (no `allow-scripts`).
+- **Per-row Traité button** — one-click ingest + IMAP archive + auto-jump to the next message.
+- **Preview-pane toolbar** — Reply, Reply-All, Forward (open Odoo's mail composer wired to the ingested row), Traité (writeback to `Archives/{YYYY}` on Migadu), Router (open the Reroute wizard), Supprimer (IMAP `COPY uid Trash` + `EXPUNGE`).
+- **Drag-and-drop** — drag a row onto any folder in the sidebar → `IMAP COPY` + `EXPUNGE`.
+- **Infinite scroll** — `IntersectionObserver` on a sentinel `<div>` at the bottom of the list appends the next page (default 100) automatically.
+- **Auto-jump** — after Traité / Supprimer / drag-and-drop, the preview moves to the next message; the cleared row is removed from the list in memory.
+- **Keyboard shortcuts** — `J/K` or `↓/↑` navigate · `R` reply · `Shift+R` reply-all · `F` forward · `E` Traité · `Delete`/`Backspace` Trash · `Y` router · `S` or `/` focus search · `Escape` clear search. Implemented via `useHotkey` plus a native `/` listener (Odoo's hotkey service doesn't whitelist `/`).
+- **In-page search** — filters the loaded page client-side against `subject` + `sender_name` + `from`.
+- **Per-user settings** (gear icon, localStorage-backed):
+  - Date format — relative (`aujourd'hui 14:35`, default) or absolute (`YYYY-MM-DD HH:mm`).
+  - Sender display — name only, address only, or `Name <address>`.
+  - Page size — 50 / 100 / 200 / 500.
+  - Density — comfortable or compact (`table-sm`).
+  - Bold unread rows — on/off.
+
+The browser is read-only on the IMAP side except for opt-in actions (ingest, move, trash, archive). Connection lifecycle is one IMAP4_SSL session per RPC call — same pattern as `_cron_sync_imap` and `_cron_imap_mirror`.
+
+### Bulk "Guess & import" (3.4+)
+Server action bound to the `bf.email` list view (`Action → Deviner et importer`). For each selected IMAP-orphan row, calls `bf.email.reroute._suggest_target_reference` *per row* to pre-fill an independent target (high confidence when the contact has exactly one open task / ticket). Editable preview list with badge (high / aucune) — confirm routes N rows to N independent chatters in a single transaction, preserving Message-ID per row.
+
 ## Research grounding
 
 The 8 heuristic signals are based on empirical email-overload research:
@@ -79,23 +105,20 @@ The 8 heuristic signals are based on empirical email-overload research:
 
 - Odoo 18 Community or Enterprise.
 - `mail` module (included in Odoo) — provides `mail.message`, `mail.thread`, `mail.scheduled.message`.
-- `mail_composer_cc_bcc` (community / OCA-style; e.g. https://github.com/OCA/mail) — provides the `partner_cc_ids` / `partner_bcc_ids` fields the bf.email Reply-All flow populates.
 - Python 3.10+ (uses standard library `imaplib`, `email.policy.default`, no extra pip deps).
 - Optional: `mail_quoted_reply` for quoted-reply composer body.
 
 ## Installation
 
 1. Copy the `bf_email_management` directory to your Odoo addons path.
-2. Install `mail_composer_cc_bcc` from a community source (see Requirements above).
-3. Install `bf_email_management` via the Apps menu.
-4. **Configure IMAP credentials** via *Settings → Inbox unifiée* (or the shortcut *Courriels → Configuration → Paramètres (compte IMAP)*):
-   - **Serveur** — your IMAP server hostname
-   - **Port** — typically `993` (IMAPS)
-   - **Utilisateur** — IMAP username (usually the email address)
-   - **Mot de passe** — IMAP password or app password
-   - Click **Tester la connexion** to verify credentials before saving them in production.
-5. The cron `Courriels : ingestion IMAP directe` runs every 5 minutes and silently skips when credentials are unset, so the module is safe to install before configuring IMAP.
-6. To backfill historical emails from an archive folder, open *Courriels → Configuration → Rattrapage IMAP (Archives)*.
+2. Install via the Apps menu.
+3. **Configure IMAP credentials** (Settings → Technical → Parameters):
+   - `bf_email.imap_host` — your IMAP server hostname
+   - `bf_email.imap_port` — typically `993` (IMAPS)
+   - `bf_email.imap_user` — IMAP username (usually the email address)
+   - `bf_email.imap_password` — IMAP password or app password
+4. The cron `Courriels : ingestion IMAP directe` runs every 5 minutes and silently skips when credentials are unset, so the module is safe to install before configuring IMAP.
+5. To backfill historical emails from an archive folder, open *Courriels → Configuration → Rattrapage IMAP (Archives)*.
 
 ## Architecture Notes
 
@@ -113,6 +136,19 @@ The 8 heuristic signals are based on empirical email-overload research:
 - The wizard reads the stored RFC 2822 (kept in `raw_rfc822` Binary attachment), parses it, and posts to the target via `record.message_post(...)` preserving Message-ID, original date, author, and attachments.
 - After posting, the `bf.email` row is promoted (linked to the new `mail.message`, `source` becomes `gateway`).
 
+### IMAP Browser RPC surface (3.5+)
+The OWL client action calls these `@api.model` methods on `bf.email`. Each opens a fresh IMAP4_SSL session, performs the operation, and logs out — no long-lived connections.
+
+- `imap_browser_get_folders()` — `LIST` + per-folder `STATUS (MESSAGES UNSEEN)`. Returns `[{name, has_children, noselect, total_count, unread_count}]`.
+- `imap_browser_get_messages(folder, offset, limit)` — `SELECT readonly` + `UID SEARCH ALL` + `fetch_headers_bulk` (one round-trip for the page). Returns `{folder, messages: [{uid, date, from, sender_name, subject, message_id, seen, already_in_bf_email}], total, offset, limit}`. Dedups against existing `bf.email` rows by Message-ID in a single SQL query.
+- `imap_browser_get_body(folder, uid)` — full `UID FETCH RFC822` for one UID; returns `{subject, from, to, date, body_html, already_in_bf_email, bf_email_id, message_id}`.
+- `imap_browser_ingest(folder, uid)` — fetch + `_ingest_rfc822` (dedup-safe). Returns `{bf_email_id}`.
+- `imap_browser_ingest_and_reroute(folder, uid)` — ingest + return an `act_window` action opening the Reroute wizard with the new row pre-loaded.
+- `imap_browser_reply(folder, uid)` / `imap_browser_reply_all` / `imap_browser_forward` — ingest if needed, then return the composer action via `action_reply` / `action_reply_all` / `action_forward` on the resulting `bf.email`.
+- `imap_browser_mark_handled(folder, uid)` — ingest + `action_archive` (sets `is_handled=True` and triggers the bilateral writeback to `Archives/{YYYY}`).
+- `imap_browser_move(folder, uid, dst_folder)` — `COPY uid dst_folder` + `STORE +FLAGS \Deleted` + `EXPUNGE`. Refuses empty / identical destination. Does NOT touch `bf.email`.
+- `imap_browser_move_to_trash(folder, uid)` — `COPY uid Trash` + `EXPUNGE`. Refuses when source is already `Trash/*`.
+
 ## Security
 
 - **Two security groups**: User (read/write) and Manager (full CRUD + sync wizards).
@@ -121,7 +157,9 @@ The 8 heuristic signals are based on empirical email-overload research:
 - IMAP credentials are stored in `ir.config_parameter` (system-only access). Passwords are not exposed in views or logs.
 - Re-routing wizard validates `check_access_rights("write")` and `check_access_rule("write")` on the target record before posting.
 - All SQL uses parameterized placeholders.
-- `sudo()` calls are scoped to system-config reads, cross-model display-name lookups, and partner resolution by email.
+- `sudo()` calls are scoped to system-config reads (`bf_email.imap_*` ICPs), cross-model display-name lookups, partner resolution by email, and the OWL browser's RPC surface (IMAP I/O always runs as the configured IMAP user — never as the calling Odoo user).
+- IMAP body preview in the OWL browser renders inside `<iframe sandbox="allow-same-origin">` — no `allow-scripts`, so JS embedded in inbound mail is neutralised.
+- Drag-and-drop and `Supprimer (Trash)` only touch IMAP state via parameterised `UID COPY` / `UID STORE` / `EXPUNGE`. Refuses permanent delete from `Trash/*` (user must go through the IMAP webmail).
 
 ## License
 
