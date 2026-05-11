@@ -92,7 +92,7 @@
                         <div class="card h-100">
                             <div class="card-body text-center">
                                 <h2 class="text-primary mb-0">
-                                    <t t-esc="state.data.uptime_overview.avg_response_ms"/> ms
+                                    <t t-esc="formatResponseTime(state.data.uptime_overview.avg_response_ms)"/>
                                 </h2>
                                 <small class="text-muted">Temps de réponse moyen</small>
                             </div>
@@ -116,23 +116,24 @@
                     </div>
                 </div>
 
-                <!-- Uptime by Service Table -->
-                <div t-if="state.data.uptime_by_service.length > 0" class="row mb-4">
+                <!-- Uptime by Software (grouped, expandable) -->
+                <div t-if="state.data.uptime_by_software.length > 0" class="row mb-4">
                     <div class="col-12">
                         <div class="card">
                             <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                                <h6 class="mb-0"><i class="fa fa-list me-2"/>Disponibilité par service</h6>
+                                <h6 class="mb-0"><i class="fa fa-cubes me-2"/>Disponibilité par logiciel</h6>
                                 <span class="badge text-bg-secondary">
+                                    <t t-esc="state.data.uptime_by_software.length"/> logiciels ·
                                     <t t-esc="state.data.uptime_by_service.length"/> services
                                 </span>
                             </div>
                             <div class="card-body p-0">
                                 <div class="table-responsive">
-                                    <table class="table table-sm table-hover mb-0">
+                                    <table class="table table-sm table-hover mb-0 align-middle">
                                         <thead class="table-light">
                                             <tr>
-                                                <th>Statut</th>
-                                                <th>Service</th>
+                                                <th style="width: 28px;"/>
+                                                <th>Logiciel / Service</th>
                                                 <th>Client</th>
                                                 <th class="text-end">24h</th>
                                                 <th class="text-end">7j</th>
@@ -143,37 +144,44 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            <t t-foreach="state.data.uptime_by_service" t-as="svc" t-key="svc.service_id">
-                                                <tr class="cursor-pointer" t-on-click="() => this.openService(svc.service_id)">
-                                                    <td>
-                                                        <span t-att-class="'badge ' + getStatusClass(svc.current_status)"
-                                                              t-esc="getStatusLabel(svc.current_status)"/>
+                                            <t t-foreach="state.data.uptime_by_software" t-as="grp" t-key="grp.software_id">
+                                                <!-- Group summary row (clickable) -->
+                                                <tr class="cursor-pointer table-group-divider"
+                                                    t-att-class="grp.has_issues ? 'table-warning' : ''"
+                                                    t-on-click="() => this.toggleSoftware(grp.software_id)">
+                                                    <td class="text-center text-muted">
+                                                        <i t-attf-class="fa {{isSoftwareExpanded(grp.software_id) ? 'fa-caret-down' : 'fa-caret-right'}}"/>
                                                     </td>
                                                     <td>
-                                                        <strong t-esc="svc.service_name"/>
-                                                        <br t-if="svc.service_code"/>
-                                                        <small t-if="svc.service_code" class="text-muted" t-esc="svc.service_code"/>
+                                                        <strong t-esc="grp.software_name"/>
+                                                        <span class="badge text-bg-light ms-2"
+                                                              t-esc="grp.service_count + ' svc'"/>
+                                                        <span t-if="grp.worst_status !== 'up'"
+                                                              t-att-class="'badge ms-1 ' + getStatusClass(grp.worst_status)"
+                                                              t-esc="getStatusLabel(grp.worst_status)"/>
                                                     </td>
-                                                    <td t-esc="svc.partner_name"/>
-                                                    <td class="text-end">
-                                                        <span t-att-class="getUptimeClass(svc.uptime_24h)">
-                                                            <t t-esc="svc.uptime_24h"/>%
+                                                    <td class="text-muted small">
+                                                        <span t-if="grp.down_count > 0" class="text-danger me-2">
+                                                            <i class="fa fa-circle me-1"/><t t-esc="grp.down_count"/> en panne
+                                                        </span>
+                                                        <span t-if="grp.degraded_count > 0" class="text-warning me-2">
+                                                            <i class="fa fa-circle me-1"/><t t-esc="grp.degraded_count"/> dégradé
+                                                        </span>
+                                                        <span t-if="grp.up_count > 0" class="text-success">
+                                                            <i class="fa fa-circle me-1"/><t t-esc="grp.up_count"/> ok
                                                         </span>
                                                     </td>
                                                     <td class="text-end">
-                                                        <span t-att-class="getUptimeClass(svc.uptime_7d)">
-                                                            <t t-esc="svc.uptime_7d"/>%
+                                                        <span t-att-class="getUptimeClass(grp.min_uptime_24h)">
+                                                            <t t-esc="grp.min_uptime_24h"/>%
                                                         </span>
                                                     </td>
+                                                    <td class="text-end text-muted">—</td>
+                                                    <td class="text-end text-muted">—</td>
                                                     <td class="text-end">
-                                                        <span t-att-class="getUptimeClass(svc.uptime_30d)">
-                                                            <t t-esc="svc.uptime_30d"/>%
-                                                        </span>
-                                                    </td>
-                                                    <td class="text-end">
-                                                        <t t-if="svc.storage_quota_gb > 0">
-                                                            <span t-att-class="svc.storage_used_percent >= 90 ? 'text-danger fw-bold' : svc.storage_used_percent >= 75 ? 'text-warning' : ''">
-                                                                <t t-esc="svc.storage_used_percent"/>%
+                                                        <t t-if="grp.max_storage_pct > 0">
+                                                            <span t-att-class="grp.max_storage_pct >= 90 ? 'text-danger fw-bold' : grp.max_storage_pct >= 75 ? 'text-warning' : 'text-muted'">
+                                                                <t t-esc="grp.max_storage_pct"/>%
                                                             </span>
                                                         </t>
                                                         <t t-else="">
@@ -181,10 +189,54 @@
                                                         </t>
                                                     </td>
                                                     <td class="text-end">
-                                                        <t t-esc="formatResponseTime(svc.avg_response_ms)"/>
+                                                        <t t-esc="formatResponseTime(grp.max_avg_response_ms)"/>
                                                     </td>
-                                                    <td class="text-end text-muted" t-esc="svc.total_checks_30d"/>
+                                                    <td class="text-end text-muted">—</td>
                                                 </tr>
+
+                                                <!-- Per-service detail rows (shown when expanded) -->
+                                                <t t-if="isSoftwareExpanded(grp.software_id)"
+                                                   t-foreach="grp.services" t-as="svc" t-key="svc.service_id">
+                                                    <tr class="cursor-pointer" t-on-click="() => this.openService(svc.service_id)">
+                                                        <td/>
+                                                        <td class="ps-4">
+                                                            <span t-att-class="'badge me-2 ' + getStatusClass(svc.current_status)"
+                                                                  t-esc="getStatusLabel(svc.current_status)"/>
+                                                            <span t-esc="svc.service_name"/>
+                                                            <small t-if="svc.service_code" class="text-muted ms-1">(<t t-esc="svc.service_code"/>)</small>
+                                                        </td>
+                                                        <td class="text-muted" t-esc="svc.partner_name"/>
+                                                        <td class="text-end">
+                                                            <span t-att-class="getUptimeClass(svc.uptime_24h)">
+                                                                <t t-esc="svc.uptime_24h"/>%
+                                                            </span>
+                                                        </td>
+                                                        <td class="text-end">
+                                                            <span t-att-class="getUptimeClass(svc.uptime_7d)">
+                                                                <t t-esc="svc.uptime_7d"/>%
+                                                            </span>
+                                                        </td>
+                                                        <td class="text-end">
+                                                            <span t-att-class="getUptimeClass(svc.uptime_30d)">
+                                                                <t t-esc="svc.uptime_30d"/>%
+                                                            </span>
+                                                        </td>
+                                                        <td class="text-end">
+                                                            <t t-if="svc.storage_quota_gb > 0">
+                                                                <span t-att-class="svc.storage_used_percent >= 90 ? 'text-danger fw-bold' : svc.storage_used_percent >= 75 ? 'text-warning' : ''">
+                                                                    <t t-esc="svc.storage_used_percent"/>%
+                                                                </span>
+                                                            </t>
+                                                            <t t-else="">
+                                                                <span class="text-muted">-</span>
+                                                            </t>
+                                                        </td>
+                                                        <td class="text-end">
+                                                            <t t-esc="formatResponseTime(svc.avg_response_ms)"/>
+                                                        </td>
+                                                        <td class="text-end text-muted" t-esc="svc.total_checks_30d"/>
+                                                    </tr>
+                                                </t>
                                             </t>
                                         </tbody>
                                     </table>

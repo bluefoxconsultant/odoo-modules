@@ -18,6 +18,7 @@ export class HostingDashboard extends Component {
             data: null,
             loading: true,
             refreshing: false,
+            expandedSoftware: {},
         });
 
         onWillStart(async () => {
@@ -33,10 +34,26 @@ export class HostingDashboard extends Component {
                 "get_dashboard_data",
                 []
             );
+            // Auto-expand groups flagged as worthy of mention.
+            const expanded = {};
+            for (const g of this.state.data.uptime_by_software || []) {
+                if (g.has_issues) {
+                    expanded[g.software_id] = true;
+                }
+            }
+            this.state.expandedSoftware = expanded;
         } catch (error) {
             console.error("Error loading dashboard data:", error);
         }
         this.state.loading = false;
+    }
+
+    toggleSoftware(softwareId) {
+        this.state.expandedSoftware[softwareId] = !this.state.expandedSoftware[softwareId];
+    }
+
+    isSoftwareExpanded(softwareId) {
+        return !!this.state.expandedSoftware[softwareId];
     }
 
     async refresh() {

@@ -30,9 +30,11 @@ class HostingDashboard(models.Model):
     @api.model
     def get_dashboard_data(self):
         """Return all dashboard data as a single dict for the OWL component."""
+        services_flat = self._get_uptime_by_service()
         return {
             "uptime_overview": self._get_uptime_overview(),
-            "uptime_by_service": self._get_uptime_by_service(),
+            "uptime_by_service": services_flat,
+            "uptime_by_software": self._group_by_software(services_flat),
             "alerts": self._get_alerts(),
             "expiring": self._get_expiring(),
             "maintenance": self._get_maintenance(),
@@ -541,6 +543,7 @@ class HostingDashboard(models.Model):
     @api.model
     def _get_uptime_by_service(self):
         """Per-service uptime for 24h/7d/30d windows — single SQL query."""
+        lang = self.env.lang or "en_US"
         self.env.cr.execute("""
             WITH service_ids AS (
                 SELECT id FROM hosting_service
@@ -593,6 +596,8 @@ class HostingDashboard(models.Model):
                 COALESCE(hs.code, '') AS service_code,
                 COALESCE(rp.name, '') AS partner_name,
                 COALESCE(hs.server_url, '') AS server_url,
+                hs.software_id AS software_id,
+                COALESCE(sw.name->>%(lang)s, sw.name->>'en_US', '') AS software_name,
                 COALESCE(lc.status, 'unknown') AS current_status,
                 lc.check_date AS last_check,
                 COALESCE(a.total_24h, 0) AS total_24h,
@@ -607,6 +612,7 @@ class HostingDashboard(models.Model):
                 COALESCE(hs.storage_used_percent, 0) AS storage_used_percent
             FROM hosting_service hs
             LEFT JOIN res_partner rp ON rp.id = hs.partner_id
+            LEFT JOIN hosting_software sw ON sw.id = hs.software_id
             LEFT JOIN latest_check lc ON lc.service_id = hs.id
             LEFT JOIN agg a ON a.service_id = hs.id
             WHERE hs.state = 'active'
@@ -620,7 +626,7 @@ class HostingDashboard(models.Model):
                     ELSE 4
                 END,
                 hs.name
-        """)
+        """, {"lang": lang})
         rows = self.env.cr.dictfetchall()
 
         results = []
@@ -634,6 +640,8 @@ class HostingDashboard(models.Model):
                 "service_code": r["service_code"],
                 "partner_name": r["partner_name"],
                 "server_url": r["server_url"],
+                "software_id": r["software_id"] or 0,
+                "software_name": r["software_name"] or "(Sans logiciel)",
                 "current_status": r["current_status"],
                 "last_check": (
                     fields.Datetime.to_string(r["last_check"])
@@ -655,6 +663,79 @@ class HostingDashboard(models.Model):
                 "storage_used_percent": round(r["storage_used_percent"], 1),
             })
         return results
+
+    @api.model
+    def _group_by_software(self, services):
+        """Aggregate per-service rows into per-software groups.
+
+        Each group exposes a summary (counts, worst status, slowest avg,
+        worst uptime/storage) plus a `has_issues` flag the frontend uses to
+        auto-expand the group. Non-up status, sub-99.5% 24h uptime,
+        storage ≥75%, or avg response above the configured threshold each
+        flag the group as worthy of mention.
+        """
+        threshold = int(
+            self.env["ir.config_parameter"].sudo()
+            .get_param("hosting.response_time_threshold_ms", "5000")
+        )
+        status_rank = {
+            "down": 0, "timeout": 1, "degraded": 2,
+            "unknown": 3, "up": 4,
+        }
+        groups = {}
+        for svc in services:
+            key = svc["software_id"]
+            g = groups.get(key)
+            if not g:
+                g = {
+                    "software_id": key,
+                    "software_name": svc["software_name"],
+                    "service_count": 0,
+                    "up_count": 0,
+                    "degraded_count": 0,
+                    "down_count": 0,
+                    "timeout_count": 0,
+                    "unknown_count": 0,
+                    "worst_status": "up",
+                    "min_uptime_24h": 100.0,
+                    "max_avg_response_ms": 0,
+                    "max_storage_pct": 0.0,
+                    "has_issues": False,
+                    "services": [],
+                }
+                groups[key] = g
+            g["service_count"] += 1
+            g["services"].append(svc)
+            status = svc["current_status"]
+            g[f"{status}_count" if status in ("up", "degraded", "down", "timeout", "unknown") else "unknown_count"] += 1
+            if status_rank.get(status, 5) < status_rank.get(g["worst_status"], 5):
+                g["worst_status"] = status
+            if svc["uptime_24h"] < g["min_uptime_24h"]:
+                g["min_uptime_24h"] = svc["uptime_24h"]
+            if svc["avg_response_ms"] > g["max_avg_response_ms"]:
+                g["max_avg_response_ms"] = svc["avg_response_ms"]
+            if svc["storage_used_percent"] > g["max_storage_pct"]:
+                g["max_storage_pct"] = svc["storage_used_percent"]
+
+        for g in groups.values():
+            g["has_issues"] = (
+                g["worst_status"] != "up"
+                or g["min_uptime_24h"] < 99.5
+                or g["max_storage_pct"] >= 75.0
+                or g["max_avg_response_ms"] > threshold
+            )
+            g["min_uptime_24h"] = round(g["min_uptime_24h"], 1)
+            g["max_storage_pct"] = round(g["max_storage_pct"], 1)
+
+        # Sort: issues first (by worst status), then by software name
+        return sorted(
+            groups.values(),
+            key=lambda g: (
+                0 if g["has_issues"] else 1,
+                status_rank.get(g["worst_status"], 5),
+                g["software_name"].lower(),
+            ),
+        )
 
     @api.model
     def _get_alerts(self):
