@@ -14,6 +14,10 @@
             <field name="email_to">{{ object.email }}</field>
             <field name="subject">{{ ctx.get('email_subject', 'Information importante') }} - {{ object.company_id.name }}</field>
             <field name="body_html" type="html">
+
+<t t-set="company" t-value="(getattr(object, 'company_id', False)) or user.company_id"/>
+<t t-set="brand_primary" t-value="(company and company.report_brand_primary) or '#714B67'"/>
+<t t-set="brand_dark" t-value="(company and company.report_brand_dark) or '#212529'"/>
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F8FAFC;">
   <tbody>
     <tr>
@@ -26,7 +30,7 @@
                   <tbody>
                     <!-- Header -->
                     <tr>
-                      <td style="background-color:#22303B;padding:20px 32px;border-radius:16px 16px 0 0;">
+                      <td t-attf-style="background-color:{{ brand_dark }};padding:20px 32px;border-radius:16px 16px 0 0;">
                         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                           <tbody>
                             <tr>
@@ -46,13 +50,13 @@
 
                     <!-- Accent bar - {{ object.company_id.name }} blue -->
                     <tr>
-                      <td style="height:4px;line-height:4px;background-color:#29ABE2;">&amp;nbsp;</td>
+                      <td t-attf-style="height:4px;line-height:4px;background-color:{{ brand_primary }};">&amp;nbsp;</td>
                     </tr>
 
                     <!-- Content -->
                     <tr>
                       <td style="padding:32px;">
-                        <p style="margin:0 0 20px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:18px;line-height:28px;color:#22303B;font-weight:500;">
+                        <p t-attf-style="margin:0 0 20px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:18px;line-height:28px;color:{{ brand_dark }};font-weight:500;">
                           Bonjour <t t-out="object.name or 'cher client'"/>,
                         </p>
 
@@ -62,7 +66,7 @@
                         <p style="margin:24px 0 0 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;line-height:26px;color:#374151;font-weight:300;">
                           N'h&#233;sitez pas &#224; nous contacter pour toute question.
                         </p>
-                        <p style="margin:16px 0 0 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;line-height:26px;color:#22303B;font-weight:400;">
+                        <p t-attf-style="margin:16px 0 0 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;line-height:26px;color:{{ brand_dark }};font-weight:400;">
                           Cordialement,<br/>
                           <strong>L'&#233;quipe {{ object.company_id.name }}</strong>
                         </p>
@@ -85,17 +89,17 @@
                           <tbody>
                             <tr>
                               <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#6B7280;line-height:20px;">
-                                <strong style="color:#22303B;font-size:14px;">{{ object.company_id.name }}</strong><br/>
+                                <strong t-attf-style="color:{{ brand_dark }};font-size:14px;">{{ object.company_id.name }}</strong><br/>
                                 Solutions &#233;thiques et souveraines pour vos donn&#233;es.
                               </td>
                             </tr>
                             <tr>
                               <td style="padding-top:12px;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;color:#9CA3AF;line-height:18px;">
-                                <a href="mailto:{{ (object.company_id.email or '') }}" style="color:#29ABE2;text-decoration:none;">{{ (object.company_id.email or '') }}</a>
+                                <a href="mailto:{{ (object.company_id.email or '') }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;">{{ (object.company_id.email or '') }}</a>
                                 <span style="color:#D1D5DB;"> &#183; </span>
-                                <a href="tel:{{ (object.company_id.phone or '') }}" style="color:#29ABE2;text-decoration:none;">{{ (object.company_id.phone or '') }}</a>
+                                <a href="tel:{{ (object.company_id.phone or '') }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;">{{ (object.company_id.phone or '') }}</a>
                                 <span style="color:#D1D5DB;"> &#183; </span>
-                                <a href="#" style="color:#29ABE2;text-decoration:none;">{{ (object.company_id.website or '').replace('https://','').replace('http://','') or 'example.com' }}</a>
+                                <a href="#" t-attf-style="color:{{ brand_primary }};text-decoration:none;">{{ (object.company_id.website or '').replace('https://','').replace('http://','') or 'example.com' }}</a>
                               </td>
                             </tr>
                             <tr>
@@ -124,8 +128,8 @@
                 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="width:600px;max-width:600px;margin:12px auto 0;">
                   <tbody>
                     <tr>
-                      <td style="height:3px;line-height:3px;background-color:#29ABE2;width:50%;border-radius:2px 0 0 2px;">&amp;nbsp;</td>
-                      <td style="height:3px;line-height:3px;background-color:#22303B;width:50%;border-radius:0 2px 2px 0;">&amp;nbsp;</td>
+                      <td t-attf-style="height:3px;line-height:3px;background-color:{{ brand_primary }};width:50%;border-radius:2px 0 0 2px;">&amp;nbsp;</td>
+                      <td t-attf-style="height:3px;line-height:3px;background-color:{{ brand_dark }};width:50%;border-radius:0 2px 2px 0;">&amp;nbsp;</td>
                     </tr>
                   </tbody>
                 </table>
@@ -154,6 +158,10 @@
             <field name="email_to">{{ object.email }}</field>
             <field name="subject">Rapport mensuel de vos services - {{ ctx.get('report_month', 'ce mois') }} - {{ object.company_id.name }}</field>
             <field name="body_html" type="html">
+
+<t t-set="company" t-value="(getattr(object, 'company_id', False)) or user.company_id"/>
+<t t-set="brand_primary" t-value="(company and company.report_brand_primary) or '#714B67'"/>
+<t t-set="brand_dark" t-value="(company and company.report_brand_dark) or '#212529'"/>
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F8FAFC;">
   <tbody>
     <tr>
@@ -166,7 +174,7 @@
                   <tbody>
                     <!-- Header -->
                     <tr>
-                      <td style="background-color:#22303B;padding:20px 32px;border-radius:16px 16px 0 0;">
+                      <td t-attf-style="background-color:{{ brand_dark }};padding:20px 32px;border-radius:16px 16px 0 0;">
                         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                           <tbody>
                             <tr>
@@ -186,13 +194,13 @@
 
                     <!-- Accent bar - {{ object.company_id.name }} blue -->
                     <tr>
-                      <td style="height:4px;line-height:4px;background-color:#29ABE2;">&amp;nbsp;</td>
+                      <td t-attf-style="height:4px;line-height:4px;background-color:{{ brand_primary }};">&amp;nbsp;</td>
                     </tr>
 
                     <!-- Content -->
                     <tr>
                       <td style="padding:32px;">
-                        <p style="margin:0 0 8px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:18px;line-height:28px;color:#22303B;font-weight:500;">
+                        <p t-attf-style="margin:0 0 8px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:18px;line-height:28px;color:{{ brand_dark }};font-weight:500;">
                           Bonjour <t t-out="object.name or 'cher client'"/>,
                         </p>
                         <p style="margin:0 0 24px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;line-height:26px;color:#374151;font-weight:300;">
@@ -208,7 +216,7 @@
                                 <p style="margin:0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;color:#0369A1;text-transform:uppercase;letter-spacing:0.5px;">
                                   Services actifs
                                 </p>
-                                <p style="margin:4px 0 0 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:32px;font-weight:700;color:#22303B;line-height:40px;">
+                                <p t-attf-style="margin:4px 0 0 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:32px;font-weight:700;color:{{ brand_dark }};line-height:40px;">
                                   <t t-out="ctx.get('services_count', '-')"/>
                                 </p>
                               </td>
@@ -218,7 +226,7 @@
                                 <p style="margin:0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;color:#047857;text-transform:uppercase;letter-spacing:0.5px;">
                                   Disponibilit&#233;
                                 </p>
-                                <p style="margin:4px 0 0 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:32px;font-weight:700;color:#22303B;line-height:40px;">
+                                <p t-attf-style="margin:4px 0 0 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:32px;font-weight:700;color:{{ brand_dark }};line-height:40px;">
                                   <t t-out="ctx.get('uptime_rate', '-')"/>
                                 </p>
                               </td>
@@ -230,7 +238,7 @@
                                 <p style="margin:0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;color:#15803D;text-transform:uppercase;letter-spacing:0.5px;">
                                   Sauvegardes r&#233;ussies
                                 </p>
-                                <p style="margin:4px 0 0 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:32px;font-weight:700;color:#22303B;line-height:40px;">
+                                <p t-attf-style="margin:4px 0 0 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:32px;font-weight:700;color:{{ brand_dark }};line-height:40px;">
                                   <t t-out="ctx.get('backups_ok', '-')"/>
                                 </p>
                               </td>
@@ -240,7 +248,7 @@
                                 <p style="margin:0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;color:#1D4ED8;text-transform:uppercase;letter-spacing:0.5px;">
                                   Mises &#224; jour appliqu&#233;es
                                 </p>
-                                <p style="margin:4px 0 0 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:32px;font-weight:700;color:#22303B;line-height:40px;">
+                                <p t-attf-style="margin:4px 0 0 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:32px;font-weight:700;color:{{ brand_dark }};line-height:40px;">
                                   <t t-out="ctx.get('updates_count', '-')"/>
                                 </p>
                               </td>
@@ -257,7 +265,7 @@
                                   <p style="margin:0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;color:#92400E;text-transform:uppercase;letter-spacing:0.5px;">
                                     Prochaine maintenance planifi&#233;e
                                   </p>
-                                  <p style="margin:6px 0 0 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;font-weight:500;color:#22303B;">
+                                  <p t-attf-style="margin:6px 0 0 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;font-weight:500;color:{{ brand_dark }};">
                                     <t t-out="ctx.get('next_maintenance')"/>
                                   </p>
                                 </td>
@@ -274,7 +282,7 @@
                         <p style="margin:24px 0 0 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;line-height:26px;color:#374151;font-weight:300;">
                           Pour toute question sur ce rapport, n'h&#233;sitez pas &#224; nous contacter.
                         </p>
-                        <p style="margin:16px 0 0 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;line-height:26px;color:#22303B;font-weight:400;">
+                        <p t-attf-style="margin:16px 0 0 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;line-height:26px;color:{{ brand_dark }};font-weight:400;">
                           Cordialement,<br/>
                           <strong>L'&#233;quipe {{ object.company_id.name }}</strong>
                         </p>
@@ -297,17 +305,17 @@
                           <tbody>
                             <tr>
                               <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#6B7280;line-height:20px;">
-                                <strong style="color:#22303B;font-size:14px;">{{ object.company_id.name }}</strong><br/>
+                                <strong t-attf-style="color:{{ brand_dark }};font-size:14px;">{{ object.company_id.name }}</strong><br/>
                                 Solutions &#233;thiques et souveraines pour vos donn&#233;es.
                               </td>
                             </tr>
                             <tr>
                               <td style="padding-top:12px;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;color:#9CA3AF;line-height:18px;">
-                                <a href="mailto:{{ (object.company_id.email or '') }}" style="color:#29ABE2;text-decoration:none;">{{ (object.company_id.email or '') }}</a>
+                                <a href="mailto:{{ (object.company_id.email or '') }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;">{{ (object.company_id.email or '') }}</a>
                                 <span style="color:#D1D5DB;"> &#183; </span>
-                                <a href="tel:{{ (object.company_id.phone or '') }}" style="color:#29ABE2;text-decoration:none;">{{ (object.company_id.phone or '') }}</a>
+                                <a href="tel:{{ (object.company_id.phone or '') }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;">{{ (object.company_id.phone or '') }}</a>
                                 <span style="color:#D1D5DB;"> &#183; </span>
-                                <a href="#" style="color:#29ABE2;text-decoration:none;">{{ (object.company_id.website or '').replace('https://','').replace('http://','') or 'example.com' }}</a>
+                                <a href="#" t-attf-style="color:{{ brand_primary }};text-decoration:none;">{{ (object.company_id.website or '').replace('https://','').replace('http://','') or 'example.com' }}</a>
                               </td>
                             </tr>
                             <tr>
@@ -336,8 +344,8 @@
                 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="width:600px;max-width:600px;margin:12px auto 0;">
                   <tbody>
                     <tr>
-                      <td style="height:3px;line-height:3px;background-color:#29ABE2;width:50%;border-radius:2px 0 0 2px;">&amp;nbsp;</td>
-                      <td style="height:3px;line-height:3px;background-color:#22303B;width:50%;border-radius:0 2px 2px 0;">&amp;nbsp;</td>
+                      <td t-attf-style="height:3px;line-height:3px;background-color:{{ brand_primary }};width:50%;border-radius:2px 0 0 2px;">&amp;nbsp;</td>
+                      <td t-attf-style="height:3px;line-height:3px;background-color:{{ brand_dark }};width:50%;border-radius:0 2px 2px 0;">&amp;nbsp;</td>
                     </tr>
                   </tbody>
                 </table>
@@ -367,6 +375,10 @@
             <field name="email_to">{{ object.email }}</field>
             <field name="subject">Avis de maintenance planifi&#233;e - {{ ctx.get('maintenance_date', '') }} - {{ object.company_id.name }}</field>
             <field name="body_html" type="html">
+
+<t t-set="company" t-value="(getattr(object, 'company_id', False)) or user.company_id"/>
+<t t-set="brand_primary" t-value="(company and company.report_brand_primary) or '#714B67'"/>
+<t t-set="brand_dark" t-value="(company and company.report_brand_dark) or '#212529'"/>
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F8FAFC;">
   <tbody>
     <tr>
@@ -379,7 +391,7 @@
                   <tbody>
                     <!-- Header -->
                     <tr>
-                      <td style="background-color:#22303B;padding:20px 32px;border-radius:16px 16px 0 0;">
+                      <td t-attf-style="background-color:{{ brand_dark }};padding:20px 32px;border-radius:16px 16px 0 0;">
                         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                           <tbody>
                             <tr>
@@ -405,7 +417,7 @@
                     <!-- Content -->
                     <tr>
                       <td style="padding:32px;">
-                        <p style="margin:0 0 8px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:18px;line-height:28px;color:#22303B;font-weight:500;">
+                        <p t-attf-style="margin:0 0 8px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:18px;line-height:28px;color:{{ brand_dark }};font-weight:500;">
                           Bonjour <t t-out="object.name or 'cher client'"/>,
                         </p>
                         <p style="margin:0 0 24px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;line-height:26px;color:#374151;font-weight:300;">
@@ -424,7 +436,7 @@
                                       <td width="140" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;color:#92400E;text-transform:uppercase;letter-spacing:0.5px;vertical-align:top;padding-top:2px;">
                                         Date et heure
                                       </td>
-                                      <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;font-weight:500;color:#22303B;">
+                                      <td t-attf-style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;font-weight:500;color:{{ brand_dark }};">
                                         <t t-out="ctx.get('maintenance_date', '&#192; d&#233;terminer')"/>
                                       </td>
                                     </tr>
@@ -441,7 +453,7 @@
                                       <td width="140" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;color:#92400E;text-transform:uppercase;letter-spacing:0.5px;vertical-align:top;padding-top:2px;">
                                         Dur&#233;e estim&#233;e
                                       </td>
-                                      <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;font-weight:500;color:#22303B;">
+                                      <td t-attf-style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;font-weight:500;color:{{ brand_dark }};">
                                         <t t-out="ctx.get('maintenance_duration', '&#192; d&#233;terminer')"/>
                                       </td>
                                     </tr>
@@ -458,7 +470,7 @@
                                       <td width="140" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;color:#92400E;text-transform:uppercase;letter-spacing:0.5px;vertical-align:top;padding-top:2px;">
                                         Services affect&#233;s
                                       </td>
-                                      <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;font-weight:500;color:#22303B;">
+                                      <td t-attf-style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;font-weight:500;color:{{ brand_dark }};">
                                         <t t-out="ctx.get('affected_services', 'Tous les services')"/>
                                       </td>
                                     </tr>
@@ -475,7 +487,7 @@
                                       <td width="140" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;color:#92400E;text-transform:uppercase;letter-spacing:0.5px;vertical-align:top;padding-top:2px;">
                                         Impact attendu
                                       </td>
-                                      <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;font-weight:500;color:#22303B;">
+                                      <td t-attf-style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;font-weight:500;color:{{ brand_dark }};">
                                         <t t-out="ctx.get('expected_impact', 'Interruption temporaire possible')"/>
                                       </td>
                                     </tr>
@@ -494,7 +506,7 @@
                         <p style="margin:24px 0 0 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;line-height:26px;color:#374151;font-weight:300;">
                           Nous ferons tout pour minimiser l'impact sur vos op&#233;rations. En cas de question, n'h&#233;sitez pas &#224; nous joindre.
                         </p>
-                        <p style="margin:16px 0 0 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;line-height:26px;color:#22303B;font-weight:400;">
+                        <p t-attf-style="margin:16px 0 0 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;line-height:26px;color:{{ brand_dark }};font-weight:400;">
                           Cordialement,<br/>
                           <strong>L'&#233;quipe {{ object.company_id.name }}</strong>
                         </p>
@@ -517,17 +529,17 @@
                           <tbody>
                             <tr>
                               <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#6B7280;line-height:20px;">
-                                <strong style="color:#22303B;font-size:14px;">{{ object.company_id.name }}</strong><br/>
+                                <strong t-attf-style="color:{{ brand_dark }};font-size:14px;">{{ object.company_id.name }}</strong><br/>
                                 Solutions &#233;thiques et souveraines pour vos donn&#233;es.
                               </td>
                             </tr>
                             <tr>
                               <td style="padding-top:12px;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;color:#9CA3AF;line-height:18px;">
-                                <a href="mailto:{{ (object.company_id.email or '') }}" style="color:#29ABE2;text-decoration:none;">{{ (object.company_id.email or '') }}</a>
+                                <a href="mailto:{{ (object.company_id.email or '') }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;">{{ (object.company_id.email or '') }}</a>
                                 <span style="color:#D1D5DB;"> &#183; </span>
-                                <a href="tel:{{ (object.company_id.phone or '') }}" style="color:#29ABE2;text-decoration:none;">{{ (object.company_id.phone or '') }}</a>
+                                <a href="tel:{{ (object.company_id.phone or '') }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;">{{ (object.company_id.phone or '') }}</a>
                                 <span style="color:#D1D5DB;"> &#183; </span>
-                                <a href="#" style="color:#29ABE2;text-decoration:none;">{{ (object.company_id.website or '').replace('https://','').replace('http://','') or 'example.com' }}</a>
+                                <a href="#" t-attf-style="color:{{ brand_primary }};text-decoration:none;">{{ (object.company_id.website or '').replace('https://','').replace('http://','') or 'example.com' }}</a>
                               </td>
                             </tr>
                             <tr>
@@ -557,7 +569,7 @@
                   <tbody>
                     <tr>
                       <td style="height:3px;line-height:3px;background-color:#F59E0B;width:50%;border-radius:2px 0 0 2px;">&amp;nbsp;</td>
-                      <td style="height:3px;line-height:3px;background-color:#22303B;width:50%;border-radius:0 2px 2px 0;">&amp;nbsp;</td>
+                      <td t-attf-style="height:3px;line-height:3px;background-color:{{ brand_dark }};width:50%;border-radius:0 2px 2px 0;">&amp;nbsp;</td>
                     </tr>
                   </tbody>
                 </table>
@@ -587,6 +599,10 @@
             <field name="email_to">{{ object.email }}</field>
             <field name="subject">Rapport d'intervention compl&#233;t&#233;e - {{ object.company_id.name }}</field>
             <field name="body_html" type="html">
+
+<t t-set="company" t-value="(getattr(object, 'company_id', False)) or user.company_id"/>
+<t t-set="brand_primary" t-value="(company and company.report_brand_primary) or '#714B67'"/>
+<t t-set="brand_dark" t-value="(company and company.report_brand_dark) or '#212529'"/>
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F8FAFC;">
   <tbody>
     <tr>
@@ -599,7 +615,7 @@
                   <tbody>
                     <!-- Header -->
                     <tr>
-                      <td style="background-color:#22303B;padding:20px 32px;border-radius:16px 16px 0 0;">
+                      <td t-attf-style="background-color:{{ brand_dark }};padding:20px 32px;border-radius:16px 16px 0 0;">
                         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                           <tbody>
                             <tr>
@@ -625,7 +641,7 @@
                     <!-- Content -->
                     <tr>
                       <td style="padding:32px;">
-                        <p style="margin:0 0 8px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:18px;line-height:28px;color:#22303B;font-weight:500;">
+                        <p t-attf-style="margin:0 0 8px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:18px;line-height:28px;color:{{ brand_dark }};font-weight:500;">
                           Bonjour <t t-out="object.name or 'cher client'"/>,
                         </p>
                         <p style="margin:0 0 24px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;line-height:26px;color:#374151;font-weight:300;">
@@ -710,7 +726,7 @@
                         <p style="margin:24px 0 0 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;line-height:26px;color:#374151;font-weight:300;">
                           N'h&#233;sitez pas &#224; nous contacter si vous avez des questions.
                         </p>
-                        <p style="margin:16px 0 0 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;line-height:26px;color:#22303B;font-weight:400;">
+                        <p t-attf-style="margin:16px 0 0 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;line-height:26px;color:{{ brand_dark }};font-weight:400;">
                           Cordialement,<br/>
                           <strong>L'&#233;quipe {{ object.company_id.name }}</strong>
                         </p>
@@ -733,17 +749,17 @@
                           <tbody>
                             <tr>
                               <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#6B7280;line-height:20px;">
-                                <strong style="color:#22303B;font-size:14px;">{{ object.company_id.name }}</strong><br/>
+                                <strong t-attf-style="color:{{ brand_dark }};font-size:14px;">{{ object.company_id.name }}</strong><br/>
                                 Solutions &#233;thiques et souveraines pour vos donn&#233;es.
                               </td>
                             </tr>
                             <tr>
                               <td style="padding-top:12px;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;color:#9CA3AF;line-height:18px;">
-                                <a href="mailto:{{ (object.company_id.email or '') }}" style="color:#29ABE2;text-decoration:none;">{{ (object.company_id.email or '') }}</a>
+                                <a href="mailto:{{ (object.company_id.email or '') }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;">{{ (object.company_id.email or '') }}</a>
                                 <span style="color:#D1D5DB;"> &#183; </span>
-                                <a href="tel:{{ (object.company_id.phone or '') }}" style="color:#29ABE2;text-decoration:none;">{{ (object.company_id.phone or '') }}</a>
+                                <a href="tel:{{ (object.company_id.phone or '') }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;">{{ (object.company_id.phone or '') }}</a>
                                 <span style="color:#D1D5DB;"> &#183; </span>
-                                <a href="#" style="color:#29ABE2;text-decoration:none;">{{ (object.company_id.website or '').replace('https://','').replace('http://','') or 'example.com' }}</a>
+                                <a href="#" t-attf-style="color:{{ brand_primary }};text-decoration:none;">{{ (object.company_id.website or '').replace('https://','').replace('http://','') or 'example.com' }}</a>
                               </td>
                             </tr>
                             <tr>
@@ -773,7 +789,7 @@
                   <tbody>
                     <tr>
                       <td style="height:3px;line-height:3px;background-color:#059669;width:50%;border-radius:2px 0 0 2px;">&amp;nbsp;</td>
-                      <td style="height:3px;line-height:3px;background-color:#22303B;width:50%;border-radius:0 2px 2px 0;">&amp;nbsp;</td>
+                      <td t-attf-style="height:3px;line-height:3px;background-color:{{ brand_dark }};width:50%;border-radius:0 2px 2px 0;">&amp;nbsp;</td>
                     </tr>
                   </tbody>
                 </table>
@@ -803,6 +819,10 @@
             <field name="email_to">{{ object.email }}</field>
             <field name="subject">Bienvenue ! Vos services sont pr&#234;ts</field>
             <field name="body_html" type="html">
+
+<t t-set="company" t-value="(getattr(object, 'company_id', False)) or user.company_id"/>
+<t t-set="brand_primary" t-value="(company and company.report_brand_primary) or '#714B67'"/>
+<t t-set="brand_dark" t-value="(company and company.report_brand_dark) or '#212529'"/>
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F8FAFC;">
   <tbody>
     <tr>
@@ -815,7 +835,7 @@
                   <tbody>
                     <!-- Header - Welcome variant with larger logo area -->
                     <tr>
-                      <td style="background-color:#22303B;padding:28px 32px;border-radius:16px 16px 0 0;">
+                      <td t-attf-style="background-color:{{ brand_dark }};padding:28px 32px;border-radius:16px 16px 0 0;">
                         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                           <tbody>
                             <tr>
@@ -841,9 +861,9 @@
                         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                           <tbody>
                             <tr>
-                              <td style="height:4px;line-height:4px;background-color:#29ABE2;width:34%;">&amp;nbsp;</td>
+                              <td t-attf-style="height:4px;line-height:4px;background-color:{{ brand_primary }};width:34%;">&amp;nbsp;</td>
                               <td style="height:4px;line-height:4px;background-color:#059669;width:33%;">&amp;nbsp;</td>
-                              <td style="height:4px;line-height:4px;background-color:#22303B;width:33%;">&amp;nbsp;</td>
+                              <td t-attf-style="height:4px;line-height:4px;background-color:{{ brand_dark }};width:33%;">&amp;nbsp;</td>
                             </tr>
                           </tbody>
                         </table>
@@ -853,7 +873,7 @@
                     <!-- Content -->
                     <tr>
                       <td style="padding:36px 32px 32px 32px;">
-                        <p style="margin:0 0 12px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:20px;line-height:30px;color:#22303B;font-weight:500;">
+                        <p t-attf-style="margin:0 0 12px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:20px;line-height:30px;color:{{ brand_dark }};font-weight:500;">
                           Bonjour <t t-out="object.name or 'cher client'"/>,
                         </p>
                         <p style="margin:0 0 28px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;line-height:28px;color:#374151;font-weight:300;">
@@ -881,7 +901,7 @@
                           <tbody>
                             <tr>
                               <td style="padding:20px;">
-                                <p style="margin:0 0 12px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:14px;font-weight:600;color:#22303B;">
+                                <p t-attf-style="margin:0 0 12px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:14px;font-weight:600;color:{{ brand_dark }};">
                                   Comment nous joindre
                                 </p>
                                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
@@ -889,7 +909,7 @@
                                     <tr>
                                       <td style="padding:6px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:15px;color:#374151;font-weight:300;">
                                         Courriel :
-                                        <a href="mailto:{{ ctx.get('support_email', '{{ (object.company_id.email or '') }}') }}" style="color:#29ABE2;text-decoration:none;font-weight:400;">
+                                        <a href="mailto:{{ ctx.get('support_email', '{{ (object.company_id.email or '') }}') }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;font-weight:400;">
                                           <t t-out="ctx.get('support_email', '{{ (object.company_id.email or '') }}')"/>
                                         </a>
                                       </td>
@@ -897,7 +917,7 @@
                                     <tr>
                                       <td style="padding:6px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:15px;color:#374151;font-weight:300;">
                                         T&#233;l&#233;phone :
-                                        <a href="tel:{{ ctx.get('support_phone', '{{ (object.company_id.phone or '') }}') }}" style="color:#29ABE2;text-decoration:none;font-weight:400;">
+                                        <a href="tel:{{ ctx.get('support_phone', '{{ (object.company_id.phone or '') }}') }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;font-weight:400;">
                                           <t t-out="ctx.get('support_phone', '{{ (object.company_id.phone or '') }}')"/>
                                         </a>
                                       </td>
@@ -906,7 +926,7 @@
                                       <tr>
                                         <td style="padding:6px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:15px;color:#374151;font-weight:300;">
                                           Portail client :
-                                          <a t-attf-href="{{ ctx.get('portal_url') }}" style="color:#29ABE2;text-decoration:none;font-weight:400;">
+                                          <a t-attf-href="{{ ctx.get('portal_url') }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;font-weight:400;">
                                             Acc&#233;der au portail
                                           </a>
                                         </td>
@@ -924,7 +944,7 @@
                           <tbody>
                             <tr>
                               <td align="center">
-                                <a href="#" style="display:inline-block;padding:14px 36px;background-color:#29ABE2;color:#ffffff;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;font-weight:600;text-decoration:none;border-radius:10px;">
+                                <a href="#" t-attf-style="display:inline-block;padding:14px 36px;background-color:{{ brand_primary }};color:#ffffff;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;font-weight:600;text-decoration:none;border-radius:10px;">
                                   D&#233;couvrir nos services
                                 </a>
                               </td>
@@ -940,7 +960,7 @@
                         <p style="margin:24px 0 0 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;line-height:28px;color:#374151;font-weight:300;">
                           Nous avons h&#226;te de collaborer avec vous. N'h&#233;sitez pas &#224; nous contacter pour toute question !
                         </p>
-                        <p style="margin:16px 0 0 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;line-height:26px;color:#22303B;font-weight:400;">
+                        <p t-attf-style="margin:16px 0 0 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;line-height:26px;color:{{ brand_dark }};font-weight:400;">
                           Chaleureusement,<br/>
                           <strong>L'&#233;quipe {{ object.company_id.name }}</strong>
                         </p>
@@ -963,17 +983,17 @@
                           <tbody>
                             <tr>
                               <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#6B7280;line-height:20px;">
-                                <strong style="color:#22303B;font-size:14px;">{{ object.company_id.name }}</strong><br/>
+                                <strong t-attf-style="color:{{ brand_dark }};font-size:14px;">{{ object.company_id.name }}</strong><br/>
                                 Solutions &#233;thiques et souveraines pour vos donn&#233;es.
                               </td>
                             </tr>
                             <tr>
                               <td style="padding-top:12px;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;color:#9CA3AF;line-height:18px;">
-                                <a href="mailto:{{ (object.company_id.email or '') }}" style="color:#29ABE2;text-decoration:none;">{{ (object.company_id.email or '') }}</a>
+                                <a href="mailto:{{ (object.company_id.email or '') }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;">{{ (object.company_id.email or '') }}</a>
                                 <span style="color:#D1D5DB;"> &#183; </span>
-                                <a href="tel:{{ (object.company_id.phone or '') }}" style="color:#29ABE2;text-decoration:none;">{{ (object.company_id.phone or '') }}</a>
+                                <a href="tel:{{ (object.company_id.phone or '') }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;">{{ (object.company_id.phone or '') }}</a>
                                 <span style="color:#D1D5DB;"> &#183; </span>
-                                <a href="#" style="color:#29ABE2;text-decoration:none;">{{ (object.company_id.website or '').replace('https://','').replace('http://','') or 'example.com' }}</a>
+                                <a href="#" t-attf-style="color:{{ brand_primary }};text-decoration:none;">{{ (object.company_id.website or '').replace('https://','').replace('http://','') or 'example.com' }}</a>
                               </td>
                             </tr>
                             <tr>
@@ -1002,9 +1022,9 @@
                 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="width:600px;max-width:600px;margin:12px auto 0;">
                   <tbody>
                     <tr>
-                      <td style="height:3px;line-height:3px;background-color:#29ABE2;width:34%;border-radius:2px 0 0 2px;">&amp;nbsp;</td>
+                      <td t-attf-style="height:3px;line-height:3px;background-color:{{ brand_primary }};width:34%;border-radius:2px 0 0 2px;">&amp;nbsp;</td>
                       <td style="height:3px;line-height:3px;background-color:#059669;width:33%;">&amp;nbsp;</td>
-                      <td style="height:3px;line-height:3px;background-color:#22303B;width:33%;border-radius:0 2px 2px 0;">&amp;nbsp;</td>
+                      <td t-attf-style="height:3px;line-height:3px;background-color:{{ brand_dark }};width:33%;border-radius:0 2px 2px 0;">&amp;nbsp;</td>
                     </tr>
                   </tbody>
                 </table>

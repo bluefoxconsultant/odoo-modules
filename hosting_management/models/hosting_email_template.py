@@ -43,8 +43,8 @@ def get_email_wrapper(title, content, alert_type=None):
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<body style="margin:0; padding:0; background-color:#2E3132;">
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#2E3132;">
+<body style="margin:0; padding:0; background-color:#F8FAFC;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F8FAFC;">
     <tbody>
         <tr>
             <td align="center" style="padding:24px;">
