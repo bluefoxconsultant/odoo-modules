@@ -179,7 +179,12 @@ class BfEmailDashboard(models.Model):
 
     @api.model
     def _sql_date_clause(self, date_from, date_to, table_alias="be"):
-        """Build SQL WHERE clause and params for a date range."""
+        """Build SQL WHERE clause and params for a date range.
+
+        Always appends a ``{alias}.user_id = %s`` filter scoped to the
+        current user so direct-SQL aggregates respect per-user isolation
+        (record rules don't apply to raw cr.execute calls).
+        """
         if not table_alias.isidentifier():
             raise ValueError("Invalid table alias")
         clauses = []
@@ -190,7 +195,9 @@ class BfEmailDashboard(models.Model):
         if date_to:
             clauses.append(f"{table_alias}.date <= %s")
             params.append(date_to + " 23:59:59")
-        return (" AND ".join(clauses), params) if clauses else ("TRUE", [])
+        clauses.append(f"{table_alias}.user_id = %s")
+        params.append(self.env.uid)
+        return (" AND ".join(clauses), params)
 
     @api.model
     def _get_volume(self, date_from=False, date_to=False):
@@ -337,7 +344,8 @@ class BfEmailDashboard(models.Model):
         else:
             end = str(fields.Date.today())
             self.env.cr.execute(
-                "SELECT MIN(date)::date FROM bf_email WHERE active = TRUE"
+                "SELECT MIN(date)::date FROM bf_email WHERE active = TRUE AND user_id = %s",
+                [self.env.uid],
             )
             row = self.env.cr.fetchone()
             min_date = row[0] if row and row[0] else None
@@ -365,9 +373,10 @@ class BfEmailDashboard(models.Model):
             LEFT JOIN bf_email be
                 ON be.date::date = d::date
                 AND be.active = TRUE
+                AND be.user_id = %s
             GROUP BY d::date
             ORDER BY d::date
-        """, [start, end])
+        """, [start, end, self.env.uid])
         rows = self.env.cr.dictfetchall()
         return [
             {

@@ -34,6 +34,7 @@
                     </div>
                     <group>
                         <group string="Dossier à explorer">
+                            <field name="account_id"/>
                             <field name="folder" placeholder="INBOX, Archives/2026, Trash, Junk…"/>
                             <field name="folder_message_count" readonly="1" string="Total dans ce dossier"/>
                             <field name="page_offset" string="Position"/>

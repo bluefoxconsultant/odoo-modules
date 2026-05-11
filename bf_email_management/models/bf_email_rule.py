@@ -3,7 +3,9 @@
 Rules fire on bf.email.create() after _compute_category, so manual writes
 still win. Mass action ``action_replay_rules`` backfills existing rows.
 
-Restricted to ``group_email_manager`` (safe_eval risk on domain conditions).
+Per-user: each rule belongs to a single owner (``user_id``) and only fires
+against bf.email rows owned by that user. safe_eval still runs in a
+restricted namespace; each user manages their own rules.
 """
 
 import logging
@@ -23,6 +25,15 @@ class BfEmailRule(models.Model):
     name = fields.Char(string="Nom", required=True)
     sequence = fields.Integer(string="Séquence", default=10)
     active = fields.Boolean(string="Actif", default=True)
+    user_id = fields.Many2one(
+        comodel_name="res.users",
+        string="Propriétaire",
+        required=True,
+        index=True,
+        default=lambda self: self.env.user,
+        ondelete="cascade",
+        help="La règle ne s'applique qu'aux courriels de ce·tte utilisateur·trice.",
+    )
 
     condition_type = fields.Selection(
         selection=[
@@ -145,12 +156,16 @@ class BfEmailRule(models.Model):
     # ------------------------------------------------------------------
     @api.model
     def action_replay_rules(self):
-        """Re-run all rules over every bf.email row not yet handled.
+        """Re-run the current user's rules over their own bf.email rows.
 
         Bound as a server action; intended for backfill after editing rules.
+        Only affects ``self.env.uid``'s rows — never another user's data.
         """
-        BfEmail = self.env["bf.email"].sudo()
-        rows = BfEmail.search([("is_handled", "=", False)])
+        BfEmail = self.env["bf.email"]
+        rows = BfEmail.search([
+            ("is_handled", "=", False),
+            ("user_id", "=", self.env.uid),
+        ])
         rows._apply_rules()
         return {
             "type": "ir.actions.client",

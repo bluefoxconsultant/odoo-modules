@@ -246,6 +246,23 @@ class BfEmail(models.Model):
         default=lambda self: self.env.company,
         index=True,
     )
+    user_id = fields.Many2one(
+        comodel_name="res.users",
+        string="Propri\u00e9taire",
+        required=True,
+        index=True,
+        default=lambda self: self.env.user,
+        ondelete="restrict",
+        help="Utilisateur qui poss\u00e8de cette ligne. La r\u00e8gle d'acc\u00e8s "
+             "filtre par ce champ \u2014 aucun autre utilisateur ne le voit.",
+    )
+    account_id = fields.Many2one(
+        comodel_name="bf.email.account",
+        string="Compte IMAP",
+        index=True,
+        ondelete="set null",
+        help="Compte IMAP d'ingestion. Vide pour les lignes chatter/passerelle.",
+    )
     active = fields.Boolean(
         string="Actif",
         default=True,
@@ -363,8 +380,8 @@ class BfEmail(models.Model):
     _sql_constraints = [
         (
             "message_id_header_uniq",
-            "UNIQUE(message_id_header, company_id)",
-            "Ce courriel existe d\u00e9j\u00e0 (Message-ID dupliqu\u00e9).",
+            "UNIQUE(message_id_header, company_id, user_id)",
+            "Ce courriel existe d\u00e9j\u00e0 (Message-ID dupliqu\u00e9 pour ce\u00b7tte utilisateur\u00b7trice).",
         ),
     ]
 
@@ -454,8 +471,8 @@ class BfEmail(models.Model):
                 rec.category = False
                 continue
             # customer_rank / supplier_rank live on res.partner only when the
-            # sale_team / purchase modules are installed. Tenants without them
-            # (PMEC) would AttributeError otherwise.
+            # sale_team / purchase modules are installed. Tenants without
+            # those modules would AttributeError otherwise.
             customer_rank = getattr(partner, "customer_rank", 0) or 0
             supplier_rank = getattr(partner, "supplier_rank", 0) or 0
             if partner.user_ids:
@@ -476,18 +493,20 @@ class BfEmail(models.Model):
         ]
         originals = {}
         if reply_to_ids:
-            candidates = self.search([
+            # Scope to the owner of each rec — but in batch we can search
+            # broadly under sudo and filter per-rec via user_id below.
+            candidates = self.sudo().search([
                 ("message_id_header", "in", reply_to_ids),
-                ("company_id", "=", self.env.company.id),
+                ("user_id", "in", self.mapped("user_id").ids),
             ])
             for c in candidates:
-                originals[c.message_id_header] = c.date
+                originals[(c.user_id.id, c.message_id_header)] = c.date
 
         for rec in self:
             rec.response_time_hours = 0.0
             if rec.direction != "out" or not rec.in_reply_to:
                 continue
-            orig_date = originals.get(rec.in_reply_to)
+            orig_date = originals.get((rec.user_id.id, rec.in_reply_to))
             if orig_date and rec.date:
                 delta = rec.date - orig_date
                 rec.response_time_hours = round(
@@ -497,53 +516,48 @@ class BfEmail(models.Model):
     # ------------------------------------------------------------------
     # Heuristic signal computation (evidence-based — see README §Research)
     # ------------------------------------------------------------------
-    @api.model
-    def _get_self_addresses(self):
-        """Lowercase set of email addresses the configured user owns.
+    def _get_self_addresses(self, user=None):
+        """Lowercase set of email addresses owned by ``user``.
 
-        Read from ICP `bf_email.imap_user` plus the partner email of the
-        OdooBot follower owners. Cached per-cursor via env context.
+        Combines the logins of all active bf.email.account rows owned by
+        the user with the user's partner.email. Falls back to ``env.user``
+        when no argument is passed (compat for callers without a user
+        context).
         """
-        cache_key = "_bf_email_self_addresses"
-        cached = self.env.context.get(cache_key)
-        if cached is not None:
-            return set(cached)
-        ICP = self.env["ir.config_parameter"].sudo()
+        target = user or self.env.user
         addrs = set()
-        imap_user = ICP.get_param("bf_email.imap_user", "").strip().lower()
-        if imap_user:
-            addrs.add(imap_user)
-        # Also pick up the partner row that matches the IMAP user, plus its
-        # aliases. Only internal users (user_ids set) count as "self".
-        if imap_user:
-            partner = self.env["res.partner"].sudo().search(
-                [("email_normalized", "=", imap_user)], limit=1,
-            )
-            if partner and partner.user_ids:
-                if partner.email:
-                    addrs.add(partner.email.strip().lower())
+        accounts = self.env["bf.email.account"].sudo().search([
+            ("user_id", "=", target.id),
+            ("active", "=", True),
+        ])
+        for login in accounts.mapped("login"):
+            if login:
+                addrs.add(login.strip().lower())
+        if target.partner_id and target.partner_id.email:
+            addrs.add(target.partner_id.email.strip().lower())
+        if target.email:
+            addrs.add(target.email.strip().lower())
         return addrs
 
-    @api.model
-    def _resolve_user_partner(self):
-        """Return the res.partner row matching ICP['bf_email.imap_user']."""
-        ICP = self.env["ir.config_parameter"].sudo()
-        imap_user = ICP.get_param("bf_email.imap_user", "").strip().lower()
-        if not imap_user:
-            return self.env["res.partner"].browse()
-        Partner = self.env["res.partner"].sudo()
-        partner = Partner.search([("email_normalized", "=", imap_user)], limit=1)
-        if partner:
-            return partner
-        return Partner.search([("email", "=ilike", imap_user)], limit=1)
+    def _resolve_user_partner(self, user=None):
+        """Return the res.partner row associated with ``user`` (or env.user)."""
+        target = user or self.env.user
+        return target.partner_id or self.env["res.partner"].browse()
 
     @api.depends(
         "subject", "body_preview", "email_to", "email_cc", "date",
         "raw_headers", "email_from", "thread_root_id",
     )
     def _compute_signals(self):
-        self_addrs = self._get_self_addresses()
+        # Group records by owner so each user's self-address set is fetched
+        # once. Owners with no accounts get an empty set.
+        addr_cache = {}
+        def get_addrs(user):
+            if user.id not in addr_cache:
+                addr_cache[user.id] = self._get_self_addresses(user=user)
+            return addr_cache[user.id]
         for rec in self:
+            self_addrs = get_addrs(rec.user_id or self.env.user)
             preview = (rec.body_preview or "").strip()
             subject = (rec.subject or "").strip()
 
@@ -663,23 +677,35 @@ class BfEmail(models.Model):
 
         Does not post on the target chatter — it's a soft link only. The
         user can still rerouter to push the body via the wizard.
+
+        Per-account: the threshold lives on bf.email.account.auto_link_threshold_days.
+        Falls back to 14d for chatter-only rows (no account_id).
         """
-        Param = self.env["ir.config_parameter"].sudo()
-        try:
-            threshold_days = int(
-                Param.get_param("bf_email.auto_link_threshold_days", "14")
-            )
-        except (TypeError, ValueError):
-            threshold_days = 14
-        cutoff = fields.Datetime.now() - timedelta(days=threshold_days)
-        orphans = self.search([
+        now = fields.Datetime.now()
+        Account = self.env["bf.email.account"].sudo()
+        # Per-account cutoffs — pick the most permissive (oldest cutoff) and
+        # filter again per-row below.
+        accounts = Account.search([("active", "=", True)])
+        default_threshold = 14
+        max_threshold = max(
+            [a.auto_link_threshold_days or default_threshold for a in accounts],
+            default=default_threshold,
+        )
+        cutoff_max = now - timedelta(days=max_threshold)
+        orphans = self.sudo().search([
             ("source", "=", "imap"),
             ("res_model", "=", False),
             ("partner_id", "!=", False),
-            ("date", ">=", cutoff),
+            ("date", ">=", cutoff_max),
             ("is_handled", "=", False),
             ("category", "in", ["client", "vendor"]),
         ], limit=200)
+        # Filter to each row's own per-account threshold.
+        def within_threshold(rec):
+            t = (rec.account_id.auto_link_threshold_days
+                 if rec.account_id else default_threshold) or default_threshold
+            return rec.date >= now - timedelta(days=t)
+        orphans = orphans.filtered(within_threshold)
         Task = self.env["project.task"]
         Ticket = self.env["helpdesk.ticket"] if "helpdesk.ticket" in self.env else None
         linked = 0
@@ -712,7 +738,7 @@ class BfEmail(models.Model):
             linked, len(orphans),
         )
 
-    @api.depends("thread_root_id", "company_id")
+    @api.depends("thread_root_id", "user_id")
     def _compute_thread_count(self):
         for rec in self:
             if not rec.thread_root_id:
@@ -720,7 +746,7 @@ class BfEmail(models.Model):
                 continue
             rec.thread_count = self.with_context(active_test=False).search_count([
                 ("thread_root_id", "=", rec.thread_root_id),
-                ("company_id", "=", rec.company_id.id),
+                ("user_id", "=", rec.user_id.id),
             ])
 
     # ------------------------------------------------------------------
@@ -754,7 +780,7 @@ class BfEmail(models.Model):
                 ("message_id_header", "=", rec.in_reply_to),
                 ("direction", "=", "in"),
                 ("status", "in", ("new", "read")),
-                ("company_id", "=", rec.company_id.id),
+                ("user_id", "=", rec.user_id.id),
             ], limit=1)
             if parent:
                 parent.write({"status": "replied"})
@@ -776,46 +802,49 @@ class BfEmail(models.Model):
         """
         if not self:
             return
-        rules = self.env["bf.email.rule"].sudo().search([])
-        if not rules:
-            return
-        auto_handled = self.browse()
+        Rule = self.env["bf.email.rule"].sudo()
+        # Group records by owner so each user's rule set is fetched once.
+        by_user = {}
         for rec in self:
-            written_fields = set()
-            for rule in rules:
-                if not rule._match(rec):
-                    continue
-                vals = {}
-                if rule.set_category and "category" not in written_fields:
-                    vals["category"] = rule.set_category
-                    written_fields.add("category")
-                if rule.set_priority and "priority" not in written_fields:
-                    vals["priority"] = rule.set_priority
-                    written_fields.add("priority")
-                if rule.set_partner_id and "partner_id" not in written_fields:
-                    vals["partner_id"] = rule.set_partner_id.id
-                    written_fields.add("partner_id")
-                if rule.set_handled and not rec.is_handled:
-                    vals["is_handled"] = True
-                    vals["handled_at"] = fields.Datetime.now()
-                    written_fields.add("is_handled")
-                    auto_handled |= rec
-                if vals:
-                    rec.write(vals)
-                if rule.stop_processing:
-                    break
+            by_user.setdefault(rec.user_id.id, self.env["bf.email"]).__iadd__(rec)
+        auto_handled = self.browse()
+        for uid, records in by_user.items():
+            rules = Rule.search([("user_id", "=", uid)])
+            if not rules:
+                continue
+            for rec in records:
+                written_fields = set()
+                for rule in rules:
+                    if not rule._match(rec):
+                        continue
+                    vals = {}
+                    if rule.set_category and "category" not in written_fields:
+                        vals["category"] = rule.set_category
+                        written_fields.add("category")
+                    if rule.set_priority and "priority" not in written_fields:
+                        vals["priority"] = rule.set_priority
+                        written_fields.add("priority")
+                    if rule.set_partner_id and "partner_id" not in written_fields:
+                        vals["partner_id"] = rule.set_partner_id.id
+                        written_fields.add("partner_id")
+                    if rule.set_handled and not rec.is_handled:
+                        vals["is_handled"] = True
+                        vals["handled_at"] = fields.Datetime.now()
+                        written_fields.add("is_handled")
+                        auto_handled |= rec
+                    if vals:
+                        rec.write(vals)
+                    if rule.stop_processing:
+                        break
         # Mirror action_archive's bilateral IMAP writeback for rule-driven
-        # auto-handles. Without this, rules like "List-Unsubscribe → Traité"
-        # mark rows handled in Odoo but leave the message in Migadu INBOX.
+        # auto-handles. Skip rows whose account has writeback disabled.
         if auto_handled:
-            ICP = self.env["ir.config_parameter"].sudo()
-            writeback = (
-                ICP.get_param("bf_email.imap_writeback_archive", "True").lower()
-                == "true"
+            writeback_rows = auto_handled.filtered(
+                lambda r: r.account_id and r.account_id.writeback_archive
             )
-            if writeback:
+            if writeback_rows:
                 try:
-                    auto_handled._imap_writeback_archive()
+                    writeback_rows._imap_writeback_archive()
                 except Exception:
                     _logger.warning(
                         "bf.email rule auto-handle IMAP writeback failed",
@@ -835,8 +864,8 @@ class BfEmail(models.Model):
         """Sortir de la boîte de réception sans toucher au statut.
 
         Préserve `read`/`replied` afin de conserver l'historique. Par défaut,
-        déplace aussi le message dans Migadu vers `Archives/{YYYY}` (gate
-        ICP `bf_email.imap_writeback_archive`, on par défaut depuis 18.0.2.3.0).
+        déplace aussi le message côté IMAP vers `Archives/{YYYY}` selon
+        ``bf.email.account.writeback_archive`` (ON par défaut depuis 18.0.4.0.0).
 
         Pour un seul enregistrement, ré-ouvre le formulaire avec un flag
         de contexte ``bf_email_just_handled`` afin que le bouton « Remettre »
@@ -846,15 +875,15 @@ class BfEmail(models.Model):
             "is_handled": True,
             "handled_at": fields.Datetime.now(),
         })
-        # Bilateral IMAP archive (on by default since 18.0.2.3.0)
-        ICP = self.env["ir.config_parameter"].sudo()
-        writeback = (
-            ICP.get_param("bf_email.imap_writeback_archive", "True").lower()
-            == "true"
+        # Bilateral IMAP archive: per-account gate. Rows without an account
+        # (chatter/gateway) skip naturally; account.writeback_archive=False
+        # also skips.
+        writeback_rows = self.filtered(
+            lambda r: r.account_id and r.account_id.writeback_archive
         )
-        if writeback:
+        if writeback_rows:
             try:
-                self._imap_writeback_archive()
+                writeback_rows._imap_writeback_archive()
             except Exception:
                 _logger.warning(
                     "bf.email IMAP writeback archive failed", exc_info=True,
@@ -892,88 +921,83 @@ class BfEmail(models.Model):
     def _imap_writeback_archive(self):
         """Move corresponding IMAP messages from INBOX to Archives/{YYYY}.
 
-        Fast path: rows already tagged ``imap_uid`` + ``imap_folder='INBOX'``
-        get moved by UID. Fallback: rows with only ``message_id_header``
-        (gateway/chatter rows where the chatter cron won the race against
-        the IMAP cron, so no UID was ever recorded) get an IMAP
-        ``SEARCH HEADER Message-ID`` lookup against INBOX before COPY+STORE.
-        Uses the same connection params as ``_cron_sync_imap``.
+        Per-account: rows are grouped by ``account_id`` and one connection
+        is opened per account. Rows without an account_id (chatter/gateway
+        origin) are skipped — there's no IMAP server to write to.
         """
-        candidates = self.filtered(lambda r: r.message_id_header)
+        candidates = self.filtered(lambda r: r.message_id_header and r.account_id)
         if not candidates:
             return
 
-        ICP = self.env["ir.config_parameter"].sudo()
-        host = ICP.get_param("bf_email.imap_host")
-        user = ICP.get_param("bf_email.imap_user")
-        password = ICP.get_param("bf_email.imap_password")
-        if not (host and user and password):
-            return
-        port = int(ICP.get_param("bf_email.imap_port", "993"))
-        archive_folder_tpl = ICP.get_param(
-            "bf_email.imap_archive_folder", "Archives/{YYYY}"
-        )
+        by_account = {}
+        for rec in candidates:
+            by_account.setdefault(rec.account_id, self.env["bf.email"])
+            by_account[rec.account_id] |= rec
 
-        try:
-            conn = bf_email_imap.open_connection(host, port, user, password)
-        except bf_email_imap.ImapConnectionError as exc:
-            _logger.warning("bf.email IMAP writeback: %s", exc)
-            return
-
-        try:
-            if not bf_email_imap.select_folder(conn, "INBOX", readonly=False):
-                return
-            for rec in candidates:
-                uid = None
-                if rec.imap_uid and (rec.imap_folder or "").upper() == "INBOX":
-                    uid = rec.imap_uid
-                else:
-                    # Look the message up by Message-ID. Catches gateway/
-                    # chatter rows where IMAP cron lost the race plus rows
-                    # whose imap_folder is stale.
-                    try:
-                        status, data = conn.uid(
-                            "SEARCH", None, "HEADER",
-                            "Message-ID", rec.message_id_header,
-                        )
-                        if status == "OK" and data and data[0]:
-                            raw = data[0]
-                            if isinstance(raw, bytes):
-                                raw = raw.decode("ascii", errors="ignore")
-                            found = [x for x in raw.split() if x.isdigit()]
-                            uid = found[0] if found else None
-                    except Exception:
-                        _logger.debug(
-                            "bf.email writeback HEADER search failed "
-                            "for #%s (%s)", rec.id, rec.message_id_header,
-                            exc_info=True,
-                        )
-                if not uid:
+        for account, recs in by_account.items():
+            if not (account.host and account.login and account.password):
+                continue
+            try:
+                conn = bf_email_imap.open_connection(
+                    account.host, account.port, account.login, account.password,
+                )
+            except bf_email_imap.ImapConnectionError as exc:
+                _logger.warning(
+                    "bf.email IMAP writeback (%s): %s", account.display_name, exc,
+                )
+                continue
+            try:
+                if not bf_email_imap.select_folder(conn, "INBOX", readonly=False):
                     continue
-                year = (rec.date or fields.Datetime.now()).strftime("%Y")
-                target = archive_folder_tpl.replace("{YYYY}", year)
+                tpl = account.archive_folder or "Archives/{YYYY}"
+                for rec in recs:
+                    uid = None
+                    if rec.imap_uid and (rec.imap_folder or "").upper() == "INBOX":
+                        uid = rec.imap_uid
+                    else:
+                        try:
+                            status, data = conn.uid(
+                                "SEARCH", None, "HEADER",
+                                "Message-ID", rec.message_id_header,
+                            )
+                            if status == "OK" and data and data[0]:
+                                raw = data[0]
+                                if isinstance(raw, bytes):
+                                    raw = raw.decode("ascii", errors="ignore")
+                                found = [x for x in raw.split() if x.isdigit()]
+                                uid = found[0] if found else None
+                        except Exception:
+                            _logger.debug(
+                                "bf.email writeback HEADER search failed "
+                                "for #%s (%s)", rec.id, rec.message_id_header,
+                                exc_info=True,
+                            )
+                    if not uid:
+                        continue
+                    year = (rec.date or fields.Datetime.now()).strftime("%Y")
+                    target = tpl.replace("{YYYY}", year)
+                    try:
+                        conn.uid("COPY", uid, f'"{target}"')
+                        conn.uid("STORE", uid, "+FLAGS", "(\\Deleted)")
+                        rec.write({
+                            "imap_uid": str(uid),
+                            "imap_folder": target,
+                            "imap_in_inbox": False,
+                        })
+                    except Exception:
+                        _logger.warning(
+                            "bf.email IMAP writeback failed for UID %s",
+                            uid, exc_info=True,
+                        )
                 try:
-                    conn.uid("COPY", uid, f'"{target}"')
-                    conn.uid("STORE", uid, "+FLAGS", "(\\Deleted)")
-                    rec.write({
-                        "imap_uid": str(uid),
-                        "imap_folder": target,
-                        "imap_in_inbox": False,
-                    })
+                    conn.expunge()
                 except Exception:
-                    _logger.warning(
-                        "bf.email IMAP writeback failed for UID %s",
-                        uid, exc_info=True,
-                    )
-            try:
-                conn.expunge()
-            except Exception:
-                pass
-        finally:
-            try:
-                conn.logout()
-            except Exception:
-                pass
+                    pass
+            finally:
+                try:
+                    conn.logout()
+                except Exception:
+                    pass
 
     def action_open_source_record(self):
         self.ensure_one()
@@ -1004,9 +1028,9 @@ class BfEmail(models.Model):
     def action_reply_all(self):
         """Reply-All: To = original sender, Cc = other thread participants.
 
-        Excludes the current user's own addresses and BF/PME internal
-        catchall/bounce aliases. Internal partners are kept (a BF colleague
-        included on the thread should remain in Cc).
+        Excludes the current user's own addresses and the tenant's internal
+        catchall/bounce aliases. Internal partners are kept (an internal
+        colleague included on the thread should remain in Cc).
         """
         self.ensure_one()
         return self._open_composer(mode="reply_all")
@@ -1091,7 +1115,7 @@ class BfEmail(models.Model):
         TO = original sender (or original recipients if outbound).
         CC = every other address in the thread's To+Cc, minus:
              * the current user's own emails,
-             * BF/PME bounce + catchall aliases,
+             * the tenant's bounce + catchall aliases,
              * the company's noreply alias.
         """
         self.ensure_one()
@@ -1123,11 +1147,12 @@ class BfEmail(models.Model):
             "mail.bounce.alias",
             "mail.catchall.alias",
             "mail.default.from",
-            "bf_email.imap_user",
         ):
             val = Param.get_param(key)
             if val:
                 exclude.add(str(val).lower())
+        # Also exclude the row owner's own IMAP account logins.
+        exclude |= self._get_self_addresses(user=self.user_id or user)
         # Also exclude the original sender (already in TO).
         if self.email_from:
             _name, bare = parseaddr(self.email_from)
@@ -1596,9 +1621,12 @@ class BfEmail(models.Model):
         if not msg.message_id:
             return True
 
-        existing = self.with_context(active_test=False).search([
+        # Dedup by (message_id_header, user_id) — the UNIQUE constraint
+        # spans (message_id_header, company_id, user_id) so per-user dedup
+        # matches what would IntegrityError on create.
+        existing = self.with_context(active_test=False).sudo().search([
             ("message_id_header", "=", msg.message_id),
-            ("company_id", "=", self.env.company.id),
+            ("user_id", "=", self.env.uid),
         ], limit=1)
         if not existing:
             return True
@@ -1728,37 +1756,58 @@ class BfEmail(models.Model):
     # ------------------------------------------------------------------
     @api.model
     def _cron_sync_imap(self):
-        """Pull new messages directly from IMAP into bf.email as orphan rows.
+        """Pull new messages from IMAP for every active bf.email.account.
 
-        Mirrors ``_cron_sync_emails`` but reads IMAP rather than mail.message.
-        Each folder has its own UID watermark advanced after a successful
-        commit. Dedup is handled by the UNIQUE(message_id_header) constraint
-        plus an explicit search before insert.
-
-        Configured via ir.config_parameter:
-        - bf_email.imap_host, bf_email.imap_port, bf_email.imap_user, bf_email.imap_password
-        - bf_email.imap_last_uid_inbox, bf_email.imap_last_uid_sent
-        - bf_email.imap_batch_size (default 100)
+        Iterates over each active account, opening a separate IMAP connection
+        per account, executing the sync in the owner's environment so that
+        new ``bf.email`` rows inherit ``user_id`` and ``company_id``.
+        Watermarks are stored on the account row itself.
         """
-        ICP = self.env["ir.config_parameter"].sudo()
-        host = ICP.get_param("bf_email.imap_host")
-        user = ICP.get_param("bf_email.imap_user")
-        password = ICP.get_param("bf_email.imap_password")
-        if not (host and user and password):
-            _logger.debug("bf.email: IMAP credentials not configured, skipping cron")
+        Account = self.env["bf.email.account"].sudo()
+        accounts = Account.search([("active", "=", True)])
+        if not accounts:
+            _logger.debug("bf.email: no active IMAP accounts, skipping cron")
             return
-        port = int(ICP.get_param("bf_email.imap_port", "993"))
-        batch_size = int(ICP.get_param("bf_email.imap_batch_size", "100"))
+        for account in accounts:
+            try:
+                self._sync_account(account)
+            except Exception as exc:
+                account.write({"state": "error", "last_error": str(exc)})
+                _logger.warning(
+                    "bf.email IMAP cron account %s failed: %s",
+                    account.display_name, exc, exc_info=True,
+                )
 
+    @api.model
+    def _sync_account(self, account):
+        """Pull new IMAP messages for one account, advance watermarks."""
+        if not (account.host and account.login and account.password):
+            return
         try:
-            conn = bf_email_imap.open_connection(host, port, user, password)
+            conn = bf_email_imap.open_connection(
+                account.host, account.port, account.login, account.password,
+            )
         except bf_email_imap.ImapConnectionError as exc:
-            _logger.warning("bf.email IMAP cron: %s", exc)
+            account.write({"state": "error", "last_error": str(exc)})
+            _logger.warning(
+                "bf.email IMAP (%s): %s", account.display_name, exc,
+            )
             return
 
+        # Run the sync in the account owner's environment so create() vals
+        # default user_id/company_id correctly via env.user / env.company.
+        owner_env = self.with_user(account.user_id).with_company(
+            account.user_id.company_id
+        ).env
+        BfEmail = owner_env["bf.email"]
         try:
             for folder in bf_email_imap.DEFAULT_LIVE_FOLDERS:
-                self._sync_imap_folder(conn, folder, user, batch_size, ICP)
+                BfEmail._sync_imap_folder(conn, folder, account)
+            account.write({
+                "state": "connected",
+                "last_error": False,
+                "last_sync_date": fields.Datetime.now(),
+            })
         finally:
             try:
                 conn.logout()
@@ -1767,17 +1816,19 @@ class BfEmail(models.Model):
 
     @api.model
     def _cron_imap_mirror(self):
-        """Reconcile bf.email.imap_in_inbox against the live IMAP INBOX.
+        """Reconcile bf.email.imap_in_inbox against each account's live INBOX.
 
-        Runs every 5 minutes. For each row with ``imap_folder='INBOX'`` and
-        ``date >= now-90d``, check whether its UID is still present in the
-        live INBOX UID set. Flip ``imap_in_inbox`` accordingly.
+        Runs every 5 minutes. For each active account, fetch the live INBOX
+        UID set and flip ``imap_in_inbox`` on the owner's rows whose
+        ``imap_folder='INBOX'`` and ``date >= now-90d``.
 
-        Also wakes snoozed rows whose ``snoozed_until`` has passed.
+        Also wakes snoozed rows whose ``snoozed_until`` has passed (global
+        pass, no IMAP needed).
         """
-        # ---- Snooze wake-up first (cheap, no IMAP) ----
+        # ---- Snooze wake-up first (cheap, no IMAP). Sudo because the cron
+        #      runs as admin but rows belong to many users. ----
         now = fields.Datetime.now()
-        woken = self.search([
+        woken = self.sudo().search([
             ("snoozed_until", "!=", False),
             ("snoozed_until", "<=", now),
             ("is_handled", "=", True),
@@ -1786,74 +1837,77 @@ class BfEmail(models.Model):
             woken.write({"is_handled": False, "snoozed_until": False})
             _logger.info("bf.email: woke %s snoozed rows", len(woken))
 
-        # ---- IMAP mirror pass ----
-        ICP = self.env["ir.config_parameter"].sudo()
-        host = ICP.get_param("bf_email.imap_host")
-        user = ICP.get_param("bf_email.imap_user")
-        password = ICP.get_param("bf_email.imap_password")
-        if not (host and user and password):
-            return
-        port = int(ICP.get_param("bf_email.imap_port", "993"))
-
-        try:
-            conn = bf_email_imap.open_connection(host, port, user, password)
-        except bf_email_imap.ImapConnectionError as exc:
-            _logger.warning("bf.email IMAP mirror: %s", exc)
-            return
-
-        try:
-            if not bf_email_imap.select_folder(conn, "INBOX", readonly=True):
-                return
-            status, data = conn.uid("SEARCH", None, "ALL")
-            if status != "OK" or not data or not data[0]:
-                live_uids = set()
-            else:
-                raw = data[0]
-                if isinstance(raw, bytes):
-                    raw = raw.decode("ascii", errors="ignore")
-                live_uids = {x for x in raw.split() if x.isdigit()}
-        finally:
-            try:
-                conn.logout()
-            except Exception:
-                pass
-
+        # ---- IMAP mirror pass: one connection per active account. ----
+        Account = self.env["bf.email.account"].sudo()
+        accounts = Account.search([("active", "=", True)])
         cutoff = fields.Datetime.now() - timedelta(days=90)
-        rows = self.search([
-            ("imap_folder", "ilike", "INBOX"),
-            ("date", ">=", cutoff),
-            ("imap_uid", "!=", False),
-        ])
-        flipped_in = flipped_out = auto_handled = 0
-        now = fields.Datetime.now()
-        for row in rows:
-            in_inbox = str(row.imap_uid) in live_uids
-            if in_inbox == row.imap_in_inbox:
+        for account in accounts:
+            if not (account.host and account.login and account.password):
                 continue
-            vals = {"imap_in_inbox": in_inbox}
-            if in_inbox:
-                flipped_in += 1
-            else:
-                flipped_out += 1
-                # External IMAP archive (moved out of INBOX by another
-                # client) → mirror as Traité if not already handled.
-                if not row.is_handled:
-                    vals["is_handled"] = True
-                    vals["handled_at"] = now
-                    auto_handled += 1
-            row.write(vals)
-        if flipped_in or flipped_out:
-            _logger.info(
-                "bf.email IMAP mirror: %s flipped to in-inbox, %s flipped out "
-                "(%s auto-marked Traité)",
-                flipped_in, flipped_out, auto_handled,
-            )
+            try:
+                conn = bf_email_imap.open_connection(
+                    account.host, account.port, account.login, account.password,
+                )
+            except bf_email_imap.ImapConnectionError as exc:
+                _logger.warning(
+                    "bf.email IMAP mirror (%s): %s", account.display_name, exc,
+                )
+                continue
+            try:
+                if not bf_email_imap.select_folder(conn, "INBOX", readonly=True):
+                    continue
+                status, data = conn.uid("SEARCH", None, "ALL")
+                if status != "OK" or not data or not data[0]:
+                    live_uids = set()
+                else:
+                    raw = data[0]
+                    if isinstance(raw, bytes):
+                        raw = raw.decode("ascii", errors="ignore")
+                    live_uids = {x for x in raw.split() if x.isdigit()}
+            finally:
+                try:
+                    conn.logout()
+                except Exception:
+                    pass
+
+            rows = self.sudo().search([
+                ("account_id", "=", account.id),
+                ("imap_folder", "ilike", "INBOX"),
+                ("date", ">=", cutoff),
+                ("imap_uid", "!=", False),
+            ])
+            flipped_in = flipped_out = auto_handled = 0
+            now = fields.Datetime.now()
+            for row in rows:
+                in_inbox = str(row.imap_uid) in live_uids
+                if in_inbox == row.imap_in_inbox:
+                    continue
+                vals = {"imap_in_inbox": in_inbox}
+                if in_inbox:
+                    flipped_in += 1
+                else:
+                    flipped_out += 1
+                    if not row.is_handled:
+                        vals["is_handled"] = True
+                        vals["handled_at"] = now
+                        auto_handled += 1
+                row.write(vals)
+            if flipped_in or flipped_out:
+                _logger.info(
+                    "bf.email IMAP mirror (%s): %s in, %s out (%s auto-Traité)",
+                    account.display_name, flipped_in, flipped_out, auto_handled,
+                )
 
     @api.model
-    def _sync_imap_folder(self, conn, folder, configured_user, batch_size, ICP):
-        """Pull ``batch_size`` new UIDs from one folder, advance watermark."""
-        watermark_key = f"bf_email.imap_last_uid_{folder.lower().replace('/', '_')}"
-        last_uid = ICP.get_param(watermark_key, "0")
+    def _sync_imap_folder(self, conn, folder, account):
+        """Pull ``account.batch_size`` new UIDs from one folder, advance watermark.
+
+        The watermark lives on the account row (``last_uid_inbox``,
+        ``last_uid_sent``). Runs in the account owner's environment so
+        created rows inherit user_id/company_id from env.
+        """
+        last_uid = account.get_watermark(folder)
+        batch_size = account.batch_size or 100
 
         if not bf_email_imap.select_folder(conn, folder, readonly=True):
             _logger.info("bf.email IMAP: folder %r not selectable, skipping", folder)
@@ -1874,7 +1928,7 @@ class BfEmail(models.Model):
                 continue
             try:
                 with self.env.cr.savepoint():
-                    if self._ingest_rfc822(raw, uid, folder, configured_user):
+                    if self._ingest_rfc822(raw, uid, folder, account):
                         created += 1
                     else:
                         skipped += 1
@@ -1888,18 +1942,19 @@ class BfEmail(models.Model):
                 latest_uid = uid
 
         if latest_uid > (int(last_uid) if last_uid else 0):
-            ICP.set_param(watermark_key, str(latest_uid))
+            account.sudo().set_watermark(folder, latest_uid)
         _logger.info(
-            "bf.email IMAP %s: %d created, %d skipped (UIDs %d-%d)",
-            folder, created, skipped, uids[0], uids[-1],
+            "bf.email IMAP %s (%s): %d created, %d skipped (UIDs %d-%d)",
+            folder, account.display_name, created, skipped, uids[0], uids[-1],
         )
 
     @api.model
-    def _ingest_rfc822(self, raw_bytes, uid, folder, configured_user):
+    def _ingest_rfc822(self, raw_bytes, uid, folder, account):
         """Parse one RFC 2822 message and create an orphan bf.email row.
 
         Returns ``True`` when a row was created, ``False`` when skipped
-        (dedup on Message-ID, or unparseable).
+        (dedup on Message-ID, or unparseable). ``account`` is a
+        ``bf.email.account`` row whose owner becomes the new row's user_id.
         """
         msg = bf_email_imap.parse_rfc822(raw_bytes)
         message_id = str(msg.get("Message-ID", "")).strip() or False
@@ -1912,7 +1967,7 @@ class BfEmail(models.Model):
 
         existing = self.with_context(active_test=False).search([
             ("message_id_header", "=", message_id),
-            ("company_id", "=", self.env.company.id),
+            ("user_id", "=", account.user_id.id),
         ], limit=1)
         if existing:
             # Already represented (chatter, gateway, or earlier IMAP poll).
@@ -1941,6 +1996,9 @@ class BfEmail(models.Model):
                 chatter_vals.update({
                     "imap_uid": str(uid),
                     "imap_folder": folder,
+                    "user_id": account.user_id.id,
+                    "account_id": account.id,
+                    "company_id": account.user_id.company_id.id,
                 })
                 self.with_context(
                     mail_create_nosubscribe=True,
@@ -1948,7 +2006,7 @@ class BfEmail(models.Model):
                 ).create(chatter_vals)
                 return True
 
-        vals = self._prepare_imap_email_vals(msg, raw_bytes, uid, folder, configured_user)
+        vals = self._prepare_imap_email_vals(msg, raw_bytes, uid, folder, account)
         if not vals:
             return False
         self.with_context(
@@ -1958,7 +2016,7 @@ class BfEmail(models.Model):
         return True
 
     @api.model
-    def _prepare_imap_email_vals(self, msg, raw_bytes, uid, folder, configured_user):
+    def _prepare_imap_email_vals(self, msg, raw_bytes, uid, folder, account):
         """Build a bf.email vals dict from a parsed RFC 2822 message."""
         message_id = str(msg.get("Message-ID", "")).strip() or False
         subject = str(msg.get("Subject", ""))
@@ -1970,7 +2028,7 @@ class BfEmail(models.Model):
 
         # Direction: Sent folder = out; otherwise inbound unless From is us.
         if folder.lower() == "sent" or bf_email_imap.is_outbound_address(
-            email_from, configured_user
+            email_from, account.login
         ):
             direction = "out"
         else:
@@ -2011,7 +2069,9 @@ class BfEmail(models.Model):
             "author_id": author.id if author else False,
             "has_attachments": bool(attachments),
             "attachment_count": len(attachments),
-            "company_id": self.env.company.id,
+            "company_id": account.user_id.company_id.id,
+            "user_id": account.user_id.id,
+            "account_id": account.id,
             "imap_uid": str(uid),
             "imap_folder": folder,
             "imap_in_inbox": (folder or "").upper() == "INBOX",
@@ -2183,18 +2243,43 @@ class BfEmail(models.Model):
         return folder
 
     @api.model
-    def _imap_browser_open_conn(self):
-        ICP = self.env["ir.config_parameter"].sudo()
-        host = ICP.get_param("bf_email.imap_host")
-        user = ICP.get_param("bf_email.imap_user")
-        password = ICP.get_param("bf_email.imap_password")
-        if not (host and user and password):
+    def _imap_browser_resolve_account(self, account_id=None):
+        """Return the bf.email.account to use for the OWL browser.
+
+        Defaults to the explicit ``account_id`` if provided and owned by
+        the current user; otherwise the first active account of the current
+        user. Raises if nothing is available.
+        """
+        Account = self.env["bf.email.account"]
+        if account_id:
+            account = Account.search([
+                ("id", "=", int(account_id)),
+                ("user_id", "=", self.env.uid),
+            ], limit=1)
+            if account:
+                return account
+        account = Account.search([
+            ("user_id", "=", self.env.uid),
+            ("active", "=", True),
+        ], limit=1, order="id")
+        if not account:
             raise UserError(_(
-                "Les paramètres IMAP ne sont pas configurés. "
-                "Paramètres → Inbox unifiée → Compte IMAP."
+                "Aucun compte IMAP configuré pour vous. "
+                "Paramètres → Inbox unifiée → Mes comptes IMAP."
             ))
-        port = int(ICP.get_param("bf_email.imap_port", "993"))
-        return bf_email_imap.open_connection(host, port, user, password)
+        return account
+
+    @api.model
+    def _imap_browser_open_conn(self, account_id=None):
+        account = self._imap_browser_resolve_account(account_id)
+        if not (account.host and account.login and account.password):
+            raise UserError(_(
+                "Le compte IMAP %s n'a pas d'identifiants valides.",
+                account.display_name,
+            ))
+        return bf_email_imap.open_connection(
+            account.host, account.port, account.login, account.password,
+        )
 
     @api.model
     def imap_browser_get_folders(self):
@@ -2297,6 +2382,7 @@ class BfEmail(models.Model):
                 pass
 
         # Dedup against bf.email by Message-ID in a single query.
+        # User-scoped: only consider rows belonging to the current user.
         msg_ids = [
             str(headers[u][0].get("Message-ID", "")).strip()
             for u in page_uids if u in headers
@@ -2307,7 +2393,7 @@ class BfEmail(models.Model):
             existing = set(
                 self.with_context(active_test=False).sudo().search([
                     ("message_id_header", "in", msg_ids),
-                    ("company_id", "=", self.env.company.id),
+                    ("user_id", "=", self.env.uid),
                 ]).mapped("message_id_header")
             )
 
@@ -2381,7 +2467,7 @@ class BfEmail(models.Model):
         if mid:
             bf_email = self.with_context(active_test=False).sudo().search([
                 ("message_id_header", "=", mid),
-                ("company_id", "=", self.env.company.id),
+                ("user_id", "=", self.env.uid),
             ], limit=1)
         parsed_date = bf_email_imap.parse_date(msg.get("Date"))
         return {
@@ -2396,13 +2482,16 @@ class BfEmail(models.Model):
         }
 
     @api.model
-    def imap_browser_ingest(self, folder, uid):
+    def imap_browser_ingest(self, folder, uid, account_id=None):
         """Ingest a UID into bf.email via _ingest_rfc822. Returns the new id."""
         self._imap_browser_check_folder(folder)
         if not uid:
             raise UserError(_("UID manquant."))
+        account = self._imap_browser_resolve_account(account_id)
         try:
-            conn = self._imap_browser_open_conn()
+            conn = bf_email_imap.open_connection(
+                account.host, account.port, account.login, account.password,
+            )
         except bf_email_imap.ImapConnectionError as exc:
             raise UserError(_("Connexion IMAP impossible : %s", exc)) from exc
         try:
@@ -2416,9 +2505,10 @@ class BfEmail(models.Model):
                 pass
         if not raw:
             raise UserError(_("Impossible de récupérer le UID %s.", uid))
-        ICP = self.env["ir.config_parameter"].sudo()
-        configured_user = ICP.get_param("bf_email.imap_user") or ""
-        self.sudo()._ingest_rfc822(raw, int(uid), folder, configured_user)
+        # Ingest in the account owner's environment so user_id/company_id
+        # are derived correctly.
+        owner_env = self.with_user(account.user_id)
+        owner_env._ingest_rfc822(raw, int(uid), folder, account)
         # Look up the resulting row (may have existed already via dedup).
         msg = bf_email_imap.parse_rfc822(raw)
         mid = str(msg.get("Message-ID", "")).strip() or None
@@ -2426,7 +2516,7 @@ class BfEmail(models.Model):
         if mid:
             row = self.with_context(active_test=False).sudo().search([
                 ("message_id_header", "=", mid),
-                ("company_id", "=", self.env.company.id),
+                ("user_id", "=", account.user_id.id),
             ], limit=1)
             bf_email_id = row.id if row else False
         return {"bf_email_id": bf_email_id}
@@ -2555,7 +2645,7 @@ class BfEmail(models.Model):
         if folder.lower().startswith("trash"):
             raise UserError(_(
                 "Ce message est déjà dans Trash. La suppression définitive "
-                "n'est pas exposée par ce navigateur — passez par Migadu webmail."
+                "n'est pas exposée par ce navigateur — passez par votre webmail IMAP."
             ))
         try:
             conn = self._imap_browser_open_conn()

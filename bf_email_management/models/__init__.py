@@ -1,3 +1,4 @@
+from . import bf_email_account
 from . import bf_email
 from . import bf_email_dashboard
 from . import bf_email_rule

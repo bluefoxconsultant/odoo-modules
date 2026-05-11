@@ -2,7 +2,7 @@
 
 When ``bf_email_reroute_search=True`` is in context, return labels with the
 partner's primary email so the user can disambiguate two contacts with the
-same name (frequent for shared first names in the BF/PME books).
+same name (frequent for shared first names in a multi-company address book).
 """
 
 from odoo import api, models

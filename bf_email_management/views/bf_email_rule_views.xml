@@ -47,7 +47,7 @@
                         <group string="Condition">
                             <field name="condition_type"/>
                             <field name="condition_value"
-                                   placeholder="@bluefoxconsultant.com"/>
+                                   placeholder="@example.com"/>
                         </group>
                     </group>
                     <group string="Actions à appliquer">

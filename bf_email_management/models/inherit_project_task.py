@@ -4,7 +4,8 @@ When the wizard is open, the target_reference Reference field passes
 ``bf_email_reroute_search=True`` in the dropdown context. We use that flag
 to:
   * Accept a raw integer typed by the user (``22299``) and resolve it to
-    ``[('id', '=', 22299)]`` (most BF tasks are referenced by ID in URLs).
+    ``[('id', '=', 22299)]`` (some workflows reference tasks by their ID
+    in URLs).
   * Return enriched display labels ``#{id} — {display_name}`` so the
     confirmation dropdown shows the full task title alongside its ID.
 

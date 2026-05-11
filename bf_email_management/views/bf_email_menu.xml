@@ -81,13 +81,12 @@
     <menuitem id="menu_bf_email_config"
               name="Configuration"
               parent="menu_bf_email_root"
-              groups="group_email_manager"
               sequence="90"/>
 
-    <menuitem id="menu_bf_email_settings"
-              name="Param&#232;tres (compte IMAP)"
+    <menuitem id="menu_bf_email_accounts"
+              name="Mes comptes IMAP"
               parent="menu_bf_email_config"
-              action="action_bf_email_settings"
+              action="bf_email_account_action"
               sequence="1"/>
 
     <menuitem id="menu_bf_email_sync_now"

@@ -20,19 +20,37 @@ from ..models import bf_email_imap
 _logger = logging.getLogger(__name__)
 
 
-def _get_imap_config(env):
-    """Return ``(host, port, user, password)`` from ICP, or raise UserError."""
-    ICP = env["ir.config_parameter"].sudo()
-    host = ICP.get_param("bf_email.imap_host")
-    user = ICP.get_param("bf_email.imap_user")
-    password = ICP.get_param("bf_email.imap_password")
-    if not (host and user and password):
+def _resolve_account(env, account_id=None):
+    """Return the bf.email.account for the current user (or raise)."""
+    Account = env["bf.email.account"]
+    if account_id:
+        acct = Account.search([
+            ("id", "=", int(account_id)),
+            ("user_id", "=", env.uid),
+        ], limit=1)
+        if acct:
+            return acct
+    acct = Account.search([
+        ("user_id", "=", env.uid),
+        ("active", "=", True),
+    ], limit=1, order="id")
+    if not acct:
         raise exceptions.UserError(_(
-            "Les paramètres IMAP ne sont pas configurés. "
-            "Paramètres → Inbox unifiée → Compte IMAP."
+            "Aucun compte IMAP configuré pour vous. "
+            "Paramètres → Inbox unifiée → Mes comptes IMAP."
         ))
-    port = int(ICP.get_param("bf_email.imap_port", "993"))
-    return host, port, user, password
+    return acct
+
+
+def _open_account_conn(account):
+    if not (account.host and account.login and account.password):
+        raise exceptions.UserError(_(
+            "Le compte « %s » n'a pas d'identifiants valides.",
+            account.name,
+        ))
+    return bf_email_imap.open_connection(
+        account.host, account.port, account.login, account.password,
+    )
 
 
 class BfEmailBrowser(models.TransientModel):
@@ -40,6 +58,16 @@ class BfEmailBrowser(models.TransientModel):
     _description = "Navigateur IMAP"
     _rec_name = "folder"
 
+    account_id = fields.Many2one(
+        comodel_name="bf.email.account",
+        string="Compte IMAP",
+        required=True,
+        domain="[('user_id', '=', uid), ('active', '=', True)]",
+        default=lambda self: self.env["bf.email.account"].search(
+            [("user_id", "=", self.env.uid), ("active", "=", True)],
+            limit=1, order="id",
+        ),
+    )
     folder = fields.Char(
         string="Dossier",
         required=True,
@@ -103,9 +131,9 @@ class BfEmailBrowser(models.TransientModel):
     # ------------------------------------------------------------------
     def action_refresh_folder_list(self):
         self.ensure_one()
-        host, port, user, password = _get_imap_config(self.env)
+        account = _resolve_account(self.env, self.account_id.id)
         try:
-            conn = bf_email_imap.open_connection(host, port, user, password)
+            conn = _open_account_conn(account)
         except bf_email_imap.ImapConnectionError as exc:
             raise exceptions.UserError(_("Connexion IMAP impossible : %s", exc)) from exc
         try:
@@ -138,9 +166,9 @@ class BfEmailBrowser(models.TransientModel):
         self.ensure_one()
         if not self.folder:
             raise exceptions.UserError(_("Choisissez un dossier."))
-        host, port, user, password = _get_imap_config(self.env)
+        account = _resolve_account(self.env, self.account_id.id)
         try:
-            conn = bf_email_imap.open_connection(host, port, user, password)
+            conn = _open_account_conn(account)
         except bf_email_imap.ImapConnectionError as exc:
             raise exceptions.UserError(_("Connexion IMAP impossible : %s", exc)) from exc
 
@@ -175,7 +203,7 @@ class BfEmailBrowser(models.TransientModel):
             existing = set(
                 self.env["bf.email"].with_context(active_test=False).sudo().search([
                     ("message_id_header", "in", msg_ids),
-                    ("company_id", "=", self.env.company.id),
+                    ("user_id", "=", self.env.uid),
                 ]).mapped("message_id_header")
             )
 
@@ -225,8 +253,8 @@ class BfEmailBrowser(models.TransientModel):
     # ------------------------------------------------------------------
     def _fetch_one_rfc822(self, uid):
         """Open a fresh conn, fetch a single UID's body, return raw bytes."""
-        host, port, user, password = _get_imap_config(self.env)
-        conn = bf_email_imap.open_connection(host, port, user, password)
+        account = _resolve_account(self.env, self.account_id.id)
+        conn = _open_account_conn(account)
         try:
             if not bf_email_imap.select_folder(conn, self.folder, readonly=True):
                 raise exceptions.UserError(_(

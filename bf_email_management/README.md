@@ -39,7 +39,7 @@ A centralized email management module for Odoo 18 that provides a single, dedupl
   | out       | no        | own res.partner (orphan IMAP) |
   Forward attaches original RFC 2822 attachments for orphan rows.
 - **Snooze (2.0+)** — defer rows out of inbox until a chosen datetime. The IMAP mirror cron flips them back automatically.
-- **Bilateral IMAP archive (2.0+, opt-in)** — flip ICP `bf_email.imap_writeback_archive=True` and Archive in the UI also `UID COPY` + `EXPUNGE` from Migadu INBOX.
+- **Bilateral IMAP archive (2.0+, opt-in)** — set `writeback_archive=True` on the account and Archive in the UI also `UID COPY` + `EXPUNGE` from the IMAP INBOX.
 - **Auto mark-as-read** — opening an email in the form automatically transitions the row. Reading the underlying `mail.message` in any chatter also flips status (via `mail.notification` override).
 - **Auto mark-as-replied** — when an outbound row is created with `in_reply_to` matching an inbound row's Message-ID, the inbound is flipped to `replied` automatically (no manual click).
 - **Bulk actions** — Mark read, Mark replied, Traiter, Remettre en boîte, Reporter, Re-router — all available as server actions on the list view.
@@ -59,7 +59,7 @@ A mail-client-style view of any IMAP folder, no permanent ingestion required.
 - **Unread display** — `\Seen` IMAP flag drives bold rows. Selecting a row auto-unbolds it locally; the server `\Seen` flag flips on next mail-client open.
 - **Body rendering** — message bodies are rendered in a sandboxed `<iframe srcdoc>` so email-specific CSS (and large tables) don't bleed into Odoo's UI. Scripts inside emails are neutralised (no `allow-scripts`).
 - **Per-row Traité button** — one-click ingest + IMAP archive + auto-jump to the next message.
-- **Preview-pane toolbar** — Reply, Reply-All, Forward (open Odoo's mail composer wired to the ingested row), Traité (writeback to `Archives/{YYYY}` on Migadu), Router (open the Reroute wizard), Supprimer (IMAP `COPY uid Trash` + `EXPUNGE`).
+- **Preview-pane toolbar** — Reply, Reply-All, Forward (open Odoo's mail composer wired to the ingested row), Traité (writeback to `Archives/{YYYY}` on the IMAP server), Router (open the Reroute wizard), Supprimer (IMAP `COPY uid Trash` + `EXPUNGE`).
 - **Drag-and-drop** — drag a row onto any folder in the sidebar → `IMAP COPY` + `EXPUNGE`.
 - **Infinite scroll** — `IntersectionObserver` on a sentinel `<div>` at the bottom of the list appends the next page (default 100) automatically.
 - **Auto-jump** — after Traité / Supprimer / drag-and-drop, the preview moves to the next message; the cleared row is removed from the list in memory.
@@ -112,19 +112,20 @@ The 8 heuristic signals are based on empirical email-overload research:
 
 1. Copy the `bf_email_management` directory to your Odoo addons path.
 2. Install via the Apps menu.
-3. **Configure IMAP credentials** (Settings → Technical → Parameters):
-   - `bf_email.imap_host` — your IMAP server hostname
-   - `bf_email.imap_port` — typically `993` (IMAPS)
-   - `bf_email.imap_user` — IMAP username (usually the email address)
-   - `bf_email.imap_password` — IMAP password or app password
-4. The cron `Courriels : ingestion IMAP directe` runs every 5 minutes and silently skips when credentials are unset, so the module is safe to install before configuring IMAP.
+3. **Configure your IMAP account(s)** under *Courriels → Configuration → Mes comptes IMAP* (each internal user manages their own list — see Security below):
+   - Host — your IMAP server hostname
+   - Port — typically `993` (IMAPS)
+   - Login — IMAP username (usually the email address)
+   - Password — IMAP password or app password
+   - Click **Test the connection**, save, then optionally **Sync now**.
+4. The cron `Courriels : ingestion IMAP directe` runs every 5 minutes and silently skips users with no active account, so the module is safe to install before any user configures one.
 5. To backfill historical emails from an archive folder, open *Courriels → Configuration → Rattrapage IMAP (Archives)*.
 
 ## Architecture Notes
 
 ### Watermarking
 - **Chatter projection cron** advances a `create_date` watermark on `mail.message` (not the sender's `Date:` header) so back-dated imports — manual scripts, forwarded threads — never fall below the watermark.
-- **IMAP cron** advances a per-folder UID watermark (`bf_email.imap_last_uid_inbox`, `imap_last_uid_sent`). Migadu UIDs are monotonic per folder.
+- **IMAP cron** advances a per-folder UID watermark stored on each `bf.email.account` row (`last_uid_inbox`, `last_uid_sent`). IMAP UIDs are monotonic per folder.
 - **Backfill wizard** does NOT touch the live UID watermarks, so re-running it on an archive folder is safe.
 
 ### Deduplication Order of Operations
@@ -151,13 +152,12 @@ The OWL client action calls these `@api.model` methods on `bf.email`. Each opens
 
 ## Security
 
-- **Two security groups**: User (read/write) and Manager (full CRUD + sync wizards).
-- **Multi-company**: Users see only their company's rows; managers see all.
+- **Per-user model (4.0+)**: each internal user manages their own `bf.email.account` rows and only sees their own `bf.email` / `bf.email.rule` records. No admin bypass — even a superuser browsing through the UI honours the per-owner `ir.rule` (raw SQL queries in the dashboard also include an explicit `user_id` predicate).
+- **Account credentials** (host / login / password) live on the `bf.email.account` row. The `ir.rule` `[('user_id', '=', user.id)]` makes them readable only by the owner.
 - **Menu badge** for unread count.
-- IMAP credentials are stored in `ir.config_parameter` (system-only access). Passwords are not exposed in views or logs.
 - Re-routing wizard validates `check_access_rights("write")` and `check_access_rule("write")` on the target record before posting.
 - All SQL uses parameterized placeholders.
-- `sudo()` calls are scoped to system-config reads (`bf_email.imap_*` ICPs), cross-model display-name lookups, partner resolution by email, and the OWL browser's RPC surface (IMAP I/O always runs as the configured IMAP user — never as the calling Odoo user).
+- `sudo()` calls are scoped to cross-model display-name lookups, partner resolution by email, and the IMAP cron loop (which fetches each active account in admin context, then runs `_ingest_rfc822` via `with_user(account.user_id)` so created rows inherit the account owner's `user_id`).
 - IMAP body preview in the OWL browser renders inside `<iframe sandbox="allow-same-origin">` — no `allow-scripts`, so JS embedded in inbound mail is neutralised.
 - Drag-and-drop and `Supprimer (Trash)` only touch IMAP state via parameterised `UID COPY` / `UID STORE` / `EXPUNGE`. Refuses permanent delete from `Trash/*` (user must go through the IMAP webmail).
 

@@ -20,7 +20,9 @@ from odoo.exceptions import UserError
 _logger = logging.getLogger(__name__)
 
 NTFY_REMINDER_URL_PARAM = "bf_email.ntfy_reminder_url"
-NTFY_REMINDER_DEFAULT_URL = "http://push-webhook-relay:8090/hook/bf-reminder"
+# Empty default: the cron short-circuits unless a tenant explicitly sets the
+# ``bf_email.ntfy_reminder_url`` ir.config_parameter to a reachable endpoint.
+NTFY_REMINDER_DEFAULT_URL = ""
 
 
 SNOOZE_PRESETS = {

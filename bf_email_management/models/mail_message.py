@@ -25,10 +25,12 @@ class MailMessage(models.Model):
         filename = None
 
         # Prefer a mirrored bf.email row with raw_rfc822 — that gives us
-        # the exact bytes we received over IMAP.
+        # the exact bytes we received over IMAP. User-scoped so user A
+        # can't download user B's raw bytes via a chatter message.
         if self.message_id:
             mirror = BfEmail.search([
                 ("message_id_header", "=", self.message_id),
+                ("user_id", "=", self.env.uid),
             ], limit=1)
             if mirror and mirror.raw_rfc822:
                 try:

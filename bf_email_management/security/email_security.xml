@@ -1,46 +1,47 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <!-- Catégorie du module -->
-    <record id="module_category_email" model="ir.module.category">
-        <field name="name">Gestion des courriels</field>
-        <field name="description">Consulter et gérer les courriels centralisés</field>
-        <field name="sequence">55</field>
-    </record>
+    <!--
+      Per-user model (18.0.4.0.0):
+      - No bf_email_management groups. Anyone with internal user access can
+        configure their own bf.email.account rows and consume their own
+        bf.email rows. No admin bypass for visibility.
+      - One ir.rule per model with domain_force = [('user_id', '=', user.id)].
+      - The migration in migrations/18.0.4.0.0/post-migrate.py drops the
+        legacy group_email_user / group_email_manager records.
+    -->
 
-    <!-- Groupe : Utilisateur -->
-    <record id="group_email_user" model="res.groups">
-        <field name="name">Utilisateur courriels</field>
-        <field name="category_id" ref="module_category_email"/>
-        <field name="comment">Peut consulter les courriels</field>
-    </record>
-
-    <!-- Groupe : Gestionnaire (hérite de Utilisateur) -->
-    <record id="group_email_manager" model="res.groups">
-        <field name="name">Gestionnaire courriels</field>
-        <field name="category_id" ref="module_category_email"/>
-        <field name="implied_ids" eval="[(4, ref('group_email_user'))]"/>
-        <field name="comment">Accès complet à la gestion des courriels</field>
-    </record>
-
-    <!-- Règle : l'utilisateur voit tous les courriels de sa société -->
-    <record id="bf_email_rule_user" model="ir.rule">
-        <field name="name">Courriel : utilisateur voit sa société</field>
+    <record id="bf_email_rule_owner" model="ir.rule">
+        <field name="name">Courriel : visible uniquement au propriétaire</field>
         <field name="model_id" ref="model_bf_email"/>
-        <field name="domain_force">[('company_id', '=', user.company_id.id)]</field>
-        <field name="groups" eval="[(4, ref('group_email_user'))]"/>
+        <field name="domain_force">[('user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('base.group_user'))]"/>
         <field name="perm_read" eval="True"/>
         <field name="perm_write" eval="True"/>
-        <field name="perm_create" eval="False"/>
-        <field name="perm_unlink" eval="False"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
     </record>
 
-    <!-- Règle : le gestionnaire voit tout -->
-    <record id="bf_email_rule_manager" model="ir.rule">
-        <field name="name">Courriel : gestionnaire voit tout</field>
-        <field name="model_id" ref="model_bf_email"/>
-        <field name="domain_force">[(1, '=', 1)]</field>
-        <field name="groups" eval="[(4, ref('group_email_manager'))]"/>
+    <record id="bf_email_account_rule_owner" model="ir.rule">
+        <field name="name">Compte IMAP : visible uniquement au propriétaire</field>
+        <field name="model_id" ref="model_bf_email_account"/>
+        <field name="domain_force">[('user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('base.group_user'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
+    </record>
+
+    <record id="bf_email_rule_rule_owner" model="ir.rule">
+        <field name="name">Règle courriel : visible uniquement au propriétaire</field>
+        <field name="model_id" ref="model_bf_email_rule"/>
+        <field name="domain_force">[('user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('base.group_user'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="True"/>
     </record>
 
 </odoo>

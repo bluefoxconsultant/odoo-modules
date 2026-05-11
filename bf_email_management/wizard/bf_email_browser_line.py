@@ -54,7 +54,7 @@ class BfEmailBrowserLine(models.TransientModel):
         if message_id:
             bf_email = self.env["bf.email"].sudo().with_context(active_test=False).search([
                 ("message_id_header", "=", message_id),
-                ("company_id", "=", self.env.company.id),
+                ("user_id", "=", self.env.uid),
             ], limit=1)
         browser.write({
             "preview_uid": self.uid,
@@ -78,16 +78,20 @@ class BfEmailBrowserLine(models.TransientModel):
             raise exceptions.UserError(_(
                 "Impossible de récupérer le UID %s.", self.uid,
             ))
-        ICP = self.env["ir.config_parameter"].sudo()
-        configured_user = ICP.get_param("bf_email.imap_user") or ""
-        self.env["bf.email"].sudo()._ingest_rfc822(
-            raw, int(self.uid), browser.folder, configured_user,
+        account = browser.account_id
+        if not account or account.user_id.id != self.env.uid:
+            raise exceptions.UserError(_(
+                "Compte IMAP introuvable ou n'appartient pas à l'utilisateur courant.",
+            ))
+        # Ingest under the account's owner so user_id is set correctly.
+        self.env["bf.email"].with_user(account.user_id)._ingest_rfc822(
+            raw, int(self.uid), browser.folder, account,
         )
         new_bf = False
         if self.message_id_header:
             new_bf = self.env["bf.email"].sudo().with_context(active_test=False).search([
                 ("message_id_header", "=", self.message_id_header),
-                ("company_id", "=", self.env.company.id),
+                ("user_id", "=", account.user_id.id),
             ], limit=1)
         self.write({"already_in_bf_email": True})
         if browser.preview_uid == self.uid:
@@ -107,7 +111,7 @@ class BfEmailBrowserLine(models.TransientModel):
             ))
         bf = self.env["bf.email"].sudo().with_context(active_test=False).search([
             ("message_id_header", "=", self.message_id_header),
-            ("company_id", "=", self.env.company.id),
+            ("user_id", "=", self.env.uid),
         ], limit=1)
         if not bf:
             raise exceptions.UserError(_(

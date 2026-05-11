@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo noupdate="1">
 
+    <!-- The chatter projection cron (_cron_sync_emails) still uses a global
+         watermark on mail.message create_date — it doesn't read per-account
+         credentials. Kept here for fresh installs. -->
     <record id="bf_email_last_sync_date" model="ir.config_parameter">
         <field name="key">bf_email.last_sync_date</field>
         <field name="value">2000-01-01 00:00:00</field>
@@ -11,60 +14,11 @@
         <field name="value">200</field>
     </record>
 
-    <!-- IMAP direct ingestion (host/port/user/password set via UI on first install) -->
-    <record id="bf_email_imap_host" model="ir.config_parameter">
-        <field name="key">bf_email.imap_host</field>
-        <field name="value"></field>
-    </record>
-
-    <record id="bf_email_imap_port" model="ir.config_parameter">
-        <field name="key">bf_email.imap_port</field>
-        <field name="value">993</field>
-    </record>
-
-    <record id="bf_email_imap_user" model="ir.config_parameter">
-        <field name="key">bf_email.imap_user</field>
-        <field name="value"></field>
-    </record>
-
-    <record id="bf_email_imap_password" model="ir.config_parameter">
-        <field name="key">bf_email.imap_password</field>
-        <field name="value"></field>
-    </record>
-
-    <record id="bf_email_imap_batch_size" model="ir.config_parameter">
-        <field name="key">bf_email.imap_batch_size</field>
-        <field name="value">100</field>
-    </record>
-
-    <record id="bf_email_imap_last_uid_inbox" model="ir.config_parameter">
-        <field name="key">bf_email.imap_last_uid_inbox</field>
-        <field name="value">0</field>
-    </record>
-
-    <record id="bf_email_imap_last_uid_sent" model="ir.config_parameter">
-        <field name="key">bf_email.imap_last_uid_sent</field>
-        <field name="value">0</field>
-    </record>
-
-    <!-- Bilateral IMAP archive (Migadu writeback). When True,
-         action_archive() also COPY+EXPUNGE the message from INBOX into
-         the configured archive folder. On by default since 18.0.2.3.0;
-         set to False to disable bilateral archive. -->
-    <record id="bf_email_imap_writeback_archive" model="ir.config_parameter">
-        <field name="key">bf_email.imap_writeback_archive</field>
-        <field name="value">True</field>
-    </record>
-
-    <record id="bf_email_imap_archive_folder" model="ir.config_parameter">
-        <field name="key">bf_email.imap_archive_folder</field>
-        <field name="value">Archives/{YYYY}</field>
-    </record>
-
-    <!-- Auto-link orphans: lookup window in days for the partner's open tasks. -->
-    <record id="bf_email_auto_link_threshold_days" model="ir.config_parameter">
-        <field name="key">bf_email.auto_link_threshold_days</field>
-        <field name="value">14</field>
-    </record>
+    <!--
+      18.0.4.0.0: All IMAP credentials, watermarks, archive folders, batch
+      sizes, and auto-link thresholds moved to bf.email.account (per-user).
+      The migration in 18.0.4.0.0/post-migrate.py removes the legacy
+      bf_email.imap_* rows from existing databases.
+    -->
 
 </odoo>

@@ -4,6 +4,46 @@ All notable changes to `bf_email_management` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This module follows Odoo's `MAJOR.MINOR.PATCH` convention prefixed with the Odoo series (`18.0.X.Y.Z`).
 
+## [18.0.4.0.0] — 2026-05-10
+
+### Breaking
+
+- **Per-user pivot.** The module no longer manages a single shared IMAP mailbox. Each internal user now owns one or more `bf.email.account` rows and only sees their own `bf.email`, `bf.email.account`, and `bf.email.rule` records via a record-rule on `user_id`.
+- **Security groups removed.** `group_email_user` and `group_email_manager` (and the module category) are unlinked by `migrations/18.0.4.0.0/post-migrate.py`. ACLs target `base.group_user` directly; the per-row `ir.rule` does the isolation. No admin bypass.
+- **IMAP credentials moved.** The `ir.config_parameter` keys `bf_email.imap_host`, `imap_port`, `imap_user`, `imap_password`, `imap_archive_folder`, `imap_writeback_archive`, `imap_batch_size`, `imap_last_uid_inbox`, `imap_last_uid_sent`, `sync_batch_size`, and `auto_link_threshold_days` are migrated to per-account fields and then deleted. `bf_email.last_sync_date` is kept (chatter projection still uses it).
+- **`_ingest_rfc822(raw, uid, folder, account)`** — signature changed: the last positional argument is now a `bf.email.account` row instead of the `configured_user` string. Same for `_sync_imap_folder(conn, folder, account)`.
+
+### Added
+
+- **`bf.email.account`** model — per-user IMAP credentials (host, port, login, password), per-folder UID watermarks (`last_uid_inbox`, `last_uid_sent`), per-account archive folder template, batch size, writeback toggle, auto-link threshold, plus a `state` (draft/connected/error) and `last_error` for diagnostics. Actions: **Tester la connexion** and **Synchroniser maintenant**.
+- **Menu** `Courriels → Configuration → Mes comptes IMAP` (replaces the legacy Settings panel) listing only the current user's accounts.
+- **`bf.email.user_id` + `account_id`** fields. New SQL constraint `UNIQUE(message_id_header, company_id, user_id)` lets two users ingest the same Message-ID without collision.
+- **`bf.email.rule.user_id`** — required Many2one on `res.users`. `_apply_rules()` only evaluates rules whose `user_id` matches the row owner; `action_replay_rules()` operates only on the current user's own rows.
+- **Migration ICP override** — set `bf_email_management.legacy_owner_uid` on `ir.config_parameter` before upgrading to override the legacy-owner auto-resolution (defaults to the lowest active non-share user with `id > 1`).
+
+### Changed
+
+- **Crons refactored** — `_cron_sync_imap` and `_cron_imap_mirror` now iterate over `bf.email.account.search([('active', '=', True)])` and run each sync via `with_user(account.user_id)`, so new rows inherit `user_id` and `company_id` from the account owner.
+- **Dashboard SQL** — every raw `cr.execute` in `bf_email_dashboard.py` now appends `AND be.user_id = %s` so direct-SQL aggregates respect per-user isolation (record rules don't fire on `cr.execute`).
+- **`mail.notification` propagation** — read-state propagation no longer reads the legacy single IMAP user from ICP; it derives the recipient internal user from `res_partner_id` and only flips rows owned by that user.
+- **`mail.message.action_download_eml`** — adds `('user_id', '=', self.env.uid)` to the bf.email mirror lookup to prevent cross-user raw-RFC2822 access via a shared chatter message.
+- **Wizards** — `bf.email.browser` and `bf.email.imap.backfill` gain an `account_id` selector (default = current user's first active account; domain `[('user_id', '=', uid)]`). The IMAP browser RPC surface (`imap_browser_*`) accepts an optional `account_id` and validates ownership.
+
+### Removed
+
+- `res.config.settings` IMAP fields (`bf_email_imap_host`, `bf_email_imap_port`, `bf_email_imap_user`, `bf_email_imap_password`, `bf_email_imap_writeback_archive`, `bf_email_imap_archive_folder`, `bf_email_imap_batch_size`, `bf_email_auto_link_threshold_days`) and `action_bf_email_test_imap`. The functionality lives on `bf.email.account` now.
+- Tenant-specific default rule `rule_internal_bluefox`. Users define their own internal-domain rules.
+
+### Migration notes
+
+The 18.0.4.0.0 migration:
+
+1. Resolves the **legacy owner uid** (from `bf_email_management.legacy_owner_uid` ICP, or the lowest active non-share user id `> 1`, falling back to `SUPERUSER_ID`).
+2. Adds `bf_email.user_id`, `bf_email.account_id`, and `bf_email_rule.user_id` columns via raw SQL in **pre-migrate** to satisfy the new `required=True` constraints during Odoo model setup.
+3. Cleans up FK references that point to the legacy `group_email_user` / `group_email_manager` (`ir_model_access`, `res_groups_users_rel`, `rule_group_rel`, `res_groups_implied_rel`) so `unlink()` succeeds in post-migrate.
+4. Drops the legacy `UNIQUE(message_id_header, company_id)` constraint so the new three-column constraint can take its place during the registry rebuild.
+5. In **post-migrate**, creates a single `bf.email.account` row from the legacy ICP credentials (owned by the resolved owner), links the existing IMAP `bf.email` rows to it via `account_id`, deletes the legacy `bf_email.imap_*` ICP rows, and unlinks the legacy groups + the module category record.
+
 ## [18.0.3.8.0] — 2026-05-10
 
 ### Added

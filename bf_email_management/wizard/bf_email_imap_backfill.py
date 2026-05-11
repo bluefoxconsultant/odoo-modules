@@ -20,6 +20,17 @@ class BfEmailImapBackfill(models.TransientModel):
     _name = "bf.email.imap.backfill"
     _description = "Rattrapage IMAP (Archives, dossiers historiques)"
 
+    account_id = fields.Many2one(
+        comodel_name="bf.email.account",
+        string="Compte IMAP",
+        required=True,
+        domain="[('user_id', '=', uid), ('active', '=', True)]",
+        default=lambda self: self.env["bf.email.account"].search(
+            [("user_id", "=", self.env.uid), ("active", "=", True)],
+            limit=1, order="id",
+        ),
+        help="Compte sur lequel exécuter le rattrapage.",
+    )
     folder = fields.Char(
         string="Dossier IMAP",
         required=True,
@@ -55,27 +66,32 @@ class BfEmailImapBackfill(models.TransientModel):
 
     def action_run(self):
         self.ensure_one()
-        BfEmail = self.env["bf.email"]
-
-        ICP = self.env["ir.config_parameter"].sudo()
-        host = ICP.get_param("bf_email.imap_host")
-        user = ICP.get_param("bf_email.imap_user")
-        password = ICP.get_param("bf_email.imap_password")
-        if not (host and user and password):
+        if not self.account_id or self.account_id.user_id.id != self.env.uid:
             self.write({
                 "state": "done",
                 "result_text": (
-                    "Erreur : credentials IMAP non configurés. "
-                    "Vérifiez les paramètres bf_email.imap_host / imap_user / "
-                    "imap_password dans Configuration > Paramètres système."
+                    "Erreur : aucun compte IMAP sélectionné ou compte "
+                    "appartenant à un autre utilisateur."
+                ),
+            })
+            return self._reopen()
+        account = self.account_id
+        BfEmail = self.env["bf.email"]
+
+        if not (account.host and account.login and account.password):
+            self.write({
+                "state": "done",
+                "result_text": (
+                    "Erreur : identifiants IMAP incomplets sur le compte "
+                    f"« {account.name} »."
                 ),
             })
             return self._reopen()
 
-        port = int(ICP.get_param("bf_email.imap_port", "993"))
-
         try:
-            conn = bf_email_imap.open_connection(host, port, user, password)
+            conn = bf_email_imap.open_connection(
+                account.host, account.port, account.login, account.password,
+            )
         except bf_email_imap.ImapConnectionError as exc:
             self.write({
                 "state": "done",
@@ -116,7 +132,7 @@ class BfEmailImapBackfill(models.TransientModel):
                         continue
                     try:
                         with self.env.cr.savepoint():
-                            if BfEmail._ingest_rfc822(raw, uid, self.folder, user):
+                            if BfEmail._ingest_rfc822(raw, uid, self.folder, account):
                                 created += 1
                             else:
                                 skipped += 1

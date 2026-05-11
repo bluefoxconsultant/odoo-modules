@@ -8,6 +8,7 @@
             <form string="Rattrapage IMAP">
                 <group invisible="state != 'draft'">
                     <group>
+                        <field name="account_id"/>
                         <field name="folder" placeholder="Archives/2026"/>
                         <field name="date_from"/>
                         <field name="date_to"/>

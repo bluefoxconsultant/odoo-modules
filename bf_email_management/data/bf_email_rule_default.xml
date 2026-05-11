@@ -21,15 +21,6 @@
         <field name="description">Grbovic et al. 2014 — l'en-tête List-Unsubscribe est le signal le plus fort pour le bulk marketing.</field>
     </record>
 
-    <record id="rule_internal_bluefox" model="bf.email.rule">
-        <field name="name">Domaine bluefoxconsultant.com → Interne</field>
-        <field name="sequence">30</field>
-        <field name="condition_type">regex_from</field>
-        <field name="condition_value">@bluefoxconsultant\.com</field>
-        <field name="set_category">internal</field>
-        <field name="description">Courriels d'employés ou d'alias Blue Fox.</field>
-    </record>
-
     <record id="rule_client_partner" model="bf.email.rule">
         <field name="name">Partenaire client_rank > 0 → Client (priorité Élevée)</field>
         <field name="sequence">40</field>
