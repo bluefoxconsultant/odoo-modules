@@ -1,6 +1,6 @@
 {
     "name": "Blue Fox Appointment",
-    "version": "18.0.2.15.6",
+    "version": "18.0.2.15.7",
     "category": "Appointments",
     "summary": "Public self-service booking pages extending Resource Booking",
     "author": "Blue Fox Inc",
