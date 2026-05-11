@@ -43,6 +43,23 @@ class TestStudioLightSecurity(TransactionCase):
                 }
             )
 
+    # S5 — Reference whitelist containing a locked model refused
+    def test_reference_whitelist_locked_model_refused(self):
+        """A reference field that lists res.users among its allowed
+        targets must be refused without the bypass group."""
+        with self.assertRaises(ValidationError):
+            self.env["studio.light.field"].create(
+                {
+                    "label": "Polymorphic with users",
+                    "name": "x_studio_ref_poison",
+                    "model_id": self.partner_model.id,
+                    "field_type": "reference",
+                    "reference_model_ids": [
+                        (6, 0, [self.partner_model.id, self.users_model.id])
+                    ],
+                }
+            )
+
     # S6 — Context-only bypass no longer works
     def test_context_force_does_not_bypass(self):
         """Setting studio_light_force in context must NOT bypass the lock."""

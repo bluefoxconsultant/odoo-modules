@@ -23,6 +23,12 @@
                         <field name="relation_model_id"
                                options="{'no_create': True, 'no_open': True}"/>
                     </group>
+                    <group string="Allowed reference targets" invisible="field_type != 'reference' or is_related">
+                        <field name="reference_model_ids"
+                               nolabel="1"
+                               widget="many2many_tags"
+                               options="{'no_create': True, 'no_open': True}"/>
+                    </group>
                     <group string="Read from another field (advanced)">
                         <field name="is_related"/>
                         <field name="related_path"

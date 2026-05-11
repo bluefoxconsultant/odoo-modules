@@ -39,7 +39,13 @@ class StudioLightWizard(models.TransientModel):
     relation_model_id = fields.Many2one(
         "ir.model",
         string="Linked model",
-        help="For Many2one: which model the field points to.",
+        help="For Many2one / Many2many: which model the field points to.",
+    )
+    reference_model_ids = fields.Many2many(
+        "ir.model",
+        string="Allowed reference models",
+        help="For Reference: the whitelist of target models the user can "
+        "pick from when populating this field.",
     )
 
     is_related = fields.Boolean(
@@ -146,6 +152,15 @@ class StudioLightWizard(models.TransientModel):
                     _("Pick the linked model for the %s field.") % self.field_type
                 )
             field_vals["relation_model_id"] = self.relation_model_id.id
+        if self.field_type == "reference" and not self.is_related:
+            if not self.reference_model_ids:
+                raise UserError(
+                    _(
+                        "Pick at least one allowed target model for the "
+                        "reference field."
+                    )
+                )
+            field_vals["reference_model_ids"] = [(6, 0, self.reference_model_ids.ids)]
 
         studio_field = self.env["studio.light.field"].create(field_vals)
 

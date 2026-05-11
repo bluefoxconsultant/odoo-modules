@@ -22,6 +22,7 @@ SUPPORTED_TYPES = [
     ("selection", "Selection"),
     ("many2one", "Link to record"),
     ("many2many", "Tags / multi-select"),
+    ("reference", "Polymorphic link (any of N models)"),
     ("binary", "Attachment / file"),
     ("image", "Image"),
 ]
@@ -200,6 +201,17 @@ class StudioLightField(models.Model):
         [("set null", "Set NULL"), ("restrict", "Restrict"), ("cascade", "Cascade")],
         default="set null",
     )
+    reference_model_ids = fields.Many2many(
+        "ir.model",
+        "studio_light_field_reference_model_rel",
+        "field_id",
+        "model_id",
+        string="Allowed reference models",
+        help="For type = reference: the whitelist of target models the "
+        "user can pick from when populating this field. Each model is "
+        "lock-checked at field creation; locked models require the "
+        "'Bypass model lock' group.",
+    )
 
     # Related field support (Tier 2.2)
     is_related = fields.Boolean(
@@ -253,7 +265,9 @@ class StudioLightField(models.Model):
                     % rec.name
                 )
 
-    @api.constrains("model_id", "relation_model_id", "field_type")
+    @api.constrains(
+        "model_id", "relation_model_id", "reference_model_ids", "field_type"
+    )
     def _check_model_allowed(self):
         for rec in self:
             if is_model_locked(rec.model_name) and not rec._is_unlocked():
@@ -284,8 +298,30 @@ class StudioLightField(models.Model):
                     )
                     % rec.relation_model_id.model
                 )
+            # Every model in a reference whitelist must clear the lock.
+            if (
+                rec.field_type == "reference"
+                and not rec.is_related
+                and not rec._is_unlocked()
+            ):
+                bad = [
+                    m.model
+                    for m in rec.reference_model_ids
+                    if is_model_locked(m.model)
+                ]
+                if bad:
+                    raise ValidationError(
+                        _(
+                            "Reference whitelist includes locked model(s) %s. "
+                            "Remove them or request the 'Bypass model lock' "
+                            "group."
+                        )
+                        % ", ".join(sorted(bad))
+                    )
 
-    @api.constrains("field_type", "selection_ids", "relation_model_id")
+    @api.constrains(
+        "field_type", "selection_ids", "relation_model_id", "reference_model_ids"
+    )
     def _check_type_extras(self):
         for rec in self:
             if rec.is_related:
@@ -299,6 +335,14 @@ class StudioLightField(models.Model):
             if rec.field_type in ("many2one", "many2many") and not rec.relation_model_id:
                 raise ValidationError(
                     _("%s fields must specify a related model.") % rec.field_type
+                )
+            if rec.field_type == "reference" and not rec.reference_model_ids:
+                raise ValidationError(
+                    _(
+                        "Reference fields must whitelist at least one target "
+                        "model — pick the models that the user is allowed to "
+                        "point this field at."
+                    )
                 )
 
     @api.constrains("is_related", "related_path", "model_id", "field_type")
@@ -404,6 +448,25 @@ class StudioLightField(models.Model):
                 )
                 for s in self.selection_ids.sorted("sequence")
             ]
+        if self.field_type == "reference" and not self.is_related:
+            # Reference fields store the list of allowed target models in
+            # ir.model.fields.selection_ids — each entry's `value` is the
+            # model technical name (e.g. 'res.partner') and `name` is the
+            # display label shown in the dropdown.
+            vals["selection_ids"] = [
+                (
+                    0,
+                    0,
+                    {
+                        "value": m.model,
+                        "name": m.name,
+                        "sequence": (i + 1) * 10,
+                    },
+                )
+                for i, m in enumerate(
+                    self.reference_model_ids.sorted("name")
+                )
+            ]
         return vals
 
     def _ensure_ir_model_field(self):
@@ -442,25 +505,40 @@ class StudioLightField(models.Model):
         return self.mapped("ir_model_field_id")
 
     def _sync_selection_values(self):
-        """Push current selection_ids into ir.model.fields.selection rows."""
+        """Push current selection_ids (selection type) or reference_model_ids
+        (reference type) into ir.model.fields.selection rows. Both field
+        types use the same selection storage on ir.model.fields — for
+        selection it's user-defined keys, for reference it's the
+        whitelisted model technical names."""
         IMFS = self.env["ir.model.fields.selection"].sudo()
         for rec in self:
-            if rec.field_type != "selection" or rec.is_related:
+            if rec.is_related:
                 continue
             if not rec.ir_model_field_id:
                 continue
+            if rec.field_type == "selection":
+                wanted = {
+                    s.key: {"name": s.label, "sequence": s.sequence or 10}
+                    for s in rec.selection_ids
+                }
+            elif rec.field_type == "reference":
+                wanted = {
+                    m.model: {"name": m.name, "sequence": (i + 1) * 10}
+                    for i, m in enumerate(rec.reference_model_ids.sorted("name"))
+                }
+            else:
+                continue
             current = {s.value: s for s in rec.ir_model_field_id.selection_ids}
-            wanted = {s.key: s for s in rec.selection_ids}
             for value, sel in current.items():
                 if value not in wanted:
                     sel.unlink()
-            for seq, (key, our) in enumerate(wanted.items(), start=10):
-                existing = current.get(key)
+            for value, wvals in wanted.items():
+                existing = current.get(value)
                 vals = {
                     "field_id": rec.ir_model_field_id.id,
-                    "value": key,
-                    "name": our.label,
-                    "sequence": our.sequence or seq,
+                    "value": value,
+                    "name": wvals["name"],
+                    "sequence": wvals["sequence"],
                 }
                 if existing:
                     existing.write(vals)
@@ -494,7 +572,7 @@ class StudioLightField(models.Model):
             for rec in self:
                 if rec.ir_model_field_id:
                     rec.ir_model_field_id.sudo().write(forwarded)
-        if "selection_ids" in vals or any(
+        if "selection_ids" in vals or "reference_model_ids" in vals or any(
             k in vals for k in ("field_type", "relation_model_id")
         ):
             self._sync_selection_values()

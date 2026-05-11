@@ -179,6 +179,33 @@ class TestStudioLightLifecycle(TransactionCase):
         self.assertEqual(set(read_back.ids), {ca.id, us.id})
         f.unlink()
 
+    def test_reference_field_with_whitelist(self):
+        """A reference field with two whitelisted target models persists
+        as ttype=reference and stores the whitelist as selection rows."""
+        partner_model = self.partner_model
+        country_model = self.env["ir.model"]._get("res.country")
+        f = self.env["studio.light.field"].create(
+            {
+                "label": "Source record",
+                "name": "x_studio_source_ref_test",
+                "model_id": partner_model.id,
+                "field_type": "reference",
+                "reference_model_ids": [(6, 0, [partner_model.id, country_model.id])],
+            }
+        )
+        self.assertTrue(f.ir_model_field_id)
+        self.assertEqual(f.ir_model_field_id.ttype, "reference")
+        whitelist = {s.value for s in f.ir_model_field_id.selection_ids}
+        self.assertEqual(whitelist, {"res.partner", "res.country"})
+
+        ca = self.env.ref("base.ca")
+        partner = self.env["res.partner"].create({"name": "Ref partner"})
+        partner.x_studio_source_ref_test = f"res.country,{ca.id}"
+        self.env.invalidate_all()
+        read_back = self.env["res.partner"].browse(partner.id).x_studio_source_ref_test
+        self.assertEqual(read_back, ca)
+        f.unlink()
+
     def test_failed_count_field_present(self):
         """The failed_count + auto-deactivate plumbing should be wired.
 
