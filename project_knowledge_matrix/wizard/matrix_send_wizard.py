@@ -5,10 +5,11 @@ from markupsafe import Markup
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 
-# Blue Fox branded email wrapper — matches bf_hour_bank digest template
+# Blue Fox branded email wrapper. Colors substituted at render time from
+# company.report_brand_primary / report_brand_dark (bf_lexend).
 _BRANDED_WRAPPER = """\
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" \
-width="100%" style="background-color:#2E3132;">\
+width="100%" style="background-color:#F8FAFC;">\
 <tbody><tr><td align="center" style="padding:24px;">\
 <table cellspacing="0" cellpadding="0" border="0" width="100%" \
 align="center" role="presentation"><tbody><tr><td><br/>\
@@ -16,20 +17,21 @@ align="center" role="presentation"><tbody><tr><td><br/>\
 width="600" style="width:600px;max-width:600px;margin:0 auto;\
 background-color:#ffffff;border-radius:12px;border:1px solid #e5e7eb;\
 border-collapse:collapse;"><tbody>\
-<tr><td style="background-color:#22303B;padding:16px 24px;\
+<tr><td style="background-color:{dark};padding:16px 24px;\
 border-radius:12px 12px 0 0;">\
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" \
 border="0"><tbody><tr>\
 <td align="left" style="color:#FFFFFF;font-family:'Lexend','Segoe UI',\
 Arial,sans-serif;font-size:16px;font-weight:600;">\
-<a href="https://www.example.com" style="text-decoration:none;">\
-<img src="/web/image/website/1/logo" alt="Blue Fox" style="height:48px;width:auto;\
+<a href="https://www.bluefoxconsultant.com" style="text-decoration:none;">\
+<img src="https://www.bluefoxconsultant.com/web/image/website/1/logo/\
+Blue%20Fox?unique=803cc14" alt="Blue Fox" style="height:48px;width:auto;\
 display:block;border:0;"/></a></td>\
 <td align="right" style="color:#E6EDF3;font-family:'Lexend','Segoe UI',\
 Arial,sans-serif;font-size:22px;font-weight:800;letter-spacing:0.2px;">\
 Matrice de connaissances</td>\
 </tr></tbody></table></td></tr>\
-<tr><td style="height:4px;line-height:4px;background-color:#29ABE2;">\
+<tr><td style="height:4px;line-height:4px;background-color:{primary};">\
 &nbsp;</td></tr>\
 <tr><td style="padding:24px;font-family:'Lexend','Segoe UI',Arial,\
 sans-serif;">\
@@ -37,11 +39,11 @@ sans-serif;">\
 <p style="font-size:13px;line-height:20px;color:#6B7280;\
 margin:16px 0 0 0;">\
 Pour toute question, contactez-nous &agrave; \
-<a href="mailto:service@example.com" \
-style="color:#29abe2;text-decoration:none;">\
-service@example.com</a> ou appelez le \
-<a href="tel:+15555555555" style="color:#29abe2;text-decoration:none;">\
-555-555-5555</a>.</p>\
+<a href="mailto:{company_email}" \
+style="color:{primary};text-decoration:none;">\
+{company_email}</a> ou appelez le \
+<a href="tel:{company_phone}" style="color:{primary};text-decoration:none;">\
+{company_phone}</a>.</p>\
 </td></tr>\
 <tr><td style="height:1px;line-height:1px;background-color:#E5E7EB;">\
 &nbsp;</td></tr>\
@@ -51,24 +53,24 @@ border-radius:0 0 12px 12px;">\
 border="0"><tbody><tr>\
 <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;\
 font-size:12px;color:#6B7280;">\
-<strong style="color:#22303B;">Matrice de connaissances par Blue Fox</strong><br/>\
+<strong style="color:{dark};">{company_name}</strong><br/>\
 Solutions &eacute;thiques et souveraines pour vos donn&eacute;es.</td>\
 <td align="right" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;\
 font-size:12px;color:#9CA3AF;">\
-<a href="https://www.example.com/privacy-policy" \
+<a href="https://www.bluefoxconsultant.com/r/politique-de-confidentialite" \
 style="color:#9CA3AF;text-decoration:underline;">\
 Politique de confidentialit&eacute;</a>\
 <span style="color:#9CA3AF;"> | </span>\
-<a href="https://www.example.com/terms" \
+<a href="https://www.bluefoxconsultant.com/r/termes-et-conditions" \
 style="color:#9CA3AF;text-decoration:underline;">Conditions</a>\
 </td></tr></tbody></table></td></tr>\
 </tbody></table>\
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" \
 width="600" style="width:600px;max-width:600px;margin:12px auto 0;">\
 <tbody><tr>\
-<td style="height:3px;line-height:3px;background-color:#29abe2;\
+<td style="height:3px;line-height:3px;background-color:{primary};\
 width:50%;">&nbsp;</td>\
-<td style="height:3px;line-height:3px;background-color:#22303b;\
+<td style="height:3px;line-height:3px;background-color:{dark};\
 width:50%;">&nbsp;</td>\
 </tr></tbody></table>\
 </td></tr></tbody></table>\
@@ -128,8 +130,17 @@ class MatrixSendWizard(models.TransientModel):
         return records
 
     def _wrap_branded_body(self, inner_html):
-        """Wrap inner message HTML with Blue Fox branded email layout."""
-        return Markup(_BRANDED_WRAPPER.replace('{content}', str(inner_html or '')))
+        """Wrap inner message HTML with the company-branded email layout.
+        Colors pulled from bf_lexend company fields; falls back to canonical hex."""
+        company = self.env.company
+        return Markup(_BRANDED_WRAPPER.format(
+            primary=company.report_brand_primary or '#29ABE2',
+            dark=company.report_brand_dark or '#22303B',
+            company_name=company.name or 'Blue Fox',
+            company_email=company.email or 'service@bluefoxconsultant.com',
+            company_phone=company.phone or '514-513-2535',
+            content=str(inner_html or ''),
+        ))
 
     def action_preview_pdf(self):
         """Generate PDF preview and re-open wizard with download link."""

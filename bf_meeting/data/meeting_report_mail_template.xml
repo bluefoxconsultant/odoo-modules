@@ -9,7 +9,11 @@
             <field name="email_from">{{ (object.company_id.email or user.email_formatted) }}</field>
             <field name="partner_to">{{ object.partner_to_ids }}</field>
             <field name="body_html" type="html">
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#2E3132;">
+
+<t t-set="company" t-value="(getattr(object, 'company_id', False)) or user.company_id"/>
+<t t-set="brand_primary" t-value="(company and company.report_brand_primary) or '#29ABE2'"/>
+<t t-set="brand_dark" t-value="(company and company.report_brand_dark) or '#22303B'"/>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F8FAFC;">
     <tbody>
         <tr>
             <td align="center" style="padding:24px;">
@@ -17,7 +21,7 @@
                     <tbody>
                         <!-- Header -->
                         <tr>
-                            <td style="background-color:#22303B; padding:16px 24px; border-radius:12px 12px 0 0;">
+                            <td t-attf-style="background-color:{{ brand_dark }}; padding:16px 24px; border-radius:12px 12px 0 0;">
                                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                                     <tbody>
                                         <tr>
@@ -35,14 +39,14 @@
 
                         <!-- Accent bar -->
                         <tr>
-                            <td style="height:4px; line-height:4px; background-color:#29ABE2;">&amp;nbsp;</td>
+                            <td t-attf-style="height:4px; line-height:4px; background-color:{{ brand_primary }};">&amp;nbsp;</td>
                         </tr>
 
                         <!-- Content -->
                         <tr>
                             <td style="padding:24px; font-family:'Lexend','Segoe UI',Arial,sans-serif;">
 
-                                <h2 style="font-size:20px; font-weight:700; color:#22303B; margin:0 0 12px 0;">
+                                <h2 t-attf-style="font-size:20px; font-weight:700; color:{{ brand_dark }}; margin:0 0 12px 0;">
                                     <t t-out="object.room_name or object.name"/>
                                 </h2>
 
@@ -75,24 +79,24 @@
 
                                 <t t-if="object.participant_ids">
                                 <div style="margin:0 0 20px 0; padding:12px 14px; background:#F5F7FA; border-radius:6px; font-size:13px; color:#374151;">
-                                    <strong style="color:#22303B;">Participants :</strong>
+                                    <strong t-attf-style="color:{{ brand_dark }};">Participants :</strong>
                                     <t t-foreach="object.participant_ids" t-as="p">
-                                        <span style="display:inline-block; margin:2px 4px; padding:2px 10px; background:#FFFFFF; border:1px solid #D8DEE4; border-radius:12px; font-size:12px; color:#22303B;"><t t-out="p.name"/></span>
+                                        <span t-attf-style="display:inline-block; margin:2px 4px; padding:2px 10px; background:#FFFFFF; border:1px solid #D8DEE4; border-radius:12px; font-size:12px; color:{{ brand_dark }};"><t t-out="p.name"/></span>
                                     </t>
                                 </div>
                                 </t>
 
                                 <t t-if="object.summary">
-                                <h3 style="color:#22303B; font-size:16px; font-weight:600; margin:24px 0 10px 0; padding-left:10px; border-left:4px solid #29ABE2;">Résumé</h3>
+                                <h3 t-attf-style="color:{{ brand_dark }}; font-size:16px; font-weight:600; margin:24px 0 10px 0; padding-left:10px; border-left:4px solid {{ brand_primary }};">Résumé</h3>
                                 <div style="margin:0 0 20px 0; white-space:pre-wrap; color:#374151; font-size:15px; line-height:24px;"><t t-out="object.summary"/></div>
                                 </t>
 
                                 <t t-if="object.topic_ids">
-                                <h3 style="color:#22303B; font-size:16px; font-weight:600; margin:24px 0 10px 0; padding-left:10px; border-left:4px solid #29ABE2;">Sujets abordés</h3>
+                                <h3 t-attf-style="color:{{ brand_dark }}; font-size:16px; font-weight:600; margin:24px 0 10px 0; padding-left:10px; border-left:4px solid {{ brand_primary }};">Sujets abordés</h3>
                                 <ol style="margin:0 0 20px 0; padding-left:24px; color:#374151;">
                                     <t t-foreach="object.topic_ids" t-as="topic">
                                         <li style="margin-bottom:10px;">
-                                            <strong style="color:#22303B;"><t t-out="topic.name"/></strong>
+                                            <strong t-attf-style="color:{{ brand_dark }};"><t t-out="topic.name"/></strong>
                                             <t t-if="topic.points_html">
                                                 <div style="margin-top:4px; color:#5C6368; font-size:14px;"><t t-out="topic.points_html"/></div>
                                             </t>
@@ -102,11 +106,11 @@
                                 </t>
 
                                 <t t-if="object.decision_ids">
-                                <h3 style="color:#22303B; font-size:16px; font-weight:600; margin:24px 0 10px 0; padding-left:10px; border-left:4px solid #29ABE2;">Décisions</h3>
+                                <h3 t-attf-style="color:{{ brand_dark }}; font-size:16px; font-weight:600; margin:24px 0 10px 0; padding-left:10px; border-left:4px solid {{ brand_primary }};">Décisions</h3>
                                 <ul style="margin:0 0 20px 0; padding-left:0; list-style:none;">
                                     <t t-foreach="object.decision_ids" t-as="decision">
-                                        <li style="margin-bottom:8px; padding:8px 12px; background:#F5F7FA; border-left:3px solid #29ABE2; border-radius:3px; color:#374151;">
-                                            <strong style="color:#22303B;"><t t-out="decision.name"/></strong>
+                                        <li t-attf-style="margin-bottom:8px; padding:8px 12px; background:#F5F7FA; border-left:3px solid {{ brand_primary }}; border-radius:3px; color:#374151;">
+                                            <strong t-attf-style="color:{{ brand_dark }};"><t t-out="decision.name"/></strong>
                                             <t t-if="decision.decision_maker_id">
                                                 <span style="color:#6B7280; font-size:13px;"> — <t t-out="decision.decision_maker_id.name"/></span>
                                             </t>
@@ -116,7 +120,7 @@
                                 </t>
 
                                 <t t-if="object.task_ids">
-                                <h3 style="color:#22303B; font-size:16px; font-weight:600; margin:24px 0 10px 0; padding-left:10px; border-left:4px solid #29ABE2;">Éléments d'action</h3>
+                                <h3 t-attf-style="color:{{ brand_dark }}; font-size:16px; font-weight:600; margin:24px 0 10px 0; padding-left:10px; border-left:4px solid {{ brand_primary }};">Éléments d'action</h3>
                                 <ul style="margin:0 0 20px 0; padding-left:24px; color:#374151;">
                                     <t t-foreach="object.task_ids" t-as="task">
                                         <li style="margin-bottom:6px;">
@@ -152,7 +156,7 @@
                         <tr>
                             <td style="padding:16px 24px 20px 24px; background-color:#FFFFFF; border-radius:0 0 12px 12px;">
                                 <p style="font-family:'Lexend','Segoe UI',Arial,sans-serif; font-size:12px; color:#6B7280; margin:0;">
-                                    <strong style="color:#22303B;">Compte rendu généré depuis le module Rencontres.</strong>
+                                    <strong t-attf-style="color:{{ brand_dark }};">Compte rendu généré depuis le module Rencontres.</strong>
                                     <t t-if="object.company_id.name"><br/><t t-out="object.company_id.name"/></t>
                                 </p>
                             </td>
@@ -164,8 +168,8 @@
                 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="width:600px; max-width:600px; margin:12px auto 0;">
                     <tbody>
                         <tr>
-                            <td style="height:3px; line-height:3px; background-color:#29ABE2; width:50%;">&amp;nbsp;</td>
-                            <td style="height:3px; line-height:3px; background-color:#22303B; width:50%;">&amp;nbsp;</td>
+                            <td t-attf-style="height:3px; line-height:3px; background-color:{{ brand_primary }}; width:50%;">&amp;nbsp;</td>
+                            <td t-attf-style="height:3px; line-height:3px; background-color:{{ brand_dark }}; width:50%;">&amp;nbsp;</td>
                         </tr>
                     </tbody>
                 </table>

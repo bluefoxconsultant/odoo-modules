@@ -21,11 +21,11 @@
                             font-family: "Lexend", system-ui, -apple-system, sans-serif;
                             font-size: 9pt;
                             line-height: 1.4;
-                            color: #2E3132;
+                            color: <t t-esc="(env.company and env.company.report_brand_dark) or '#212529'"/>;
                         }
 
                         .mr-banner {
-                            background: #2E3132;
+                            background: <t t-esc="(env.company and env.company.report_brand_dark) or '#212529'"/>;
                             padding: 18pt 24pt 16pt 24pt;
                             display: table;
                             width: 100%;
@@ -49,7 +49,7 @@
                             font-weight: 600;
                             text-transform: uppercase;
                             letter-spacing: 2pt;
-                            color: #29ABE2;
+                            color: <t t-esc="(env.company and env.company.report_brand_primary) or '#714B67'"/>;
                             margin: 0 0 3pt 0;
                         }
                         .mr-banner h1 {
@@ -66,7 +66,7 @@
                         }
                         .mr-accent-bar {
                             height: 3px;
-                            background: #29ABE2;
+                            background: <t t-esc="(env.company and env.company.report_brand_primary) or '#714B67'"/>;
                             margin: 0;
                             width: 100%;
                         }
@@ -94,7 +94,7 @@
                         .mr-meta-value {
                             font-size: 11pt;
                             font-weight: 600;
-                            color: #2E3132;
+                            color: <t t-esc="(env.company and env.company.report_brand_dark) or '#212529'"/>;
                         }
 
                         .mr-kpi-grid {
@@ -118,7 +118,7 @@
                             font-size: 18pt;
                             font-weight: 700;
                             line-height: 1.2;
-                            color: #2E3132;
+                            color: <t t-esc="(env.company and env.company.report_brand_dark) or '#212529'"/>;
                         }
                         .mr-kpi-label {
                             font-size: 7.5pt;
@@ -134,10 +134,10 @@
                         .mr-section-title {
                             font-size: 11pt;
                             font-weight: 600;
-                            color: #2E3132;
+                            color: <t t-esc="(env.company and env.company.report_brand_dark) or '#212529'"/>;
                             margin: 16pt 0 8pt 0;
                             padding-bottom: 4pt;
-                            border-bottom: 2px solid #29ABE2;
+                            border-bottom: 2px solid <t t-esc="(env.company and env.company.report_brand_primary) or '#714B67'"/>;
                             display: inline-block;
                         }
                         .mr-section-title:first-child {
@@ -151,7 +151,7 @@
                             margin-bottom: 6pt;
                         }
                         .mr-table th {
-                            background: #2E3132;
+                            background: <t t-esc="(env.company and env.company.report_brand_dark) or '#212529'"/>;
                             color: #fff;
                             padding: 5pt 6pt;
                             text-align: left;

@@ -9,7 +9,7 @@
         <field name="body_html"><![CDATA[
 <div style="max-width:600px; margin:0 auto; font-family:Arial, Helvetica, sans-serif;">
     <!-- Header -->
-    <div style="background-color:#22303B; padding:20px 30px; border-radius:8px 8px 0 0; border-bottom:4px solid #29ABE2;">
+    <div t-attf-style="background-color:{{ (object.company_id and object.company_id.report_brand_dark) or '#212529' }}; padding:20px 30px; border-radius:8px 8px 0 0; border-bottom:4px solid {{ (object.company_id and object.company_id.report_brand_primary) or '#714B67' }};">
         <h2 style="color:#ffffff; margin:0; font-weight:600;">Code de vérification / Verification Code</h2>
     </div>
 
@@ -22,8 +22,8 @@
 
         <!-- Code display -->
         <div style="text-align:center; margin:30px 0;">
-            <div style="display:inline-block; background-color:#f0f9ff; border:2px solid #29ABE2; border-radius:12px; padding:20px 40px;">
-                <span style="font-size:36px; font-weight:700; letter-spacing:8px; color:#22303B; font-family:'Courier New', monospace;">
+            <div t-attf-style="display:inline-block; background-color:#f0f9ff; border:2px solid {{ (object.company_id and object.company_id.report_brand_primary) or '#714B67' }}; border-radius:12px; padding:20px 40px;">
+                <span t-attf-style="font-size:36px; font-weight:700; letter-spacing:8px; color:{{ (object.company_id and object.company_id.report_brand_dark) or '#212529' }}; font-family:'Courier New', monospace;">
                     {{ object.code }}
                 </span>
             </div>

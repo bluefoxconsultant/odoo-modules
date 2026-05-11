@@ -24,11 +24,11 @@
                         .ma-page {
                             font-size: 11pt;
                             line-height: 1.45;
-                            color: #2E3132;
+                            color: <t t-esc="(env.company and env.company.report_brand_dark) or '#212529'"/>;
                         }
 
                         .ma-banner {
-                            background: #2E3132;
+                            background: <t t-esc="(env.company and env.company.report_brand_dark) or '#212529'"/>;
                             padding: 20pt 24pt 18pt 24pt;
                             display: table;
                             width: 100%;
@@ -97,7 +97,7 @@
                         .ma-meta-value {
                             font-size: 12.5pt;
                             font-weight: 600;
-                            color: #2E3132;
+                            color: <t t-esc="(env.company and env.company.report_brand_dark) or '#212529'"/>;
                         }
 
                         .ma-kpi-grid {
@@ -121,7 +121,7 @@
                             font-size: 22pt;
                             font-weight: 700;
                             line-height: 1.2;
-                            color: #2E3132;
+                            color: <t t-esc="(env.company and env.company.report_brand_dark) or '#212529'"/>;
                         }
                         .ma-kpi-label {
                             font-size: 9pt;
@@ -137,7 +137,7 @@
                         .ma-section-title {
                             font-size: 13.5pt;
                             font-weight: 600;
-                            color: #2E3132;
+                            color: <t t-esc="(env.company and env.company.report_brand_dark) or '#212529'"/>;
                             margin: 18pt 0 9pt 0;
                             padding-bottom: 4pt;
                             border-bottom: 2px solid #29ABE1;
@@ -154,7 +154,7 @@
                             margin-bottom: 8pt;
                         }
                         .ma-table th {
-                            background: #2E3132;
+                            background: <t t-esc="(env.company and env.company.report_brand_dark) or '#212529'"/>;
                             color: #fff;
                             padding: 6pt 7pt;
                             text-align: left;

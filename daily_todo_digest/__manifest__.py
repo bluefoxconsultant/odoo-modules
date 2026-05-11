@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Daily To-Do Digest",
-    "version": "18.0.1.2.0",
+    "version": "18.0.1.3.0",
     "category": "Productivity",
     "summary": "Daily email digest with overdue and today's activities, tasks, and subtasks",
     "description": """

@@ -98,7 +98,7 @@
                     font-size: 0.875rem;
                 }
                 .hb-portal-table th {
-                    background: #2E3132;
+                    background: <t t-esc="(env.company and env.company.report_brand_dark) or '#212529'"/>;
                     color: #fff;
                     font-weight: 600;
                     font-size: 0.8rem;
@@ -115,7 +115,7 @@
                     text-align: right;
                 }
                 .hb-balance-card {
-                    border-left: 4px solid #29ABE2;
+                    border-left: 4px solid <t t-esc="(env.company and env.company.report_brand_primary) or '#29ABE2'"/>;
                     background: #f8f9fb;
                 }
             </style>

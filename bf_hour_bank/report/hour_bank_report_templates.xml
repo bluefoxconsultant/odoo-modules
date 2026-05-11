@@ -25,12 +25,12 @@
                             font-family: "Lexend", system-ui, -apple-system, sans-serif;
                             font-size: 9pt;
                             line-height: 1.4;
-                            color: #2E3132;
+                            color: <t t-esc="(env.company and env.company.report_brand_dark) or '#212529'"/>;
                         }
 
                         /* ── Top Banner ── */
                         .hb-banner {
-                            background: #2E3132;
+                            background: <t t-esc="(env.company and env.company.report_brand_dark) or '#212529'"/>;
                             padding: 18pt 24pt 16pt 24pt;
                             display: table;
                             width: 100%;
@@ -54,7 +54,7 @@
                             font-weight: 600;
                             text-transform: uppercase;
                             letter-spacing: 2pt;
-                            color: #29ABE2;
+                            color: <t t-esc="(env.company and env.company.report_brand_primary) or '#714B67'"/>;
                             margin: 0 0 3pt 0;
                         }
                         .hb-banner h1 {
@@ -71,7 +71,7 @@
                         }
                         .hb-accent-bar {
                             height: 3px;
-                            background: #29ABE2;
+                            background: <t t-esc="(env.company and env.company.report_brand_primary) or '#714B67'"/>;
                             margin: 0;
                             width: 100%;
                         }
@@ -100,7 +100,7 @@
                         .hb-meta-value {
                             font-size: 11pt;
                             font-weight: 600;
-                            color: #2E3132;
+                            color: <t t-esc="(env.company and env.company.report_brand_dark) or '#212529'"/>;
                         }
                         .hb-meta-value.balance-positive {
                             color: #27ae60;
@@ -119,7 +119,7 @@
                             font-size: 8.5pt;
                         }
                         .hb-table th {
-                            background: #2E3132;
+                            background: <t t-esc="(env.company and env.company.report_brand_dark) or '#212529'"/>;
                             color: #fff;
                             padding: 6pt 8pt;
                             text-align: left;
@@ -148,10 +148,10 @@
                         .hb-section-title {
                             font-size: 12pt;
                             font-weight: 600;
-                            color: #2E3132;
+                            color: <t t-esc="(env.company and env.company.report_brand_dark) or '#212529'"/>;
                             margin: 20pt 0 10pt 0;
                             padding-bottom: 4pt;
-                            border-bottom: 2px solid #29ABE2;
+                            border-bottom: 2px solid <t t-esc="(env.company and env.company.report_brand_primary) or '#714B67'"/>;
                             display: inline-block;
                         }
                         .hb-summary-table {
@@ -179,7 +179,7 @@
                         }
                         .hb-summary-table tr.total td {
                             font-weight: 700;
-                            border-top: 2px solid #2E3132;
+                            border-top: 2px solid <t t-esc="(env.company and env.company.report_brand_dark) or '#212529'"/>;
                         }
 
                         /* ── Footer ── */
@@ -238,12 +238,11 @@
                             <table class="hb-table">
                                 <thead>
                                     <tr>
-                                        <th style="width:10%">Date</th>
-                                        <th class="num" style="width:10%">Nb d'heures</th>
-                                        <th class="num" style="width:10%">Solde cumulatif</th>
-                                        <th style="width:32%">Description / D&#233;tails</th>
-                                        <th style="width:20%">Projet</th>
-                                        <th style="width:18%">T&#226;che</th>
+                                        <th style="width:12%">Date</th>
+                                        <th class="num" style="width:12%">Nb d'heures</th>
+                                        <th class="num" style="width:12%">Solde cumulatif</th>
+                                        <th style="width:40%">Description / D&#233;tails</th>
+                                        <th style="width:24%">Projet</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -254,7 +253,6 @@
                                             <td class="num"><t t-out="'%.2f' % e['cumulative']"/></td>
                                             <td><t t-out="e['description']"/></td>
                                             <td><t t-out="e['project']"/></td>
-                                            <td><t t-out="e['task']"/></td>
                                         </tr>
                                     </t>
                                 </tbody>

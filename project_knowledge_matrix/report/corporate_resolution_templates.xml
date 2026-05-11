@@ -48,14 +48,14 @@
                             font-family: "Lexend", system-ui, -apple-system, sans-serif;
                             font-size: 12pt;
                             line-height: 1.6;
-                            color: #2E3132;
+                            color: <t t-esc="(env.company and env.company.report_brand_dark) or '#212529'"/>;
                             position: relative;
                             min-height: 270mm;
                         }
 
                         /* ── Top Banner ── */
                         .res-banner {
-                            background: #2E3132;
+                            background: <t t-esc="(env.company and env.company.report_brand_dark) or '#212529'"/>;
                             padding: 28pt 32pt 24pt 32pt;
                             display: table;
                             width: 100%;
@@ -79,7 +79,7 @@
                             font-weight: 600;
                             text-transform: uppercase;
                             letter-spacing: 2pt;
-                            color: #29ABE2;
+                            color: <t t-esc="(env.company and env.company.report_brand_primary) or '#714B67'"/>;
                             margin: 0 0 4pt 0;
                         }
                         .res-banner h1 {
@@ -97,7 +97,7 @@
                         /* Blue accent bar under banner */
                         .res-accent-bar {
                             height: 4px;
-                            background: #29ABE2;
+                            background: <t t-esc="(env.company and env.company.report_brand_primary) or '#714B67'"/>;
                             margin: 0 0 20pt 0;
                             width: 100%;
                         }
@@ -111,8 +111,8 @@
                         }
                         .res-ref span {
                             display: inline-block;
-                            border: 1.5px solid #29ABE2;
-                            color: #29ABE2;
+                            border: 1.5px solid <t t-esc="(env.company and env.company.report_brand_primary) or '#714B67'"/>;
+                            color: <t t-esc="(env.company and env.company.report_brand_primary) or '#714B67'"/>;
                             font-size: 10.5pt;
                             font-weight: 600;
                             padding: 4pt 14pt;
@@ -143,7 +143,7 @@
                         }
                         .res-meta td.ml {
                             font-weight: 600;
-                            color: #2E3132;
+                            color: <t t-esc="(env.company and env.company.report_brand_dark) or '#212529'"/>;
                             width: 210px;
                             background: #f8f9fb;
                         }
@@ -168,10 +168,10 @@
                             font-weight: 600;
                             text-transform: uppercase;
                             letter-spacing: 1pt;
-                            color: #29ABE2;
+                            color: <t t-esc="(env.company and env.company.report_brand_primary) or '#714B67'"/>;
                             margin-bottom: 16pt;
                             padding-bottom: 6pt;
-                            border-bottom: 2px solid #29ABE2;
+                            border-bottom: 2px solid <t t-esc="(env.company and env.company.report_brand_primary) or '#714B67'"/>;
                             display: inline-block;
                         }
                         .res-sig-entry {
@@ -179,14 +179,14 @@
                             width: 280px;
                         }
                         .res-sig-line {
-                            border-bottom: 1.5px solid #2E3132;
+                            border-bottom: 1.5px solid <t t-esc="(env.company and env.company.report_brand_dark) or '#212529'"/>;
                             height: 54pt;
                         }
                         .res-sig-name {
                             padding-top: 5pt;
                             font-size: 11pt;
                             font-weight: 600;
-                            color: #2E3132;
+                            color: <t t-esc="(env.company and env.company.report_brand_dark) or '#212529'"/>;
                         }
                         .res-sig-role {
                             font-size: 10pt;

@@ -9,7 +9,11 @@
             <field name="email_from">{{ (object.company_id.email or user.email_formatted) }}</field>
             <field name="partner_to">{{ object.partner_to_ids }}</field>
             <field name="body_html" type="html">
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#2E3132;">
+
+<t t-set="company" t-value="(getattr(object, 'company_id', False)) or user.company_id"/>
+<t t-set="brand_primary" t-value="(company and company.report_brand_primary) or '#29ABE2'"/>
+<t t-set="brand_dark" t-value="(company and company.report_brand_dark) or '#22303B'"/>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F8FAFC;">
     <tbody>
         <tr>
             <td align="center" style="padding:24px;">
@@ -17,7 +21,7 @@
                     <tbody>
                         <!-- Header -->
                         <tr>
-                            <td style="background-color:#22303B; padding:16px 24px; border-radius:12px 12px 0 0;">
+                            <td t-attf-style="background-color:{{ brand_dark }}; padding:16px 24px; border-radius:12px 12px 0 0;">
                                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                                     <tbody>
                                         <tr>
@@ -35,14 +39,14 @@
 
                         <!-- Accent bar -->
                         <tr>
-                            <td style="height:4px; line-height:4px; background-color:#29ABE2;">&amp;nbsp;</td>
+                            <td t-attf-style="height:4px; line-height:4px; background-color:{{ brand_primary }};">&amp;nbsp;</td>
                         </tr>
 
                         <!-- Content -->
                         <tr>
                             <td style="padding:24px; font-family:'Lexend','Segoe UI',Arial,sans-serif;">
 
-                                <h2 style="font-size:20px; font-weight:700; color:#22303B; margin:0 0 12px 0;">
+                                <h2 t-attf-style="font-size:20px; font-weight:700; color:{{ brand_dark }}; margin:0 0 12px 0;">
                                     <t t-out="object.name"/>
                                 </h2>
 
@@ -75,23 +79,23 @@
 
                                 <t t-if="object.participant_ids">
                                 <div style="margin:0 0 20px 0; padding:12px 14px; background:#F5F7FA; border-radius:6px; font-size:13px; color:#374151;">
-                                    <strong style="color:#22303B;">Participants :</strong>
+                                    <strong t-attf-style="color:{{ brand_dark }};">Participants :</strong>
                                     <t t-foreach="object.participant_ids" t-as="p">
-                                        <span style="display:inline-block; margin:2px 4px; padding:2px 10px; background:#FFFFFF; border:1px solid #D8DEE4; border-radius:12px; font-size:12px; color:#22303B;"><t t-out="p.name"/></span>
+                                        <span t-attf-style="display:inline-block; margin:2px 4px; padding:2px 10px; background:#FFFFFF; border:1px solid #D8DEE4; border-radius:12px; font-size:12px; color:{{ brand_dark }};"><t t-out="p.name"/></span>
                                     </t>
                                 </div>
                                 </t>
 
                                 <t t-if="object.objectives">
-                                <h3 style="color:#22303B; font-size:16px; font-weight:600; margin:24px 0 10px 0; padding-left:10px; border-left:4px solid #29ABE2;">Objectifs</h3>
+                                <h3 t-attf-style="color:{{ brand_dark }}; font-size:16px; font-weight:600; margin:24px 0 10px 0; padding-left:10px; border-left:4px solid {{ brand_primary }};">Objectifs</h3>
                                 <div style="margin:0 0 20px 0; white-space:pre-wrap; color:#374151; font-size:15px; line-height:24px;"><t t-out="object.objectives"/></div>
                                 </t>
 
                                 <t t-if="object.topic_ids">
-                                <h3 style="color:#22303B; font-size:16px; font-weight:600; margin:24px 0 10px 0; padding-left:10px; border-left:4px solid #29ABE2;">Sujets</h3>
+                                <h3 t-attf-style="color:{{ brand_dark }}; font-size:16px; font-weight:600; margin:24px 0 10px 0; padding-left:10px; border-left:4px solid {{ brand_primary }};">Sujets</h3>
                                 <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:100%; border-collapse:collapse; margin:8px 0; font-size:13px;">
                                     <thead>
-                                        <tr style="background:#22303B; color:#FFFFFF;">
+                                        <tr t-attf-style="background:{{ brand_dark }}; color:#FFFFFF;">
                                             <th style="padding:8px 10px; text-align:left; font-weight:600; width:32px;">#</th>
                                             <th style="padding:8px 10px; text-align:left; font-weight:600;">Sujet</th>
                                             <th style="padding:8px 10px; text-align:center; font-weight:600; width:70px;">Durée</th>
@@ -102,7 +106,7 @@
                                         <t t-foreach="object.topic_ids" t-as="topic">
                                             <tr style="border-bottom:1px solid #EAEEF2;">
                                                 <td style="padding:8px 10px; color:#8A9099;"><t t-out="topic_index + 1"/></td>
-                                                <td style="padding:8px 10px; color:#374151;"><strong style="color:#22303B;"><t t-out="topic.name"/></strong></td>
+                                                <td style="padding:8px 10px; color:#374151;"><strong t-attf-style="color:{{ brand_dark }};"><t t-out="topic.name"/></strong></td>
                                                 <td style="padding:8px 10px; text-align:center; color:#6B7280;">
                                                     <t t-if="topic.duration_planned"><t t-out="topic.duration_planned"/> min</t>
                                                 </td>
@@ -116,10 +120,10 @@
                                 </t>
 
                                 <t t-if="object.agenda_task_ids">
-                                <h3 style="color:#22303B; font-size:16px; font-weight:600; margin:24px 0 10px 0; padding-left:10px; border-left:4px solid #29ABE2;">Éléments d'action à discuter</h3>
+                                <h3 t-attf-style="color:{{ brand_dark }}; font-size:16px; font-weight:600; margin:24px 0 10px 0; padding-left:10px; border-left:4px solid {{ brand_primary }};">Éléments d'action à discuter</h3>
                                 <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:100%; border-collapse:collapse; margin:8px 0; font-size:13px;">
                                     <thead>
-                                        <tr style="background:#22303B; color:#FFFFFF;">
+                                        <tr t-attf-style="background:{{ brand_dark }}; color:#FFFFFF;">
                                             <th style="padding:8px 10px; text-align:left; font-weight:600; width:32px;">#</th>
                                             <th style="padding:8px 10px; text-align:left; font-weight:600;">Tâche</th>
                                             <th style="padding:8px 10px; text-align:left; font-weight:600; width:140px;">Assignée à</th>
@@ -130,7 +134,7 @@
                                         <t t-foreach="object.agenda_task_ids" t-as="task">
                                             <tr style="border-bottom:1px solid #EAEEF2;">
                                                 <td style="padding:8px 10px; color:#8A9099;"><t t-out="task_index + 1"/></td>
-                                                <td style="padding:8px 10px; color:#374151;"><strong style="color:#22303B;"><t t-out="task.name"/></strong></td>
+                                                <td style="padding:8px 10px; color:#374151;"><strong t-attf-style="color:{{ brand_dark }};"><t t-out="task.name"/></strong></td>
                                                 <td style="padding:8px 10px; color:#6B7280;">
                                                     <t t-foreach="task.user_ids" t-as="u"><t t-out="u.name"/><t t-if="not u_last">, </t></t>
                                                 </td>
@@ -144,12 +148,12 @@
                                 </t>
 
                                 <t t-if="object.preparation_html">
-                                <h3 style="color:#22303B; font-size:16px; font-weight:600; margin:24px 0 10px 0; padding-left:10px; border-left:4px solid #29ABE2;">Préparation</h3>
+                                <h3 t-attf-style="color:{{ brand_dark }}; font-size:16px; font-weight:600; margin:24px 0 10px 0; padding-left:10px; border-left:4px solid {{ brand_primary }};">Préparation</h3>
                                 <div style="margin:0 0 20px 0; color:#374151;"><t t-out="object.preparation_html"/></div>
                                 </t>
 
                                 <t t-if="object.context_html">
-                                <h3 style="color:#22303B; font-size:16px; font-weight:600; margin:24px 0 10px 0; padding-left:10px; border-left:4px solid #29ABE2;">Contexte</h3>
+                                <h3 t-attf-style="color:{{ brand_dark }}; font-size:16px; font-weight:600; margin:24px 0 10px 0; padding-left:10px; border-left:4px solid {{ brand_primary }};">Contexte</h3>
                                 <div style="margin:0 0 20px 0; color:#374151;"><t t-out="object.context_html"/></div>
                                 </t>
 
@@ -173,7 +177,7 @@
                         <tr>
                             <td style="padding:16px 24px 20px 24px; background-color:#FFFFFF; border-radius:0 0 12px 12px;">
                                 <p style="font-family:'Lexend','Segoe UI',Arial,sans-serif; font-size:12px; color:#6B7280; margin:0;">
-                                    <strong style="color:#22303B;">Ordre du jour envoyé depuis le module Rencontres.</strong>
+                                    <strong t-attf-style="color:{{ brand_dark }};">Ordre du jour envoyé depuis le module Rencontres.</strong>
                                     <t t-if="object.company_id.name"><br/><t t-out="object.company_id.name"/></t>
                                 </p>
                             </td>
@@ -185,8 +189,8 @@
                 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="width:600px; max-width:600px; margin:12px auto 0;">
                     <tbody>
                         <tr>
-                            <td style="height:3px; line-height:3px; background-color:#29ABE2; width:50%;">&amp;nbsp;</td>
-                            <td style="height:3px; line-height:3px; background-color:#22303B; width:50%;">&amp;nbsp;</td>
+                            <td t-attf-style="height:3px; line-height:3px; background-color:{{ brand_primary }}; width:50%;">&amp;nbsp;</td>
+                            <td t-attf-style="height:3px; line-height:3px; background-color:{{ brand_dark }}; width:50%;">&amp;nbsp;</td>
                         </tr>
                     </tbody>
                 </table>

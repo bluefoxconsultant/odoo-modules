@@ -212,7 +212,7 @@ class HostingDigest(models.Model):
             summary_items.append(("Maintenance à venir", str(len(data["maintenance_due_soon"]))))
 
         if summary_items:
-            content_parts.append(email_tpl.get_info_card(summary_items, "Résumé"))
+            content_parts.append(email_tpl.get_info_card(summary_items, "Résumé", company=self.env.company))
 
         # Section Services expirant
         if data["expiring_services"]:
@@ -235,7 +235,10 @@ class HostingDigest(models.Model):
 
         # Section Mises à jour disponibles
         if data["updates_services"]:
-            content_parts.append(email_tpl.get_section_title("Mises à jour disponibles", "#29ABE2"))
+            content_parts.append(email_tpl.get_section_title(
+                "Mises à jour disponibles",
+                self.env.company.report_brand_primary or "#714B67",
+            ))
             rows = []
             for service in data["updates_services"]:
                 software_name = _esc(service.software_id.name) if service.software_id else "N/D"
@@ -250,7 +253,7 @@ class HostingDigest(models.Model):
             content_parts.append(email_tpl.get_data_table(
                 ["Service", "Client", "Logiciel", "Version"],
                 rows,
-                header_bg="#29ABE2"
+                header_bg=self.env.company.report_brand_primary or "#714B67",
             ))
 
         # Section Alertes de stockage
@@ -269,7 +272,7 @@ class HostingDigest(models.Model):
                 ["Service", "Client", "Utilisation"],
                 rows,
                 header_bg="#ffc107",
-                header_color="#22303B"
+                header_color=self.env.company.report_brand_dark or "#212529",
             ))
 
         # Section Problèmes de santé
@@ -335,14 +338,14 @@ class HostingDigest(models.Model):
                 ["Service", "Tâche de maintenance", "Date d'échéance", "Jours", "Assigné à"],
                 rows,
                 header_bg="#ffc107",
-                header_color="#22303B"
+                header_color=self.env.company.report_brand_dark or "#212529",
             ))
 
         # Pied de page de contact
         content_parts.append(email_tpl.get_contact_footer())
 
         content = "".join(content_parts)
-        return email_tpl.get_email_wrapper("Résumé des services", content)
+        return email_tpl.get_email_wrapper("Résumé des services", content, company=self.env.company)
 
     def _send_digest(self):
         """Envoyer le courriel récapitulatif à tous les destinataires."""

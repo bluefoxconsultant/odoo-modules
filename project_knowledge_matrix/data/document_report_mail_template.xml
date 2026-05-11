@@ -10,7 +10,11 @@
             <field name="email_to">{{ ctx.get('recipient_email', '') }}</field>
             <field name="lang">{{ object.partner_id.lang }}</field>
             <field name="body_html" type="html">
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="box-sizing:border-box;border-collapse:collapse;background-color:#2E3132">
+
+<t t-set="company" t-value="(getattr(object, 'company_id', False)) or user.company_id"/>
+<t t-set="brand_primary" t-value="(company and company.report_brand_primary) or '#29ABE2'"/>
+<t t-set="brand_dark" t-value="(company and company.report_brand_dark) or '#22303B'"/>
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="box-sizing:border-box;border-collapse:collapse;background-color:#F8FAFC">
     <tbody>
         <tr>
             <td align="center" style="padding:24px 16px">
@@ -22,13 +26,13 @@
                                     <tbody>
                                         <!-- Header -->
                                         <tr>
-                                            <td style="background-color:#22303B;padding:20px 24px">
+                                            <td t-attf-style="background-color:{{ brand_dark }};padding:20px 24px">
                                                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse">
                                                     <tbody>
                                                         <tr>
                                                             <td align="left">
-                                                                <a href="https://www.example.com" style="text-decoration:none">
-                                                                    <img src="/web/image/website/1/logo" alt="Blue Fox" style="display:block;border:0;height:44px;width:auto" height="44"/>
+                                                                <a href="https://www.bluefoxconsultant.com" style="text-decoration:none">
+                                                                    <img src="https://www.bluefoxconsultant.com/web/image/website/1/logo/Blue%20Fox?unique=803cc14" alt="Blue Fox" style="display:block;border:0;height:44px;width:auto" height="44"/>
                                                                 </a>
                                                             </td>
                                                             <td align="right" style="color:#E6EDF3;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:20px;font-weight:700">
@@ -42,7 +46,7 @@
 
                                         <!-- Accent bar -->
                                         <tr>
-                                            <td style="height:4px;line-height:4px;background-color:#29ABE2">&amp;nbsp;</td>
+                                            <td t-attf-style="height:4px;line-height:4px;background-color:{{ brand_primary }}">&amp;nbsp;</td>
                                         </tr>
 
                                         <!-- Content -->
@@ -53,7 +57,7 @@
                                                     <tbody>
                                                         <tr>
                                                             <td>
-                                                                <h1 style="margin:0 0 4px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:22px;font-weight:600;color:#22303B">
+                                                                <h1 t-attf-style="margin:0 0 4px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:22px;font-weight:600;color:{{ brand_dark }}">
                                                                     Tableau de bord
                                                                 </h1>
                                                                 <p style="margin:0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:14px;color:#6B7280">
@@ -131,11 +135,11 @@
                                                                     <tbody>
                                                                         <tr>
                                                                             <td align="center" style="width:25%;padding:8px">
-                                                                                <div style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:28px;font-weight:700;color:#22303B"><t t-out="ctx.get('active_documents', 0)"/></div>
+                                                                                <div t-attf-style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:28px;font-weight:700;color:{{ brand_dark }}"><t t-out="ctx.get('active_documents', 0)"/></div>
                                                                                 <div style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;color:#6B7280">Actifs</div>
                                                                             </td>
                                                                             <td align="center" style="width:25%;padding:8px">
-                                                                                <div style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:28px;font-weight:700;color:#29ABE2"><t t-out="ctx.get('internal_documents', 0)"/></div>
+                                                                                <div t-attf-style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:28px;font-weight:700;color:{{ brand_primary }}"><t t-out="ctx.get('internal_documents', 0)"/></div>
                                                                                 <div style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;color:#6B7280">Internes</div>
                                                                             </td>
                                                                             <td align="center" style="width:25%;padding:8px">
@@ -209,7 +213,7 @@
                                                                                         </tr>
                                                                                         <tr>
                                                                                             <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#374151;padding:3px 0">Taux de conformité</td>
-                                                                                            <td align="right" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;font-weight:600;color:#29ABE2;padding:3px 0"><t t-out="ctx.get('internal_compliance_rate', 0)"/>%</td>
+                                                                                            <td align="right" t-attf-style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;font-weight:600;color:{{ brand_primary }};padding:3px 0"><t t-out="ctx.get('internal_compliance_rate', 0)"/>%</td>
                                                                                         </tr>
                                                                                         <tr>
                                                                                             <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#374151;padding:3px 0">En attente</td>
@@ -317,7 +321,7 @@
                                                                                 <div style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;color:#6B7280">30-60 jours</div>
                                                                             </td>
                                                                             <td align="center" style="width:33%;padding:8px">
-                                                                                <div t-att-style="'font-family:Lexend,Segoe UI,Arial,sans-serif;font-size:24px;font-weight:700;color:' + ('#29ABE2' if ctx.get('review_60_90', 0) > 0 else '#6B7280')"><t t-out="ctx.get('review_60_90', 0)"/></div>
+                                                                                <div t-att-t-attf-style="'font-family:Lexend,Segoe UI,Arial,sans-serif;font-size:24px;font-weight:700;color:' + ('{{ brand_primary }}' if ctx.get('review_60_90', 0) > 0 else '#6B7280')"><t t-out="ctx.get('review_60_90', 0)"/></div>
                                                                                 <div style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;color:#6B7280">60-90 jours</div>
                                                                             </td>
                                                                         </tr>
@@ -366,7 +370,7 @@
                                                                         <tbody>
                                                                             <tr>
                                                                                 <td align="center" style="width:20%;padding:8px">
-                                                                                    <div style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:24px;font-weight:700;color:#22303B"><t t-out="ctx.get('decisions_total', 0)"/></div>
+                                                                                    <div t-attf-style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:24px;font-weight:700;color:{{ brand_dark }}"><t t-out="ctx.get('decisions_total', 0)"/></div>
                                                                                     <div style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:11px;color:#6B7280">Total</div>
                                                                                 </td>
                                                                                 <td align="center" style="width:20%;padding:8px">
@@ -468,7 +472,7 @@
                                                     <tbody>
                                                         <tr>
                                                             <td align="center" style="padding:8px 0">
-                                                                <a t-att-href="ctx.get('dashboard_url', '#')" style="box-sizing:border-box;display:inline-block;background-color:#29abe2;text-decoration:none;font-family:Lexend,'Segoe UI',Arial,sans-serif;font-size:15px;font-weight:600;padding:14px 28px;border-radius:8px;color:#ffffff">
+                                                                <a t-att-href="ctx.get('dashboard_url', '#')" t-attf-style="box-sizing:border-box;display:inline-block;background-color:{{ brand_primary }};text-decoration:none;font-family:Lexend,'Segoe UI',Arial,sans-serif;font-size:15px;font-weight:600;padding:14px 28px;border-radius:8px;color:#ffffff">
                                                                     Accéder au tableau de bord
                                                                 </a>
                                                             </td>
@@ -485,13 +489,13 @@
                                                     <tbody>
                                                         <tr>
                                                             <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;color:#6B7280">
-                                                                <strong style="color:#22303B">Blue Fox Inc</strong><br/>
+                                                                <strong t-attf-style="color:{{ brand_dark }}">Blue Fox Inc</strong><br/>
                                                                 <span style="color:#9CA3AF">Rapport généré automatiquement</span>
                                                             </td>
                                                             <td align="right" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;color:#9CA3AF">
-                                                                <a href="mailto:service@example.com" style="color:#29abe2;text-decoration:none">Contact</a>
+                                                                <a href="mailto:service@bluefoxconsultant.com" t-attf-style="color:{{ brand_primary }};text-decoration:none">Contact</a>
                                                                 <span style="color:#d1d5db"> · </span>
-                                                                <a href="https://www.example.com" style="color:#9CA3AF;text-decoration:none">example.com</a>
+                                                                <a href="https://www.bluefoxconsultant.com" style="color:#9CA3AF;text-decoration:none">bluefoxconsultant.com</a>
                                                             </td>
                                                         </tr>
                                                     </tbody>
@@ -506,8 +510,8 @@
                                 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top:12px;border-collapse:collapse">
                                     <tbody>
                                         <tr>
-                                            <td style="height:3px;line-height:3px;background-color:#29abe2;width:50%">&amp;nbsp;</td>
-                                            <td style="height:3px;line-height:3px;background-color:#22303b;width:50%">&amp;nbsp;</td>
+                                            <td t-attf-style="height:3px;line-height:3px;background-color:{{ brand_primary }};width:50%">&amp;nbsp;</td>
+                                            <td t-attf-style="height:3px;line-height:3px;background-color:{{ brand_dark }};width:50%">&amp;nbsp;</td>
                                         </tr>
                                     </tbody>
                                 </table>

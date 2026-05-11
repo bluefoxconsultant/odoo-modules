@@ -106,7 +106,7 @@
                         </div>
                     </div>
                     <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
-                        <div class="card h-100">
+                        <div class="card h-100 cursor-pointer" t-on-click="openDraftDocuments">
                             <div class="card-body text-center">
                                 <h2 class="text-secondary mb-0" t-esc="state.data.document_overview.draft"/>
                                 <small class="text-muted">Brouillons</small>
@@ -114,7 +114,7 @@
                         </div>
                     </div>
                     <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
-                        <div class="card h-100">
+                        <div class="card h-100 cursor-pointer" t-on-click="openArchivedDocuments">
                             <div class="card-body text-center">
                                 <h2 class="text-muted mb-0" t-esc="state.data.document_overview.archived"/>
                                 <small class="text-muted">Archivés</small>
@@ -122,7 +122,7 @@
                         </div>
                     </div>
                     <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
-                        <div class="card h-100">
+                        <div class="card h-100 cursor-pointer" t-on-click="openVersionsThisYear">
                             <div class="card-body text-center">
                                 <h2 class="mb-0" t-esc="state.data.content_quality.versions_this_year"/>
                                 <small class="text-muted">Versions cette année</small>
@@ -202,15 +202,15 @@
                             <div class="card-body">
                                 <table class="table table-sm mb-0">
                                     <tbody>
-                                        <tr>
+                                        <tr class="cursor-pointer" t-on-click="openReviewDocs0_30">
                                             <td><span t-attf-class="badge {{state.data.review_metrics.review_0_30 > 0 ? 'text-bg-danger' : 'text-bg-secondary'}}">0-30 jours</span></td>
                                             <td class="text-end"><strong t-esc="state.data.review_metrics.review_0_30"/></td>
                                         </tr>
-                                        <tr>
+                                        <tr class="cursor-pointer" t-on-click="openReviewDocs30_60">
                                             <td><span t-attf-class="badge {{state.data.review_metrics.review_30_60 > 0 ? 'text-bg-warning' : 'text-bg-secondary'}}">30-60 jours</span></td>
                                             <td class="text-end"><strong t-esc="state.data.review_metrics.review_30_60"/></td>
                                         </tr>
-                                        <tr>
+                                        <tr class="cursor-pointer" t-on-click="openReviewDocs60_90">
                                             <td><span t-attf-class="badge {{state.data.review_metrics.review_60_90 > 0 ? 'text-bg-info' : 'text-bg-secondary'}}">60-90 jours</span></td>
                                             <td class="text-end"><strong t-esc="state.data.review_metrics.review_60_90"/></td>
                                         </tr>
@@ -227,15 +227,15 @@
                             <div class="card-body">
                                 <table class="table table-sm mb-0">
                                     <tbody>
-                                        <tr>
+                                        <tr class="cursor-pointer" t-on-click="openExpiringDocs0_30">
                                             <td><span t-attf-class="badge {{state.data.review_metrics.expiring_0_30 > 0 ? 'text-bg-danger' : 'text-bg-secondary'}}">0-30 jours</span></td>
                                             <td class="text-end"><strong t-esc="state.data.review_metrics.expiring_0_30"/></td>
                                         </tr>
-                                        <tr>
+                                        <tr class="cursor-pointer" t-on-click="openExpiringDocs30_60">
                                             <td><span t-attf-class="badge {{state.data.review_metrics.expiring_30_60 > 0 ? 'text-bg-warning' : 'text-bg-secondary'}}">30-60 jours</span></td>
                                             <td class="text-end"><strong t-esc="state.data.review_metrics.expiring_30_60"/></td>
                                         </tr>
-                                        <tr>
+                                        <tr class="cursor-pointer" t-on-click="openExpiringDocs60_90">
                                             <td><span t-attf-class="badge {{state.data.review_metrics.expiring_60_90 > 0 ? 'text-bg-info' : 'text-bg-secondary'}}">60-90 jours</span></td>
                                             <td class="text-end"><strong t-esc="state.data.review_metrics.expiring_60_90"/></td>
                                         </tr>
@@ -251,7 +251,7 @@
                     <!-- Client Documentation -->
                     <div class="col-md-6 mb-3">
                         <div class="card h-100">
-                            <div class="card-header text-white" style="background-color: #29ABE2;">
+                            <div class="card-header text-white" style="background-color: var(--brand-primary, #714B67);">
                                 <h6 class="mb-0"><i class="fa fa-users me-2"/>Documentation clients</h6>
                             </div>
                             <div class="card-body">
@@ -260,7 +260,7 @@
                                         <h3 class="mb-0" t-esc="state.data.client_metrics.total_distributions"/>
                                         <small class="text-muted">Distributions</small>
                                     </div>
-                                    <div class="col-4">
+                                    <div class="col-4 cursor-pointer" t-on-click="openAcknowledgedClientDistributions">
                                         <h3 class="text-success mb-0"><t t-esc="state.data.client_metrics.acknowledgment_rate"/>%</h3>
                                         <small class="text-muted">Taux d'accusé</small>
                                     </div>
@@ -294,7 +294,7 @@
                                         <h3 class="mb-0" t-esc="state.data.internal_metrics.total_distributions"/>
                                         <small class="text-muted">Distributions</small>
                                     </div>
-                                    <div class="col-4">
+                                    <div class="col-4 cursor-pointer" t-on-click="openAcknowledgedInternalDistributions">
                                         <h3 class="text-info mb-0"><t t-esc="state.data.internal_metrics.compliance_rate"/>%</h3>
                                         <small class="text-muted">Taux conformité</small>
                                     </div>
@@ -334,7 +334,7 @@
                                     <span>Contenu périmé (6+ mois)</span>
                                     <span t-attf-class="badge {{state.data.content_quality.stale_documents > 0 ? 'text-bg-secondary' : 'text-bg-success'}}" t-esc="state.data.content_quality.stale_documents"/>
                                 </div>
-                                <div class="d-flex justify-content-between">
+                                <div class="d-flex justify-content-between cursor-pointer" t-on-click="openSoftwareCatalog">
                                     <span>Couverture logiciels</span>
                                     <span class="badge text-bg-success"><t t-esc="state.data.content_quality.software_coverage"/>%</span>
                                 </div>
@@ -353,11 +353,11 @@
                                     <h2 class="text-primary mb-0"><t t-esc="state.data.matrix_metrics.completion_rate"/>%</h2>
                                     <small class="text-muted">Taux de complétion</small>
                                 </div>
-                                <div class="d-flex justify-content-between mb-2">
+                                <div class="d-flex justify-content-between mb-2 cursor-pointer" t-on-click.stop="openMatrices">
                                     <span>Total matrices</span>
                                     <strong t-esc="state.data.matrix_metrics.total_matrices"/>
                                 </div>
-                                <div class="d-flex justify-content-between mb-2">
+                                <div class="d-flex justify-content-between mb-2 cursor-pointer" t-on-click.stop="openInProgressItems">
                                     <span>Éléments en cours</span>
                                     <span class="badge text-bg-info" t-esc="state.data.matrix_metrics.in_progress_items"/>
                                 </div>
@@ -380,15 +380,15 @@
                                     <span>Identifiants actifs</span>
                                     <strong t-esc="state.data.credential_metrics.total"/>
                                 </div>
-                                <div class="d-flex justify-content-between mb-2">
+                                <div class="d-flex justify-content-between mb-2 cursor-pointer" t-on-click.stop="openExpiringCredentials">
                                     <span>Expirent sous 30j</span>
                                     <span t-attf-class="badge {{state.data.credential_metrics.expiring_soon > 0 ? 'text-bg-warning' : 'text-bg-success'}}" t-esc="state.data.credential_metrics.expiring_soon"/>
                                 </div>
-                                <div class="d-flex justify-content-between mb-2">
+                                <div class="d-flex justify-content-between mb-2 cursor-pointer" t-on-click.stop="openExpiredCredentials">
                                     <span>Expirés</span>
                                     <span t-attf-class="badge {{state.data.credential_metrics.expired > 0 ? 'text-bg-danger' : 'text-bg-success'}}" t-esc="state.data.credential_metrics.expired"/>
                                 </div>
-                                <div class="d-flex justify-content-between">
+                                <div class="d-flex justify-content-between cursor-pointer" t-on-click.stop="openRevokedCredentials">
                                     <span>Révoqués</span>
                                     <span class="badge text-bg-secondary" t-esc="state.data.credential_metrics.revoked"/>
                                 </div>
@@ -429,7 +429,7 @@
                         </div>
                     </div>
                     <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
-                        <div class="card h-100">
+                        <div class="card h-100 cursor-pointer" t-on-click="openRejectedDecisions">
                             <div class="card-body text-center">
                                 <h2 class="text-danger mb-0" t-esc="state.data.decision_metrics.rejected"/>
                                 <small class="text-muted">Rejetées</small>
@@ -517,7 +517,7 @@
                             </div>
                             <div class="card-body">
                                 <div class="row text-center">
-                                    <div class="col-6">
+                                    <div class="col-6 cursor-pointer" t-on-click="openDistributionsThisMonth">
                                         <h2 class="text-primary mb-0" t-esc="state.data.distribution_activity.this_month"/>
                                         <small class="text-muted">Ce mois</small>
                                         <div t-if="state.data.distribution_activity.trend > 0" class="text-success">
@@ -527,7 +527,7 @@
                                             <i class="fa fa-arrow-down"/> <t t-esc="state.data.distribution_activity.trend"/>%
                                         </div>
                                     </div>
-                                    <div class="col-6">
+                                    <div class="col-6 cursor-pointer" t-on-click="openDistributionsLastMonth">
                                         <h2 class="text-muted mb-0" t-esc="state.data.distribution_activity.last_month"/>
                                         <small class="text-muted">Mois dernier</small>
                                     </div>

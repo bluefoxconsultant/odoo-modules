@@ -1304,12 +1304,12 @@ class HostingService(models.Model):
 
         content_parts = [
             f'<p style="font-family:\'Lexend\',\'Segoe UI\',Arial,sans-serif; font-size:16px; line-height:26px; color:#374151; margin:0 0 20px 0;">{description}</p>',
-            email_tpl.get_data_table(headers, table_rows),
+            email_tpl.get_data_table(headers, table_rows, company=self.env.company),
             email_tpl.get_contact_footer(),
         ]
 
         content = "".join(content_parts)
-        body_html = email_tpl.get_email_wrapper(title, content, alert_type)
+        body_html = email_tpl.get_email_wrapper(title, content, alert_type, company=self.env.company)
 
         try:
             mail_values = {

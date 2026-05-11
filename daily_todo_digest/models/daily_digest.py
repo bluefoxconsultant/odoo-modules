@@ -46,11 +46,14 @@ def format_date_fr(date_obj):
     mois = MOIS_FR.get(month_en, month_en)
     return f"{jour}, le {day_num} {mois} {year}"
 
-# Blue Fox brand colors
+# Default palette. `bg_outer` / `header` / `accent` are overwritten at the
+# top of `_generate_html` with the user company's brand colors
+# (`res.company.report_brand_dark` / `report_brand_primary`). Status hues
+# (`red`/`orange`/`green`) and neutrals stay fixed.
 COLORS = {
-    "bg_outer": "#2E3132",
-    "header": "#22303B",
-    "accent": "#29ABE2",
+    "bg_outer": "#212529",
+    "header": "#212529",
+    "accent": "#714B67",
     "white": "#FFFFFF",
     "text_light": "#E6EDF3",
     "text_gray": "#6B7280",
@@ -120,12 +123,12 @@ class DailyDigestConfig(models.Model):
     )
     weather_latitude = fields.Float(
         string="Latitude",
-        default=0.0,
+        default=45.5017,
         digits=(10, 4),
     )
     weather_longitude = fields.Float(
         string="Longitude",
-        default=0.0,
+        default=-73.5673,
         digits=(10, 4),
     )
     include_quote = fields.Boolean(
@@ -537,6 +540,13 @@ class DailyDigestConfig(models.Model):
         self.ensure_one()
         today = fields.Date.today()
         today_str = format_date_fr(today)
+
+        # Pull brand colors from the user's company. Single-threaded write to
+        # the module-level palette is safe inside the cron-driven send loop.
+        co = user.company_id
+        COLORS["bg_outer"] = co.report_brand_dark or "#212529"
+        COLORS["header"] = co.report_brand_dark or "#212529"
+        COLORS["accent"] = co.report_brand_primary or "#714B67"
 
         # Filter data for this specific user
         user_data = self._filter_data_for_user(data, user)
@@ -1004,8 +1014,8 @@ class DailyDigestConfig(models.Model):
                             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                                 <tr>
                                     <td align="left">
-                                        <a href="https://www.example.com" style="text-decoration:none;">
-                                            <img src="/web/image/website/1/logo" alt="Blue Fox" height="48" style="display:block;border:0;height:48px;width:auto;">
+                                        <a href="https://www.bluefoxconsultant.com" style="text-decoration:none;">
+                                            <img src="https://www.bluefoxconsultant.com/web/image/website/1/logo/Blue%20Fox?unique=803cc14" alt="Blue Fox" height="48" style="display:block;border:0;height:48px;width:auto;">
                                         </a>
                                     </td>
                                     <td align="right" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:20px;font-weight:700;color:{COLORS['text_light']};">
@@ -1039,7 +1049,7 @@ class DailyDigestConfig(models.Model):
                                         Solutions éthiques et souveraines pour vos données.
                                     </td>
                                     <td align="right" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;color:#9CA3AF;">
-                                        <a href="mailto:service@example.com" style="color:{COLORS['accent']};text-decoration:none;">service@example.com</a>
+                                        <a href="mailto:service@bluefoxconsultant.com" style="color:{COLORS['accent']};text-decoration:none;">service@bluefoxconsultant.com</a>
                                     </td>
                                 </tr>
                             </table>

@@ -7,18 +7,30 @@ Utilitaires de gabarit courriel de marque Company pour le module hosting_managem
 from markupsafe import escape as _esc
 
 
-def get_email_wrapper(title, content, alert_type=None):
+def _brand_primary(company=None):
+    return (company and company.report_brand_primary) or "#714B67"
+
+
+def _brand_dark(company=None):
+    return (company and company.report_brand_dark) or "#212529"
+
+
+def get_email_wrapper(title, content, alert_type=None, company=None):
     """
-    Générer un gabarit courriel de marque Company.
+    Générer un gabarit courriel branded.
 
     Args:
         title: Le titre de l'en-tête du courriel
         content: Le contenu HTML principal
-        alert_type: Type d'alerte optionnel pour le code couleur ("down", "recovered", "slow", "info")
+        alert_type: Type d'alerte optionnel ("down", "recovered", "slow", "info")
+        company: res.company optionnel — sa couleur de marque sert d'accent
+                 par défaut quand alert_type est None ou "info".
 
     Returns:
         Chaîne HTML complète du courriel
     """
+    brand_primary = _brand_primary(company)
+    brand_dark = _brand_dark(company)
     # Schéma de couleurs basé sur le type d'alerte
     if alert_type == "down":
         accent_color = "#dc3545"  # Rouge
@@ -33,7 +45,7 @@ def get_email_wrapper(title, content, alert_type=None):
         badge_bg = "#fff3cd"
         badge_text = "Avertissement"
     else:
-        accent_color = "#29ABE2"  # Default accent color
+        accent_color = brand_primary
         badge_bg = "#E8F6FD"
         badge_text = "Info"
 
@@ -57,7 +69,7 @@ def get_email_wrapper(title, content, alert_type=None):
                                     <tbody>
                                         <!-- En-tête -->
                                         <tr>
-                                            <td style="background-color:#22303B; padding:16px 24px; border-radius:12px 12px 0 0;">
+                                            <td style="background-color:{brand_dark}; padding:16px 24px; border-radius:12px 12px 0 0;">
                                                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                                                     <tbody>
                                                         <tr>
@@ -99,7 +111,7 @@ def get_email_wrapper(title, content, alert_type=None):
                                                     <tbody>
                                                         <tr>
                                                             <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif; font-size:12px; color:#6B7280;">
-                                                                <strong style="color:#22303B;">Gestion d'hébergement</strong><br/>
+                                                                <strong style="color:{brand_dark};">Gestion d'hébergement</strong><br/>
                                                                 Solutions éthiques et souveraines pour vos données.
                                                             </td>
                                                             <td align="right" style="font-family:'Lexend','Segoe UI',Arial,sans-serif; font-size:12px; color:#9CA3AF;">
@@ -136,18 +148,22 @@ def get_email_wrapper(title, content, alert_type=None):
 </html>'''
 
 
-def get_info_card(rows, badge_text=None, badge_color="#29ABE2"):
+def get_info_card(rows, badge_text=None, badge_color=None, company=None):
     """
     Générer une carte d'information stylisée pour les données clé-valeur.
 
     Args:
         rows: Liste de tuples (étiquette, valeur) pour le contenu de la carte
         badge_text: Texte de badge optionnel à afficher
-        badge_color: Couleur du badge
+        badge_color: Couleur du badge (défaut: brand_primary de la company)
+        company: res.company optionnel pour les couleurs de marque
 
     Returns:
         Chaîne HTML de la carte d'information
     """
+    if badge_color is None:
+        badge_color = _brand_primary(company)
+    brand_dark = _brand_dark(company)
     row_html = ""
     for i, (label, value) in enumerate(rows):
         padding_top = "8px" if i > 0 else "0"
@@ -167,7 +183,7 @@ def get_info_card(rows, badge_text=None, badge_color="#29ABE2"):
         badge_html = f'''
         <tr>
             <td style="padding:0 16px 16px 16px;" colspan="2">
-                <span style="display:inline-block; font-family:'Lexend','Segoe UI',Arial,sans-serif; font-size:12px; text-transform:uppercase; letter-spacing:0.6px; padding:6px 10px; background-color:#E8F6FD; color:#22303B; border:1px solid #BEE3F8; border-radius:999px;">
+                <span style="display:inline-block; font-family:'Lexend','Segoe UI',Arial,sans-serif; font-size:12px; text-transform:uppercase; letter-spacing:0.6px; padding:6px 10px; background-color:#E8F6FD; color:{brand_dark}; border:1px solid #BEE3F8; border-radius:999px;">
                     {_esc(badge_text)}
                 </span>
             </td>
@@ -190,19 +206,22 @@ def get_info_card(rows, badge_text=None, badge_color="#29ABE2"):
     </table>'''
 
 
-def get_data_table(headers, rows, header_bg="#22303B", header_color="#FFFFFF"):
+def get_data_table(headers, rows, header_bg=None, header_color="#FFFFFF", company=None):
     """
     Générer un tableau de données stylisé.
 
     Args:
         headers: Liste des noms de colonnes d'en-tête
         rows: Liste de listes pour les lignes du tableau
-        header_bg: Couleur de fond de la ligne d'en-tête
+        header_bg: Couleur de fond de la ligne d'en-tête (défaut: brand_dark de la company)
         header_color: Couleur du texte de la ligne d'en-tête
+        company: res.company optionnel pour les couleurs de marque
 
     Returns:
         Chaîne HTML du tableau
     """
+    if header_bg is None:
+        header_bg = _brand_dark(company)
     header_html = "".join(
         f'<th style="padding:12px; text-align:left; border-bottom:2px solid #e5e7eb; font-family:\'Lexend\',\'Segoe UI\',Arial,sans-serif; font-size:13px; font-weight:600; color:{header_color}; background-color:{header_bg};">{_esc(h)}</th>'
         for h in headers
@@ -228,8 +247,10 @@ def get_data_table(headers, rows, header_bg="#22303B", header_color="#FFFFFF"):
     </table>'''
 
 
-def get_section_title(title, color="#22303B"):
+def get_section_title(title, color=None, company=None):
     """Générer un titre de section."""
+    if color is None:
+        color = _brand_dark(company)
     return f'''
     <h2 style="font-family:'Lexend','Segoe UI',Arial,sans-serif; font-size:18px; font-weight:600; color:{color}; margin:24px 0 12px 0; padding:0;">
         {_esc(title)}
