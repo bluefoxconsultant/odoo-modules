@@ -140,9 +140,11 @@ class StudioLightWizard(models.TransientModel):
                 )
                 for i, s in enumerate(self._parse_selection_text())
             ]
-        if self.field_type == "many2one" and not self.is_related:
+        if self.field_type in ("many2one", "many2many") and not self.is_related:
             if not self.relation_model_id:
-                raise UserError(_("Pick the linked model for the Many2one field."))
+                raise UserError(
+                    _("Pick the linked model for the %s field.") % self.field_type
+                )
             field_vals["relation_model_id"] = self.relation_model_id.id
 
         studio_field = self.env["studio.light.field"].create(field_vals)

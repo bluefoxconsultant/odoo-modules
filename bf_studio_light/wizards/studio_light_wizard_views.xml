@@ -19,7 +19,7 @@
                                nolabel="1"
                                placeholder="gold=Gold member&#10;silver=Silver member"/>
                     </group>
-                    <group string="Linked model" invisible="field_type != 'many2one' or is_related">
+                    <group string="Linked model" invisible="field_type not in ('many2one', 'many2many') or is_related">
                         <field name="relation_model_id"
                                options="{'no_create': True, 'no_open': True}"/>
                     </group>

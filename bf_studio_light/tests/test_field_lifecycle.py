@@ -85,6 +85,100 @@ class TestStudioLightLifecycle(TransactionCase):
         self.assertEqual(f.ir_model_field_id.name, original_imf_name)
         f.unlink()
 
+    def test_binary_field_write_and_read(self):
+        """A binary field stores and returns base64-encoded blobs."""
+        import base64
+
+        f = self.env["studio.light.field"].create(
+            {
+                "label": "Contract PDF",
+                "name": "x_studio_contract_pdf_test",
+                "model_id": self.partner_model.id,
+                "field_type": "binary",
+            }
+        )
+        self.assertTrue(f.ir_model_field_id)
+        self.assertEqual(
+            f.ir_model_field_id.ttype,
+            "binary",
+            "binary studio type must persist as ttype=binary",
+        )
+
+        payload = base64.b64encode(b"%PDF-1.4 fake content").decode()
+        partner = self.env["res.partner"].create({"name": "Binary partner"})
+        partner.x_studio_contract_pdf_test = payload
+        self.env.invalidate_all()
+        read_back = self.env["res.partner"].browse(partner.id).x_studio_contract_pdf_test
+        # Odoo may return bytes or str depending on storage backend; normalise.
+        if isinstance(read_back, bytes):
+            read_back = read_back.decode()
+        self.assertEqual(read_back, payload)
+        f.unlink()
+
+    def test_image_field_persists_as_binary_with_widget(self):
+        """An image studio type stores as ttype=binary and the auto-generated
+        view injection carries widget="image" so the renderer shows a
+        thumbnail instead of a download link."""
+        f = self.env["studio.light.field"].create(
+            {
+                "label": "Avatar custom",
+                "name": "x_studio_avatar_custom_test",
+                "model_id": self.partner_model.id,
+                "field_type": "image",
+            }
+        )
+        self.assertTrue(f.ir_model_field_id)
+        self.assertEqual(
+            f.ir_model_field_id.ttype,
+            "binary",
+            "image studio type must normalise to ttype=binary (Odoo has no image ttype)",
+        )
+
+        inj = self.env["studio.light.view.injection"].create(
+            {
+                "name": "Image injection test",
+                "studio_field_id": f.id,
+                "model_id": self.partner_model.id,
+                "view_type": "form",
+                "target_field": "name",
+                "position": "after",
+            }
+        )
+        self.assertTrue(inj.ir_view_id)
+        self.assertIn(
+            'widget="image"',
+            inj.ir_view_id.arch,
+            "image field injection must carry widget=image in the generated arch",
+        )
+        inj.unlink()
+        f.unlink()
+
+    def test_many2many_field_creation_and_assignment(self):
+        """An m2m field stores a set of related records and can be
+        written/read like any other m2m."""
+        country_model = self.env["ir.model"]._get("res.country")
+        f = self.env["studio.light.field"].create(
+            {
+                "label": "Markets served",
+                "name": "x_studio_markets_test",
+                "model_id": self.partner_model.id,
+                "field_type": "many2many",
+                "relation_model_id": country_model.id,
+            }
+        )
+        self.assertTrue(f.ir_model_field_id)
+        self.assertEqual(f.ir_model_field_id.ttype, "many2many")
+        self.assertEqual(f.ir_model_field_id.relation, "res.country")
+
+        ca = self.env.ref("base.ca")
+        us = self.env.ref("base.us")
+        partner = self.env["res.partner"].create({"name": "M2M partner"})
+        partner.x_studio_markets_test = [(6, 0, [ca.id, us.id])]
+        self.env.invalidate_all()
+        read_back = self.env["res.partner"].browse(partner.id).x_studio_markets_test
+        self.assertEqual(set(read_back.ids), {ca.id, us.id})
+        f.unlink()
+
     def test_failed_count_field_present(self):
         """The failed_count + auto-deactivate plumbing should be wired.
 

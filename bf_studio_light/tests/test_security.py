@@ -28,6 +28,21 @@ class TestStudioLightSecurity(TransactionCase):
                 }
             )
 
+    # S5 — Relational target on locked model refused
+    def test_relational_target_locked_model_refused(self):
+        """A many2many pointing at res.users must be refused without the
+        bypass group, even when the host model (res.partner) is open."""
+        with self.assertRaises(ValidationError):
+            self.env["studio.light.field"].create(
+                {
+                    "label": "Linked users m2m",
+                    "name": "x_studio_user_m2m",
+                    "model_id": self.partner_model.id,
+                    "field_type": "many2many",
+                    "relation_model_id": self.users_model.id,
+                }
+            )
+
     # S6 — Context-only bypass no longer works
     def test_context_force_does_not_bypass(self):
         """Setting studio_light_force in context must NOT bypass the lock."""

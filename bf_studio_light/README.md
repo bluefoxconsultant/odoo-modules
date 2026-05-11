@@ -20,7 +20,8 @@ By design it stays narrow.
 ### Field builder
 
 - Wizard to add a custom field of any common type: char, text, html,
-  integer, float, monetary, boolean, date, datetime, selection, many2one.
+  integer, float, monetary, boolean, date, datetime, selection, many2one,
+  binary (attachment / file), image (thumbnail-rendered binary).
 - Auto-injection in the form view at a chosen anchor (after an existing
   field, in a tab, in a new group).
 - Optional injection in **list / kanban / search** views.

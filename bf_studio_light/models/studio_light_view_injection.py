@@ -271,7 +271,13 @@ class StudioLightViewInjection(models.Model):
             return self.arch_snippet.strip()
         if self.studio_field_id:
             # studio_field_id.name has been regex-validated server-side.
-            return f'<field name="{self.studio_field_id.name}"/>'
+            # `image` fields land in ir.model.fields as ttype='binary' but
+            # need widget="image" to render as a thumbnail rather than a
+            # download link.
+            extra = ""
+            if self.studio_field_id.field_type == "image":
+                extra = ' widget="image"'
+            return f'<field name="{self.studio_field_id.name}"{extra}/>'
         raise UserError(
             _("Either provide arch_snippet or link a studio_field_id.")
         )

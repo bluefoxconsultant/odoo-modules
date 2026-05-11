@@ -21,7 +21,17 @@ SUPPORTED_TYPES = [
     ("datetime", "Date & time"),
     ("selection", "Selection"),
     ("many2one", "Link to record"),
+    ("many2many", "Tags / multi-select"),
+    ("binary", "Attachment / file"),
+    ("image", "Image"),
 ]
+
+# Studio Light surfaces ``image`` as a separate user-facing type, but at
+# the ir.model.fields level Odoo only accepts ttype='binary' — ``image``
+# is a Python-side ``fields.Image`` wrapper around binary plus a
+# widget="image" hint at display time. Anywhere we hit the schema we
+# normalise image → binary; the view-injection layer adds the widget.
+TTYPE_NORMALISATION = {"image": "binary"}
 
 # Models we refuse to touch by default (covers field creation and related
 # path traversal). Bypass requires the dedicated unlocked group, NOT the
@@ -243,7 +253,7 @@ class StudioLightField(models.Model):
                     % rec.name
                 )
 
-    @api.constrains("model_id")
+    @api.constrains("model_id", "relation_model_id", "field_type")
     def _check_model_allowed(self):
         for rec in self:
             if is_model_locked(rec.model_name) and not rec._is_unlocked():
@@ -254,6 +264,25 @@ class StudioLightField(models.Model):
                         "to override (and must be granted by a sysadmin)."
                     )
                     % rec.model_name
+                )
+            # Target model on relational fields must also clear the lock.
+            # Without this check, a non-unlocked admin could create
+            # x_studio_link_to_users pointing at res.users and bypass the
+            # locked-model intent in one direction.
+            if (
+                rec.field_type in ("many2one", "many2many")
+                and not rec.is_related
+                and rec.relation_model_id
+                and is_model_locked(rec.relation_model_id.model)
+                and not rec._is_unlocked()
+            ):
+                raise ValidationError(
+                    _(
+                        "Target model %s is locked by Studio Light. "
+                        "Relational fields cannot point at locked models "
+                        "without the 'Bypass model lock' group."
+                    )
+                    % rec.relation_model_id.model
                 )
 
     @api.constrains("field_type", "selection_ids", "relation_model_id")
@@ -267,9 +296,9 @@ class StudioLightField(models.Model):
                 raise ValidationError(
                     _("Selection fields must define at least one value.")
                 )
-            if rec.field_type == "many2one" and not rec.relation_model_id:
+            if rec.field_type in ("many2one", "many2many") and not rec.relation_model_id:
                 raise ValidationError(
-                    _("Many2one fields must specify a related model.")
+                    _("%s fields must specify a related model.") % rec.field_type
                 )
 
     @api.constrains("is_related", "related_path", "model_id", "field_type")
@@ -334,6 +363,7 @@ class StudioLightField(models.Model):
         if self.is_related:
             target = self._resolve_related_target()
             ttype = target.ttype
+        ttype = TTYPE_NORMALISATION.get(ttype, ttype)
         vals = {
             "name": self.name,
             "model_id": self.model_id.id,
@@ -353,6 +383,14 @@ class StudioLightField(models.Model):
         if self.field_type == "many2one" and not self.is_related:
             vals["relation"] = self.relation_model_id.model
             vals["on_delete"] = self.relation_ondelete or "set null"
+        if self.field_type == "many2many" and not self.is_related:
+            # Manual M2M fields: setting `relation` is enough — Odoo
+            # auto-generates the intermediate table name (with a hash
+            # suffix when the natural name would exceed 63 chars). Don't
+            # pre-populate relation_table or column1/column2 — letting
+            # core handle it keeps us aligned with how Studio Enterprise
+            # provisions the same field type.
+            vals["relation"] = self.relation_model_id.model
         if self.field_type == "selection" and not self.is_related:
             vals["selection_ids"] = [
                 (
