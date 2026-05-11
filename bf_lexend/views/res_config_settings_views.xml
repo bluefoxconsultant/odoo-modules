@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="res_config_settings_view_form_lexend" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.lexend</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base_setup.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//app[@data-string='General Settings']//block[@name='companies_setting_container']" position="after">
+                <block title="Couleurs de la marque" name="report_brand">
+                    <setting string="Avant-plan et arrière-plan"
+                             help="Définir les deux couleurs de la marque. L'avant-plan est utilisé pour les boutons, liens et accents ; l'arrière-plan pour la barre de navigation, les surfaces foncées et les en-têtes. Ces couleurs s'appliquent à l'interface, aux courriels et aux rapports PDF lorsque les modules correspondants sont installés.">
+                        <div class="row mt16">
+                            <label for="report_brand_primary" class="col-lg-3 o_light_label"/>
+                            <field name="report_brand_primary" widget="color"/>
+                        </div>
+                        <div class="row mt8">
+                            <label for="report_brand_dark" class="col-lg-3 o_light_label"/>
+                            <field name="report_brand_dark" widget="color"/>
+                        </div>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+
+    <!--
+        Brand color seeds. Odoo's plum (#714B67) and stock dark (#212529)
+        ship as the field defaults; this record makes the active company's
+        values explicit so they appear in Settings > Brand colors without
+        first triggering a write. noupdate=1 keeps the user's choice on
+        module upgrade.
+    -->
+    <record id="base.main_company" model="res.company">
+        <field name="report_brand_primary">#714B67</field>
+        <field name="report_brand_dark">#212529</field>
+    </record>
+
+</odoo>
