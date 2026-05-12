@@ -225,6 +225,51 @@ are not honored.
 
 ---
 
+## Tier A1–A3 audit — Field-type expansion (v18.0.5.x)
+
+### TA-S1 — Locked-model bypass via relational target (MEDIUM) — RESOLVED
+
+`_check_model_allowed` originally validated only the **host model**
+(`model_id`), not the **target model** on relational fields. A
+non-unlocked admin could create `x_studio_link_to_users` on
+`res.partner` with `relation_model_id = res.users` and end up with a
+many2one pointing at a locked model — exposing user records through
+the partner form. Pre-existing for many2one since v18.0.1; tightened
+when extending the same code path to many2many and reference in
+v18.0.5.0.
+
+**Fix:** the constraint now also rejects `relation_model_id` and any
+model in `reference_model_ids` that fails `is_model_locked()`, unless
+the user is in `group_studio_light_unlocked`. Covered by
+`tests/test_security.py::test_relational_target_locked_model_refused`
+(many2many) and `test_reference_whitelist_locked_model_refused`
+(reference).
+
+## Tier A7 audit — Conditional modifiers (v18.0.6.0.0)
+
+### TA-S2 — Modifier expression eval surface (HIGH if uncontrolled) — RESOLVED
+
+A7 lets admins write Python-style expressions (`state == 'draft'`)
+that Odoo's view engine then evaluates with `safe_eval` at render
+time. Without a server-side guard, a user could insert
+`__import__('os').system(...)` or comprehension-based introspection
+chains that abuse `safe_eval`'s sandbox.
+
+**Fix:** `validate_modifier_expression()` parses the expression with
+`ast.parse(mode='eval')` and walks every node against
+`_SAFE_MODIFIER_NODES`. Allowed: `BoolOp`, `UnaryOp`, `Compare`, a
+restricted `BinOp` (Add/Sub/Mult/Div/Mod), `Constant`, `Name`,
+`Attribute`, `Tuple`, `List`. Rejected by omission: `Call`,
+`Subscript`, `Lambda`, `Comprehension`, `Starred`, `Import`. Covered
+by `tests/test_security.py`:
+
+- `test_modifier_expression_rejects_function_call`
+- `test_modifier_expression_rejects_subscript`
+- `test_modifier_expression_rejects_comprehension`
+- `test_modifier_expression_accepts_idiomatic` (negative control)
+
+---
+
 ## Findings deferred (post-Tier 2.5)
 
 ### Tier 2.7 — Translation inline

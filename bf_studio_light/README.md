@@ -22,6 +22,11 @@ By design it stays narrow.
 - Wizard to add a custom field of any common type: char, text, html,
   integer, float, monetary, boolean, date, datetime, selection, many2one,
   binary (attachment / file), image (thumbnail-rendered binary).
+- **Conditional modifiers** (since v18.0.6.0): set `invisible_expr`,
+  `required_expr`, or `readonly_expr` on the field. Expressions are
+  Python-style (e.g. `state == 'draft'`) and pass an AST whitelist
+  that refuses function calls, subscripts, comprehensions, lambdas,
+  imports — keeping the eval surface narrow.
 - Auto-injection in the form view at a chosen anchor (after an existing
   field, in a tab, in a new group).
 - Optional injection in **list / kanban / search** views.

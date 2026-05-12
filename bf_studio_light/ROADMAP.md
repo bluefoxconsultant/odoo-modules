@@ -101,7 +101,8 @@ and deliberately lands late.
 | Version | Theme | Items | Rough effort |
 | --- | --- | --- | --- |
 | **v18.0.5.0** | Field-type expansion + cosmetics | A1, A2, A3, A5, A6 + `static/description/icon.png` + `i18n/fr_CA.po` | 1–2 weeks |
-| **v18.0.6.0** | Smarter fields | A4, A7, A8, A9 | ~2 weeks |
+| **v18.0.6.0** ✅ *(A7 shipped 2026-05-11)* | Conditional modifiers | A7 only (`invisible_expr` / `required_expr` / `readonly_expr` with AST-whitelist validator) | actual: same day |
+| **v18.0.6.1** *(deferred)* | Remaining smarter-fields | A4 (properties — needs parent `properties_definition` bootstrap), A8 (declarative compute via `make_compute` + structured operations), A9 (dynamic defaults — `ir.model.fields.default` isn't auto-applied to manual fields so needs a `_register_hook` override) | ~2 weeks |
 | **v18.0.7.0** | Portability + kanban polish | **B1** (extract-to-module) + A10 | ~2 weeks |
 | **v18.0.8.0** | No-code automations | B6 + B7 | 2–3 weeks |
 | **v18.0.9.0** | Workflow surface | B4 (statusbar editor) + B5 (translation inline) | ~2 weeks |

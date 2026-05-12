@@ -206,6 +206,67 @@ class TestStudioLightLifecycle(TransactionCase):
         self.assertEqual(read_back, ca)
         f.unlink()
 
+    def test_modifier_expressions_emitted_in_arch(self):
+        """When `invisible_expr` is set, the generated inheriting view
+        arch must carry an `invisible="..."` attribute on the field tag
+        so Odoo's view engine evaluates it at render time."""
+        f = self.env["studio.light.field"].create(
+            {
+                "label": "Conditional field",
+                "name": "x_studio_conditional_test",
+                "model_id": self.partner_model.id,
+                "field_type": "char",
+                "invisible_expr": "is_company",
+                "required_expr": "active",
+            }
+        )
+        inj = self.env["studio.light.view.injection"].create(
+            {
+                "name": "Modifier injection test",
+                "studio_field_id": f.id,
+                "model_id": self.partner_model.id,
+                "view_type": "form",
+                "target_field": "name",
+                "position": "after",
+            }
+        )
+        arch = inj.ir_view_id.arch
+        self.assertIn('invisible="is_company"', arch)
+        self.assertIn('required="active"', arch)
+        self.assertNotIn('readonly=', arch)
+        inj.unlink()
+        f.unlink()
+
+    def test_modifier_expression_change_propagates_to_view(self):
+        """Editing the modifier expression on the field must update the
+        existing inheriting view arch — not wait for the next post-init
+        cycle."""
+        f = self.env["studio.light.field"].create(
+            {
+                "label": "Mutable modifier",
+                "name": "x_studio_mutmod_test",
+                "model_id": self.partner_model.id,
+                "field_type": "char",
+                "invisible_expr": "is_company",
+            }
+        )
+        inj = self.env["studio.light.view.injection"].create(
+            {
+                "name": "Mut modifier injection",
+                "studio_field_id": f.id,
+                "model_id": self.partner_model.id,
+                "view_type": "form",
+                "target_field": "name",
+                "position": "after",
+            }
+        )
+        self.assertIn('invisible="is_company"', inj.ir_view_id.arch)
+        f.invisible_expr = "not is_company"
+        self.env.invalidate_all()
+        self.assertIn('invisible="not is_company"', inj.ir_view_id.arch)
+        inj.unlink()
+        f.unlink()
+
     def test_failed_count_field_present(self):
         """The failed_count + auto-deactivate plumbing should be wired.
 

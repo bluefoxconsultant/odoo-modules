@@ -238,6 +238,63 @@ class TestStudioLightSecurity(TransactionCase):
                 }
             )
 
+    # TA-S3 — Modifier expression rejects function calls
+    def test_modifier_expression_rejects_function_call(self):
+        """Conditional modifier expressions must refuse any function call
+        — that's the only sandbox we have between user input and
+        Odoo's view-engine `safe_eval`."""
+        with self.assertRaises(ValidationError):
+            self.env["studio.light.field"].create(
+                {
+                    "label": "Evil modifier call",
+                    "name": "x_studio_evil_call",
+                    "model_id": self.partner_model.id,
+                    "field_type": "char",
+                    "invisible_expr": "__import__('os').system('echo pwned')",
+                }
+            )
+
+    def test_modifier_expression_rejects_subscript(self):
+        """`x[y]` access is rejected — keeps the eval surface narrow."""
+        with self.assertRaises(ValidationError):
+            self.env["studio.light.field"].create(
+                {
+                    "label": "Subscript abuse",
+                    "name": "x_studio_subscript_evil",
+                    "model_id": self.partner_model.id,
+                    "field_type": "char",
+                    "readonly_expr": "vars()['__builtins__']",
+                }
+            )
+
+    def test_modifier_expression_rejects_comprehension(self):
+        with self.assertRaises(ValidationError):
+            self.env["studio.light.field"].create(
+                {
+                    "label": "Comprehension abuse",
+                    "name": "x_studio_comp_evil",
+                    "model_id": self.partner_model.id,
+                    "field_type": "char",
+                    "required_expr": "[x for x in self.env]",
+                }
+            )
+
+    def test_modifier_expression_accepts_idiomatic(self):
+        """Sanity check the validator isn't over-zealous — the standard
+        Odoo idiom must pass."""
+        f = self.env["studio.light.field"].create(
+            {
+                "label": "Idiom modifier",
+                "name": "x_studio_idiom_mod",
+                "model_id": self.partner_model.id,
+                "field_type": "char",
+                "invisible_expr": "is_company and state == 'draft'",
+                "required_expr": "category_id and not is_company",
+            }
+        )
+        self.assertTrue(f.id)
+        f.unlink()
+
     # S12 — replace position not selectable
     def test_position_replace_not_available(self):
         f = self.env["studio.light.field"].create(

@@ -274,10 +274,24 @@ class StudioLightViewInjection(models.Model):
             # `image` fields land in ir.model.fields as ttype='binary' but
             # need widget="image" to render as a thumbnail rather than a
             # download link.
-            extra = ""
-            if self.studio_field_id.field_type == "image":
-                extra = ' widget="image"'
-            return f'<field name="{self.studio_field_id.name}"{extra}/>'
+            extras = []
+            sf = self.studio_field_id
+            if sf.field_type == "image":
+                extras.append('widget="image"')
+            # Conditional modifiers (Tier A7). Each expression has been
+            # AST-validated server-side; emit verbatim so Odoo's view
+            # engine evaluates it at render time. XML-escape the value
+            # to keep `<` / `>` / `&` operators safe in the arch.
+            from xml.sax.saxutils import quoteattr
+            for attr_name, expr in (
+                ("invisible", sf.invisible_expr),
+                ("required", sf.required_expr),
+                ("readonly", sf.readonly_expr),
+            ):
+                if expr and expr.strip():
+                    extras.append(f"{attr_name}={quoteattr(expr.strip())}")
+            extra = (" " + " ".join(extras)) if extras else ""
+            return f'<field name="{sf.name}"{extra}/>'
         raise UserError(
             _("Either provide arch_snippet or link a studio_field_id.")
         )

@@ -53,6 +53,14 @@
                                invisible="not is_related"
                                placeholder="partner_id.email"/>
                     </group>
+                    <group string="Conditional modifiers (advanced)">
+                        <field name="invisible_expr"
+                               placeholder="state == 'draft'"/>
+                        <field name="required_expr"
+                               placeholder="state != 'draft'"/>
+                        <field name="readonly_expr"
+                               placeholder="state in ('done','cancel')"/>
+                    </group>
                     <notebook>
                         <page string="Selection values" invisible="field_type != 'selection' or is_related">
                             <field name="selection_ids">

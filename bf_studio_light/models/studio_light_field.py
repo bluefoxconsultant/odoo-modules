@@ -1,3 +1,4 @@
+import ast
 import logging
 import re
 
@@ -98,6 +99,77 @@ SENSITIVE_FIELD_NAMES = frozenset(
         "webhook_secret",
     }
 )
+
+
+# --- Modifier expression validator (Tier A7) ---
+#
+# Conditional modifiers (`invisible="..."`, `required="..."`, `readonly="..."`)
+# accept Python-like boolean expressions that Odoo evaluates with `safe_eval`
+# at render time. We accept the standard idiom (`state == 'draft'`,
+# `partner_id and partner_id.is_company`) but refuse anything that can call
+# code: function calls, comprehensions, subscripts, starred/lambdas, etc.
+# The whitelist below is intentionally narrow — extend deliberately.
+_SAFE_MODIFIER_NODES = (
+    ast.Expression,
+    ast.BoolOp,
+    ast.UnaryOp,
+    ast.BinOp,
+    ast.Compare,
+    ast.Constant,
+    ast.Name,
+    ast.Attribute,
+    ast.Tuple,
+    ast.List,
+    ast.And,
+    ast.Or,
+    ast.Not,
+    ast.Eq,
+    ast.NotEq,
+    ast.Lt,
+    ast.LtE,
+    ast.Gt,
+    ast.GtE,
+    ast.In,
+    ast.NotIn,
+    ast.Is,
+    ast.IsNot,
+    ast.Load,
+    ast.USub,
+    ast.UAdd,
+)
+_SAFE_MODIFIER_BINOPS = (ast.Add, ast.Sub, ast.Mult, ast.Div, ast.Mod)
+
+
+def validate_modifier_expression(expr):
+    """Refuse anything beyond `field op literal` / `field in [...]` style.
+
+    Raises :class:`ValidationError` on the first forbidden construct.
+    """
+    if not expr or not expr.strip():
+        return
+    try:
+        tree = ast.parse(expr, mode="eval")
+    except SyntaxError as e:
+        raise ValidationError(
+            _("Modifier expression is not valid Python: %s") % e
+        )
+    for node in ast.walk(tree):
+        if isinstance(node, ast.BinOp):
+            if not isinstance(node.op, _SAFE_MODIFIER_BINOPS):
+                raise ValidationError(
+                    _("Modifier expression: operator %s is not allowed.")
+                    % type(node.op).__name__
+                )
+            continue
+        if not isinstance(node, _SAFE_MODIFIER_NODES):
+            raise ValidationError(
+                _(
+                    "Modifier expression contains a forbidden construct: %s. "
+                    "Allowed: comparisons, boolean logic, field references, "
+                    "literals."
+                )
+                % type(node).__name__
+            )
 
 
 def is_model_locked(model_name):
@@ -211,6 +283,26 @@ class StudioLightField(models.Model):
         "user can pick from when populating this field. Each model is "
         "lock-checked at field creation; locked models require the "
         "'Bypass model lock' group.",
+    )
+
+    # Conditional modifiers (Tier A7). Python-style expressions evaluated
+    # by Odoo's view engine at render time, e.g.
+    # ``state == 'draft'`` or ``partner_id and not partner_id.is_company``.
+    # Validation refuses function calls, subscripts, comprehensions, etc.
+    # to prevent the expressions from doing anything other than reading
+    # field values and comparing them.
+    invisible_expr = fields.Char(
+        string="Invisible when",
+        help="Python-style expression: when truthy, the field is hidden in "
+        "every Studio Light view injection. Example: state == 'draft'.",
+    )
+    required_expr = fields.Char(
+        string="Required when",
+        help="Python-style expression: when truthy, the field is required.",
+    )
+    readonly_expr = fields.Char(
+        string="Readonly when",
+        help="Python-style expression: when truthy, the field is readonly.",
     )
 
     # Related field support (Tier 2.2)
@@ -344,6 +436,12 @@ class StudioLightField(models.Model):
                         "point this field at."
                     )
                 )
+
+    @api.constrains("invisible_expr", "required_expr", "readonly_expr")
+    def _check_modifier_expressions(self):
+        for rec in self:
+            for expr in (rec.invisible_expr, rec.required_expr, rec.readonly_expr):
+                validate_modifier_expression(expr)
 
     @api.constrains("is_related", "related_path", "model_id", "field_type")
     def _check_related_path(self):
@@ -576,6 +674,12 @@ class StudioLightField(models.Model):
             k in vals for k in ("field_type", "relation_model_id")
         ):
             self._sync_selection_values()
+        # Modifier expressions are baked into the inheriting view arch at
+        # build time, so a change must propagate to the existing
+        # ir.ui.view rows or it'll only take effect on the next
+        # post-init cycle.
+        if any(k in vals for k in ("invisible_expr", "required_expr", "readonly_expr")):
+            self.mapped("view_injection_ids")._ensure_ir_view()
         return res
 
     def unlink(self):
