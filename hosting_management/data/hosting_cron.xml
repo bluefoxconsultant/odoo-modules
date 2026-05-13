@@ -68,6 +68,19 @@
             <field name="active">True</field>
         </record>
 
+        <!-- Tâche planifiée : Envoi quotidien du rapport de sauvegarde
+             Tourne à l'heure ; la méthode interne ne fait quelque chose qu'à
+             l'heure locale configurée dans Configuration > Paramètres. -->
+        <record id="ir_cron_hosting_backup_report" model="ir.cron">
+            <field name="name">Hébergement : Envoi du rapport de sauvegarde</field>
+            <field name="model_id" ref="model_hosting_backup_run"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_send_daily_report()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">hours</field>
+            <field name="active">True</field>
+        </record>
+
         <!-- Tâche planifiée : Consolider les vérifications de santé en snapshots quotidiens et purger les données brutes au-delà de la rétention -->
         <record id="ir_cron_hosting_health_check_consolidate_purge" model="ir.cron">
             <field name="name">Hébergement : Consolider les vérifications de santé (snapshots + purge)</field>

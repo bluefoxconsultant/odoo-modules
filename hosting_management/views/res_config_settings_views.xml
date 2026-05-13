@@ -125,6 +125,61 @@
                             </div>
                         </setting>
                     </block>
+                    <block title="Rapports de sauvegarde par courriel" name="backup_reports">
+                        <setting string="Activer les rapports">
+                            <field name="hosting_backup_report_enabled"/>
+                        </setting>
+                        <setting string="Mode d'envoi" invisible="not hosting_backup_report_enabled">
+                            <field name="hosting_backup_report_mode" widget="radio"/>
+                        </setting>
+                        <setting string="Destinataires" invisible="not hosting_backup_report_enabled">
+                            <div class="content-group">
+                                <div class="row mt16">
+                                    <field name="hosting_backup_report_recipients"
+                                           class="oe_inline"
+                                           placeholder="alice@exemple.com, bob@exemple.com"/>
+                                </div>
+                                <div class="text-muted mt8">
+                                    Adresses séparées par des virgules. Si vide, le courriel
+                                    de la société du rapport est utilisé.
+                                </div>
+                            </div>
+                        </setting>
+                        <setting string="Heure d'envoi quotidien"
+                                 invisible="not hosting_backup_report_enabled or hosting_backup_report_mode != 'scheduled'">
+                            <div class="content-group">
+                                <div class="row mt16">
+                                    <label for="hosting_backup_report_send_hour" class="col-lg-3 o_light_label"/>
+                                    <field name="hosting_backup_report_send_hour" class="oe_inline"/> h
+                                </div>
+                                <div class="row mt8">
+                                    <label for="hosting_backup_report_timezone" class="col-lg-3 o_light_label"/>
+                                    <field name="hosting_backup_report_timezone" class="oe_inline"/>
+                                </div>
+                                <div class="text-muted mt8">
+                                    En mode planifié, un seul courriel est envoyé par jour
+                                    à cette heure locale, regroupant la dernière exécution
+                                    par hôte.
+                                </div>
+                            </div>
+                        </setting>
+                        <setting string="Limiter aux exécutions problématiques"
+                                 help="Si activé, aucun courriel n'est envoyé pour une sauvegarde entièrement réussie. Les notifications ntfy restent actives en cas d'échec."
+                                 invisible="not hosting_backup_report_enabled">
+                            <field name="hosting_backup_report_only_on_issues"/>
+                        </setting>
+                        <setting string="Tester l'envoi"
+                                 help="Renvoie immédiatement le rapport de la dernière exécution de sauvegarde aux destinataires configurés."
+                                 invisible="not hosting_backup_report_enabled">
+                            <div class="mt16">
+                                <button name="action_send_backup_report_test"
+                                        type="object"
+                                        string="Envoyer un rapport de test"
+                                        class="btn-primary"
+                                        icon="fa-paper-plane"/>
+                            </div>
+                        </setting>
+                    </block>
                     <block title="Fenêtre de maintenance" name="maintenance_window">
                         <setting string="Activer la fenêtre de maintenance" help="Lorsqu'activée, les alertes de santé sont supprimées pendant la fenêtre de maintenance. Les vérifications continuent mais les notifications ne sont pas envoyées.">
                             <field name="hosting_maintenance_window_enabled"/>

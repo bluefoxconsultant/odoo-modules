@@ -117,6 +117,51 @@ class ResConfigSettings(models.TransientModel):
         help="Fuseau horaire pour la fenêtre de maintenance",
     )
 
+    # Paramètres du rapport de sauvegarde
+    hosting_backup_report_enabled = fields.Boolean(
+        string="Activer le rapport de sauvegarde par courriel",
+        config_parameter="hosting.backup_report_enabled",
+        default=True,
+        help="Lorsqu'activé, un rapport est envoyé par courriel selon le mode et "
+             "l'horaire configurés ci-dessous.",
+    )
+    hosting_backup_report_mode = fields.Selection(
+        selection=[
+            ("scheduled", "Planifié (cron quotidien à heure fixe)"),
+            ("immediate", "Immédiat (à chaque exécution reçue)"),
+        ],
+        string="Mode d'envoi",
+        config_parameter="hosting.backup_report_mode",
+        default="scheduled",
+        help="Planifié : un seul courriel par jour à l'heure choisie. "
+             "Immédiat : un courriel à chaque rapport POSTé par les scripts.",
+    )
+    hosting_backup_report_recipients = fields.Char(
+        string="Destinataires du rapport",
+        config_parameter="hosting.backup_report_recipients",
+        help="Adresses courriel séparées par des virgules. "
+             "Si vide, le courriel de la société du rapport est utilisé.",
+    )
+    hosting_backup_report_send_hour = fields.Integer(
+        string="Heure d'envoi (0-23)",
+        config_parameter="hosting.backup_report_send_hour",
+        default=6,
+        help="Heure locale à laquelle le rapport quotidien est envoyé en mode planifié.",
+    )
+    hosting_backup_report_timezone = fields.Selection(
+        selection="_get_timezone_selection",
+        string="Fuseau horaire d'envoi",
+        config_parameter="hosting.backup_report_timezone",
+        default="America/Toronto",
+    )
+    hosting_backup_report_only_on_issues = fields.Boolean(
+        string="Envoyer seulement en cas de problème",
+        config_parameter="hosting.backup_report_only_on_issues",
+        default=False,
+        help="Si activé, aucun courriel n'est envoyé pour les sauvegardes "
+             "entièrement réussies (ntfy reste actif pour les échecs).",
+    )
+
     @api.model
     def _get_timezone_selection(self):
         """Retourner la liste des fuseaux horaires courants pour la sélection."""
@@ -134,7 +179,9 @@ class ResConfigSettings(models.TransientModel):
         ]
 
     def set_values(self):
-        """Sauvegarder les paramètres de fenêtre de maintenance."""
+        """Sauvegarder les paramètres de fenêtre de maintenance + propager le
+        mode d'envoi du rapport de sauvegarde vers le flag du contrôleur HTTP
+        (`hosting.restic_send_email_report`) afin d'éviter les doublons."""
         super().set_values()
         ICP = self.env["ir.config_parameter"].sudo()
         ICP.set_param(
@@ -148,6 +195,12 @@ class ResConfigSettings(models.TransientModel):
         ICP.set_param(
             "hosting.maintenance_timezone",
             self.hosting_maintenance_timezone or "America/Toronto",
+        )
+        # Le contrôleur n'envoie le courriel inline qu'en mode immédiat.
+        ICP.set_param(
+            "hosting.restic_send_email_report",
+            "1" if (self.hosting_backup_report_enabled
+                    and self.hosting_backup_report_mode == "immediate") else "0",
         )
 
     @api.model
@@ -167,6 +220,66 @@ class ResConfigSettings(models.TransientModel):
             ),
         )
         return res
+
+    def action_send_backup_report_test(self):
+        """Renvoyer immédiatement le rapport de la dernière exécution de
+        sauvegarde (utile pour tester la configuration des destinataires).
+
+        Force temporairement `enabled=True` et `only_on_issues=False` pendant
+        l'envoi pour qu'un test reste possible même quand la config courante
+        désactiverait le courriel."""
+        run = self.env["hosting.backup.run"].search([], order="run_date desc", limit=1)
+        if not run:
+            return {
+                "type": "ir.actions.client",
+                "tag": "display_notification",
+                "params": {
+                    "title": _("Rapport de sauvegarde"),
+                    "message": _("Aucune exécution de sauvegarde trouvée."),
+                    "type": "warning",
+                    "sticky": False,
+                },
+            }
+        ICP = self.env["ir.config_parameter"].sudo()
+        prev_enabled = ICP.get_param("hosting.backup_report_enabled", "1")
+        prev_only_issues = ICP.get_param("hosting.backup_report_only_on_issues", "0")
+        ICP.set_param("hosting.backup_report_enabled", "1")
+        ICP.set_param("hosting.backup_report_only_on_issues", "0")
+        try:
+            run.write({"report_sent": False, "report_sent_date": False})
+            sent = run.action_send_report()
+        finally:
+            ICP.set_param("hosting.backup_report_enabled", prev_enabled)
+            ICP.set_param("hosting.backup_report_only_on_issues", prev_only_issues)
+        if not sent:
+            return {
+                "type": "ir.actions.client",
+                "tag": "display_notification",
+                "params": {
+                    "title": _("Rapport de sauvegarde"),
+                    "message": _(
+                        "Échec de l'envoi pour %(name)s — voir le chatter de l'exécution.",
+                        name=run.name,
+                    ),
+                    "type": "danger",
+                    "sticky": True,
+                },
+            }
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("Rapport de sauvegarde"),
+                "message": _(
+                    "Rapport %(name)s envoyé à %(to)s.",
+                    name=run.name,
+                    to=self.hosting_backup_report_recipients
+                    or (run.company_id.email or "(destinataire du gabarit)"),
+                ),
+                "type": "success",
+                "sticky": False,
+            },
+        }
 
     def action_sync_cloudflare_domains(self):
         """Lancer la synchronisation Cloudflare manuellement."""

@@ -229,6 +229,13 @@
         sequence="20"/>
 
     <menuitem
+        id="hosting_menu_config_backup_reports"
+        name="Rapports de sauvegarde"
+        parent="hosting_menu_config"
+        action="action_hosting_config_settings"
+        sequence="30"/>
+
+    <menuitem
         id="hosting_menu_config_settings"
         name="Paramètres"
         parent="hosting_menu_config"

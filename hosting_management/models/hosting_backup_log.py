@@ -1,6 +1,13 @@
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
+import logging
+from datetime import datetime, timedelta
+
+import pytz
+
 from odoo import api, fields, models
+
+_logger = logging.getLogger(__name__)
 
 
 def _human_bytes(n):
@@ -242,18 +249,104 @@ class HostingBackupRun(models.Model):
         )
 
     def action_send_report(self):
-        """Envoyer le rapport de sauvegarde par courriel."""
+        """Envoyer le rapport de sauvegarde par courriel.
+
+        Lit la configuration `hosting.backup_report_*` :
+        - `enabled`        : interrupteur global
+        - `only_on_issues` : ne déclenche le courriel que si l'état n'est pas success
+        - `recipients`     : liste d'adresses séparées par des virgules (override
+          du `email_to` du template)
+        """
         self.ensure_one()
+        ICP = self.env["ir.config_parameter"].sudo()
+        if ICP.get_param("hosting.backup_report_enabled", "1") != "1":
+            self._maybe_send_ntfy_alert()
+            return False
+        only_on_issues = ICP.get_param("hosting.backup_report_only_on_issues", "0") == "1"
+        if only_on_issues and self.state == "success":
+            # Marquer comme « traité » pour éviter une nouvelle évaluation par le
+            # cron tant que la fenêtre de 36 h n'est pas écoulée.
+            self.write(
+                {"report_sent": True, "report_sent_date": fields.Datetime.now()}
+            )
+            self.message_post(
+                body="Courriel non envoyé (configuration : seulement en cas de problème).",
+                subtype_xmlid="mail.mt_note",
+            )
+            self._maybe_send_ntfy_alert()
+            return False
         template = self.env.ref(
             "hosting_management.email_template_backup_report", raise_if_not_found=False
         )
         if template:
-            template.send_mail(self.id, force_send=True)
+            recipients = (ICP.get_param("hosting.backup_report_recipients") or "").strip()
+            email_values = {"email_to": recipients} if recipients else None
+            template.send_mail(self.id, force_send=True, email_values=email_values)
             self.write(
                 {"report_sent": True, "report_sent_date": fields.Datetime.now()}
             )
+            self.message_post(
+                body=(
+                    f"Rapport de sauvegarde envoyé à "
+                    f"<strong>{recipients or template.email_to or '?'}</strong>."
+                ),
+                subtype_xmlid="mail.mt_note",
+            )
         self._maybe_send_ntfy_alert()
         return True
+
+    @api.model
+    def _cron_send_daily_report(self):
+        """Cron horaire : envoie le dernier rapport non-envoyé par couple
+        (société, hôte) lorsque l'heure locale courante correspond à l'heure
+        configurée. Le cron est inerte si :
+        - les rapports sont désactivés
+        - le mode d'envoi n'est pas « scheduled »
+        - l'heure courante (TZ configurée) ne correspond pas
+        """
+        ICP = self.env["ir.config_parameter"].sudo()
+        if ICP.get_param("hosting.backup_report_enabled", "1") != "1":
+            return
+        if ICP.get_param("hosting.backup_report_mode", "scheduled") != "scheduled":
+            return
+        try:
+            target_hour = int(ICP.get_param("hosting.backup_report_send_hour", "6"))
+        except (TypeError, ValueError):
+            target_hour = 6
+        tz_name = ICP.get_param("hosting.backup_report_timezone", "America/Toronto")
+        try:
+            tz = pytz.timezone(tz_name)
+        except pytz.UnknownTimeZoneError:
+            tz = pytz.timezone("America/Toronto")
+        now_local = datetime.now(tz)
+        if now_local.hour != target_hour:
+            return
+
+        # Couvre 36h pour absorber tout décalage TZ + un éventuel report tardif.
+        cutoff = fields.Datetime.now() - timedelta(hours=36)
+        runs = self.search(
+            [("run_date", ">=", cutoff), ("report_sent", "=", False)],
+            order="run_date desc",
+        )
+        seen = set()
+        sent = 0
+        for run in runs:
+            key = (run.company_id.id, run.hostname or "")
+            if key in seen:
+                continue
+            seen.add(key)
+            try:
+                if run.action_send_report():
+                    sent += 1
+            except Exception:
+                self.env.cr.rollback()
+                _logger.exception(
+                    "Échec de l'envoi du rapport de sauvegarde %s", run.name
+                )
+        if sent:
+            _logger.info(
+                "Rapport de sauvegarde quotidien : %d courriel(s) envoyé(s).", sent
+            )
 
 
 class HostingBackupLine(models.Model):

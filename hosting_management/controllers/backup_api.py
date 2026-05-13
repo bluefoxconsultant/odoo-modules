@@ -161,7 +161,18 @@ class BackupAPIController(http.Controller):
             "Created legacy backup run %s with %d lines", run.name, len(results)
         )
 
-        run.action_send_report()
+        # En mode planifié, le cron `_cron_send_daily_report` envoie le courriel.
+        # Le contrôleur n'envoie inline qu'en mode immédiat.
+        send_email = (
+            request.env["ir.config_parameter"]
+            .sudo()
+            .get_param("hosting.restic_send_email_report", "1")
+            == "1"
+        )
+        if send_email:
+            run.action_send_report()
+        else:
+            run._maybe_send_ntfy_alert()
 
         return request.make_json_response({
             "success": True,
