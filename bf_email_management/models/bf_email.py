@@ -2383,19 +2383,33 @@ class BfEmail(models.Model):
 
         # Dedup against bf.email by Message-ID in a single query.
         # User-scoped: only consider rows belonging to the current user.
+        # We also collect snoozed/replied flags for the status column.
         msg_ids = [
             str(headers[u][0].get("Message-ID", "")).strip()
             for u in page_uids if u in headers
         ]
         msg_ids = [m for m in msg_ids if m]
-        existing = set()
+        now = fields.Datetime.now()
+        status_by_mid = {}
         if msg_ids:
-            existing = set(
-                self.with_context(active_test=False).sudo().search([
+            rows = self.with_context(active_test=False).sudo().search_read(
+                [
                     ("message_id_header", "in", msg_ids),
                     ("user_id", "=", self.env.uid),
-                ]).mapped("message_id_header")
+                ],
+                ["message_id_header", "status", "snoozed_until"],
             )
+            for row in rows:
+                mid = row.get("message_id_header")
+                if not mid:
+                    continue
+                status_by_mid[mid] = {
+                    "already_in_bf_email": True,
+                    "is_snoozed": bool(
+                        row.get("snoozed_until") and row["snoozed_until"] > now
+                    ),
+                    "is_replied": row.get("status") == "replied",
+                }
 
         messages = []
         for uid in page_uids:
@@ -2409,6 +2423,8 @@ class BfEmail(models.Model):
                     "subject": "(impossible de lire l'en-tête)",
                     "message_id": False,
                     "already_in_bf_email": False,
+                    "is_snoozed": False,
+                    "is_replied": False,
                     "seen": True,
                 })
                 continue
@@ -2418,6 +2434,7 @@ class BfEmail(models.Model):
             from_raw = str(msg.get("From", ""))
             display_name, addr = email.utils.parseaddr(from_raw)
             sender_name = display_name or addr or from_raw
+            status = status_by_mid.get(mid) if mid else None
             messages.append({
                 "uid": str(uid),
                 "date": parsed_date or False,
@@ -2425,7 +2442,9 @@ class BfEmail(models.Model):
                 "sender_name": sender_name[:255],
                 "subject": str(msg.get("Subject", ""))[:255],
                 "message_id": mid,
-                "already_in_bf_email": bool(mid and mid in existing),
+                "already_in_bf_email": bool(status),
+                "is_snoozed": bool(status and status["is_snoozed"]),
+                "is_replied": bool(status and status["is_replied"]),
                 "seen": seen,
             })
         return {
@@ -2536,6 +2555,91 @@ class BfEmail(models.Model):
             "view_mode": "form",
             "target": "new",
             "context": {"default_bf_email_ids": [(6, 0, [bf_email_id])]},
+        }
+
+    @api.model
+    def imap_browser_quick_reroute(self, folder, uids, target_model=None):
+        """Ingest one or many UIDs and open the Reroute wizard.
+
+        ``uids`` accepts a single string/int or a list. ``target_model``
+        is an optional hint (``project.task``, ``helpdesk.ticket``,
+        ``res.partner``) propagated to the wizard via context so it can
+        pre-fill ``target_reference`` intelligently.
+        """
+        if uids is None:
+            raise UserError(_("UID(s) manquant(s)."))
+        if not isinstance(uids, (list, tuple)):
+            uids = [uids]
+        bf_ids = []
+        for uid in uids:
+            res = self.imap_browser_ingest(folder, uid)
+            bid = res.get("bf_email_id")
+            if bid and bid not in bf_ids:
+                bf_ids.append(bid)
+        if not bf_ids:
+            raise UserError(_(
+                "Ingestion réussie mais aucune ligne bf.email retrouvée."
+            ))
+        ctx = {"default_bf_email_ids": [(6, 0, bf_ids)]}
+        if target_model:
+            ctx["default_target_model_hint"] = target_model
+            # For res.partner, pre-set target if all rows share one partner.
+            if target_model == "res.partner":
+                rows = self.browse(bf_ids)
+                partners = rows.mapped("partner_id")
+                if len(partners) == 1 and partners:
+                    ctx["default_target_reference"] = (
+                        f"res.partner,{partners.id}"
+                    )
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": "bf.email.reroute",
+            "view_mode": "form",
+            "target": "new",
+            "context": ctx,
+        }
+
+    @api.model
+    def imap_browser_snooze(self, folder, uid):
+        """Ingest if needed, then open the snooze wizard on the bf.email row."""
+        result = self.imap_browser_ingest(folder, uid)
+        bf_email_id = result.get("bf_email_id")
+        if not bf_email_id:
+            raise UserError(_("Ingestion requise avant de reporter."))
+        return self.browse(bf_email_id).action_snooze()
+
+    @api.model
+    def imap_browser_create_activity(self, folder, uid):
+        """Ingest if needed, then open mail.activity form on the bf.email row.
+
+        Pre-fills the activity summary with the email subject and the note
+        with a one-liner referencing sender + subject. The user picks the
+        activity type and date in the form.
+        """
+        result = self.imap_browser_ingest(folder, uid)
+        bf_email_id = result.get("bf_email_id")
+        if not bf_email_id:
+            raise UserError(_("Ingestion requise avant de créer une activité."))
+        bf = self.browse(bf_email_id)
+        subject = (bf.subject or "")[:80]
+        from_safe = (bf.email_from or "").replace("<", "&lt;").replace(">", "&gt;")
+        subject_safe = (bf.subject or "").replace("<", "&lt;").replace(">", "&gt;")
+        note = (
+            f"<p><b>De :</b> {from_safe}<br/>"
+            f"<b>Sujet :</b> {subject_safe}</p>"
+        )
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": "mail.activity",
+            "view_mode": "form",
+            "target": "new",
+            "context": {
+                "default_res_model": "bf.email",
+                "default_res_id": bf_email_id,
+                "default_summary": subject,
+                "default_note": note,
+                "default_user_id": self.env.uid,
+            },
         }
 
     @api.model

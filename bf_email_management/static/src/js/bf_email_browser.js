@@ -7,8 +7,8 @@
  *         preview (bottom, iframe-rendered).
  *
  * Keyboard:  j/k/↑/↓ navigate, r reply, shift+r reply-all, f forward,
- *            e Traité, delete/backspace Supprimer, y router, / search,
- *            esc clear search.
+ *            e Traité, delete/backspace Supprimer, y router, h snooze,
+ *            t créer activité, / search, esc clear search/selection.
  *
  * All IMAP I/O happens on the server side via the imap_browser_* methods
  * on bf.email. This component is just orchestration + rendering.
@@ -82,6 +82,9 @@ export class BfEmailBrowser extends Component {
             offset: 0,
             pageSize: initialSettings.pageSize,
             selectedUid: null,
+            // Plain object for OWL reactivity: keys are UIDs, values are `true`.
+            // Cleared when folder changes or after a successful bulk action.
+            selectedUids: {},
             preview: null,
             loadingFolders: true,
             loadingMessages: false,
@@ -133,13 +136,16 @@ export class BfEmailBrowser extends Component {
         useHotkey("f", () => this.forward());
         useHotkey("e", () => this.markHandled());
         useHotkey("y", () => this.ingestAndReroute());
+        useHotkey("h", () => this.snooze());
+        useHotkey("t", () => this.createActivity());
         useHotkey("delete", () => this.moveToTrash());
         useHotkey("backspace", () => this.moveToTrash());
         // Odoo's hotkey whitelist excludes "/" (only alphanums + nav keys
         // + escape are allowed). We use "s" for search-focus and bind "/"
         // natively for muscle-memory compatibility with Gmail/Thunderbird.
         useHotkey("s", () => this.focusSearch());
-        useHotkey("escape", () => this.clearSearch(), { bypassEditableProtection: true });
+        // Escape clears multi-selection first; if none, clears search.
+        useHotkey("escape", () => this.onEscape(), { bypassEditableProtection: true });
 
         // Native "/" handler — fires on document keydown when not in editable.
         this._onSlashKey = (ev) => {
@@ -234,6 +240,7 @@ export class BfEmailBrowser extends Component {
         this.state.offset = offset;
         this.state.selectedUid = null;
         this.state.preview = null;
+        this.state.selectedUids = {};
         try {
             const result = await this.orm.call(
                 "bf.email", "imap_browser_get_messages", [],
@@ -426,6 +433,11 @@ export class BfEmailBrowser extends Component {
      * place (or the previous one if it was the last).
      */
     _removeAndJump(uid) {
+        // Also drop it from the multi-selection so the bulk bar count stays
+        // accurate after destructive actions.
+        if (this.state.selectedUids[uid]) {
+            delete this.state.selectedUids[uid];
+        }
         const i = this.state.messages.findIndex(m => m.uid === uid);
         if (i < 0) {
             this.state.preview = null;
@@ -475,9 +487,111 @@ export class BfEmailBrowser extends Component {
     }
 
     async ingestAndReroute() {
-        const action = await this._runAction("imap_browser_ingest_and_reroute", {
+        // Legacy alias kept for the `y` hotkey: route to whatever the user
+        // picks in the wizard, no model hint. Delegates to quickReroute.
+        return this.quickReroute(null);
+    }
+
+    // ------------------------------------------------------------------
+    // Multi-selection (checkboxes in the message list)
+    // ------------------------------------------------------------------
+    toggleSelection(uid, ev) {
+        if (ev) ev.stopPropagation();
+        if (this.state.selectedUids[uid]) {
+            delete this.state.selectedUids[uid];
+        } else {
+            this.state.selectedUids[uid] = true;
+        }
+    }
+
+    clearSelection() {
+        this.state.selectedUids = {};
+    }
+
+    get selectedCount() {
+        return Object.keys(this.state.selectedUids).length;
+    }
+
+    get selectedUidsList() {
+        return Object.keys(this.state.selectedUids);
+    }
+
+    onEscape() {
+        if (this.selectedCount > 0) {
+            this.clearSelection();
+        } else {
+            this.clearSearch();
+        }
+    }
+
+    /**
+     * Bulk or single reroute, with optional model hint that pre-fills the
+     * wizard's ``target_reference``. Falls back to the preview-selected UID
+     * when nothing is checked.
+     */
+    async quickReroute(targetModel) {
+        if (this.state.acting) return;
+        const uids = this.selectedCount > 0
+            ? this.selectedUidsList
+            : (this.state.selectedUid ? [this.state.selectedUid] : []);
+        if (!uids.length) {
+            this.notification.add(
+                _t("Sélectionne au moins un courriel à router."),
+                { type: "warning" }
+            );
+            return;
+        }
+        this.state.acting = true;
+        try {
+            const action = await this.orm.call(
+                "bf.email", "imap_browser_quick_reroute", [],
+                {
+                    folder: this.state.currentFolder,
+                    uids,
+                    target_model: targetModel || null,
+                }
+            );
+            // Mark each ingested UID locally so badges update immediately.
+            for (const uid of uids) {
+                const m = this.state.messages.find(x => x.uid === uid);
+                if (m) m.already_in_bf_email = true;
+            }
+            if (this.state.preview && uids.includes(this.state.selectedUid)) {
+                this.state.preview.already_in_bf_email = true;
+            }
+            this.clearSelection();
+            if (action) this.action.doAction(action);
+        } catch (err) {
+            this.notification.add(
+                _t("Routage échoué : ") + (err.message || err),
+                { type: "danger" }
+            );
+        } finally {
+            this.state.acting = false;
+        }
+    }
+
+    async bulkMarkHandled() {
+        if (!this.selectedCount) return;
+        const uids = this.selectedUidsList.slice();
+        this.clearSelection();
+        for (const uid of uids) {
+            await this.markHandledForRow(uid);
+        }
+    }
+
+    async snooze() {
+        const action = await this._runAction("imap_browser_snooze", {
             markIngested: true,
-            errorPrefix: _t("Routage échoué : "),
+            errorPrefix: _t("Snooze impossible : "),
+        });
+        if (action) this.action.doAction(action);
+    }
+
+    async createActivity() {
+        const action = await this._runAction("imap_browser_create_activity", {
+            markIngested: true,
+            errorPrefix: _t("Création d'activité impossible : "),
         });
         if (action) this.action.doAction(action);
     }

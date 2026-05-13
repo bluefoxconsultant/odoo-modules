@@ -89,6 +89,12 @@ class BfEmailReroute(models.TransientModel):
         help="Si activé, les courriels entrants seront marqués 'Répondu' "
              "après import (utile lorsque vous routez la réponse en même temps).",
     )
+    target_model_hint = fields.Char(
+        string="Modèle suggéré",
+        help="Indice transmis par le navigateur IMAP (project.task, "
+             "helpdesk.ticket, res.partner…) pour pré-sélectionner la cible. "
+             "L'utilisateur reste libre de choisir un autre modèle.",
+    )
     archive_after = fields.Boolean(
         string="Archiver après import",
         default=False,
@@ -126,7 +132,11 @@ class BfEmailReroute(models.TransientModel):
                 vals.setdefault("mark_replied", True)
             # Pre-suggest target_reference: if all selected emails share a
             # partner who has exactly one open task (or open ticket), use it.
-            suggested = self._suggest_target_reference(recs)
+            # ``default_target_model_hint`` from context narrows the search to
+            # the model the user picked (e.g. "Vers une tâche" from the IMAP
+            # browser dropdown).
+            hint = ctx.get("default_target_model_hint")
+            suggested = self._suggest_target_reference(recs, model_hint=hint)
             if suggested and "target_reference" in fields_list:
                 vals.setdefault(
                     "target_reference",
@@ -135,13 +145,17 @@ class BfEmailReroute(models.TransientModel):
         return vals
 
     @api.model
-    def _suggest_target_reference(self, bf_emails):
+    def _suggest_target_reference(self, bf_emails, model_hint=None):
         """Return a single record to pre-fill target_reference, or None.
 
-        Looks for an open project.task — and if helpdesk_mgmt is installed,
-        falls back to an open helpdesk.ticket — owned by the email's
-        partner_id. Only returns a suggestion when there's exactly one
-        match (no ambiguity).
+        When ``model_hint`` is provided, the search is restricted to that
+        model:
+          * ``res.partner`` → return the partner directly (no ambiguity check).
+          * ``project.task`` → only consider open tasks of the partner.
+          * ``helpdesk.ticket`` → only consider open tickets of the partner.
+
+        Without a hint, falls back to the legacy behaviour: look for exactly
+        one open project.task, else exactly one open helpdesk.ticket.
         """
         if not bf_emails:
             return None
@@ -149,22 +163,28 @@ class BfEmailReroute(models.TransientModel):
         if len(partners) != 1 or not partners:
             return None
         partner = partners
-        Task = self.env["project.task"]
-        tasks = Task.search([
-            ("partner_id", "=", partner.id),
-            ("state", "in", ["01_in_progress", "02_changes_requested"]),
-            ("active", "=", True),
-        ], limit=2)
-        if len(tasks) == 1:
-            return tasks
-        if "helpdesk.ticket" in self.env:
-            Ticket = self.env["helpdesk.ticket"]
-            tickets = Ticket.search([
+        if model_hint == "res.partner":
+            return partner
+        if model_hint in (None, "project.task"):
+            Task = self.env["project.task"]
+            tasks = Task.search([
                 ("partner_id", "=", partner.id),
-                ("closed", "=", False),
+                ("state", "in", ["01_in_progress", "02_changes_requested"]),
+                ("active", "=", True),
             ], limit=2)
-            if len(tickets) == 1:
-                return tickets
+            if len(tasks) == 1:
+                return tasks
+            if model_hint == "project.task":
+                return None
+        if model_hint in (None, "helpdesk.ticket"):
+            if "helpdesk.ticket" in self.env:
+                Ticket = self.env["helpdesk.ticket"]
+                tickets = Ticket.search([
+                    ("partner_id", "=", partner.id),
+                    ("closed", "=", False),
+                ], limit=2)
+                if len(tickets) == 1:
+                    return tickets
         return None
 
     @api.onchange("quick_paste")

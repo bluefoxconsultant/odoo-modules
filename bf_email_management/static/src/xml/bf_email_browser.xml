@@ -140,14 +140,45 @@
                             </div>
                         </div>
                     </div>
+                    <!-- Bulk action bar (visible when checkboxes are checked) -->
+                    <div t-if="selectedCount > 0"
+                         class="px-3 py-2 bg-info-subtle border-bottom d-flex align-items-center gap-2 flex-wrap">
+                        <strong><t t-esc="selectedCount"/> sélectionné(s)</strong>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-primary dropdown-toggle"
+                                    data-bs-toggle="dropdown"
+                                    t-att-disabled="state.acting">
+                                <i class="fa fa-share me-1"/> Router…
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><button class="dropdown-item" type="button" t-on-click="() => this.quickReroute('project.task')"><i class="fa fa-tasks me-2"/>Vers une tâche</button></li>
+                                <li><button class="dropdown-item" type="button" t-on-click="() => this.quickReroute('helpdesk.ticket')"><i class="fa fa-life-ring me-2"/>Vers un ticket</button></li>
+                                <li><button class="dropdown-item" type="button" t-on-click="() => this.quickReroute('res.partner')"><i class="fa fa-user me-2"/>Vers un contact</button></li>
+                                <li><hr class="dropdown-divider"/></li>
+                                <li><button class="dropdown-item" type="button" t-on-click="() => this.quickReroute(null)"><i class="fa fa-folder-open-o me-2"/>Autre cible…</button></li>
+                            </ul>
+                        </div>
+                        <button class="btn btn-sm btn-success"
+                                t-att-disabled="state.acting"
+                                t-on-click="bulkMarkHandled"
+                                title="Marquer la sélection comme traitée et archiver">
+                            <i class="fa fa-check me-1"/> Traité
+                        </button>
+                        <button class="btn btn-sm btn-link ms-auto"
+                                t-on-click="clearSelection">
+                            Effacer la sélection
+                        </button>
+                    </div>
                     <div class="flex-grow-1" style="overflow-y: auto;">
                         <table t-att-class="'table table-hover mb-0 ' + (state.settings.density === 'compact' ? 'table-sm' : '')">
                             <thead class="bg-light" style="position: sticky; top: 0; z-index: 1;">
                                 <tr>
-                                    <th class="ps-3" style="width: 130px;">Date</th>
+                                    <th class="ps-3" style="width: 32px;"></th>
+                                    <th style="width: 130px;">Date</th>
                                     <th style="width: 250px;">Expéditeur</th>
                                     <th>Sujet</th>
-                                    <th class="pe-3" style="width: 110px;"></th>
+                                    <th style="width: 72px;" title="Statut">État</th>
+                                    <th class="pe-3" style="width: 60px;"></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -158,7 +189,13 @@
                                     t-on-click="() => this.selectMessage(m.uid)"
                                     t-on-dragstart="(ev) => this.onRowDragStart(ev, m.uid)"
                                     t-on-dragend="() => this.onRowDragEnd()">
-                                    <td class="small ps-3"><t t-esc="formatRelativeDate(m.date)"/></td>
+                                    <td class="ps-3" t-on-click.stop="">
+                                        <input type="checkbox"
+                                               class="form-check-input"
+                                               t-att-checked="state.selectedUids[m.uid]"
+                                               t-on-click="(ev) => this.toggleSelection(m.uid, ev)"/>
+                                    </td>
+                                    <td class="small"><t t-esc="formatRelativeDate(m.date)"/></td>
                                     <td class="text-truncate" style="max-width: 250px;"
                                         t-att-title="m.from">
                                         <t t-esc="senderCell(m)"/>
@@ -166,8 +203,12 @@
                                     <td class="text-truncate" t-att-title="m.subject">
                                         <t t-esc="m.subject"/>
                                     </td>
+                                    <td class="text-nowrap">
+                                        <i t-if="m.already_in_bf_email" class="fa fa-check-circle text-success" title="Déjà routé dans bf.email"/>
+                                        <i t-if="m.is_snoozed" class="fa fa-moon-o text-info ms-1" title="Reporté (snooze actif)"/>
+                                        <i t-if="m.is_replied" class="fa fa-reply text-muted ms-1" title="Répondu"/>
+                                    </td>
                                     <td class="pe-3 text-end">
-                                        <span t-if="m.already_in_bf_email" class="badge bg-success me-1" title="Déjà ingéré dans bf.email">✓</span>
                                         <button class="btn btn-sm btn-light"
                                                 t-att-disabled="state.acting"
                                                 t-on-click.stop="() => this.markHandledForRow(m.uid)"
@@ -177,7 +218,7 @@
                                     </td>
                                 </tr>
                                 <tr t-if="!state.loadingMessages and visibleMessages.length === 0">
-                                    <td colspan="4" class="text-center text-muted p-4">
+                                    <td colspan="6" class="text-center text-muted p-4">
                                         <t t-if="state.searchQuery">Aucun résultat pour « <t t-esc="state.searchQuery"/> » dans la page chargée.</t>
                                         <t t-else="">Aucun message dans ce dossier.</t>
                                     </td>
@@ -236,13 +277,38 @@
                                         title="Marquer Traité + archiver (raccourci E)">
                                     <i class="fa fa-check me-1"/> Traité
                                 </button>
-                                <button t-if="!state.preview.already_in_bf_email"
-                                        class="btn btn-sm btn-secondary"
+                                <button class="btn btn-sm btn-light"
                                         t-att-disabled="state.acting"
-                                        t-on-click="ingestAndReroute"
-                                        title="Raccourci Y">
-                                    <i class="fa fa-sign-in me-1"/> Router
+                                        t-on-click="snooze"
+                                        title="Reporter (raccourci H)">
+                                    <i class="fa fa-moon-o me-1"/> Reporter
                                 </button>
+                                <button class="btn btn-sm btn-light"
+                                        t-att-disabled="state.acting"
+                                        t-on-click="createActivity"
+                                        title="Créer une activité depuis ce courriel (raccourci T)">
+                                    <i class="fa fa-bell me-1"/> Activité
+                                </button>
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-secondary"
+                                            t-att-disabled="state.acting"
+                                            t-on-click="() => this.quickReroute(null)"
+                                            title="Router vers une tâche, ticket, contact, etc. (raccourci Y)">
+                                        <i class="fa fa-share me-1"/> Router…
+                                    </button>
+                                    <button class="btn btn-secondary dropdown-toggle dropdown-toggle-split"
+                                            data-bs-toggle="dropdown"
+                                            t-att-disabled="state.acting">
+                                        <span class="visually-hidden">Cibles rapides</span>
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><button class="dropdown-item" type="button" t-on-click="() => this.quickReroute('project.task')"><i class="fa fa-tasks me-2"/>Vers une tâche</button></li>
+                                        <li><button class="dropdown-item" type="button" t-on-click="() => this.quickReroute('helpdesk.ticket')"><i class="fa fa-life-ring me-2"/>Vers un ticket</button></li>
+                                        <li><button class="dropdown-item" type="button" t-on-click="() => this.quickReroute('res.partner')"><i class="fa fa-user me-2"/>Vers un contact</button></li>
+                                        <li><hr class="dropdown-divider"/></li>
+                                        <li><button class="dropdown-item" type="button" t-on-click="() => this.quickReroute(null)"><i class="fa fa-folder-open-o me-2"/>Autre cible…</button></li>
+                                    </ul>
+                                </div>
                                 <button class="btn btn-sm btn-outline-danger ms-auto"
                                         t-att-disabled="state.acting"
                                         t-on-click="moveToTrash"
@@ -264,7 +330,7 @@
                             <i class="fa fa-envelope-o fa-2x mb-2 d-block"/>
                             Sélectionne un message dans la liste pour voir le corps.
                             <div class="small mt-2">
-                                Raccourcis : <kbd>J</kbd>/<kbd>K</kbd> naviguer · <kbd>R</kbd> répondre · <kbd>E</kbd> Traité · <kbd>Suppr</kbd> Trash · <kbd>S</kbd> ou <kbd>/</kbd> rechercher
+                                Raccourcis : <kbd>J</kbd>/<kbd>K</kbd> naviguer · <kbd>R</kbd> répondre · <kbd>E</kbd> Traité · <kbd>Y</kbd> router · <kbd>H</kbd> reporter · <kbd>T</kbd> activité · <kbd>Suppr</kbd> Trash · <kbd>S</kbd> ou <kbd>/</kbd> rechercher
                             </div>
                         </div>
                     </t>

@@ -4,6 +4,27 @@ All notable changes to `bf_email_management` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This module follows Odoo's `MAJOR.MINOR.PATCH` convention prefixed with the Odoo series (`18.0.X.Y.Z`).
 
+## [18.0.5.0.0] — 2026-05-12
+
+### Added
+
+- **Navigateur IMAP — quick-target reroute.** Le bouton **Router…** du pane d'aperçu et de la barre d'action bulk expose désormais un menu déroulant avec trois cibles fréquentes (Tâche, Ticket, Contact) plus *Autre cible…*. La cible choisie pré-remplit `target_reference` dans le wizard `bf.email.reroute` : pour `res.partner`, le partner du courriel est sélectionné directement ; pour `project.task`/`helpdesk.ticket`, la suggestion existante est conservée mais bornée au modèle demandé. Backend : nouvelle RPC `bf.email.imap_browser_quick_reroute(folder, uids, target_model=None)` qui accepte un seul UID ou une liste.
+- **Sélection multiple + bulk reroute.** Chaque ligne du navigateur affiche une case à cocher. Quand au moins une case est cochée, une barre d'action bleue apparaît au-dessus de la liste : *N sélectionné(s)*, dropdown **Router…**, **Traité**, **Effacer la sélection**. Le wizard `bf.email.reroute` poste un `mail.message` par courriel sur la cible commune. La sélection est vidée au changement de dossier ou après une action destructive.
+- **Bouton « Reporter » (snooze).** Le wizard `bf.email.snooze` (existant mais non câblé dans la vue OWL) est maintenant accessible depuis le pane d'aperçu et la hotkey `h`. Backend : `imap_browser_snooze(folder, uid)`.
+- **Bouton « Activité » (créer activité depuis courriel).** Ouvre `mail.activity` en `target="new"` avec `default_res_model=bf.email`, `default_res_id`, `default_summary` (sujet tronqué), `default_note` (De/Sujet en HTML). Hotkey `t`. Backend : `imap_browser_create_activity(folder, uid)`.
+- **Colonne « État ».** Nouvelle colonne dans la liste de messages qui affiche, sous forme d'icônes Font Awesome avec tooltips : `fa-check-circle` (déjà routé), `fa-moon-o` (reporté, `snoozed_until > now`), `fa-reply` (status=`replied`). Remplace l'ancien badge ✓ qui était empilé dans la colonne d'action.
+
+### Changed
+
+- **Bouton « Router » toujours visible.** Le bouton du pane d'aperçu n'est plus caché quand le courriel est déjà ingéré dans `bf.email` ; il permet désormais de re-router vers un autre dossier (toujours bloqué par le wizard avec un `UserError` explicite si la ligne est déjà attachée à un chatter — comportement inchangé du wizard).
+- **`imap_browser_get_messages` enrichi.** Chaque dict de message inclut maintenant `is_snoozed` et `is_replied` (calculés depuis `bf.email.snoozed_until` et `status='replied'` respectivement) pour alimenter la colonne État sans round-trip supplémentaire.
+- **`bf.email.reroute._suggest_target_reference`** accepte un nouveau kwarg `model_hint` (`project.task` / `helpdesk.ticket` / `res.partner`) qui borne la suggestion au modèle demandé. Sans hint, comportement inchangé.
+- **Hotkey `escape`** efface la sélection multiple si elle est non-vide, sinon la recherche (comportement précédent).
+
+### Notes
+
+- Aucune migration de schéma — `bf.email.reroute.target_model_hint` est un Char transient sur un `TransientModel`.
+
 ## [18.0.4.0.0] — 2026-05-10
 
 ### Breaking
