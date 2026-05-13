@@ -137,6 +137,18 @@ export class BfTimerSystray extends Component {
         return this.timers.length > 0 && this.timers.every((t) => t.is_paused);
     }
 
+    get redTimers() {
+        return this.timers.filter((t) => this.getElapsed(t) >= 7200);
+    }
+
+    get hasRedTimers() {
+        return this.redTimers.length > 0;
+    }
+
+    get hasMultipleTimers() {
+        return this.timers.length > 1;
+    }
+
     _tick() {
         const now = Date.now() / 1000;
         for (const timer of this.timers) {
@@ -261,6 +273,21 @@ export class BfTimerSystray extends Component {
         const data = await this.timerService.stopTimer(timerId);
         this._shownPendingDialogs.add(data.timer_id);
         await this._showStopDialog(data);
+    }
+
+    async onStopAllTimers() {
+        // Snapshot ids first — stopping mutates this.timers via service refresh.
+        const ids = this.timers.map((t) => t.id);
+        for (const id of ids) {
+            await this.onStopTimer(id);
+        }
+    }
+
+    async onStopAllRedTimers() {
+        const ids = this.redTimers.map((t) => t.id);
+        for (const id of ids) {
+            await this.onStopTimer(id);
+        }
     }
 
     async onPauseTimer(timerId) {

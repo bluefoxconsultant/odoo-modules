@@ -35,7 +35,25 @@
                 <div class="bf-timer-dropdown p-2" style="min-width: 300px;">
                     <!-- Active timers section -->
                     <t t-if="hasActiveTimers">
-                        <div class="fw-bold text-muted small mb-1">Timers actifs</div>
+                        <div class="d-flex align-items-center justify-content-between mb-1">
+                            <span class="fw-bold text-muted small">Timers actifs</span>
+                            <div t-if="hasMultipleTimers or hasRedTimers" class="d-flex gap-1">
+                                <button t-if="hasRedTimers"
+                                        class="btn btn-sm btn-outline-danger py-0 px-1"
+                                        style="font-size: 0.7em;"
+                                        t-on-click="onStopAllRedTimers"
+                                        title="Arr&#234;ter tous les timers de 2h+">
+                                    <i class="fa fa-stop me-1"/>Arr&#234;ter les rouges
+                                </button>
+                                <button t-if="hasMultipleTimers"
+                                        class="btn btn-sm btn-outline-danger py-0 px-1"
+                                        style="font-size: 0.7em;"
+                                        t-on-click="onStopAllTimers"
+                                        title="Arr&#234;ter tous les timers actifs">
+                                    <i class="fa fa-stop me-1"/>Tout arr&#234;ter
+                                </button>
+                            </div>
+                        </div>
                         <t t-foreach="timers" t-as="timer" t-key="timer.id">
                             <div class="d-flex align-items-center justify-content-between py-1 border-bottom">
                                 <div class="flex-grow-1 overflow-hidden me-2 cursor-pointer"
