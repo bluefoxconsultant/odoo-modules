@@ -1,4 +1,5 @@
-from odoo import fields, models
+from odoo import api, fields, models
+from odoo.exceptions import ValidationError
 
 
 class MeetingDecision(models.Model):
@@ -10,9 +11,17 @@ class MeetingDecision(models.Model):
     meeting_id = fields.Many2one(
         'meeting.record',
         string='Réunion',
-        required=True,
         ondelete='cascade',
         index=True,
+    )
+    agenda_id = fields.Many2one(
+        'meeting.agenda',
+        string='Ordre du jour',
+        ondelete='cascade',
+        index=True,
+        help="Décision capturée pendant la rencontre (avant la création du "
+             "compte rendu). Sera transférée vers meeting_id à la création "
+             "du compte rendu.",
     )
     sequence = fields.Integer(
         string='Ordre',
@@ -34,3 +43,12 @@ class MeetingDecision(models.Model):
         'project.knowledge.item',
         string='Élément de matrice',
     )
+
+    @api.constrains('meeting_id', 'agenda_id')
+    def _check_parent(self):
+        for rec in self:
+            if not rec.meeting_id and not rec.agenda_id:
+                raise ValidationError(
+                    "Une décision doit être rattachée soit à un compte rendu, "
+                    "soit à un ordre du jour."
+                )

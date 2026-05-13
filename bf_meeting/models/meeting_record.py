@@ -377,6 +377,32 @@ class MeetingRecord(models.Model):
         for rec in self:
             rec.knowledge_item_count = len(rec.knowledge_item_ids)
 
+    def write(self, vals):
+        """Cascade `project_id` change to linked action-item tasks.
+
+        When the user moves a meeting record to a different project, the
+        action items that came out of that meeting should follow. Users can
+        still re-route individual tasks afterwards if needed.
+        """
+        cascade = 'project_id' in vals
+        if cascade:
+            old_by_record = {rec.id: rec.project_id.id for rec in self}
+        res = super().write(vals)
+        if cascade:
+            new_pid = vals.get('project_id')
+            for rec in self:
+                if new_pid == old_by_record.get(rec.id):
+                    continue
+                # Only move tasks that were on the OLD project (don't drag
+                # tasks already manually re-routed elsewhere).
+                old_pid = old_by_record.get(rec.id)
+                to_move = rec.task_ids.filtered(
+                    lambda t, old=old_pid: t.project_id.id == old
+                ) if old_pid else rec.task_ids
+                if to_move and new_pid:
+                    to_move.write({'project_id': new_pid})
+        return res
+
     def action_view_tasks(self):
         """Ouvrir les tâches liées à ce meeting."""
         self.ensure_one()

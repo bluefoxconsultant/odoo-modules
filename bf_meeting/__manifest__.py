@@ -1,6 +1,6 @@
 {
     'name': 'Rencontres',
-    'version': '18.0.3.10.0',
+    'version': '18.0.3.14.0',
     'category': 'Services/Meetings',
     'summary': 'Gestion des rencontres, ordres du jour et comptes rendus',
     'description': """
@@ -53,7 +53,7 @@ compte rendu.
     'author': 'Blue Fox Inc',
     'website': 'https://github.com/bluefoxconsultant/odoo-modules',
     'license': 'LGPL-3',
-    'depends': ['project', 'mail', 'calendar', 'project_knowledge_matrix'],
+    'depends': ['project', 'mail', 'calendar', 'project_knowledge_matrix', 'bluefox_branding'],
     'data': [
         'security/meeting_security.xml',
         'security/ir.model.access.csv',

@@ -145,12 +145,26 @@ class MeetingAgenda(models.Model):
         sanitize_style=True,
         help='Liste de vérification pour la préparation.',
     )
+    live_notes_html = fields.Html(
+        string='Notes en direct',
+        sanitize_style=True,
+        help="Scratchpad pour la prise de notes pendant la rencontre. "
+             "N'apparaît pas dans le PDF de l'ordre du jour ; sera transféré "
+             "dans le résumé du compte rendu à sa création.",
+    )
 
     # Relations
     topic_ids = fields.One2many(
         'meeting.agenda.topic',
         'agenda_id',
         string='Sujets',
+    )
+    live_decision_ids = fields.One2many(
+        'meeting.decision',
+        'agenda_id',
+        string='Décisions en direct',
+        help="Décisions capturées pendant la rencontre. Transférées au "
+             "compte rendu à sa création.",
     )
     topic_count = fields.Integer(
         string='Nombre de sujets',
@@ -229,6 +243,38 @@ class MeetingAgenda(models.Model):
         ('done', 'Terminé'),
         ('error', 'Erreur'),
     ], string="Pré-remplissage TentaClaude", default='none', readonly=True, copy=False)
+    is_today = fields.Boolean(
+        string="Aujourd'hui",
+        compute='_compute_is_today',
+        search='_search_is_today',
+        help="True si la rencontre tombe aujourd'hui (timezone utilisateur).",
+    )
+
+    @api.depends('date')
+    def _compute_is_today(self):
+        today = fields.Date.context_today(self)
+        for rec in self:
+            if not rec.date:
+                rec.is_today = False
+                continue
+            rec_date = fields.Datetime.context_timestamp(rec, rec.date).date()
+            rec.is_today = rec_date == today
+
+    def _search_is_today(self, operator, value):
+        today = fields.Date.context_today(self)
+        start = fields.Datetime.to_string(
+            fields.Datetime.from_string(f"{today} 00:00:00")
+        )
+        end = fields.Datetime.to_string(
+            fields.Datetime.from_string(f"{today} 23:59:59")
+        )
+        in_range = operator in ('=', '!=')
+        if not in_range:
+            return [('id', '=', 0)]
+        match = bool(value) if operator == '=' else not bool(value)
+        if match:
+            return [('date', '>=', start), ('date', '<=', end)]
+        return ['|', ('date', '<', start), ('date', '>', end)]
 
     @api.depends('project_id', 'date')
     def _compute_name(self):
@@ -606,6 +652,68 @@ class MeetingAgenda(models.Model):
                 'res_id': agenda.id,
             })
 
+    def action_start_meeting(self):
+        """Démarrer la rencontre : confirme l'OdJ si encore draft, loggue
+        l'heure de début au chatter, retourne une notification pointant vers
+        l'onglet « Notes en direct ».
+        """
+        self.ensure_one()
+        if self.state == 'draft':
+            self.action_confirm()
+        self.message_post(
+            body=Markup(
+                "<p><b>🎙️ Rencontre démarrée</b> — "
+                f"prise de notes en direct lancée par {escape(self.env.user.name)}.</p>"
+            ),
+            message_type='comment',
+        )
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "type": "success",
+                "title": "Rencontre démarrée",
+                "message": "Onglet « Notes en direct » prêt — bonne rencontre !",
+                "sticky": False,
+                "next": {"type": "ir.actions.act_window_close"},
+            },
+        }
+
+    def action_quick_add_task(self):
+        """Quick-create d'une tâche action item hard-linkée à l'OdJ.
+
+        Ouvre un form modal de project.task pré-rempli (projet + lien hard
+        vers l'agenda) — capture rapide pendant la rencontre sans quitter
+        le formulaire OdJ.
+        """
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': "Ajouter une action",
+            'res_model': 'project.task',
+            'view_mode': 'form',
+            'views': [[False, 'form']],
+            'target': 'new',
+            'context': {
+                'default_project_id': self.project_id.id,
+                'default_bf_meeting_agenda_id': self.id,
+                'default_partner_id': self.partner_id.id if self.partner_id else False,
+            },
+        }
+
+    def action_view_meeting_record(self):
+        """Smart button : ouvrir le compte rendu lié à cet OdJ."""
+        self.ensure_one()
+        if not self.meeting_record_id:
+            return False
+        return {
+            'type': 'ir.actions.act_window',
+            'name': self.meeting_record_id.name,
+            'res_model': 'meeting.record',
+            'res_id': self.meeting_record_id.id,
+            'views': [[False, 'form']],
+        }
+
     def action_view_agenda_tasks(self):
         """Smart button : ouvrir la liste des tâches à discuter."""
         self.ensure_one()
@@ -679,14 +787,30 @@ class MeetingAgenda(models.Model):
             'calendar_event_id': self.calendar_event_id.id if self.calendar_event_id else False,
             'duration_minutes': self.duration_planned,
         }
+        # Live notes scratchpad → summary text (strip tags for plain text).
+        if self.live_notes_html:
+            from lxml import html as _html
+            try:
+                vals['summary'] = _html.fromstring(self.live_notes_html).text_content().strip()
+            except Exception:
+                vals['summary'] = self.live_notes_html
         record = self.env['meeting.record'].create(vals)
 
-        # Create topics from agenda topics
+        # Create topics from agenda topics — carry per-topic live notes
+        # into the record's points_html.
         for topic in self.topic_ids:
             self.env['meeting.topic'].create({
                 'meeting_id': record.id,
                 'sequence': topic.sequence,
                 'name': topic.name,
+                'points_html': topic.live_notes_html or False,
+            })
+
+        # Transfer live decisions captured on the agenda to the new record.
+        if self.live_decision_ids:
+            self.live_decision_ids.write({
+                'meeting_id': record.id,
+                'agenda_id': False,
             })
 
         # Transfer hard-linked tasks to the new meeting record. Soft-tagged

@@ -30,6 +30,12 @@
               name="Ordres du jour"
               parent="menu_meeting_root"
               sequence="20"/>
+    <menuitem id="menu_meeting_agendas_today"
+              name="Aujourd'hui"
+              parent="menu_meeting_agendas"
+              action="meeting_agenda_action_today"
+              groups="group_meeting_user"
+              sequence="5"/>
     <menuitem id="menu_meeting_agendas_all"
               name="Tous les ordres du jour"
               parent="menu_meeting_agendas"

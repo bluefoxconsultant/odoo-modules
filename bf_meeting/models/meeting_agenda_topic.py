@@ -34,3 +34,10 @@ class MeetingAgendaTopic(models.Model):
         string='Notes / Contexte',
         sanitize_style=True,
     )
+    live_notes_html = fields.Html(
+        string='Notes (rencontre)',
+        sanitize_style=True,
+        help="Prise de notes en direct pendant la rencontre. N'apparaît pas "
+             "dans le PDF de l'ordre du jour ; sera transféré dans le compte "
+             "rendu à sa création.",
+    )
