@@ -18,6 +18,7 @@ from . import hosting_dashboard
 from . import hosting_digest
 from . import res_partner
 from . import res_config_settings
+from . import hosting_repo_matcher
 from . import hosting_backup_repository
 from . import hosting_backup_bucket_snapshot
 from . import hosting_backup_log

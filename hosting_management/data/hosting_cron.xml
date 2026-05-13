@@ -92,5 +92,16 @@
             <field name="active">True</field>
         </record>
 
+        <!-- Tâche planifiée : Auto-lier les dépôts Restic aux services correspondants -->
+        <record id="ir_cron_hosting_backup_auto_link" model="ir.cron">
+            <field name="name">Hébergement : Auto-lier dépôts Restic ↔ services</field>
+            <field name="model_id" ref="model_hosting_backup_repository"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_auto_link_services()</field>
+            <field name="interval_number">1</field>
+            <field name="interval_type">days</field>
+            <field name="active">True</field>
+        </record>
+
     </data>
 </odoo>

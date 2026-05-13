@@ -1,6 +1,12 @@
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl).
 
-from odoo import api, fields, models
+import logging
+
+from odoo import api, fields, models, _
+
+from . import hosting_repo_matcher
+
+_logger = logging.getLogger(__name__)
 
 
 def _human_bytes(n):
@@ -147,3 +153,100 @@ class HostingBackupRepository(models.Model):
 
     def name_get(self):
         return [(r.id, r.name) for r in self]
+
+    # ── Auto-match repositories ↔ hosting services ────────────────────────
+
+    def _find_matching_services(self):
+        """Return services whose (software, client) pair matches this repo."""
+        self.ensure_one()
+        cfg = hosting_repo_matcher.get_config(self.env)
+        repo_pair = hosting_repo_matcher.parse_repo(
+            self.name or "",
+            cfg["client_synonyms"],
+            cfg["sw_synonyms"],
+            cfg["bucket_prefixes"],
+            cfg["clients_prefix"],
+        )
+        if repo_pair == (None, None):
+            return self.env["hosting.service"]
+        candidates = self.env["hosting.service"].search(
+            [("active", "=", True), ("state", "=", "active")]
+        )
+        matched_ids = []
+        for svc in candidates:
+            svc_pair = hosting_repo_matcher.parse_service(
+                svc.name or "",
+                cfg["client_synonyms"],
+                cfg["sw_synonyms"],
+            )
+            if svc_pair == repo_pair and all(svc_pair):
+                matched_ids.append(svc.id)
+        return self.env["hosting.service"].browse(matched_ids)
+
+    def auto_link_services(self):
+        """Link this repo to every service whose name-pair matches it.
+
+        Returns the number of links newly added (existing links preserved).
+        """
+        added = 0
+        for repo in self:
+            services = repo._find_matching_services()
+            new_services = services - repo.service_ids
+            if new_services:
+                repo.service_ids = [(4, sid) for sid in new_services.ids]
+                added += len(new_services)
+                _logger.info(
+                    "Auto-linked repo %s to %d service(s): %s",
+                    repo.name,
+                    len(new_services),
+                    new_services.mapped("name"),
+                )
+        return added
+
+    def action_auto_link_services(self):
+        added = self.auto_link_services()
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("Liaison automatique"),
+                "message": (
+                    _("%d nouveau(x) service(s) lié(s) à ce dépôt.") % added
+                    if added
+                    else _("Aucun nouveau service à lier — déjà à jour.")
+                ),
+                "type": "success" if added else "info",
+                "sticky": False,
+            },
+        }
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        repos = super().create(vals_list)
+        # Try to auto-link any matching services. Best-effort: a failure here
+        # should never block repo creation (webhook ingestion must succeed).
+        for repo in repos:
+            try:
+                repo.auto_link_services()
+            except Exception:  # noqa: BLE001
+                _logger.exception(
+                    "Auto-link failed for new repo %s — continuing", repo.name
+                )
+        return repos
+
+    @api.model
+    def _cron_auto_link_services(self):
+        """Re-run auto-match across all active repos. Idempotent."""
+        repos = self.search([("active", "=", True)])
+        total = 0
+        for repo in repos:
+            try:
+                total += repo.auto_link_services()
+            except Exception:  # noqa: BLE001
+                _logger.exception("Auto-link failed for repo %s", repo.name)
+        _logger.info(
+            "Restic auto-link cron: %d new links across %d repos",
+            total,
+            len(repos),
+        )
+        return total
