@@ -22,6 +22,7 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | `bf_bureau` | BF Bureau — multi-pane views | 18.0.3.0.0 | LGPL-3 | User-configurable dashboards ("desks") with multi-pane Odoo actions, six layouts, keyboard shortcuts, time slots, and a sidebar |
 | `bf_calendar_caldav_snooze` | BF Calendar CalDAV Snooze Bridge | 18.0.1.0.0 | LGPL-3 | RFC 9074 bridge mirroring `calendar.attendee` snooze/dismiss state to Nextcloud `.ics` VALARM (`ACKNOWLEDGED` + `SNOOZE-VALARM`) in both directions |
 | `bf_chatter_chronological` | BF Chatter Chronological View | 18.0.4.0.0 | LGPL-3 | Sort the chatter feed by the email's original Date header instead of insertion id (Python `_order` + `_message_fetch` + JS `Thread.fetch*` patch); cogwheel action to re-parse lost Date headers from quoted body content |
+| `bf_chatter_send_now_force` | BF Chatter — Force Send on Scheduled Send Now | 18.0.1.0.0 | LGPL-3 | The "Send Now" button on a scheduled chatter message sends immediately instead of waiting up to 5 min for the mail queue cron (restores parity with the daily auto-send cron) |
 | `bf_dark_mode` | Blue Fox Dark Mode | 18.0.1.0.0 | LGPL-3 | Dark mode for Odoo using the Blue Fox palette |
 | `bf_default_all_companies` | BF Default All Companies | 18.0.1.0.0 | LGPL-3 | Pre-selects every allowed company in the multi-company switcher on first login |
 | `bf_document_nextcloud_sync` | Document Nextcloud Sync | 18.0.1.1.0 | LGPL-3 | Document sync between Odoo and Nextcloud via WebDAV |
