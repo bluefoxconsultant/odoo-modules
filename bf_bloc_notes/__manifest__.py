@@ -1,16 +1,17 @@
 {
     "name": "BF Bloc-notes",
-    "version": "18.0.2.6.0",
+    "version": "18.0.2.7.0",
     "category": "Productivity",
     "summary": "Notes rapides riches, multi-liens, conversion en activité, raccourcis et systray",
-    "author": "Blue Fox Inc",
+    'author': 'Blue Fox Inc.',
     "website": "https://bluefoxconsultant.com",
-    "license": "LGPL-3",
-    "depends": ["web", "mail", "project", "crm", "contacts"],
+    'license': 'LGPL-3',
+    "depends": ["web", "mail", "project", "crm", "contacts", "bf_onboarding_base"],
     "data": [
         "security/ir.model.access.csv",
         "security/bf_note_security.xml",
         "data/bf_note_tag_data.xml",
+        "data/bf_onboarding.xml",
         "views/bf_note_views.xml",
         "views/bf_note_tag_views.xml",
         "views/bf_note_activity_wizard_views.xml",
@@ -33,5 +34,5 @@
         ],
     },
     "installable": True,
-    "application": False,
+    "application": True,
 }

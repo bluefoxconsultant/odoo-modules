@@ -17,7 +17,7 @@
     """,
     "author": "Blue Fox Inc.",
     "website": "https://bluefoxconsultant.com",
-    "license": "LGPL-3",
+    'license': 'LGPL-3',
     "depends": ["web"],
     "assets": {
         "web.assets_backend": [

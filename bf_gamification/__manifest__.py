@@ -1,11 +1,11 @@
 {
     "name": "Fox Quest",
     "summary": "Syst\u00e8me de gamification avec XP, niveaux, badges et r\u00e9compenses",
-    "version": "18.0.2.1.0",
+    "version": "18.0.2.2.0",
     "category": "Human Resources",
-    "website": "https://bluefox.ca",
+    'website': 'https://bluefoxconsultant.com',
     "author": "Blue Fox Inc.",
-    "license": "LGPL-3",
+    'license': 'LGPL-3',  # MIT — see README.md
     "application": True,
     "installable": True,
     "post_init_hook": "_post_init_backfill",
@@ -19,6 +19,7 @@
         "project_knowledge_matrix",
         "hosting_management",
         "helpdesk_mgmt",
+        "bf_onboarding_base",
     ],
     "data": [
         # Security
@@ -30,6 +31,7 @@
         "data/gamification_xp_rule_data.xml",
         "data/gamification_badge_data.xml",
         "data/gamification_cron.xml",
+        "data/bf_onboarding.xml",
         # Wizard
         "wizard/grant_badge_wizard_views.xml",
         # Views

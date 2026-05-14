@@ -191,67 +191,20 @@ class SmsArchiveThread(models.Model):
     def action_export_csv(self):
         """Export conversation as CSV and download."""
         self.ensure_one()
-        output = io.StringIO()
-        writer = csv.writer(output)
-        writer.writerow(["Date", "Direction", "Contact", "Contenu", "MMS"])
-        for msg in self.message_ids.sorted("date_sent"):
-            writer.writerow([
-                str(msg.date_sent) if msg.date_sent else "",
-                msg.direction,
-                msg.contact_name or "",
-                msg.body or "",
-                "Oui" if msg.is_mms else "Non",
-            ])
-        data = base64.b64encode(output.getvalue().encode("utf-8-sig"))
-        filename = f"sms_{self.phone_normalized}_{fields.Date.today()}.csv"
-        att = self.env["ir.attachment"].create({
-            "name": filename,
-            "type": "binary",
-            "datas": data,
-            "mimetype": "text/csv",
-            "res_model": "sms.archive.thread",
-            "res_id": self.id,
-        })
-        return {
-            "type": "ir.actions.act_url",
-            "url": f"/web/content/{att.id}?download=true",
-            "target": "new",
-        }
+        return self._build_csv_download(
+            self.message_ids,
+            filename=f"sms_{self.phone_normalized}_{fields.Date.today()}.csv",
+            res_id=self.id,
+        )
 
     def action_export_xml(self):
         """Export conversation as SMS Backup & Restore compatible XML."""
         self.ensure_one()
-        messages = self.message_ids.sorted("date_sent")
-        direction_map = {"in": "1", "out": "2", "draft": "3"}
-
-        root = Element("smses", count=str(len(messages)), type="full")
-        for msg in messages:
-            SubElement(root, "sms",
-                       protocol="0",
-                       address=self.phone_raw or self.phone_normalized,
-                       date=msg.date_sent_ms or str(int(msg.date_sent.timestamp() * 1000)),
-                       type=direction_map.get(msg.direction, "1"),
-                       body=msg.body or "",
-                       contact_name=msg.contact_name or self.contact_name or "",
-                       readable_date=str(msg.date_sent) if msg.date_sent else "")
-
-        xml_bytes = b'<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>\n'
-        xml_bytes += tostring(root, encoding="unicode").encode("utf-8")
-        data = base64.b64encode(xml_bytes)
-        filename = f"sms_{self.phone_normalized}_{fields.Date.today()}.xml"
-        att = self.env["ir.attachment"].create({
-            "name": filename,
-            "type": "binary",
-            "datas": data,
-            "mimetype": "application/xml",
-            "res_model": "sms.archive.thread",
-            "res_id": self.id,
-        })
-        return {
-            "type": "ir.actions.act_url",
-            "url": f"/web/content/{att.id}?download=true",
-            "target": "new",
-        }
+        return self._build_xml_download(
+            self.message_ids,
+            filename=f"sms_{self.phone_normalized}_{fields.Date.today()}.xml",
+            res_id=self.id,
+        )
 
     def action_print_pdf(self):
         """Print the conversation as a branded PDF."""
@@ -259,6 +212,71 @@ class SmsArchiveThread(models.Model):
         return self.env.ref(
             "bf_sms_archive.action_report_sms_thread"
         ).report_action(self)
+
+    @api.model
+    def _build_csv_download(self, messages, filename, res_id=False):
+        """Build a CSV attachment for an arbitrary message recordset."""
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["Conversation", "Date", "Direction", "Contact", "Contenu", "MMS"])
+        for msg in messages.sorted("date_sent"):
+            writer.writerow([
+                msg.thread_id.display_name or "",
+                str(msg.date_sent) if msg.date_sent else "",
+                msg.direction,
+                msg.contact_name or "",
+                msg.body or "",
+                "Oui" if msg.is_mms else "Non",
+            ])
+        data = base64.b64encode(output.getvalue().encode("utf-8-sig"))
+        att = self.env["ir.attachment"].create({
+            "name": filename,
+            "type": "binary",
+            "datas": data,
+            "mimetype": "text/csv",
+            "res_model": "sms.archive.thread" if res_id else False,
+            "res_id": res_id or False,
+        })
+        return {
+            "type": "ir.actions.act_url",
+            "url": f"/web/content/{att.id}?download=true",
+            "target": "new",
+        }
+
+    @api.model
+    def _build_xml_download(self, messages, filename, res_id=False):
+        """Build an SMS Backup & Restore compatible XML attachment for a message recordset."""
+        messages = messages.sorted("date_sent")
+        direction_map = {"in": "1", "out": "2", "draft": "3"}
+
+        root = Element("smses", count=str(len(messages)), type="full")
+        for msg in messages:
+            thread = msg.thread_id
+            SubElement(root, "sms",
+                       protocol="0",
+                       address=thread.phone_raw or thread.phone_normalized or "",
+                       date=msg.date_sent_ms or str(int(msg.date_sent.timestamp() * 1000)),
+                       type=direction_map.get(msg.direction, "1"),
+                       body=msg.body or "",
+                       contact_name=msg.contact_name or thread.contact_name or "",
+                       readable_date=str(msg.date_sent) if msg.date_sent else "")
+
+        xml_bytes = b'<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>\n'
+        xml_bytes += tostring(root, encoding="unicode").encode("utf-8")
+        data = base64.b64encode(xml_bytes)
+        att = self.env["ir.attachment"].create({
+            "name": filename,
+            "type": "binary",
+            "datas": data,
+            "mimetype": "application/xml",
+            "res_model": "sms.archive.thread" if res_id else False,
+            "res_id": res_id or False,
+        })
+        return {
+            "type": "ir.actions.act_url",
+            "url": f"/web/content/{att.id}?download=true",
+            "target": "new",
+        }
 
     # MIME types that wkhtmltopdf (Qt WebKit) can render inline
     _PDF_RENDERABLE_TYPES = {"image/png", "image/jpeg", "image/jpg", "image/gif"}
@@ -453,17 +471,59 @@ class SmsArchiveThread(models.Model):
         )
 
     def _get_report_data(self):
-        """Prepare data for the PDF report."""
+        """Prepare data for the per-thread PDF report (binding_model: sms.archive.thread)."""
+        data = self._build_shared_report_data()
+        data["groups"] = [self._build_thread_group(self, self.message_ids)]
+        # Back-compat for the existing template referencing top-level keys
+        group = data["groups"][0]
+        data.update({
+            "thread": self,
+            "messages": group["messages"],
+            "msg_bodies": group["msg_bodies"],
+            "msg_images": group["msg_images"],
+            "contact": group["contact"],
+            "phone": group["phone"],
+            "count": group["count"],
+        })
+        return data
+
+    @api.model
+    def _build_shared_report_data(self):
+        """Brand/CSS/font payload shared across thread and message reports."""
         from odoo.tools.image import image_data_uri
 
-        messages = self.message_ids.sorted("date_sent")
+        company = self.env.company
+        brand_primary = getattr(company, 'report_brand_primary', None) or '#714B67'
+        brand_dark = getattr(company, 'report_brand_dark', None) or '#212529'
 
-        # Sanitize bodies for PDF (emoji → BMP equivalents)
-        msg_bodies = {}
-        for msg in messages:
-            msg_bodies[msg.id] = self._sanitize_body_for_pdf(msg.body)
+        has_lexend = bool(
+            self.env['ir.module.module'].sudo().search(
+                [('name', '=', 'bf_lexend'), ('state', '=', 'installed')],
+                limit=1,
+            )
+        )
 
-        # Pre-build image data for MMS parts
+        company_logo = ""
+        if company.logo:
+            company_logo = image_data_uri(company.logo)
+
+        return {
+            "emoji_font_uri": self._get_emoji_font_data_uri(),
+            "report_css": self._build_report_css(brand_primary, brand_dark),
+            "has_lexend": has_lexend,
+            "company_name": company.name or "",
+            "company_logo": company_logo,
+        }
+
+    @api.model
+    def _build_thread_group(self, thread, messages):
+        """Build a per-thread rendering block (used by thread and message reports)."""
+        from odoo.tools.image import image_data_uri
+
+        messages = messages.sorted("date_sent")
+
+        msg_bodies = {msg.id: self._sanitize_body_for_pdf(msg.body) for msg in messages}
+
         msg_images = {}
         for msg in messages:
             if msg.is_mms and msg.mms_part_ids:
@@ -479,7 +539,6 @@ class SmsArchiveThread(models.Model):
                                 "renderable": True,
                             })
                         else:
-                            # Try to convert HEIC/WEBP to JPEG via Pillow
                             converted = self._convert_image_for_pdf(
                                 part.attachment_id.datas, ct,
                             )
@@ -500,38 +559,14 @@ class SmsArchiveThread(models.Model):
                 if images:
                     msg_images[msg.id] = images
 
-        # Brand colours: read from company if bf_lexend installed, else defaults
-        company = self.env.company
-        brand_primary = getattr(company, 'report_brand_primary', None) or '#714B67'
-        brand_dark = getattr(company, 'report_brand_dark', None) or '#212529'
-
-        # Check if bf_lexend is installed (for conditional Lexend CSS link)
-        has_lexend = bool(
-            self.env['ir.module.module'].sudo().search(
-                [('name', '=', 'bf_lexend'), ('state', '=', 'installed')],
-                limit=1,
-            )
-        )
-
-        # Company logo and name
-        company_logo = ""
-        if company.logo:
-            company_logo = image_data_uri(company.logo)
-        company_name = company.name or ""
-
         return {
-            "thread": self,
+            "thread": thread,
             "messages": messages,
             "msg_bodies": msg_bodies,
             "msg_images": msg_images,
-            "emoji_font_uri": self._get_emoji_font_data_uri(),
-            "contact": self.contact_name or self.phone_normalized,
-            "phone": self.phone_normalized,
+            "contact": thread.contact_name or thread.phone_normalized,
+            "phone": thread.phone_normalized,
             "count": len(messages),
-            "report_css": self._build_report_css(brand_primary, brand_dark),
-            "has_lexend": has_lexend,
-            "company_name": company_name,
-            "company_logo": company_logo,
         }
 
     @staticmethod

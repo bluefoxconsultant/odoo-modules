@@ -4,9 +4,9 @@
     "summary": "Gérer les services d'hébergement pour les clients avec suivi de versions et facturation",
     "version": "18.0.2.38.0",
     "category": "Services",
-    "website": "https://bluefox.ca",
+    'website': 'https://bluefoxconsultant.com',
     "author": "Blue Fox Inc.",
-    "license": "LGPL-3",  # Odoo requires LGPL-3 or proprietary for Community modules
+    'license': 'LGPL-3',  # Odoo requires LGPL-3 or proprietary for Community modules
     "application": True,
     "installable": True,
     "depends": [

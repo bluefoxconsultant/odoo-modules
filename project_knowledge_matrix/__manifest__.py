@@ -41,9 +41,9 @@ Fonctionnalités:
 * Planification flexible : hebdomadaire, bimensuel, mensuel ou intervalle personnalisé
 * Activités de suivi automatiques pour les échéances et éléments en retard
     """,
-    'author': 'Blue Fox Inc',
-    'website': 'https://example.com',
-    'license': 'Other OSI approved licence',
+    'author': 'Blue Fox Inc.',
+    'website': 'https://bluefoxconsultant.com',
+    'license': 'LGPL-3',
     'depends': ['project', 'mail', 'hr'],
     'external_dependencies': {
         'python': ['cryptography'],

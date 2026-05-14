@@ -31,9 +31,9 @@ Destruction et anonymisation documentaire :
 * Certificats de destruction PDF bilingues
 * Effacement sécurisé des identifiants (credentials)
     """,
-    "author": "Blue Fox Inc",
+    'author': 'Blue Fox Inc.',
     "website": "https://bluefoxconsultant.com",
-    "license": "Other OSI approved licence",
+    'license': 'LGPL-3',
     "depends": ["base", "mail", "project", "portal"],
     "external_dependencies": {
         "python": ["cryptography", "dateutil"],

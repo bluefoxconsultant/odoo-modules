@@ -5,7 +5,7 @@
     "category": "Theme/Backend",
     "author": "Blue Fox Inc.",
     "website": "https://bluefoxconsultant.com",
-    "license": "LGPL-3",
+    'license': 'LGPL-3',
     "depends": ["web", "base_setup"],
     "data": [
         "data/company_defaults.xml",

@@ -1,6 +1,6 @@
 {
     "name": "BF Vigie courriels (re-router)",
-    "version": "18.0.2.0.0",
+    "version": "18.0.2.2.0",
     "category": "Productivity/Email",
     "summary": "Bouton 'Re-router' sur bf.email pour d\u00e9placer un courriel mal rout\u00e9",
     "description": """
@@ -12,12 +12,13 @@ notification.
 """,
     "author": "Blue Fox Inc.",
     "website": "https://bluefoxconsultant.com",
-    "license": "LGPL-3",
-    "depends": ["mail", "bf_email_management"],
+    'license': 'LGPL-3',
+    "depends": ["mail", "bf_email_management", "bf_onboarding_base"],
     "data": [
         "security/ir.model.access.csv",
         "wizard/reroute_wizard_views.xml",
         "views/bf_email_views.xml",
+        "data/bf_onboarding.xml",
     ],
     "application": False,
     "installable": True,

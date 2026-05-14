@@ -19,9 +19,9 @@ current record's messages and re-parses the original Date header from quoted
 body content when the import lost it.
     """,
     "author": "Blue Fox Inc.",
-    "website": "https://www.bluefoxconsultant.com",
+    'website': 'https://bluefoxconsultant.com',
     "category": "Productivity",
-    "license": "LGPL-3",
+    'license': 'LGPL-3',
     "depends": [
         "mail",
         "project",

@@ -135,4 +135,23 @@
         <field name="search_view_id" ref="sms_message_view_search"/>
     </record>
 
+    <!-- Bulk export bindings: appear in the multi-select Actions menu on the messages list -->
+    <record id="action_sms_export_csv_bulk" model="ir.actions.server">
+        <field name="name">Exporter en CSV</field>
+        <field name="model_id" ref="model_sms_archive_message"/>
+        <field name="binding_model_id" ref="model_sms_archive_message"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_export_csv()</field>
+    </record>
+
+    <record id="action_sms_export_xml_bulk" model="ir.actions.server">
+        <field name="name">Exporter en XML</field>
+        <field name="model_id" ref="model_sms_archive_message"/>
+        <field name="binding_model_id" ref="model_sms_archive_message"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_export_xml()</field>
+    </record>
+
 </odoo>

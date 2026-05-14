@@ -15,3 +15,4 @@ from . import hosting_maintenance
 from . import mail_message
 from . import mail_activity
 from . import helpdesk_ticket
+from . import onboarding_onboarding

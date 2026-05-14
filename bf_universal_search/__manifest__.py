@@ -1,14 +1,15 @@
 {
     "name": "BF Recherche universelle",
-    "version": "18.0.1.3.0",
+    "version": "18.0.1.4.0",
     "category": "Productivity",
     "summary": "Recherche transversale dans tous les modules via la palette de commandes",
-    "author": "Blue Fox Inc",
-    "website": "https://example.com",
-    "license": "LGPL-3",
-    "depends": ["web", "base"],
+    'author': 'Blue Fox Inc.',
+    'website': 'https://bluefoxconsultant.com',
+    'license': 'LGPL-3',
+    "depends": ["web", "base", "bf_onboarding_base"],
     "data": [
         "security/ir.model.access.csv",
+        "data/bf_onboarding.xml",
     ],
     "assets": {
         "web.assets_backend": [

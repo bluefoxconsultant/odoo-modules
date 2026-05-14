@@ -2,7 +2,7 @@
 
 Connect Odoo 18 document management (`project_knowledge_matrix`) to Nextcloud file storage via WebDAV. Nextcloud stores the files, Odoo manages the metadata, versioning, and workflow.
 
-**Published by [Blue Fox Inc.](https://bluefoxconsultant.com)** | MIT License
+**Published by [Blue Fox Inc.](https://bluefoxconsultant.com)** | LGPL-3
 
 ## Features
 
@@ -67,7 +67,7 @@ Connect Odoo 18 document management (`project_knowledge_matrix`) to Nextcloud fi
 bf_document_nextcloud_sync/
 +-- __init__.py
 +-- __manifest__.py
-+-- LICENSE                                # MIT
++-- LICENSE                                # LGPL-3
 +-- README.md
 +-- models/
 |   +-- __init__.py
@@ -421,12 +421,12 @@ The same audit revealed weaknesses in `calendar_nextcloud_sync` and `contacts_ne
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 18.0.1.1.0 | 2026-03-08 | "Lien interne NC" replaces "Ouvrir dans Nextcloud"; share password removed from chatter (notification only); folder browse opens NC directly; NC file changes create draft version records with changelog; fix double HTML escaping in chatter (`body_is_html=True`); relax filename constraint (allow `'` and `&`); MIT license |
+| 18.0.1.1.0 | 2026-03-08 | "Lien interne NC" replaces "Ouvrir dans Nextcloud"; share password removed from chatter (notification only); folder browse opens NC directly; NC file changes create draft version records with changelog; fix double HTML escaping in chatter (`body_is_html=True`); relax filename constraint (allow `'` and `&`); LGPL-3 license |
 | 18.0.1.0.0 | 2026-03-07 | Initial release: config model, WebDAV PROPFIND/GET/PUT/MKCOL, OCS share API, document form integration, upload wizard, daily modification cron, project folder mapping, security hardening |
 
 ## License
 
-MIT License - Copyright (c) 2026 [Blue Fox Inc.](https://bluefoxconsultant.com)
+LGPL-3 - Copyright (c) 2026 [Blue Fox Inc.](https://bluefoxconsultant.com)
 
 See [LICENSE](LICENSE) for full text.
 

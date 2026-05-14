@@ -1,6 +1,6 @@
 {
     'name': 'Banque d\'heures',
-    'version': '18.0.1.7.0',
+    'version': '18.0.1.10.0',
     'category': 'Services/Project',
     'summary': 'Suivi automatis\u00e9 des banques d\'heures client',
     'description': """
@@ -17,10 +17,10 @@ Fonctionnalit\u00e9s:
 * Envoi par courriel avec pi\u00e8ces jointes
 * Sommaire par projet et synth\u00e8se mensuelle
     """,
-    'author': 'Blue Fox Inc',
-    'website': 'https://example.com',
+    'author': 'Blue Fox Inc.',
+    'website': 'https://bluefoxconsultant.com',
     'license': 'LGPL-3',
-    'depends': ['project', 'account', 'hr_timesheet', 'mail', 'portal'],
+    'depends': ['project', 'account', 'hr_timesheet', 'mail', 'portal', 'bluefox_branding', 'bf_onboarding_base'],
     'external_dependencies': {
         'python': ['openpyxl'],
     },
@@ -34,6 +34,7 @@ Fonctionnalit\u00e9s:
         # Data
         'data/hour_bank_mail_template.xml',
         'data/hour_bank_cron.xml',
+        'data/bf_onboarding.xml',
         # Wizards
         'wizard/hour_bank_send_wizard_views.xml',
         # Views

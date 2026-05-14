@@ -1,16 +1,18 @@
 {
     "name": "Archive SMS & Appels",
-    "summary": "Archivage et recherche de SMS et journaux d'appels Android (SMS Backup & Restore)",
-    "version": "18.0.1.5.0",
+    "summary": "Archivage et recherche de SMS et journaux d'appels Android (SMS Backup & Restore + live sync)",
+    "version": "18.0.2.2.0",
     "category": "Tools",
-    "author": "Olivier Morneau",
-    "license": "LGPL-3",
+    'author': 'Blue Fox Inc.',
+    'website': 'https://bluefoxconsultant.com',
+    'license': 'LGPL-3',
     "application": True,
     "installable": True,
     "depends": [
         "base",
         "mail",
         "project",
+        "bf_onboarding_base",
     ],
     "external_dependencies": {
         "python": ["defusedxml", "requests"],
@@ -27,8 +29,10 @@
         "views/call_views.xml",
         "views/sms_dashboard_views.xml",
         "views/menu_views.xml",
+        "views/sms_device_views.xml",
         # Data
         "data/sms_nc_watch_cron.xml",
+        "data/bf_onboarding.xml",
     ],
     "assets": {
         "web.assets_backend": [

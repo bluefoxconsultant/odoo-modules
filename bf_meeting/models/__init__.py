@@ -8,4 +8,5 @@ from . import calendar_event
 from . import project_task
 from . import project_project
 from . import knowledge_item
+from . import onboarding_onboarding
 from . import res_company

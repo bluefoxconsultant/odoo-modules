@@ -9,3 +9,4 @@ from . import project_task
 from . import project_project
 from . import crm_lead
 from . import res_users
+from . import onboarding_onboarding

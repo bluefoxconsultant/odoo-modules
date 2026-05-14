@@ -4,7 +4,7 @@ An Odoo 18 module that automatically notifies task assignees when their blocked 
 
 ## License
 
-MIT License - see [LICENSE](LICENSE). Free to use, modify, and redistribute.
+LGPL-3 — see [LICENSE](LICENSE).
 
 ## Features
 

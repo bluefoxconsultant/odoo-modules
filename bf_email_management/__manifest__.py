@@ -1,11 +1,11 @@
 {
     "name": "Gestion des courriels",
     "summary": "Inbox unifiée IMAP + chatters Odoo, avec re-routage UI",
-    "version": "18.0.5.0.0",
+    "version": "18.0.5.1.0",
     "category": "Productivity",
-    "website": "https://bluefox.ca",
+    'website': 'https://bluefoxconsultant.com',
     "author": "Blue Fox Inc.",
-    "license": "LGPL-3",  # MIT — see README.md for full license text
+    'license': 'LGPL-3',  # MIT — see README.md for full license text
     "application": True,
     "installable": True,
     "depends": [
@@ -15,6 +15,7 @@
         "calendar",
         "project",
         "account",
+        "bf_onboarding_base",
     ],
     "data": [
         "security/email_security.xml",
@@ -27,6 +28,7 @@
         "data/auto_link_orphans_cron.xml",
         "data/bf_email_rule_default.xml",
         "data/calendar_reminder_cron.xml",
+        "data/bf_onboarding.xml",
         "wizard/bf_email_initial_sync_views.xml",
         "wizard/bf_email_reroute_views.xml",
         "wizard/bf_email_imap_backfill_views.xml",

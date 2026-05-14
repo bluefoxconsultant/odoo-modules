@@ -1,14 +1,16 @@
 {
     "name": "BF Import courriel (.eml)",
-    "version": "18.0.1.2.0",
+    "version": "18.0.1.3.0",
     "category": "Productivity/Email",
     "summary": "Importer des fichiers .eml dans le chatter Odoo",
-    "author": "Blue Fox",
-    "license": "LGPL-3",
-    "depends": ["mail"],
+    'author': 'Blue Fox Inc.',
+    'website': 'https://bluefoxconsultant.com',
+    'license': 'LGPL-3',
+    "depends": ["mail", "bf_onboarding_base"],
     "data": [
         "security/ir.model.access.csv",
         "wizard/mail_import_wizard_views.xml",
+        "data/bf_onboarding.xml",
     ],
     "assets": {
         "web.assets_backend": [

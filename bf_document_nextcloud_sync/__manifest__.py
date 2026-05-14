@@ -1,18 +1,19 @@
 {
     "name": "Document Nextcloud Sync",
     "summary": "Synchronisation documents Odoo-Nextcloud via WebDAV",
-    "version": "18.0.1.1.0",
+    "version": "18.0.1.2.0",
     "category": "Services/Project",
     "website": "https://bluefoxconsultant.com",
     "author": "Blue Fox Inc.",
-    "license": "LGPL-3",
+    'license': 'LGPL-3',
     "application": False,
     "installable": True,
     "depends": [
         "project_knowledge_matrix",
+        "bf_onboarding_base",
     ],
     "external_dependencies": {
-        "python": ["cryptography", "requests"],
+        "python": ["cryptography", "defusedxml", "requests"],
     },
     "data": [
         # Security
@@ -27,5 +28,6 @@
         "views/menu.xml",
         # Data
         "data/nextcloud_sync_cron.xml",
+        "data/bf_onboarding.xml",
     ],
 }

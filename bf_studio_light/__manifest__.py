@@ -1,19 +1,21 @@
 {
     "name": "Blue Fox — Studio Light",
     "summary": "Field builder for Odoo Community: add custom fields, smart buttons and inject them in views without writing a module. Survives -u all upgrades.",
-    "version": "18.0.6.0.0",
+    "version": "18.0.6.1.0",
     "category": "Customization",
     "author": "Blue Fox Inc.",
     "website": "https://bluefoxconsultant.com",
-    "license": "LGPL-3",
+    'license': 'LGPL-3',
     "depends": [
         "base",
         "web",
+        "bf_onboarding_base",
     ],
     "data": [
         "security/studio_light_groups.xml",
         "security/ir.model.access.csv",
         "data/studio_light_data.xml",
+        "data/bf_onboarding.xml",
         "views/studio_light_field_views.xml",
         "views/studio_light_view_injection_views.xml",
         "views/studio_light_smart_button_views.xml",
@@ -31,5 +33,5 @@
     "post_init_hook": "post_init_hook",
     "installable": True,
     "auto_install": False,
-    "application": False,
+    "application": True,
 }

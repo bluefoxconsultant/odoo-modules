@@ -1,11 +1,11 @@
 {
     "name": "Blue Fox — Helpdesk",
     "summary": "Fork OCA helpdesk_mgmt with BF integrations: hour bank, waiting states, branded public form, ntfy critical hook",
-    "version": "18.0.4.0.1",
+    "version": "18.0.4.1.0",
     "category": "After-Sales",
     "author": "Blue Fox Inc.",
     "website": "https://bluefoxconsultant.com",
-    "license": "LGPL-3",
+    'license': 'LGPL-3',
     "depends": [
         "website",
         "helpdesk_mgmt",
@@ -17,10 +17,12 @@
         "bf_claude_chat",
         "survey",
         "bf_dashboard",
+        "bf_onboarding_base",
     ],
     "data": [
         "security/ir.model.access.csv",
         "data/helpdesk_data.xml",
+        "data/bf_onboarding.xml",
         "views/helpdesk_menu_views.xml",
         "views/helpdesk_ticket_team_views.xml",
         "views/helpdesk_ticket_views.xml",
@@ -38,5 +40,5 @@
     "post_init_hook": "post_init_hook",
     "installable": True,
     "auto_install": False,
-    "application": False,
+    "application": True,
 }

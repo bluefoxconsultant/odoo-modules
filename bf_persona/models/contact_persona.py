@@ -328,6 +328,10 @@ class ContactPersona(models.Model):
         partners = records.mapped("partner_id")
         if partners:
             partners.invalidate_recordset(["persona_id", "has_persona", "persona_summary"])
+        if records:
+            self.env["onboarding.onboarding.step"].sudo().action_validate_step(
+                "bf_persona.bf_onb_step_seed"
+            )
         return records
 
     def write(self, vals):

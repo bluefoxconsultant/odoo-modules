@@ -5,6 +5,7 @@
     'summary': 'Dark mode for the Blue Fox Odoo backend, using the BF brand gray palette.',
     'category': 'Tools',
     'author': 'Blue Fox Inc.',
+    'website': 'https://bluefoxconsultant.com',
     'license': 'LGPL-3',
     'depends': ['base'],
     'assets': {

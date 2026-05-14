@@ -2,6 +2,7 @@ from . import appointment_email_schedule
 from . import appointment_intake
 from . import calendar_event
 from . import mail_template
+from . import onboarding_onboarding
 from . import res_company
 from . import res_config_settings
 from . import resource_booking

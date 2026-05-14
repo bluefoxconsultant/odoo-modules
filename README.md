@@ -2,12 +2,22 @@
 
 Custom Odoo 18 Community Edition modules developed by [Blue Fox Inc.](https://bluefoxconsultant.com)
 
+## Bundles (recommended starting point)
+
+Install one of these meta-modules to pull in a coherent set in a single click:
+
+| Bundle | Includes | Use case |
+|---|---|---|
+| `bf_loi25_suite` | `audit_ti`, `privacy_consent`, `project_knowledge_matrix` | Quebec Loi 25 compliance stack |
+| `bf_ops_pack` | Email management, meeting, persona, helpdesk, hour bank, chatter + mail glue | Consulting/MSP operations cockpit |
+| `bf_productivity_pack` | Universal search, bloc-notes, bureau, timesheet timer, daily digest, Lexend, dark mode, branding | Daily-use productivity + UI polish |
+
 ## Modules
 
 | Directory | Name | Version | License | Description |
 |---|---|---|---|---|
 | `audit_ti` | Audit TI - Loi 25 | 18.0.1.17.0 | LGPL-3 | IT security audit management for Quebec's Loi 25 compliance |
-| `bf_appointment` | Blue Fox Appointment | 18.0.2.15.7 | AGPL-3 | Self-service public booking pages (extends `resource_booking`) |
+| `bf_appointment` | Blue Fox Appointment | 18.0.2.15.7 | LGPL-3 | Self-service public booking pages (extends `resource_booking`) |
 | `bf_bloc_notes` | BF Bloc-notes | 18.0.2.1.0 | LGPL-3 | Rich quick notes with multi-record links, one-click activity conversion, keyboard shortcuts, and systray icon (Alt+N) |
 | `bf_bureau` | BF Bureau — multi-pane views | 18.0.3.0.0 | LGPL-3 | User-configurable dashboards ("desks") with multi-pane Odoo actions, six layouts, keyboard shortcuts, time slots, and a sidebar |
 | `bf_calendar_caldav_snooze` | BF Calendar CalDAV Snooze Bridge | 18.0.1.0.0 | LGPL-3 | RFC 9074 bridge mirroring `calendar.attendee` snooze/dismiss state to Nextcloud `.ics` VALARM (`ACKNOWLEDGED` + `SNOOZE-VALARM`) in both directions |
@@ -31,9 +41,7 @@ Custom Odoo 18 Community Edition modules developed by [Blue Fox Inc.](https://bl
 | `bf_time_of_day` | BF Time of Day | 18.0.1.0.0 | LGPL-3 | Time-of-day slots (Morning / Noon / End of day / Off hours) for tasks and activities, with per-user overrides |
 | `bf_timesheet_timer` | BF Timesheet Timer | 18.0.1.6.0 | LGPL-3 | Global timesheet timer with multi-timer support and an OWL UI |
 | `bf_universal_search` | BF Universal Search | 18.0.1.3.0 | LGPL-3 | Cross-module search through the command palette |
-| `bf_webmail` | Blue Fox Webmail | 18.0.1.1.0 | LGPL-3 | Access SnappyMail webmail from the Odoo systray |
 | `bluefox_branding` | Configurable Branding Pack | 18.0.2.0.0 | LGPL-3 | Per-company brand color + email layout overrides driven by `bf_lexend` company fields (CSS variables injected via QWeb layout — no SCSS recompile) |
-| `calendar_nextcloud_sync` | Calendar Nextcloud Sync | 18.0.1.23.0 | LGPL-3 | Bidirectional calendar sync between Odoo and Nextcloud via n8n |
 | `contacts_nextcloud_sync` | Contacts Nextcloud Sync | 18.0.1.0.0 | LGPL-3 | Sync Odoo contacts with a Nextcloud address book via CardDAV |
 | `daily_todo_digest` | Daily To-Do Digest | 18.0.1.3.0 | LGPL-3 | Daily email digest with activities, overdue tasks, and a week-ahead view |
 | `hosting_management` | Hosting Management | 18.0.2.36.0 | LGPL-3 | Manage hosting services with version tracking and billing |
@@ -56,7 +64,7 @@ All modules target **Odoo 18.0 Community Edition**.
 
 ## License
 
-Unless stated otherwise in the module's `__manifest__.py`, modules are released under **LGPL-3**. See each module's manifest for its specific license.
+All modules in this repository are released under the **GNU LGPL-3** license. See [`LICENSE`](LICENSE) for the full text.
 
 ## Credits
 

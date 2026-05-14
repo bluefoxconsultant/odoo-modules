@@ -3,3 +3,5 @@ from . import sms_message
 from . import sms_mms_part
 from . import call_archive
 from . import sms_dashboard
+from . import sms_device
+from . import onboarding_onboarding

@@ -1,6 +1,6 @@
 {
     "name": "BF Survey Upload",
-    "version": "18.0.1.0.0",
+    "version": "18.0.1.1.0",
     "category": "Marketing/Surveys",
     "summary": "Type de question Téléversement de fichiers pour les sondages Odoo",
     "description": """
@@ -10,12 +10,13 @@ Les fichiers sont stockés comme pièces jointes (ir.attachment) liées à la
 réponse au sondage. Option pour copier automatiquement les pièces jointes
 sur le projet du répondant à la complétion du sondage.
 """,
-    "author": "Blue Fox Inc",
+    'author': 'Blue Fox Inc.',
     "website": "https://bluefoxconsultant.com",
-    "license": "LGPL-3",
-    "depends": ["survey", "project"],
+    'license': 'LGPL-3',
+    "depends": ["survey", "project", "bf_onboarding_base"],
     "data": [
         "security/ir.model.access.csv",
+        "data/bf_onboarding.xml",
         "views/survey_question_views.xml",
         "views/survey_views.xml",
         "views/survey_templates.xml",

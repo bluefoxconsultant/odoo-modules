@@ -104,8 +104,9 @@ class SmsArchiveMessage(models.Model):
             msg.display_name = f"{arrow} {contact} — {dt} — {preview}"
 
     def action_post_to_task(self):
-        """Open wizard to post this SMS to a project task."""
-        self.ensure_one()
+        """Open wizard to post the selected SMS message(s) to a project task."""
+        if not self:
+            return False
         return {
             "type": "ir.actions.act_window",
             "name": "Poster sur une tâche",
@@ -113,6 +114,55 @@ class SmsArchiveMessage(models.Model):
             "view_mode": "form",
             "target": "new",
             "context": {
-                "default_message_id": self.id,
+                "default_message_ids": [(6, 0, self.ids)],
             },
         }
+
+    def action_export_csv(self):
+        """Export the selected messages as a single CSV file."""
+        if not self:
+            return False
+        filename = f"sms_selection_{fields.Date.today()}.csv"
+        res_id = self.thread_id.id if len(self.thread_id) == 1 else False
+        return self.env["sms.archive.thread"]._build_csv_download(
+            self, filename=filename, res_id=res_id,
+        )
+
+    def action_export_xml(self):
+        """Export the selected messages as a single SMS Backup & Restore XML file."""
+        if not self:
+            return False
+        filename = f"sms_selection_{fields.Date.today()}.xml"
+        res_id = self.thread_id.id if len(self.thread_id) == 1 else False
+        return self.env["sms.archive.thread"]._build_xml_download(
+            self, filename=filename, res_id=res_id,
+        )
+
+    def action_export_pdf(self):
+        """Print the selected messages as a branded PDF."""
+        if not self:
+            return False
+        return self.env.ref(
+            "bf_sms_archive.action_report_sms_messages"
+        ).report_action(self)
+
+    def _get_messages_report_data(self):
+        """Prepare data for the per-message PDF report (binding_model: sms.archive.message)."""
+        Thread = self.env["sms.archive.thread"]
+        data = Thread._build_shared_report_data()
+
+        # Group selected messages by thread, preserving thread order by last activity
+        threads = self.thread_id.sorted(
+            lambda t: (t.last_message_date or fields.Datetime.from_string("1970-01-01")),
+            reverse=True,
+        )
+        groups = []
+        for thread in threads:
+            thread_msgs = self.filtered(lambda m, t=thread: m.thread_id.id == t.id)
+            if thread_msgs:
+                groups.append(Thread._build_thread_group(thread, thread_msgs))
+
+        data["groups"] = groups
+        data["total_count"] = sum(g["count"] for g in groups)
+        data["thread_count"] = len(groups)
+        return data

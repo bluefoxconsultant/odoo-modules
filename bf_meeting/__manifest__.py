@@ -1,6 +1,6 @@
 {
     'name': 'Rencontres',
-    'version': '18.0.3.14.0',
+    'version': '18.0.3.17.0',
     'category': 'Services/Meetings',
     'summary': 'Gestion des rencontres, ordres du jour et comptes rendus',
     'description': """
@@ -50,10 +50,10 @@ Les tâches sont résolues dynamiquement à l'ouverture de l'ordre du jour, et
 disparaissent automatiquement lorsqu'elles sont fermées ou transférées au
 compte rendu.
     """,
-    'author': 'Blue Fox Inc',
-    'website': 'https://github.com/bluefoxconsultant/odoo-modules',
+    'author': 'Blue Fox Inc.',
+    'website': 'https://bluefoxconsultant.com',
     'license': 'LGPL-3',
-    'depends': ['project', 'mail', 'calendar', 'project_knowledge_matrix', 'bluefox_branding'],
+    'depends': ['project', 'mail', 'calendar', 'project_knowledge_matrix', 'bluefox_branding', 'bf_onboarding_base'],
     'data': [
         'security/meeting_security.xml',
         'security/ir.model.access.csv',
@@ -63,6 +63,7 @@ compte rendu.
         'data/meeting_report_mail_template.xml',
         'data/meeting_agenda_mail_template.xml',
         'data/meeting_agenda_cron.xml',
+        'data/bf_onboarding.xml',
         'views/meeting_decision_views.xml',
         'views/meeting_topic_views.xml',
         'views/meeting_record_views.xml',

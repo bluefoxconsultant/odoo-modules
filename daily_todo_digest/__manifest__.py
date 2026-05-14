@@ -27,9 +27,9 @@ Features:
 
 Uses Blue Fox branding.
     """,
-    "author": "Blue Fox",
-    "website": "https://example.com",
-    "license": "LGPL-3",
+    'author': 'Blue Fox Inc.',
+    'website': 'https://bluefoxconsultant.com',
+    'license': 'LGPL-3',
     "depends": [
         "base",
         "mail",

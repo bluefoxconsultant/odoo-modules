@@ -11,5 +11,6 @@ from . import mail_compose_message
 from . import mail_message
 from . import mail_notification
 from . import mail_scheduled_message
+from . import onboarding_onboarding
 from . import res_config_settings
 from . import res_partner
