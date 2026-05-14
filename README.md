@@ -26,7 +26,7 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | `bf_dark_mode` | Blue Fox Dark Mode | 18.0.1.0.0 | LGPL-3 | Dark mode for Odoo using the Blue Fox palette |
 | `bf_default_all_companies` | BF Default All Companies | 18.0.1.0.0 | LGPL-3 | Pre-selects every allowed company in the multi-company switcher on first login |
 | `bf_document_nextcloud_sync` | Document Nextcloud Sync | 18.0.1.1.0 | LGPL-3 | Document sync between Odoo and Nextcloud via WebDAV |
-| `bf_email_management` | Email Management | 18.0.3.8.0 | LGPL-3 | Unified IMAP inbox + Odoo chatter projection, two-pane OWL folder browser (Apple Mail / Thunderbird), bulk per-row target inference |
+| `bf_email_management` | Email Management | 18.0.5.1.1 | LGPL-3 | Unified IMAP inbox + Odoo chatter projection, two-pane OWL folder browser (Apple Mail / Thunderbird), bulk per-row target inference |
 | `bf_gamification` | Fox Quest | 18.0.2.1.0 | LGPL-3 | Gamification system with XP, levels, badges, and rewards |
 | `bf_helpdesk` | Blue Fox — Helpdesk | 18.0.4.0.0 | LGPL-3 | Branded helpdesk extension: per-team public form, hour-bank ribbon, waiting states, ntfy critical hook, persona panel, knowledge-matrix link, ticket→meeting, IA triage via Claude, CSAT on close, branded portal, dashboard tile, IMAP gateway hardening, SLA + macros + auto-tag + auto-ack |
 | `bf_hour_bank` | Hour Bank | 18.0.1.7.0 | LGPL-3 | Automated tracking of client hour banks |

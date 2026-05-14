@@ -1,7 +1,7 @@
 {
     "name": "Gestion des courriels",
     "summary": "Inbox unifiée IMAP + chatters Odoo, avec re-routage UI",
-    "version": "18.0.5.1.0",
+    "version": "18.0.5.1.1",
     "category": "Productivity",
     'website': 'https://bluefoxconsultant.com',
     "author": "Blue Fox Inc.",

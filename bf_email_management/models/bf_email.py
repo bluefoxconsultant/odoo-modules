@@ -914,6 +914,9 @@ class BfEmail(models.Model):
             "name": "Reporter",
             "res_model": "bf.email.snooze",
             "view_mode": "form",
+            # Explicit `views`: also reached via orm.call (imap_browser_snooze
+            # in the OWL browser), which bypasses clean_action()/generate_views().
+            "views": [[False, "form"]],
             "target": "new",
             "context": {"default_bf_email_ids": [(6, 0, self.ids)]},
         }
@@ -2553,6 +2556,12 @@ class BfEmail(models.Model):
             "type": "ir.actions.act_window",
             "res_model": "bf.email.reroute",
             "view_mode": "form",
+            # Explicit `views`: this action is returned over /web/dataset/call_kw
+            # (orm.call from the OWL browser), which — unlike call_button —
+            # never runs it through clean_action()/generate_views(). Without
+            # this key the web client's _preprocessAction does `views.map()`
+            # on undefined and the reroute dialog never opens.
+            "views": [[False, "form"]],
             "target": "new",
             "context": {"default_bf_email_ids": [(6, 0, [bf_email_id])]},
         }
@@ -2595,6 +2604,9 @@ class BfEmail(models.Model):
             "type": "ir.actions.act_window",
             "res_model": "bf.email.reroute",
             "view_mode": "form",
+            # Explicit `views` — see imap_browser_ingest_and_reroute: returned
+            # over call_kw, so clean_action()/generate_views() never runs.
+            "views": [[False, "form"]],
             "target": "new",
             "context": ctx,
         }
@@ -2632,6 +2644,9 @@ class BfEmail(models.Model):
             "type": "ir.actions.act_window",
             "res_model": "mail.activity",
             "view_mode": "form",
+            # Explicit `views`: reached via orm.call (imap_browser_create_activity
+            # in the OWL browser), which bypasses clean_action()/generate_views().
+            "views": [[False, "form"]],
             "target": "new",
             "context": {
                 "default_res_model": "bf.email",
