@@ -1,6 +1,6 @@
 {
     'name': 'Banque d\'heures',
-    'version': '18.0.1.10.0',
+    'version': '18.0.1.11.0',
     'category': 'Services/Project',
     'summary': 'Suivi automatis\u00e9 des banques d\'heures client',
     'description': """
@@ -39,6 +39,7 @@ Fonctionnalit\u00e9s:
         'wizard/hour_bank_send_wizard_views.xml',
         # Views
         'views/hour_bank_client_views.xml',
+        'views/hour_bank_threshold_views.xml',
         'views/hour_bank_portal_templates.xml',
         'views/menu_views.xml',
     ],

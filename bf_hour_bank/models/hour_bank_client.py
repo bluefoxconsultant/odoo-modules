@@ -89,6 +89,41 @@ class HourBankClient(models.Model):
         ('monthly', 'Mensuel (1er du mois)'),
     ], string="Fréquence d'envoi", default='weekly')
 
+    # ---- Threshold notifications ----
+    threshold_mode = fields.Selection([
+        ('disabled', 'Désactivé'),
+        ('unbilled', 'Heures non facturées'),
+        ('budget_pct', '% du budget alloué'),
+        ('balance_floor', 'Solde résiduel sous seuil'),
+    ], string="Mode de palier", default='disabled', required=True, tracking=True)
+    threshold_budget_hours = fields.Float(
+        string="Budget alloué (h)", tracking=True,
+        help="Budget de référence utilisé en mode '%% du budget alloué'. "
+             "Changer cette valeur réarme tous les paliers.",
+    )
+    threshold_line_ids = fields.One2many(
+        'hour.bank.threshold.line', 'bank_id',
+        string="Paliers à surveiller",
+    )
+    threshold_event_ids = fields.One2many(
+        'hour.bank.threshold.event', 'bank_id',
+        string="Historique des alertes",
+    )
+    threshold_event_count = fields.Integer(
+        compute='_compute_threshold_event_count', string="Alertes envoyées",
+    )
+    alert_recipient_ids = fields.Many2many(
+        'res.partner', 'hour_bank_alert_recipient_rel',
+        string="Destinataires des alertes",
+        help="Destinataires des alertes de palier. Laisser vide pour réutiliser "
+             "les destinataires du rapport périodique.",
+    )
+    notify_internal_followers = fields.Boolean(
+        string="Notifier les followers internes", default=True,
+        help="Si coché, poste aussi un message_notify sur le chatter pour "
+             "alerter les followers internes Blue Fox.",
+    )
+
     # ------------------------------------------------------------------
     # Computed
     # ------------------------------------------------------------------
@@ -132,16 +167,16 @@ class HourBankClient(models.Model):
         partner_id = self.partner_id.commercial_partner_id.id or self.partner_id.id
 
         # ---- Debits: timesheets ----
-        ts_where = "aal.project_id IN %s"
+        ts_clauses = ["aal.project_id IN %s"]
         ts_params = [project_ids]
         if date_from:
-            ts_where += " AND aal.date >= %s"
+            ts_clauses.append("aal.date >= %s")
             ts_params.append(date_from)
         if date_to:
-            ts_where += " AND aal.date <= %s"
+            ts_clauses.append("aal.date <= %s")
             ts_params.append(date_to)
 
-        ts_sql = f"""
+        ts_sql = """
             SELECT
                 aal.date AS entry_date,
                 -aal.unit_amount AS hours,
@@ -153,22 +188,21 @@ class HourBankClient(models.Model):
             FROM account_analytic_line aal
             JOIN project_project pp ON pp.id = aal.project_id
             LEFT JOIN project_task pt ON pt.id = aal.task_id
-            WHERE {ts_where}
-        """
+            WHERE """ + " AND ".join(ts_clauses)
 
         # ---- Credits: posted customer invoices ----
-        inv_where = """
-            am.move_type = 'out_invoice'
-            AND am.state = 'posted'
-        """
+        inv_clauses = [
+            "am.move_type = 'out_invoice'",
+            "am.state = 'posted'",
+        ]
         inv_params = []
 
         # Company filter
         if self.filter_company_ids and self.company_filter_mode == 'include':
-            inv_where += " AND am.company_id IN %s"
+            inv_clauses.append("am.company_id IN %s")
             inv_params.append(tuple(self.filter_company_ids.ids))
         elif self.filter_company_ids and self.company_filter_mode == 'exclude':
-            inv_where += " AND am.company_id NOT IN %s"
+            inv_clauses.append("am.company_id NOT IN %s")
             inv_params.append(tuple(self.filter_company_ids.ids))
 
         # Partner filter: specific partners or commercial partner fallback
@@ -176,34 +210,36 @@ class HourBankClient(models.Model):
         if self.invoice_partner_ids:
             partner_filter_ids = tuple(self.invoice_partner_ids.ids)
             if extra_ids:
-                inv_where += " AND (am.partner_id IN %s OR am.id IN %s)"
+                inv_clauses.append("(am.partner_id IN %s OR am.id IN %s)")
                 inv_params += [partner_filter_ids, extra_ids]
             else:
-                inv_where += " AND am.partner_id IN %s"
+                inv_clauses.append("am.partner_id IN %s")
                 inv_params.append(partner_filter_ids)
         else:
             if extra_ids:
-                inv_where += " AND (am.commercial_partner_id = %s OR am.id IN %s)"
+                inv_clauses.append("(am.commercial_partner_id = %s OR am.id IN %s)")
                 inv_params += [partner_id, extra_ids]
             else:
-                inv_where += " AND am.commercial_partner_id = %s"
+                inv_clauses.append("am.commercial_partner_id = %s")
                 inv_params.append(partner_id)
 
         if self.filter_product_ids and self.product_filter_mode == 'include':
-            inv_where += " AND aml.product_id IN %s"
+            inv_clauses.append("aml.product_id IN %s")
             inv_params.append(tuple(self.filter_product_ids.ids))
         elif self.filter_product_ids and self.product_filter_mode == 'exclude':
-            inv_where += " AND (aml.product_id IS NULL OR aml.product_id NOT IN %s)"
+            inv_clauses.append("(aml.product_id IS NULL OR aml.product_id NOT IN %s)")
             inv_params.append(tuple(self.filter_product_ids.ids))
 
         if date_from:
-            inv_where += " AND am.invoice_date >= %s"
+            inv_clauses.append("am.invoice_date >= %s")
             inv_params.append(date_from)
         if date_to:
-            inv_where += " AND am.invoice_date <= %s"
+            inv_clauses.append("am.invoice_date <= %s")
             inv_params.append(date_to)
 
-        inv_sql = f"""
+        inv_clauses += ["aml.quantity > 0", "aml.display_type = 'product'"]
+
+        inv_sql = """
             SELECT
                 am.invoice_date AS entry_date,
                 aml.quantity AS hours,
@@ -214,22 +250,19 @@ class HourBankClient(models.Model):
                 aml.id AS source_id
             FROM account_move_line aml
             JOIN account_move am ON am.id = aml.move_id
-            WHERE {inv_where}
-              AND aml.quantity > 0
-              AND aml.display_type = 'product'
-        """
+            WHERE """ + " AND ".join(inv_clauses)
 
         # ---- Adjustments: manual entries ----
-        adj_where = "hba.hour_bank_id = %s"
+        adj_clauses = ["hba.hour_bank_id = %s"]
         adj_params = [self.id]
         if date_from:
-            adj_where += " AND hba.date >= %s"
+            adj_clauses.append("hba.date >= %s")
             adj_params.append(date_from)
         if date_to:
-            adj_where += " AND hba.date <= %s"
+            adj_clauses.append("hba.date <= %s")
             adj_params.append(date_to)
 
-        adj_sql = f"""
+        adj_sql = """
             SELECT
                 hba.date AS entry_date,
                 hba.hours AS hours,
@@ -239,20 +272,19 @@ class HourBankClient(models.Model):
                 CASE WHEN hba.hours >= 0 THEN 'credit' ELSE 'debit' END AS entry_type,
                 hba.id + 1000000000 AS source_id
             FROM hour_bank_adjustment hba
-            WHERE {adj_where}
-        """
+            WHERE """ + " AND ".join(adj_clauses)
 
         # ---- Union + order ----
-        sql = f"""
+        sql = """
             SELECT * FROM (
-                ({ts_sql})
+                (%s)
                 UNION ALL
-                ({inv_sql})
+                (%s)
                 UNION ALL
-                ({adj_sql})
+                (%s)
             ) combined
             ORDER BY entry_date ASC, entry_type DESC, source_id ASC
-        """
+        """ % (ts_sql, inv_sql, adj_sql)
         params = ts_params + inv_params + adj_params
         self.env.cr.execute(sql, params)
         rows = self.env.cr.dictfetchall()
@@ -359,6 +391,12 @@ class HourBankClient(models.Model):
             bottom=Side(style='thin', color='D9D9D9'),
         )
 
+        def safe_cell_value(value):
+            """Prevent Excel formula injection by prefixing dangerous characters."""
+            if isinstance(value, str) and value and value[0] in ('=', '+', '-', '@'):
+                return "'" + value
+            return value
+
         def style_header(ws, cols):
             for idx, col in enumerate(cols, 1):
                 cell = ws.cell(row=1, column=idx, value=col)
@@ -377,9 +415,9 @@ class HourBankClient(models.Model):
             ws1.cell(row=i, column=1, value=entry['date']).number_format = 'YYYY-MM-DD'
             ws1.cell(row=i, column=2, value=entry['hours']).number_format = number_fmt
             ws1.cell(row=i, column=3, value=entry['cumulative']).number_format = number_fmt
-            ws1.cell(row=i, column=4, value=entry['description'])
-            ws1.cell(row=i, column=5, value=entry['project'])
-            ws1.cell(row=i, column=6, value=entry['task'])
+            ws1.cell(row=i, column=4, value=safe_cell_value(entry['description']))
+            ws1.cell(row=i, column=5, value=safe_cell_value(entry['project']))
+            ws1.cell(row=i, column=6, value=safe_cell_value(entry['task']))
             for c in range(1, 7):
                 ws1.cell(row=i, column=c).border = thin_border
             if entry['entry_type'] == 'credit':
@@ -453,9 +491,9 @@ class HourBankClient(models.Model):
         for entry in unbilled:
             ws4.cell(row=row, column=1, value=entry['date']).number_format = 'YYYY-MM-DD'
             ws4.cell(row=row, column=2, value=entry['hours']).number_format = number_fmt
-            ws4.cell(row=row, column=3, value=entry['description'])
-            ws4.cell(row=row, column=4, value=entry['project'])
-            ws4.cell(row=row, column=5, value=entry['task'])
+            ws4.cell(row=row, column=3, value=safe_cell_value(entry['description']))
+            ws4.cell(row=row, column=4, value=safe_cell_value(entry['project']))
+            ws4.cell(row=row, column=5, value=safe_cell_value(entry['task']))
             for c in range(1, 6):
                 ws4.cell(row=row, column=c).border = thin_border
             total_unbilled += entry['hours']
@@ -609,4 +647,404 @@ class HourBankClient(models.Model):
             except Exception:
                 _logger.exception(
                     "Hour bank cron: failed to send report for %s", bank.name
+                )
+
+    # ------------------------------------------------------------------
+    # Threshold notifications
+    # ------------------------------------------------------------------
+
+    @api.depends('threshold_event_ids')
+    def _compute_threshold_event_count(self):
+        for rec in self:
+            rec.threshold_event_count = len(rec.threshold_event_ids)
+
+    def _get_alert_recipients(self):
+        """Return partners to email for threshold alerts.
+
+        Fallback: if alert_recipient_ids is empty, reuse recipient_ids
+        (same audience as the periodic report). Drops partners without email.
+        """
+        self.ensure_one()
+        partners = self.alert_recipient_ids or self.recipient_ids
+        return partners.filtered(lambda p: p.email)
+
+    def _last_posted_invoice_id(self):
+        """Return id (int) of the most recently posted invoice that would
+        be counted by this bank's filters, or 0 if none.
+
+        Used as the period_key for the 'unbilled' mode: when a new invoice
+        is posted, the key changes and thresholds re-arm.
+        """
+        self.ensure_one()
+        partner_id = self.partner_id.commercial_partner_id.id or self.partner_id.id
+        domain = [
+            ('move_type', '=', 'out_invoice'),
+            ('state', '=', 'posted'),
+        ]
+        if self.invoice_partner_ids:
+            domain.append(('partner_id', 'in', self.invoice_partner_ids.ids))
+        else:
+            domain.append(('commercial_partner_id', '=', partner_id))
+        if self.filter_company_ids and self.company_filter_mode == 'include':
+            domain.append(('company_id', 'in', self.filter_company_ids.ids))
+        elif self.filter_company_ids and self.company_filter_mode == 'exclude':
+            domain.append(('company_id', 'not in', self.filter_company_ids.ids))
+        inv = self.env['account.move'].sudo().search(
+            domain, order='invoice_date desc, id desc', limit=1,
+        )
+        # Also include extra_invoice_ids — if the most recent extra invoice
+        # is newer than the domain match, use that one.
+        if self.extra_invoice_ids:
+            latest_extra = self.extra_invoice_ids.sorted(
+                lambda m: (m.invoice_date or fields.Date.from_string('1900-01-01'), m.id),
+                reverse=True,
+            )[:1]
+            if latest_extra and (
+                not inv
+                or (latest_extra.invoice_date or fields.Date.from_string('1900-01-01'))
+                > (inv.invoice_date or fields.Date.from_string('1900-01-01'))
+            ):
+                inv = latest_extra
+        return inv.id if inv else 0
+
+    def _current_period_key(self):
+        """Return the period_key string for the current mode.
+
+        - unbilled    -> str(id of most-recent posted invoice), '0' if none
+        - budget_pct  -> str(threshold_budget_hours)  (changes when budget changes)
+        - balance_floor -> '' (handled via crossing logic in _check_thresholds)
+        - disabled    -> ''
+        """
+        self.ensure_one()
+        if self.threshold_mode == 'unbilled':
+            return str(self._last_posted_invoice_id())
+        if self.threshold_mode == 'budget_pct':
+            return '%.4f' % (self.threshold_budget_hours or 0.0)
+        return ''
+
+    def _compute_threshold_measurements(self, report_data=None):
+        """Return a dict {current_unbilled, current_balance, current_pct,
+        current_period_key, last_invoice_date}.
+
+        Computes once per call by reusing _get_report_data() output if provided.
+        """
+        self.ensure_one()
+        data = report_data if report_data is not None else self._get_report_data()
+        balance = data['balance']
+
+        # current_unbilled: sum of debit hours since the last credit entry.
+        # Entries are reversed (most recent first), so iterate until we hit a credit.
+        unbilled = 0.0
+        last_invoice_date = None
+        for entry in data['entries']:
+            if entry['entry_type'] == 'credit':
+                last_invoice_date = entry['date']
+                break
+            # debit hours are negative; "unbilled hours consumed" is the absolute value
+            unbilled += -entry['hours']
+
+        budget = self.threshold_budget_hours or 0.0
+        pct = (unbilled / budget * 100.0) if budget > 0 else 0.0
+
+        return {
+            'current_unbilled': unbilled,
+            'current_balance': balance,
+            'current_pct': pct,
+            'current_period_key': self._current_period_key(),
+            'last_invoice_date': last_invoice_date,
+        }
+
+    def _check_thresholds(self):
+        """Evaluate every active threshold line on self and fire alerts as needed.
+
+        Returns the number of alerts fired (useful for tests and UI feedback).
+        """
+        self.ensure_one()
+        if self.threshold_mode == 'disabled' or not self.threshold_line_ids:
+            return 0
+        if not self.active:
+            return 0
+
+        data = self._get_report_data()
+        m = self._compute_threshold_measurements(report_data=data)
+        fired = 0
+
+        for line in self.threshold_line_ids.filtered('active'):
+            try:
+                should_fire, new_period_key, measured = self._evaluate_threshold(line, m)
+            except Exception:
+                _logger.exception(
+                    "Hour bank %s: threshold evaluation failed for line %s",
+                    self.name, line.value,
+                )
+                continue
+            if should_fire:
+                try:
+                    self._fire_threshold_alert(line, m, measured, new_period_key, report_data=data)
+                    fired += 1
+                except Exception:
+                    _logger.exception(
+                        "Hour bank %s: failed to send threshold alert for line %s",
+                        self.name, line.value,
+                    )
+            elif new_period_key is not None and new_period_key != (line.last_fired_period_key or ''):
+                # Silent re-arm: update period_key without firing
+                # (used by balance_floor when balance rises back above hysteresis)
+                line.write({'last_fired_period_key': new_period_key})
+        return fired
+
+    def _evaluate_threshold(self, line, measurement):
+        """Decide whether `line` should fire given current `measurement`.
+
+        Returns tuple (should_fire: bool, new_period_key: str|None, measured: float).
+        new_period_key is the value to persist on line.last_fired_period_key:
+        - on fire: the new key (consumed)
+        - on silent re-arm (balance_floor): the new "armed" key
+        - None: no change to persist
+        """
+        self.ensure_one()
+        mode = self.threshold_mode
+
+        if mode == 'unbilled':
+            measured = measurement['current_unbilled']
+            current_key = measurement['current_period_key']
+            rearmed = (line.last_fired_period_key or '') != current_key
+            if rearmed and measured >= line.value:
+                return True, current_key, measured
+            return False, None, measured
+
+        if mode == 'budget_pct':
+            measured = measurement['current_pct']
+            current_key = measurement['current_period_key']
+            rearmed = (line.last_fired_period_key or '') != current_key
+            if rearmed and measured >= line.value:
+                return True, current_key, measured
+            return False, None, measured
+
+        if mode == 'balance_floor':
+            measured = measurement['current_balance']
+            # Hysteresis: re-arm silently when balance rises above value + 0.5h
+            hysteresis = 0.5
+            currently_armed = not (line.last_fired_period_key or '')
+            if not currently_armed and measured > (line.value + hysteresis):
+                # Silent re-arm
+                return False, '', measured
+            if currently_armed and measured <= line.value:
+                # Fire and disarm
+                new_key = fields.Datetime.to_string(fields.Datetime.now())
+                return True, new_key, measured
+            return False, None, measured
+
+        return False, None, 0.0
+
+    def _fire_threshold_alert(self, line, measurement, measured, period_key, report_data=None):
+        """Send the alert email + record the event + post on chatter."""
+        self.ensure_one()
+        WizardModel = self.env['hour.bank.send.wizard']
+        partners = self._get_alert_recipients()
+
+        if not partners:
+            _logger.info(
+                "Hour bank %s: threshold %s reached but no recipients with email",
+                self.name, line.name,
+            )
+            # Still record the event and update line so we don't loop
+            line.write({
+                'last_fired_date': fields.Datetime.now(),
+                'last_fired_period_key': period_key,
+            })
+            self.env['hour.bank.threshold.event'].create({
+                'bank_id': self.id,
+                'threshold_line_id': line.id,
+                'mode_snapshot': self.threshold_mode,
+                'value_snapshot': line.value,
+                'measured_value': measured,
+                'period_key': period_key,
+                'recipient_ids': [(6, 0, [])],
+            })
+            return
+
+        # Generate XLSX attachment (reuse data if available)
+        if report_data is None:
+            report_data = self._get_report_data()
+        xlsx_data = self._generate_xlsx_binary()
+        partner_name = self.partner_id.name.replace(' ', '_')
+        date_str = fields.Date.today().isoformat()
+        xlsx_att = self.env['ir.attachment'].create({
+            'name': "Banque_heures_%s_%s.xlsx" % (partner_name, date_str),
+            'type': 'binary',
+            'datas': base64.b64encode(xlsx_data),
+            'mimetype': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'res_model': self._name,
+            'res_id': self.id,
+        })
+
+        # Build branded HTML body
+        if self.threshold_mode == 'budget_pct':
+            measure_label = "%.1f %% du budget consommés (%.2fh sur %.2fh)" % (
+                measured, measurement['current_unbilled'], self.threshold_budget_hours,
+            )
+        elif self.threshold_mode == 'unbilled':
+            measure_label = "%.2fh non facturées" % measured
+        else:
+            measure_label = "Solde courant : %.2fh" % measured
+
+        base_url = self.env['ir.config_parameter'].sudo().get_param('web.base.url', '')
+        bank_url = "%s/odoo/action-base.action_client/?model=hour.bank.client&view_type=form&id=%d" % (
+            base_url.rstrip('/'), self.id,
+        ) if base_url else ''
+
+        inner_body = (
+            '<p style="font-size:16px;line-height:26px;color:#374151;'
+            'margin:0 0 16px 0;">Bonjour,</p>'
+            '<p style="font-size:16px;line-height:26px;color:#374151;'
+            'margin:0 0 16px 0;">Votre banque d\'heures pour '
+            "<strong>%s</strong> vient d'atteindre le palier "
+            "<strong>« %s »</strong>.</p>"
+            '<table cellpadding="6" cellspacing="0" border="0" '
+            'style="border-collapse:collapse;margin:0 0 20px 0;'
+            'font-size:14px;color:#374151;">'
+            '<tr><td style="color:#6B7280;">Mesure actuelle :</td>'
+            '<td><strong>%s</strong></td></tr>'
+            '<tr><td style="color:#6B7280;">Solde courant :</td>'
+            '<td><strong>%.2fh</strong></td></tr>'
+            '</table>'
+            '<p style="font-size:16px;line-height:26px;color:#374151;'
+            'margin:0 0 20px 0;">Le détail des entrées est joint en '
+            'format Excel.</p>'
+            '%s'
+            '<p style="font-size:16px;line-height:26px;color:#374151;'
+            'margin:0;">Cordialement,<br/>Blue Fox</p>'
+        ) % (
+            html_escape(self.partner_id.name),
+            html_escape(line.name or ''),
+            html_escape(measure_label),
+            measurement['current_balance'],
+            ('<p style="font-size:14px;line-height:22px;margin:0 0 20px 0;">'
+             '<a href="%s" style="color:#29ABE2;">Ouvrir la banque dans Odoo</a></p>'
+             % html_escape(bank_url)) if bank_url else '',
+        )
+
+        body_html = WizardModel.new({})._wrap_branded_body(inner_body)
+        subject = "Banque d'heures %s — palier « %s » atteint" % (
+            self.partner_id.name, line.name or '',
+        )
+        sender = self.company_id.email or self.env.user.email_formatted
+
+        for partner in partners:
+            mail = self.env['mail.mail'].sudo().create({
+                'subject': subject,
+                'body_html': body_html,
+                'email_from': sender,
+                'email_to': partner.email_formatted or partner.email,
+                'recipient_ids': [(4, partner.id)],
+                'attachment_ids': [(6, 0, [xlsx_att.id])],
+            })
+            mail.send()
+
+        # Update the line state (consume the period)
+        line.write({
+            'last_fired_date': fields.Datetime.now(),
+            'last_fired_period_key': period_key,
+        })
+
+        # Chatter note (audit) — captures the mail.message id for the event
+        recipient_names = ', '.join(partners.mapped('name'))
+        message = self.message_post(
+            body=_("Alerte de palier « %(label)s » envoyée à %(names)s — %(measure)s") % {
+                'label': line.name or '',
+                'names': recipient_names,
+                'measure': measure_label,
+            },
+            message_type='comment',
+            subtype_xmlid='mail.mt_note',
+            attachment_ids=[xlsx_att.id],
+        )
+
+        # Optional message_notify to internal followers
+        if self.notify_internal_followers:
+            internal_partners = self.message_partner_ids.filtered(
+                lambda p: p.user_ids and not p.user_ids.share
+            ) - partners
+            if internal_partners:
+                try:
+                    self.message_notify(
+                        partner_ids=internal_partners.ids,
+                        subject=subject,
+                        body=_(
+                            "Alerte de palier « %(label)s » sur %(bank)s. "
+                            "Mesure : %(measure)s."
+                        ) % {
+                            'label': line.name or '',
+                            'bank': self.name,
+                            'measure': measure_label,
+                        },
+                    )
+                except Exception:
+                    _logger.exception(
+                        "Hour bank %s: message_notify to internal followers failed",
+                        self.name,
+                    )
+
+        # Append-only event record
+        self.env['hour.bank.threshold.event'].create({
+            'bank_id': self.id,
+            'threshold_line_id': line.id,
+            'mode_snapshot': self.threshold_mode,
+            'value_snapshot': line.value,
+            'measured_value': measured,
+            'period_key': period_key,
+            'recipient_ids': [(6, 0, partners.ids)],
+            'attachment_id': xlsx_att.id,
+            'mail_message_id': message.id if message else False,
+        })
+        _logger.info(
+            "Hour bank %s: threshold %s fired (measured=%.2f, recipients=%s)",
+            self.name, line.name, measured, recipient_names,
+        )
+
+    def action_check_thresholds_now(self):
+        """Manual button: evaluate thresholds and show how many fired."""
+        self.ensure_one()
+        fired = self._check_thresholds()
+        if fired:
+            msg = _("%(n)d alerte(s) de palier envoyée(s).", n=fired)
+        else:
+            msg = _("Aucun palier déclenché. (Tous déjà notifiés ou en-dessous des seuils.)")
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': _("Vérification des paliers"),
+                'message': msg,
+                'sticky': False,
+                'type': 'success' if fired else 'info',
+            },
+        }
+
+    def action_view_threshold_events(self):
+        """Smart button: open event history for this bank."""
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _("Alertes envoyées"),
+            'res_model': 'hour.bank.threshold.event',
+            'view_mode': 'list,form',
+            'domain': [('bank_id', '=', self.id)],
+            'context': {'default_bank_id': self.id},
+        }
+
+    @api.model
+    def _cron_check_thresholds(self):
+        """Cron: evaluate thresholds for all active banks with mode != disabled."""
+        banks = self.search([
+            ('active', '=', True),
+            ('threshold_mode', '!=', 'disabled'),
+        ])
+        for bank in banks:
+            try:
+                bank._check_thresholds()
+            except Exception:
+                _logger.exception(
+                    "Hour bank cron: threshold check failed for %s", bank.name,
                 )

@@ -17,6 +17,10 @@
                     <button name="action_open_send_wizard" type="object"
                             string="Envoyer rapport" class="btn-secondary"
                             icon="fa-envelope-o"/>
+                    <button name="action_check_thresholds_now" type="object"
+                            string="V&#233;rifier les paliers maintenant"
+                            icon="fa-bell-o"
+                            invisible="threshold_mode == 'disabled'"/>
                 </header>
                 <sheet>
                     <div class="oe_button_box" name="button_box">
@@ -25,6 +29,11 @@
                                 <field name="current_balance" class="o_stat_value" widget="float" options="{'digits': [16, 2]}"/>
                                 <span class="o_stat_text">Solde (h)</span>
                             </div>
+                        </button>
+                        <button class="oe_stat_button" icon="fa-bell-o"
+                                name="action_view_threshold_events" type="object"
+                                invisible="threshold_event_count == 0">
+                            <field name="threshold_event_count" widget="statinfo" string="Alertes"/>
                         </button>
                     </div>
                     <div class="oe_title">
@@ -82,6 +91,45 @@
                                 <field name="send_frequency"
                                        invisible="not auto_send"/>
                             </group>
+                        </page>
+                        <page string="Paliers" name="thresholds">
+                            <group>
+                                <field name="threshold_mode" widget="radio"/>
+                                <field name="threshold_budget_hours"
+                                       invisible="threshold_mode != 'budget_pct'"
+                                       required="threshold_mode == 'budget_pct'"/>
+                            </group>
+                            <separator string="Paliers &#224; surveiller"
+                                       invisible="threshold_mode == 'disabled'"/>
+                            <field name="threshold_line_ids"
+                                   invisible="threshold_mode == 'disabled'">
+                                <list editable="bottom">
+                                    <field name="value"/>
+                                    <field name="name" readonly="1"/>
+                                    <field name="is_armed" readonly="1" widget="boolean_toggle"/>
+                                    <field name="last_fired_date" readonly="1"/>
+                                    <field name="active" widget="boolean_toggle"/>
+                                </list>
+                            </field>
+                            <separator string="Destinataires des alertes"
+                                       invisible="threshold_mode == 'disabled'"/>
+                            <group invisible="threshold_mode == 'disabled'">
+                                <field name="alert_recipient_ids" widget="many2many_tags"/>
+                                <field name="notify_internal_followers"/>
+                            </group>
+                        </page>
+                        <page string="Historique des alertes" name="threshold_history"
+                              invisible="threshold_event_count == 0">
+                            <field name="threshold_event_ids" readonly="1">
+                                <list>
+                                    <field name="fired_date"/>
+                                    <field name="mode_snapshot"/>
+                                    <field name="value_snapshot"/>
+                                    <field name="measured_value"/>
+                                    <field name="recipient_ids" widget="many2many_tags"/>
+                                    <field name="attachment_id"/>
+                                </list>
+                            </field>
                         </page>
                     </notebook>
                 </sheet>

@@ -9,7 +9,7 @@
             <field name="subject">&#201;tat des banques d'heures &#8212; {{ object.partner_id.name }}</field>
             <field name="body_html" type="html">
 
-<t t-set="company" t-value="(getattr(object, 'company_id', False)) or user.company_id"/>
+<t t-set="company" t-value="(object.company_id if hasattr(object, 'company_id') and object.company_id else user.company_id)"/>
 <t t-set="brand_primary" t-value="(company and company.report_brand_primary) or '#29ABE2'"/>
 <t t-set="brand_dark" t-value="(company and company.report_brand_dark) or '#22303B'"/>
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F8FAFC;">
@@ -30,8 +30,8 @@
                                                     <tbody>
                                                         <tr>
                                                             <td align="left" style="color:#FFFFFF; font-family:'Lexend','Segoe UI',Arial,sans-serif; font-size:16px; font-weight:600;">
-                                                                <a href="https://www.bluefoxconsultant.com" style="text-decoration:none;">
-                                                                    <img src="https://www.bluefoxconsultant.com/web/image/website/1/logo/Blue%20Fox?unique=803cc14" alt="Blue Fox" style="height:48px; width:auto; display:block; border:0;"/>
+                                                                <a t-attf-href="{{ company.website or 'https://www.bluefoxconsultant.com' }}" style="text-decoration:none;">
+                                                                    <img t-attf-src="/web/image/res.company/{{ company.id }}/logo" t-att-alt="company.name or 'Logo'" style="height:48px; width:auto; display:block; border:0;"/>
                                                                 </a>
                                                             </td>
                                                             <td align="right" style="color:#E6EDF3; font-family:'Lexend','Segoe UI',Arial,sans-serif; font-size:22px; font-weight:800; letter-spacing:0.2px;">
@@ -67,9 +67,9 @@
                                                 </p>
                                                 <p style="font-size:13px; line-height:20px; color:#6B7280; margin:16px 0 0 0;">
                                                     Pour toute question, contactez-nous &#224;
-                                                    <a href="mailto:service@bluefoxconsultant.com" t-attf-style="color:{{ brand_primary }}; text-decoration:none;">service@bluefoxconsultant.com</a>
+                                                    <a t-attf-href="mailto:{{ company.email or 'service@bluefoxconsultant.com' }}" t-attf-style="color:{{ brand_primary }}; text-decoration:none;"><t t-out="company.email or 'service@bluefoxconsultant.com'"/></a>
                                                     ou appelez le
-                                                    <a href="tel:+15145132535" t-attf-style="color:{{ brand_primary }}; text-decoration:none;">514-513-2535</a>.
+                                                    <a t-attf-href="tel:{{ company.phone or '+15145132535' }}" t-attf-style="color:{{ brand_primary }}; text-decoration:none;"><t t-out="company.phone or '514-513-2535'"/></a>.
                                                 </p>
                                             </td>
                                         </tr>
@@ -86,13 +86,13 @@
                                                     <tbody>
                                                         <tr>
                                                             <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif; font-size:12px; color:#6B7280;">
-                                                                <strong t-attf-style="color:{{ brand_dark }};">Banque d'heures par Blue Fox</strong><br/>
-                                                                Solutions &#233;thiques et souveraines pour vos donn&#233;es.
+                                                                <strong t-attf-style="color:{{ brand_dark }};">Banque d'heures par <t t-out="company.name or 'Blue Fox'"/></strong><br/>
+                                                                Suivi automatique des heures consomm&#233;es vs. provisionn&#233;es.
                                                             </td>
                                                             <td align="right" style="font-family:'Lexend','Segoe UI',Arial,sans-serif; font-size:12px; color:#9CA3AF;">
-                                                                <a href="https://www.bluefoxconsultant.com/r/politique-de-confidentialite" style="color:#9CA3AF; text-decoration:underline;">Politique de confidentialit&#233;</a>
+                                                                <a t-attf-href="{{ company.website or 'https://www.bluefoxconsultant.com' }}/r/politique-de-confidentialite" style="color:#9CA3AF; text-decoration:underline;">Politique de confidentialit&#233;</a>
                                                                 <span style="color:#9CA3AF;"> | </span>
-                                                                <a href="https://www.bluefoxconsultant.com/r/termes-et-conditions" style="color:#9CA3AF; text-decoration:underline;">Conditions</a>
+                                                                <a t-attf-href="{{ company.website or 'https://www.bluefoxconsultant.com' }}/r/termes-et-conditions" style="color:#9CA3AF; text-decoration:underline;">Conditions</a>
                                                             </td>
                                                         </tr>
                                                     </tbody>

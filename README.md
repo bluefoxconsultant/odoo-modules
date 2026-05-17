@@ -29,7 +29,7 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | `bf_email_management` | Email Management | 18.0.5.1.1 | LGPL-3 | Unified IMAP inbox + Odoo chatter projection, two-pane OWL folder browser (Apple Mail / Thunderbird), bulk per-row target inference |
 | `bf_gamification` | Fox Quest | 18.0.2.1.0 | LGPL-3 | Gamification system with XP, levels, badges, and rewards |
 | `bf_helpdesk` | Blue Fox — Helpdesk | 18.0.4.0.0 | LGPL-3 | Branded helpdesk extension: per-team public form, hour-bank ribbon, waiting states, ntfy critical hook, persona panel, knowledge-matrix link, ticket→meeting, IA triage via Claude, CSAT on close, branded portal, dashboard tile, IMAP gateway hardening, SLA + macros + auto-tag + auto-ack |
-| `bf_hour_bank` | Hour Bank | 18.0.1.7.0 | LGPL-3 | Automated tracking of client hour banks |
+| `bf_hour_bank` | Hour Bank | 18.0.1.11.0 | LGPL-3 | Automated tracking of client hour banks with threshold-based proactive notifications (unbilled hours, % of allocated budget, balance floor) |
 | `bf_lexend` | Lexend Typeface | 18.0.2.0.0 | LGPL-3 | Adds Lexend across UI/PDF reports and per-company brand color settings (`report_brand_primary`, `report_brand_dark`) |
 | `bf_mail_import` | BF Email Import (.eml) | 18.0.1.2.0 | LGPL-3 | Import .eml files into the Odoo chatter |
 | `bf_mail_subject_clean` | BF Email Subject Cleanup | 18.0.1.0.0 | LGPL-3 | Prevents "Re: Re: Re:" stacking on subjects sent through the chatter |
