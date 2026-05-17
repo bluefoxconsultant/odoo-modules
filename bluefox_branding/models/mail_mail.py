@@ -16,8 +16,7 @@ class MailMail(models.Model):
     ]
 
     def _get_brand_button_color(self):
-        """Brand primary sourced from `res.company.report_brand_primary`
-        (provided by bf_lexend). Falls back to Odoo's stock plum."""
+        """Soft-coded brand primary from res.company field (owned by bluefox_branding since 18.0.2)."""
         return (self.env.company.report_brand_primary or '#714B67')
 
     def _get_brand_button_color_rgb(self):
@@ -27,7 +26,7 @@ class MailMail(models.Model):
             r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
             return f'rgb({r},{g},{b})'
         except (ValueError, IndexError):
-            return 'rgb(113,75,103)'
+            return 'rgb(41,171,226)'
 
     def _replace_button_colors(self, html_content):
         """Replace old Odoo button colors with brand colors in HTML content."""

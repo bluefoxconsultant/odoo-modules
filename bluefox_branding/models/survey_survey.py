@@ -7,7 +7,7 @@ class SurveySurvey(models.Model):
     def action_send_survey(self):
         """Override to remove the Odoo notification layout wrapper.
 
-        The branded survey invitation template is self-contained (full HTML
+        The Blue Fox survey invitation template is self-contained (full HTML
         with header, footer, accent bars) so it must NOT be wrapped in
         mail.mail_notification_light which adds a second Odoo-branded shell.
         """

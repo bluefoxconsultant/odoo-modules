@@ -1,7 +1,7 @@
-"""Re-apply branded layouts to calendar event templates.
+"""Re-apply Blue Fox branding — calendar templates aligned on bf_meeting shell.
 
-Aligns calendar invite/update/reminder templates on the compact header used
-by the branded layouts.
+Drops the orange accent and the contiGNU footer for calendar event templates,
+matching the palette and the compact header used by bf_meeting.
 """
 import logging
 

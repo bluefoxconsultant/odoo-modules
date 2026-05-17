@@ -1,24 +1,23 @@
 {
     "name": "Blue Fox Branding",
-    "version": "18.0.1.17.0",
+    "version": "18.0.2.2.0",
     "category": "Tools",
-    "summary": "Custom branding colors and email templates for Blue Fox",
+    "summary": "White-label branding panel + branded email templates",
     "description": """
-        Custom branding module for Blue Fox Inc.
+        Branding module — owns the white-label fields on res.company and the
+        Settings UI (Paramètres → Général → Identité de marque) that lets any
+        tenant rebrand the instance without editing modules.
 
-        Features:
-        - Custom navbar color (#2E3132)
-        - Custom button/accent color (#29ABE2)
-        - Main Menu / Home Menu / App Switcher branding
-        - Email button colors automatically replaced
-        - All Odoo purple (#875A7B) replaced with brand blue (#29ABE2)
-        - Blue Fox branded mail notification layout (header, footer, accent bars)
-        - Branded payment followup templates (4 levels, French)
-        - Branded contract email templates (French)
-        - Branded helpdesk notification templates (French)
+        Exposed fields:
+        - Logo + favicon (standard res.company fields, surfaced in Settings)
+        - Primary + dark brand colors (used by navbar, buttons, branded emails, PDF reports)
+        - Font selection (Lexend default, swappable per company)
+        - Branded email tagline / custom footer HTML / default signature
+
+        Also ships:
+        - Branded transactional mail layout (bf_mail_layout) reading all of the above
+        - Branded payment followup, contract, helpdesk, survey, calendar templates (French)
         - Late invoice notice template branding (post_init_hook)
-        - Branded survey invitation template (French)
-        - Branded calendar event templates: invitation, date update, reminder, event update (French)
     """,
     "author": "Blue Fox Inc.",
     "website": "https://bluefoxconsultant.com",
@@ -33,12 +32,16 @@
         "contract",
         "helpdesk_mgmt",
         "survey",
-        "bf_lexend",  # provides company.report_brand_primary / report_brand_dark + Lexend font
+        "portal",  # for website_brand_css_variables.xml inheriting portal.frontend_layout
+        "bf_lexend",  # provides the Lexend font assets + ("Lexend", "Lexend") selection_add on res.company.font
         "bf_onboarding_base",
     ],
     "data": [
         "data/mail_layout_override.xml",
         "data/bf_onboarding.xml",
+        "views/res_config_settings_views.xml",
+        "views/brand_css_variables.xml",
+        "views/website_brand_css_variables.xml",
         # mail_template_overrides.xml is NOT loaded by Odoo data loader
         # (original templates have noupdate=True). Instead, post_init_hook
         # reads this file and applies updates via ORM write().
@@ -59,3 +62,4 @@
     "application": False,
     "auto_install": False,
 }
+

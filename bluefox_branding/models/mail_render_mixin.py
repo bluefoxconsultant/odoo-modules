@@ -26,7 +26,7 @@ class MailRenderMixin(models.AbstractModel):
             r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
             return f'rgb({r},{g},{b})'
         except (ValueError, IndexError):
-            return 'rgb(113,75,103)'
+            return 'rgb(41,171,226)'
 
     @api.model
     def _replace_button_colors(self, html_content):

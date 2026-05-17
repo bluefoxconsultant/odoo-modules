@@ -5,9 +5,8 @@ from lxml import etree
 
 _logger = logging.getLogger(__name__)
 
-# ─── Branded "late invoice notice" body ──────────────────────────────────
-# Template 141 has no XML ID (created manually in UI), so we update by name+model.
-# Identity bits (logo, name, contact info) come from res.company at render time.
+# ─── Blue Fox branded "Avis de retard sur facture" body ──────────────────
+# Template 141 has no XML ID (created manually in UI), so we update by name+model
 _LATE_INVOICE_BODY = """\
 <body style="margin:0;padding:0;background-color:#F8FAFC;font-family:'Lexend','Segoe UI',Arial,sans-serif;">
 <t t-set="company" t-value="object.company_id or user.company_id"/>
@@ -25,15 +24,13 @@ _LATE_INVOICE_BODY = """\
 <td t-attf-style="background-color:{{ brand_dark }};padding:20px 32px;border-radius:16px 16px 0 0;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tbody><tr>
 <td align="left">
-<t t-if="company">
-<a t-att-href="company.website or '#'" style="text-decoration:none;">
-<img t-attf-src="/web/image/res.company/{{ company.id }}/logo"
-     t-att-alt="company.name" style="height:44px;width:auto;display:block;border:0;" height="44"/>
+<a href="https://www.bluefoxconsultant.com" style="text-decoration:none;">
+<img src="https://www.bluefoxconsultant.com/web/image/website/1/logo/Blue%20Fox?unique=803cc14"
+     alt="Blue Fox" style="height:44px;width:auto;display:block;border:0;" height="44"/>
 </a>
-</t>
 </td>
 <td align="right" style="color:#E6EDF3;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:14px;font-weight:400;letter-spacing:0.3px;">
-<t t-if="company" t-out="company.name"/>
+<t t-out="company.name"/>
 </td>
 </tr></tbody></table>
 </td>
@@ -70,7 +67,7 @@ Pour toute question, n'h&#233;sitez pas &#224; nous contacter.
 
 <p style="margin:24px 0 0 0;font-size:14px;">
 Cordialement,<br/>
-<strong t-attf-style="color:{{ brand_dark }};">L'&#233;quipe <t t-if="company" t-out="company.name"/></strong>
+<strong t-attf-style="color:{{ brand_dark }};">L'&#233;quipe <t t-out="company.name or 'Blue Fox'"/></strong>
 </p>
 
 </td>
@@ -89,21 +86,24 @@ Cordialement,<br/>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tbody>
 <tr>
 <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#6B7280;line-height:20px;">
-<strong t-attf-style="color:{{ brand_dark }};font-size:14px;"><t t-if="company" t-out="company.name"/></strong>
-<t t-if="company and company.report_header">
-<br/><span t-out="company.report_header"/>
-</t>
+<strong t-attf-style="color:{{ brand_dark }};font-size:14px;"><t t-out="company.name or 'Blue Fox'"/></strong><br/>
+Solutions &#233;thiques et souveraines pour vos donn&#233;es.
 </td>
 </tr>
 <tr>
 <td style="padding-top:12px;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;color:#9CA3AF;line-height:18px;">
-<t t-if="company">
 <a t-if="company.email" t-attf-href="mailto:{{ company.email }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;" t-out="company.email"/>
 <t t-if="company.email and company.phone"><span style="color:#D1D5DB;"> &#183; </span></t>
 <a t-if="company.phone" t-attf-href="tel:{{ company.phone }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;" t-out="company.phone"/>
 <t t-if="(company.email or company.phone) and company.website"><span style="color:#D1D5DB;"> &#183; </span></t>
 <a t-if="company.website" t-att-href="company.website" t-attf-style="color:{{ brand_primary }};text-decoration:none;" t-out="company.website"/>
-</t>
+</td>
+</tr>
+<tr>
+<td style="padding-top:12px;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:11px;">
+<a href="https://www.bluefoxconsultant.com/r/politique-de-confidentialite" style="color:#9CA3AF;text-decoration:underline;">Confidentialit&#233;</a>
+<span style="color:#D1D5DB;"> | </span>
+<a href="https://www.bluefoxconsultant.com/r/termes-et-conditions" style="color:#9CA3AF;text-decoration:underline;">Conditions</a>
 </td>
 </tr>
 </tbody></table>
@@ -174,16 +174,16 @@ def _get_active_langs(env):
 
 
 def post_init_hook(env):
-    """Apply branded mail layouts to standard Odoo mail templates.
+    """Apply Blue Fox branding to all mail templates.
 
     Handles two categories:
     1. Templates with XML IDs (noupdate=True) — read from mail_template_overrides.xml
-    2. Late-invoice template (no XML ID, created in UI) — body from `_LATE_INVOICE_BODY`
+    2. Template 141 (no XML ID) — hardcoded body
 
     Writes in ALL active languages so JSONB translated fields (body_html, name,
     subject) are updated for every language key, not just en_US.
     """
-    _logger.info("bluefox_branding: post_init_hook — applying branded email layouts")
+    _logger.info("bluefox_branding: post_init_hook — applying Blue Fox email branding")
 
     active_langs = _get_active_langs(env)
     _logger.info("bluefox_branding: Active languages: %s", active_langs)

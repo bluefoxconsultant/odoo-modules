@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <odoo noupdate="1">
     <record id="bf_onb_step_settings" model="onboarding.onboarding.step">
-        <field name="title">Régler les couleurs de marque</field>
-        <field name="description">Définissez la couleur primaire et la couleur foncée de la société (Paramètres → Société). Les courriels, navbar et boutons en hériteront automatiquement.</field>
-        <field name="button_text">Ouvrir Paramètres</field>
+        <field name="title">Configurer l'identité de marque</field>
+        <field name="description">Logo, favicon, couleurs, police et textes de courriels brandés — tout est regroupé dans Paramètres → Général → Identité de marque.</field>
+        <field name="button_text">Ouvrir Identité de marque</field>
         <field name="done_text">Marque configurée</field>
         <field name="panel_step_open_action_name">bf_open_res_config_settings</field>
         <field name="sequence">1</field>

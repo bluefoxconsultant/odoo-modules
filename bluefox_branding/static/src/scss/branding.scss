@@ -1,47 +1,34 @@
-// Configurable branding overrides for Odoo Community.
-//
-// Brand colors are sourced at runtime from `res.company.report_brand_primary`
-// and `res.company.report_brand_dark` (fields defined by `bf_lexend`). The
-// values are injected into `:root` by the QWeb template `bluefox_branding.
-// brand_css_variables` (see views/brand_css_variables.xml). Fallback hex
-// values match Odoo's stock theme so the module is a visual no-op until
-// brand colors are configured.
-//
-// Convention used below:
-//   --brand-dark        : navbar / dark surfaces        (default #212529)
-//   --brand-dark-hover  : navbar hover                  (default #343a40)
-//   --brand-primary     : accent / buttons / links      (default #714B67)
-//   --brand-primary-hover: accent hover                 (default #5a3c52)
-//
-// Tenants change the visible color by editing
-// `Settings > Companies > <company> > Brand colors`. No SCSS recompile.
+// Blue Fox Inc. Custom Branding
+// Navbar: var(--brand-dark, #2E3132) (Dark Gray)
+// Accent/Buttons: var(--brand-primary, #29ABE2) (Blue)
 
+// Override Odoo brand color variables
 :root {
-    --brand-dark-fallback: #212529;
-    --brand-dark-hover-fallback: #343a40;
-    --brand-primary-fallback: #714B67;
-    --brand-primary-hover-fallback: #5a3c52;
+    --o-brand-odoo: var(--brand-dark, #2E3132) !important;
+    --o-brand-primary: var(--brand-primary, #29ABE2) !important;
 }
 
-// Navbar styling
+// Navbar styling - override the brand color variable used by Odoo
 .o_main_navbar {
-    background-color: var(--brand-dark, #212529) !important;
-    background: var(--brand-dark, #212529) !important;
+    background-color: var(--brand-dark, #2E3132) !important;
+    background: var(--brand-dark, #2E3132) !important;
 
+    // Override menu sections background (this is what holds Projects, Tasks, etc.)
     .o_menu_sections {
-        background-color: var(--brand-dark, #212529) !important;
-        background: var(--brand-dark, #212529) !important;
+        background-color: var(--brand-dark, #2E3132) !important;
+        background: var(--brand-dark, #2E3132) !important;
 
         .o_nav_entry,
         .dropdown-toggle,
         button,
         a {
-            background-color: var(--brand-dark, #212529) !important;
-            background: var(--brand-dark, #212529) !important;
+            background-color: var(--brand-dark, #2E3132) !important;
+            background: var(--brand-dark, #2E3132) !important;
             color: #ffffff !important;
         }
     }
 
+    // All text white
     .o_menu_brand,
     .o_menu_toggle,
     .o_nav_entry,
@@ -50,48 +37,50 @@
         color: #ffffff !important;
     }
 
+    // Icons
     .fa, .oi, i, svg {
         color: #ffffff !important;
         fill: #ffffff !important;
     }
 
+    // Hover states
     .o_nav_entry:hover,
     .dropdown-toggle:hover,
     a:hover,
     button:hover {
-        background-color: var(--brand-dark-hover, #343a40) !important;
+        background-color: color-mix(in srgb, var(--brand-dark, #2E3132) 88%, white) !important;
         color: #ffffff !important;
     }
 
+    // Active states
     .o_nav_entry.active,
     .active > .dropdown-toggle,
     .show > .dropdown-toggle {
-        background-color: var(--brand-dark-hover, #343a40) !important;
+        background-color: color-mix(in srgb, var(--brand-dark, #2E3132) 88%, white) !important;
         color: #ffffff !important;
     }
 }
 
 // Primary buttons
 .btn-primary {
-    background-color: var(--brand-primary, #714B67) !important;
-    border-color: var(--brand-primary, #714B67) !important;
+    background-color: var(--brand-primary, #29ABE2) !important;
+    border-color: var(--brand-primary, #29ABE2) !important;
 
     &:hover, &:focus, &:active {
-        background-color: var(--brand-primary-hover, #5a3c52) !important;
-        border-color: var(--brand-primary-hover, #5a3c52) !important;
+        background-color: color-mix(in srgb, var(--brand-primary, #29ABE2) 80%, black) !important;
+        border-color: color-mix(in srgb, var(--brand-primary, #29ABE2) 80%, black) !important;
     }
 }
 
 // Links and accent colors
 a.text-primary,
 .text-primary {
-    color: var(--brand-primary, #714B67) !important;
+    color: var(--brand-primary, #29ABE2) !important;
 }
 
-// Selection/highlight color — uses the configured primary via color-mix
-// where supported, falls back to a neutral selection tint otherwise.
+// Selection/highlight color
 ::selection {
-    background-color: color-mix(in srgb, var(--brand-primary, #714B67) 30%, transparent);
+    background-color: rgba(41, 171, 226, 0.3);
 }
 
 // App switcher / home menu button
@@ -104,46 +93,46 @@ a.text-primary,
 // Badge colors
 .badge-primary,
 .bg-primary {
-    background-color: var(--brand-primary, #714B67) !important;
+    background-color: var(--brand-primary, #29ABE2) !important;
 }
 
 // Border colors
 .border-primary {
-    border-color: var(--brand-primary, #714B67) !important;
+    border-color: var(--brand-primary, #29ABE2) !important;
 }
 
 // Progress bars
 .progress-bar {
-    background-color: var(--brand-primary, #714B67);
+    background-color: var(--brand-primary, #29ABE2);
 }
 
 // Form elements focus state
 .form-control:focus,
 .form-select:focus {
-    border-color: var(--brand-primary, #714B67);
-    box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--brand-primary, #714B67) 25%, transparent);
+    border-color: var(--brand-primary, #29ABE2);
+    box-shadow: 0 0 0 0.2rem rgba(41, 171, 226, 0.25);
 }
 
 // Kanban progress bar
 .o_kanban_record .oe_kanban_colorpicker {
     .o_color_1 {
-        background-color: var(--brand-primary, #714B67);
+        background-color: var(--brand-primary, #29ABE2);
     }
 }
 
 // Discuss/Chat notification badge
 .o-discuss-badge {
-    --o-discuss-badge-bg: var(--brand-primary, #714B67);
+    --o-discuss-badge-bg: var(--brand-primary, #29ABE2);
 }
 
 // ===========================================
 // Main Menu / App Switcher Styling (Odoo 18 Community)
 // ===========================================
 
-// Desktop: Apps dropdown menu
+// Desktop: Apps dropdown menu (clicking grid icon in navbar)
 .o_navbar_apps_menu {
     .dropdown-menu {
-        background-color: var(--brand-dark, #212529) !important;
+        background-color: var(--brand-dark, #2E3132) !important;
         border-color: rgba(255, 255, 255, 0.2) !important;
 
         .o_app,
@@ -153,8 +142,8 @@ a.text-primary,
             &:hover,
             &:focus,
             &.focus {
-                background-color: color-mix(in srgb, var(--brand-primary, #714B67) 30%, transparent) !important;
-                color: var(--brand-primary, #714B67) !important;
+                background-color: rgba(41, 171, 226, 0.3) !important;
+                color: var(--brand-primary, #29ABE2) !important;
             }
         }
     }
@@ -163,10 +152,11 @@ a.text-primary,
 // Mobile: App Menu Sidebar (hamburger menu)
 .o_app_menu_sidebar,
 .o_burger_menu {
-    background-color: var(--brand-dark, #212529) !important;
+    background-color: var(--brand-dark, #2E3132) !important;
 
+    // Top bar with close button
     .o_sidebar_topbar {
-        background-color: var(--brand-dark, #212529) !important;
+        background-color: var(--brand-dark, #2E3132) !important;
         color: #ffffff !important;
         box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.2) !important;
 
@@ -175,27 +165,31 @@ a.text-primary,
         }
 
         .btn-primary {
-            background-color: var(--brand-primary, #714B67) !important;
-            border-color: var(--brand-primary, #714B67) !important;
+            background-color: var(--brand-primary, #29ABE2) !important;
+            border-color: var(--brand-primary, #29ABE2) !important;
         }
     }
 
+    // Menu content area
     .o_burger_menu_content {
-        background-color: var(--brand-dark, #212529) !important;
+        background-color: var(--brand-dark, #2E3132) !important;
 
+        // App entries
         .o_app {
             color: #ffffff !important;
 
             &:hover {
-                background-color: color-mix(in srgb, var(--brand-primary, #714B67) 30%, transparent) !important;
-                color: var(--brand-primary, #714B67) !important;
+                background-color: rgba(41, 171, 226, 0.3) !important;
+                color: var(--brand-primary, #29ABE2) !important;
             }
 
+            // Currently selected app
             &.bg-primary-subtle {
-                background-color: color-mix(in srgb, var(--brand-primary, #714B67) 20%, transparent) !important;
+                background-color: rgba(41, 171, 226, 0.2) !important;
             }
         }
 
+        // Menu items and sections
         li, button {
             color: rgba(255, 255, 255, 0.9) !important;
 
@@ -204,36 +198,46 @@ a.text-primary,
             }
         }
 
+        // Section headers
         .fw-bolder,
         .text-900 {
             color: #ffffff !important;
         }
 
+        // Current app name
         .fs-4.fw-bolder {
             color: #ffffff !important;
         }
     }
 }
 
+// Modal backdrop when sidebar is open
+.modal-backdrop.show {
+    // Keep default behavior
+}
+
 // ===========================================
 // Main Menu Module Override (full-screen home menu)
 // ===========================================
 
+// Background of the main menu screen
 .main-menu .background,
 .background {
-    background-color: var(--brand-dark, #212529) !important;
-    background: var(--brand-dark, #212529) !important;
+    background-color: var(--brand-dark, #2E3132) !important;
+    background: var(--brand-dark, #2E3132) !important;
 }
 
+// App icon tiles in main menu (scoped to main_menu module only)
 .apps-container .module-icon {
     background: transparent !important;
-    border-color: var(--brand-primary, #714B67) !important;
+    border-color: var(--brand-primary, #29ABE2) !important;
 
     &:hover {
         box-shadow: 2px 6px 12px 1px rgba(0, 0, 0, 0.3) !important;
     }
 }
 
+// App names in main menu
 .apps-container {
     a {
         color: #ffffff !important;
@@ -243,17 +247,18 @@ a.text-primary,
         }
 
         &:hover {
-            color: var(--brand-primary, #714B67) !important;
+            color: var(--brand-primary, #29ABE2) !important;
 
             p {
-                color: var(--brand-primary, #714B67) !important;
+                color: var(--brand-primary, #29ABE2) !important;
             }
         }
     }
 }
 
+// Widgets container in main menu
 .main-menu .widgets,
 .widgets {
     background-color: rgba(255, 255, 255, 0.95) !important;
-    border-color: color-mix(in srgb, var(--brand-primary, #714B67) 30%, transparent) !important;
+    border-color: rgba(41, 171, 226, 0.3) !important;
 }
