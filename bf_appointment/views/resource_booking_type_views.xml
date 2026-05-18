@@ -14,6 +14,7 @@
                     <group>
                         <field name="project_id"/>
                         <field name="is_public"/>
+                        <field name="listed_on_landing" invisible="not is_public"/>
                         <field name="is_in_person"/>
                         <field name="slug" invisible="not is_public"/>
                         <field name="color_hex" invisible="not is_public"
@@ -34,7 +35,7 @@
                            invisible="not is_public"
                            colspan="2"/>
                 </group>
-                <group string="Consentements (Loi 25 / LCAP)" invisible="not is_public">
+                <group string="Consentements (Loi 25 / LCAP)">
                     <group>
                         <field name="requires_recording_consent"/>
                         <field name="recording_notice_id"
@@ -51,6 +52,9 @@
                 <group string="Confirmation de demande" invisible="not is_public">
                     <field name="sends_intake_acknowledgement"/>
                 </group>
+                <group string="Lien public" invisible="not is_public">
+                    <field name="public_url" widget="CopyClipboardChar" readonly="1"/>
+                </group>
                 <notebook invisible="not is_public">
                     <page string="Champs du formulaire" name="intake_fields">
                         <field name="intake_field_ids">
@@ -64,7 +68,7 @@
                             </list>
                         </field>
                     </page>
-                    <page string="Courriels planifi&#233;s" name="email_schedules">
+                    <page string="Courriels planifiés" name="email_schedules">
                         <field name="email_schedule_ids">
                             <list editable="bottom">
                                 <field name="trigger"/>
@@ -86,7 +90,7 @@
         <field name="inherit_id" ref="resource_booking.resource_booking_type_view_tree"/>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='duration']" position="after">
-                <field name="is_public" string="Publi&#233;"/>
+                <field name="is_public" string="Publié"/>
             </xpath>
         </field>
     </record>
@@ -99,8 +103,8 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='name']" position="after">
                 <field name="is_public"/>
-                <filter name="filter_published" string="Publi&#233;" domain="[('is_public', '=', True)]"/>
-                <filter name="filter_not_published" string="Non publi&#233;" domain="[('is_public', '=', False)]"/>
+                <filter name="filter_published" string="Publié" domain="[('is_public', '=', True)]"/>
+                <filter name="filter_not_published" string="Non publié" domain="[('is_public', '=', False)]"/>
                 <separator/>
             </xpath>
         </field>

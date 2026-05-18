@@ -67,44 +67,98 @@ class CalendarEvent(models.Model):
         return super()._track_subtype(init_values)
 
     def _get_ics_file(self):
-        """Override to include videocall_location in ICS LOCATION and DESCRIPTION."""
+        """Enrich stock ICS so Gmail/Outlook render it as a real invite.
+
+        Stock Odoo emits a VCALENDAR with no METHOD, bare ATTENDEE:MAILTO
+        lines, and no ORGANIZER CN. Mail clients then treat the .ics as a
+        plain file attachment instead of an invitation (no RSVP buttons,
+        no "Add to calendar"). We rewrite each ICS to add METHOD:REQUEST,
+        decorate ATTENDEE/ORGANIZER with CN/CUTYPE/PARTSTAT/ROLE/RSVP,
+        and (for events with a videocall) inject LOCATION/URL/DESCRIPTION.
+        """
         result = super()._get_ics_file()
-        # Patch each ICS to include videocall_location if present
+        try:
+            import vobject
+        except ImportError:
+            return result
+
         for event in self:
-            if not event.videocall_location:
-                continue
             ics_data = result.get(event.id)
             if not ics_data:
                 continue
             try:
-                import vobject
-
                 cal = vobject.readOne(ics_data.decode("utf-8"))
+
+                if not hasattr(cal, "method"):
+                    cal.add("method").value = "REQUEST"
+
                 vevent = cal.vevent
-                # Set LOCATION to the video URL
-                if hasattr(vevent, "location"):
-                    vevent.location.value = event.videocall_location
-                else:
-                    vevent.add("location").value = event.videocall_location
-                # Add URL property
-                if not hasattr(vevent, "url"):
-                    vevent.add("url").value = event.videocall_location
-                # Enrich DESCRIPTION with video link
-                desc = ""
-                if hasattr(vevent, "description"):
-                    desc = vevent.description.value or ""
-                if event.videocall_location not in desc:
-                    video_line = (
-                        f"\n\nVid\u00e9oconf\u00e9rence : {event.videocall_location}"
-                    )
-                    desc = desc.rstrip() + video_line
-                    if hasattr(vevent, "description"):
-                        vevent.description.value = desc
+
+                organizer_partner = event.user_id.partner_id or event.partner_id
+                if organizer_partner and organizer_partner.email:
+                    # Replace any existing organizer line so we control params
+                    if hasattr(vevent, "organizer"):
+                        del vevent.contents["organizer"]
+                    organizer = vevent.add("organizer")
+                    organizer.value = "mailto:" + organizer_partner.email
+                    if organizer_partner.name:
+                        organizer.params["CN"] = [
+                            organizer_partner.name.replace('"', "'")
+                        ]
+
+                # Replace plain ATTENDEE:MAILTO lines with fully-parameterized
+                # ATTENDEE entries that carry CN / role / RSVP — required for
+                # email clients to render the invite as actionable.
+                if "attendee" in vevent.contents:
+                    del vevent.contents["attendee"]
+                for attendee in event.attendee_ids:
+                    if not attendee.email:
+                        continue
+                    att = vevent.add("attendee")
+                    att.value = "mailto:" + attendee.email
+                    if attendee.partner_id and attendee.partner_id.name:
+                        att.params["CN"] = [
+                            attendee.partner_id.name.replace('"', "'")
+                        ]
+                    att.params["CUTYPE"] = ["INDIVIDUAL"]
+                    att.params["ROLE"] = ["REQ-PARTICIPANT"]
+                    state = attendee.state or "needsAction"
+                    partstat_map = {
+                        "needsAction": "NEEDS-ACTION",
+                        "tentative": "TENTATIVE",
+                        "declined": "DECLINED",
+                        "accepted": "ACCEPTED",
+                    }
+                    att.params["PARTSTAT"] = [partstat_map.get(state, "NEEDS-ACTION")]
+                    att.params["RSVP"] = ["TRUE"]
+
+                if event.videocall_location:
+                    if hasattr(vevent, "location"):
+                        vevent.location.value = event.videocall_location
                     else:
-                        vevent.add("description").value = desc
+                        vevent.add("location").value = event.videocall_location
+                    if not hasattr(vevent, "url"):
+                        vevent.add("url").value = event.videocall_location
+                    desc = (
+                        vevent.description.value
+                        if hasattr(vevent, "description")
+                        else ""
+                    ) or ""
+                    if event.videocall_location not in desc:
+                        video_line = (
+                            f"\n\nVidéoconférence : "
+                            f"{event.videocall_location}"
+                        )
+                        desc = desc.rstrip() + video_line
+                        if hasattr(vevent, "description"):
+                            vevent.description.value = desc
+                        else:
+                            vevent.add("description").value = desc
+
                 result[event.id] = cal.serialize().encode("utf-8")
             except Exception as e:
                 _logger.warning(
-                    "Failed to patch ICS for event %d: %s", event.id, e
+                    "Failed to enrich ICS for event %d: %s", event.id, e
                 )
+
         return result

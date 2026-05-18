@@ -218,7 +218,7 @@ class AppointmentController(Controller):
         _apply_locale_from_request()
         BookingType = request.env["resource.booking.type"].sudo()
         types = BookingType.search(
-            [("is_public", "=", True)],
+            [("is_public", "=", True), ("listed_on_landing", "=", True)],
             order="sequence, name",
         )
         response = request.render(

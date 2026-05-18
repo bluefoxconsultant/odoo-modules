@@ -206,11 +206,11 @@ $bf-anthracite-themed: var(--bf-appt-dark, #{$bf-anthracite});
     }
 }
 
-// Inside-type description (`/appointment/<slug>`). Inherits the body
-// text color so it works on both BF's dark theme (--body-bg: #212529)
-// and PMEC's light theme (white body).
+// Inside-type description (`/appointment/<slug>`). The BF site body is
+// dark (`--body-bg: #212529`), so the legacy `#495057` gray was barely
+// visible. White + slightly larger per Olivier 2026-05-04.
 .bf-description {
-    color: inherit;
+    color: rgba(255, 255, 255, 0.92);
     font-size: 1.05rem;
     line-height: 1.65;
 
@@ -223,7 +223,7 @@ $bf-anthracite-themed: var(--bf-appt-dark, #{$bf-anthracite});
     }
 
     strong {
-        color: inherit;
+        color: #ffffff;
     }
 
     a {

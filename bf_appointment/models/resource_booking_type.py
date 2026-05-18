@@ -15,9 +15,16 @@ class ResourceBookingType(models.Model):
         help="Projet Odoo dans lequel les tâches issues du Meeting Processor seront créées.",
     )
     is_public = fields.Boolean(
-        string="Public Booking Page",
+        string="Page publique accessible",
         default=False,
-        help="Show this booking type on the public /appointment page.",
+        help="Rend ce type accessible via son URL publique (/appointment/{slug}). "
+             "Indépendant de la visibilité sur la page d'accueil — voir « Lister sur la page d'accueil ».",
+    )
+    listed_on_landing = fields.Boolean(
+        string="Lister sur la page d'accueil",
+        default=True,
+        help="Affiche ce type dans la liste de la page /appointment. "
+             "Désactivez pour un type « unlisted » : accessible seulement par lien direct.",
     )
     slug = fields.Char(
         string="URL Slug",
@@ -58,8 +65,10 @@ class ResourceBookingType(models.Model):
     )
     color_hex = fields.Char(
         string="Accent Color",
-        default="#29ABE2",
-        help="Hex color for the public page accent.",
+        default="#714B67",
+        help="Hex color for the public page accent. Defaults to Odoo stock; "
+             "override per booking type. For tenant-wide colors see "
+             "Settings → General → Identité de marque.",
     )
     duration_options = fields.Char(
         string="Duration Options (min)",
@@ -108,39 +117,50 @@ class ResourceBookingType(models.Model):
     requires_recording_consent = fields.Boolean(
         string="Demander le consentement d'enregistrement",
         default=True,
-        help="Affiche une case &#224; cocher distincte pour le consentement &#224; l'enregistrement "
-             "et &#224; la transcription par IA. Obligatoire pour les rencontres trait&#233;es par "
-             "le Meeting Processor (compte rendu auto). D&#233;sactivez pour les rendez-vous "
-             "techniques courts (Synchro 2FA, support) o&#249; aucun enregistrement n'est fait.",
+        help="Affiche une case à cocher distincte pour le consentement à l'enregistrement "
+             "et à la transcription par IA. Obligatoire pour les rencontres traitées par "
+             "le Meeting Processor (compte rendu auto). Désactivez pour les rendez-vous "
+             "techniques courts (Synchro 2FA, support) où aucun enregistrement n'est fait.",
     )
     recording_notice_id = fields.Many2one(
         "privacy.notice",
-        string="Mod&#232;le de consentement d'enregistrement",
+        string="Modèle de consentement d'enregistrement",
         domain="[('purpose_id.code', 'in', ['recording', 'recording_audio'])]",
-        help="Notice Loi 25 utilis&#233;e quand le consentement d'enregistrement est demand&#233;.",
+        help="Notice Loi 25 utilisée quand le consentement d'enregistrement est demandé.",
     )
     offers_newsletter_signup = fields.Boolean(
-        string="Offrir l'inscription &#224; l'infolettre",
+        string="Offrir l'inscription à l'infolettre",
         default=True,
-        help="Affiche une case &#224; cocher OPTIONNELLE (non pr&#233;-coch&#233;e) pour s'inscrire &#224; "
-             "l'infolettre Blue Fox. D&#233;sactivez sur les rendez-vous de support o&#249; ce serait "
+        help="Affiche une case à cocher OPTIONNELLE (non pré-cochée) pour s'inscrire à "
+             "l'infolettre Blue Fox. Désactivez sur les rendez-vous de support où ce serait "
              "tacky (Synchro 2FA, etc.).",
     )
     newsletter_notice_id = fields.Many2one(
         "privacy.notice",
-        string="Mod&#232;le de consentement infolettre",
+        string="Modèle de consentement infolettre",
         domain="[('purpose_id.code', '=', 'marketing')]",
-        help="Notice LCAP/Loi 25 utilis&#233;e quand l'inscription &#224; l'infolettre est offerte.",
+        help="Notice LCAP/Loi 25 utilisée quand l'inscription à l'infolettre est offerte.",
     )
     sends_intake_acknowledgement = fields.Boolean(
-        string="Envoyer un accus&#233; de r&#233;ception",
+        string="Envoyer un accusé de réception",
         default=False,
-        help="Envoie un courriel d&#232;s la soumission du formulaire (avant le choix "
-             "du cr&#233;neau). Donne au booker une trace &#233;crite + un lien pour reprendre "
-             "la s&#233;lection s'il a ferm&#233; l'onglet, et fournit une preuve horodat&#233;e "
-             "du consentement aux fins d'audit. Off par d&#233;faut, &#224; activer manuellement "
-             "type par type quand l'accus&#233; est utile.",
+        help="Envoie un courriel dès la soumission du formulaire (avant le choix "
+             "du créneau). Donne au booker une trace écrite + un lien pour reprendre "
+             "la sélection s'il a fermé l'onglet, et fournit une preuve horodatée "
+             "du consentement aux fins d'audit. Off par défaut, à activer manuellement "
+             "type par type quand l'accusé est utile.",
     )
+    public_url = fields.Char(
+        string="URL publique",
+        compute="_compute_public_url",
+        help="Lien complet à partager. Actif uniquement quand le type est publié.",
+    )
+
+    @api.depends("slug")
+    def _compute_public_url(self):
+        base = self.env["ir.config_parameter"].sudo().get_param("web.base.url", "")
+        for record in self:
+            record.public_url = f"{base}/appointment/{record.slug}" if record.slug else ""
 
     _sql_constraints = [
         (

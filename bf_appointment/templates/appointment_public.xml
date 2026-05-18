@@ -5,8 +5,8 @@
          public templates via t-call. -->
     <template id="appointment_brand_style" name="Appointment Brand Theme">
         <style>:root{
---bf-appt-primary: <t t-esc="(env.company and env.company.appointment_brand_primary) or '#29ABE2'"/>;
---bf-appt-dark: <t t-esc="(env.company and env.company.appointment_brand_dark) or '#2E3132'"/>;
+--bf-appt-primary: <t t-esc="(env.company and env.company.appointment_brand_primary) or '#714B67'"/>;
+--bf-appt-dark: <t t-esc="(env.company and env.company.appointment_brand_dark) or '#212529'"/>;
 }</style>
     </template>
 
@@ -16,7 +16,10 @@
             <t t-set="breadcrumbs_searchbar" t-value="False"/>
             <t t-call="bf_appointment.appointment_brand_style"/>
             <t t-set="_en" t-value="(env.context.get('lang') or 'fr_CA').lower().startswith('en')"/>
-            <div class="bf-appointment-landing">
+            
+<t t-set="brand_primary" t-value="(env.company and env.company.report_brand_primary) or '#714B67'"/>
+<t t-set="brand_dark" t-value="(env.company and env.company.report_brand_dark) or '#212529'"/>
+<div class="bf-appointment-landing">
                 <div class="bf-section-header text-center">
                     <h2 t-out="'Book a meeting' if _en else 'Prendre rendez-vous'"/>
                     <p t-out="'Pick the type of meeting that works for you.' if _en else 'Choisissez le type de rendez-vous qui vous convient.'"/>
@@ -38,9 +41,9 @@
                                     </t>
                                     <t t-else="">
                                         <div class="card-img-top bf-appointment-card-placeholder d-flex align-items-center justify-content-center"
-                                             t-attf-style="background-color: #{bt.color_hex or (bt.company_id and bt.company_id.appointment_brand_primary) or '#29ABE2'}30;">
+                                             t-attf-style="background-color: #{bt.color_hex or (bt.company_id and bt.company_id.appointment_brand_primary) or brand_primary}30;">
                                             <i class="fa fa-calendar fa-3x"
-                                               t-attf-style="color: #{bt.color_hex or (bt.company_id and bt.company_id.appointment_brand_primary) or '#29ABE2'};"/>
+                                               t-attf-style="color: #{bt.color_hex or (bt.company_id and bt.company_id.appointment_brand_primary) or brand_primary};"/>
                                         </div>
                                     </t>
                                     <div class="card-body">
@@ -81,7 +84,7 @@
                                     </div>
                                     <div class="card-footer bg-transparent text-center border-0 pb-3">
                                         <span class="btn bf-btn-reserve"
-                                              t-attf-style="background-color: #{bt.color_hex or (bt.company_id and bt.company_id.appointment_brand_primary) or '#29ABE2'};">
+                                              t-attf-style="background-color: #{bt.color_hex or (bt.company_id and bt.company_id.appointment_brand_primary) or brand_primary};">
                                             <t t-out="'Book' if _en else 'Réserver'"/>
                                             <i class="fa fa-arrow-right ms-2"/>
                                         </span>
@@ -101,7 +104,10 @@
             <t t-set="breadcrumbs_searchbar" t-value="False"/>
             <t t-call="bf_appointment.appointment_brand_style"/>
             <t t-set="_en" t-value="(env.context.get('lang') or 'fr_CA').lower().startswith('en')"/>
-            <div class="bf-appointment-detail">
+            
+<t t-set="brand_primary" t-value="(env.company and env.company.report_brand_primary) or '#714B67'"/>
+<t t-set="brand_dark" t-value="(env.company and env.company.report_brand_dark) or '#212529'"/>
+<div class="bf-appointment-detail">
                 <div class="row g-4">
                     <div class="col-lg-7">
                         <div class="bf-section-header mb-4 bf-section-header-with-image">
@@ -162,7 +168,7 @@
                     <div class="col-lg-5">
                         <div class="card bf-form-card">
                             <div class="card-header bf-form-card-header text-white text-center"
-                                 t-attf-style="background-color: #{booking_type.color_hex or (booking_type.company_id and booking_type.company_id.appointment_brand_primary) or '#29ABE2'};">
+                                 t-attf-style="background-color: #{booking_type.color_hex or (booking_type.company_id and booking_type.company_id.appointment_brand_primary) or brand_primary};">
                                 <h5 class="mb-0 fw-semibold" t-out="'Your details' if _en else 'Vos coordonnées'"/>
                             </div>
                             <div class="card-body p-4">
@@ -373,7 +379,7 @@
 
                                     <input type="hidden" name="bf_slug" t-att-value="booking_type.slug"/>
                                     <button type="submit" class="btn w-100 text-white fw-semibold bf-btn-accent"
-                                            t-attf-style="background-color: #{booking_type.color_hex or (booking_type.company_id and booking_type.company_id.appointment_brand_primary) or '#29ABE2'};">
+                                            t-attf-style="background-color: #{booking_type.color_hex or (booking_type.company_id and booking_type.company_id.appointment_brand_primary) or brand_primary};">
                                         <i class="fa fa-calendar me-2"/>
                                         <t t-out="'Pick a time' if _en else 'Choisir un créneau'"/>
                                     </button>
@@ -428,7 +434,10 @@
         <t t-set="start_previous" t-value="start - relativedelta(months=1)"/>
         <t t-set="tz_param" t-value="'?tz=%s' % visitor_tz if visitor_tz else ''"/>
         <t t-set="sorted_days" t-value="sorted(d for d in slots if slots[d])"/>
-        <div class="bf-appointment-calendar">
+        
+<t t-set="brand_primary" t-value="(env.company and env.company.report_brand_primary) or '#714B67'"/>
+<t t-set="brand_dark" t-value="(env.company and env.company.report_brand_dark) or '#212529'"/>
+<div class="bf-appointment-calendar">
             <!-- Month navigation -->
             <div class="bf-schedule-nav d-flex justify-content-between align-items-center mb-4">
                 <div>
@@ -569,7 +578,7 @@
                                         data-bs-dismiss="modal"
                                         t-out="'Cancel' if _en else 'Annuler'"/>
                                 <button type="submit" class="btn bf-btn-accent text-white bf-btn-confirm"
-                                        t-attf-style="background-color: #{(booking.type_id.company_id and booking.type_id.company_id.appointment_brand_primary) or '#29ABE2'};">
+                                        t-attf-style="background-color: #{(booking.type_id.company_id and booking.type_id.company_id.appointment_brand_primary) or brand_primary};">
                                     <i class="fa fa-check me-1"/>
                                     <t t-out="'Confirm' if _en else 'Confirmer'"/>
                                 </button>
@@ -587,7 +596,10 @@
             <t t-set="breadcrumbs_searchbar" t-value="False"/>
             <t t-call="bf_appointment.appointment_brand_style"/>
             <t t-set="_en" t-value="(env.context.get('lang') or 'fr_CA').lower().startswith('en')"/>
-            <div class="bf-appointment-cancelled text-center py-5">
+            
+<t t-set="brand_primary" t-value="(env.company and env.company.report_brand_primary) or '#714B67'"/>
+<t t-set="brand_dark" t-value="(env.company and env.company.report_brand_dark) or '#212529'"/>
+<div class="bf-appointment-cancelled text-center py-5">
                 <div class="bf-status-icon bf-status-success mx-auto mb-3">
                     <i class="fa fa-check"/>
                 </div>
@@ -595,7 +607,7 @@
                 <p class="text-muted"
                    t-out="'Your meeting was cancelled successfully.' if _en else 'Votre rendez-vous a été annulé avec succès.'"/>
                 <a href="/appointment" class="btn bf-btn-accent text-white mt-3"
-                   t-attf-style="background-color: #{(env.company and env.company.appointment_brand_primary) or '#29ABE2'};">
+                   t-attf-style="background-color: #{(env.company and env.company.appointment_brand_primary) or brand_primary};">
                     <t t-out="'Book another meeting' if _en else 'Prendre un nouveau rendez-vous'"/>
                 </a>
             </div>

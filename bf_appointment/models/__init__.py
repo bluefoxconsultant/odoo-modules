@@ -1,6 +1,7 @@
 from . import appointment_email_schedule
 from . import appointment_intake
 from . import calendar_event
+from . import ir_mail_server
 from . import mail_template
 from . import onboarding_onboarding
 from . import res_company
