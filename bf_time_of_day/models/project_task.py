@@ -50,6 +50,29 @@ class ProjectTask(models.Model):
         store=False,
         string="Icône plage",
     )
+    time_of_day_code = fields.Selection(
+        selection=[
+            ("morning", "Matinée"),
+            ("midday", "Midi"),
+            ("eod", "Fin de jour"),
+            ("after_hours", "Hors heures"),
+        ],
+        string="Code plage horaire",
+        compute="_compute_time_of_day_code",
+        store=True,
+        index=True,
+        help="Code stable de la plage horaire, miroir de time_of_day_id.code. "
+        "Sert de clé à la barre de progression kanban (colors mappés par code). "
+        "Limité aux 4 plages livrées par le module : une plage admin ajoutée "
+        "hors de cette liste laisse le champ vide.",
+    )
+
+    @api.depends("time_of_day_id", "time_of_day_id.code")
+    def _compute_time_of_day_code(self):
+        valid = dict(self._fields["time_of_day_code"].selection)
+        for task in self:
+            code = task.time_of_day_id.code
+            task.time_of_day_code = code if code in valid else False
 
     @api.model
     def _read_group_time_of_day_ids(self, presets, domain):

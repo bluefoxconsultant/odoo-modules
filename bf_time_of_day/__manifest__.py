@@ -1,6 +1,6 @@
 {
     "name": "BF Time of Day",
-    "version": "18.0.1.1.0",
+    "version": "18.0.1.3.1",
     "category": "Project",
     "summary": "Plages horaires (Matinée / Midi / Fin de jour / Hors heures) pour tâches et activités",
     'author': 'Blue Fox Inc.',

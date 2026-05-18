@@ -37,6 +37,29 @@
         </field>
     </record>
 
+    <!-- All-tasks kanban: swap the stock state progressbar for a time-of-day one.
+         Scoped to project.view_task_kanban_inherit_all_task (the primary view
+         bound to the /odoo/all-tasks action) so every other project.task kanban
+         keeps its standard `state` progressbar. -->
+    <record id="view_task_kanban_all_task_inherit_bf_time_of_day" model="ir.ui.view">
+        <field name="name">project.task.kanban.all.task.bf.time.of.day</field>
+        <field name="model">project.task</field>
+        <field name="inherit_id" ref="project.view_task_kanban_inherit_all_task"/>
+        <field name="arch" type="xml">
+            <!-- Marqueur de portée pour le SCSS des icônes de la barre de progression. -->
+            <xpath expr="//kanban" position="attributes">
+                <attribute name="class" add="o_bf_tod_progressbar" separator=" "/>
+            </xpath>
+            <!-- Couleurs en arc de journée : aube (info) -> midi (warning)
+                 -> crépuscule (danger) -> nuit (muted). -->
+            <xpath expr="//progressbar" position="replace">
+                <field name="time_of_day_code"/>
+                <progressbar field="time_of_day_code"
+                             colors='{"morning": "info", "midday": "warning", "eod": "danger", "after_hours": "muted"}'/>
+            </xpath>
+        </field>
+    </record>
+
     <!-- List: optional column -->
     <record id="view_task_tree2_inherit_bf_time_of_day" model="ir.ui.view">
         <field name="name">project.task.tree.bf.time.of.day</field>
