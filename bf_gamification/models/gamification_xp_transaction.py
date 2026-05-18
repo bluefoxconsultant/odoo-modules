@@ -21,6 +21,12 @@ class GamificationXpTransaction(models.Model):
         ('message', 'Message'),
         ('helpdesk', 'Ticket'),
         ('activity', 'Activité'),
+        ('meeting', 'Compte rendu'),
+        ('agenda', 'Ordre du jour'),
+        ('decision', 'Décision'),
+        ('knowledge_item', 'Élément de matrice'),
+        ('resolution', 'Résolution corporative'),
+        ('email_triage', 'Triage courriel'),
     ], string="Source", required=True, index=True)
     description = fields.Char(string="Description")
     reference = fields.Reference(
@@ -33,6 +39,12 @@ class GamificationXpTransaction(models.Model):
             ('bf.gamification.reward.claim', 'Réclamation'),
             ('mail.message', 'Message'),
             ('helpdesk.ticket', 'Ticket'),
+            ('meeting.record', 'Compte rendu'),
+            ('meeting.agenda', 'Ordre du jour'),
+            ('meeting.decision', 'Décision'),
+            ('project.knowledge.item', 'Élément de matrice'),
+            ('corporate.resolution', 'Résolution corporative'),
+            ('bf.email', 'Courriel BF'),
         ],
         string="Référence",
     )

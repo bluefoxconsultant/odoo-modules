@@ -1,7 +1,7 @@
 {
     "name": "Fox Quest",
     "summary": "Syst\u00e8me de gamification avec XP, niveaux, badges et r\u00e9compenses",
-    "version": "18.0.2.2.0",
+    "version": "18.0.2.3.0",
     "category": "Human Resources",
     'website': 'https://bluefoxconsultant.com',
     "author": "Blue Fox Inc.",
@@ -20,6 +20,8 @@
         "hosting_management",
         "helpdesk_mgmt",
         "bf_onboarding_base",
+        "bf_meeting",
+        "bf_email_management",
     ],
     "data": [
         # Security

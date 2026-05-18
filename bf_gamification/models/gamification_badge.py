@@ -1,4 +1,9 @@
+import logging
+
 from odoo import api, fields, models
+from odoo.tools.safe_eval import safe_eval
+
+_logger = logging.getLogger(__name__)
 
 # Models allowed for automatic badge condition evaluation (sudo search_count)
 ALLOWED_CONDITION_MODELS = {
@@ -66,6 +71,18 @@ class GamificationBadge(models.Model):
     ], string="Son", default='achievement')
     popup_message = fields.Char(string="Message popup")
 
+    @api.constrains('condition_model')
+    def _check_condition_model(self):
+        for badge in self:
+            if badge.condition_model and badge.condition_model not in ALLOWED_CONDITION_MODELS:
+                raise models.ValidationError(
+                    "Le modele '%s' n'est pas autorise pour les conditions de badge. "
+                    "Modeles permis : %s" % (
+                        badge.condition_model,
+                        ', '.join(sorted(ALLOWED_CONDITION_MODELS)),
+                    )
+                )
+
     earned_count = fields.Integer(string="Nombre d'obtentions", compute='_compute_earned_count')
     earned_percentage = fields.Float(string="Rareté (%)", compute='_compute_earned_percentage')
 
@@ -117,8 +134,9 @@ class GamificationBadge(models.Model):
               and self.condition_domain
               and self.condition_model in ALLOWED_CONDITION_MODELS):
             try:
-                import ast
-                domain = ast.literal_eval(self.condition_domain)
+                domain = safe_eval(self.condition_domain, {"uid": user.id}, mode="eval", nocopy=True)
+                if not isinstance(domain, list):
+                    raise ValueError("Domain must be a list")
                 user_field = self.condition_user_field or 'create_uid'
                 domain.append((user_field, '=', user.id))
                 count = self.env[self.condition_model].sudo().search_count(domain)
@@ -130,6 +148,10 @@ class GamificationBadge(models.Model):
                     'earned': earned,
                 }
             except Exception:
+                _logger.warning(
+                    "Badge %s: invalid condition_domain: %s",
+                    self.name, self.condition_domain,
+                )
                 pass
         # manual or fallback
         return {

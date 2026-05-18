@@ -15,4 +15,10 @@ from . import hosting_maintenance
 from . import mail_message
 from . import mail_activity
 from . import helpdesk_ticket
+from . import meeting_record
+from . import meeting_agenda
+from . import meeting_decision
+from . import knowledge_item
+from . import corporate_resolution
+from . import bf_email
 from . import onboarding_onboarding

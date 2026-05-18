@@ -565,16 +565,12 @@ This module is released under the **GNU LGPL-3** license.
 This module is licensed under the GNU Lesser General Public License v3.0 (LGPL-3). See [LICENSE](LICENSE) for the full text.
 ```
 
-## Disclaimer
-
-This module is provided as-is, without warranty of any kind. Use at your own risk. Blue Fox Inc. assumes no liability for any damages arising from the use of this software.
-
 ---
 
 ## Acknowledgements
 
-Authored and maintained by Blue Fox Inc. Built with Odoo 18 Community Edition and the OWL framework.
+This module was developed with substantial assistance from AI tools (Claude by Anthropic),
+used for code generation, architecture design, and documentation. All output was reviewed,
+tested, and validated by the Blue Fox Inc. development team.
 
----
-
-<sub>AI coding assistants were used as productivity tools during development; all output was reviewed, tested, and validated by the Blue Fox Inc. development team.</sub>
+Built with Odoo 18 Community Edition and the OWL framework.

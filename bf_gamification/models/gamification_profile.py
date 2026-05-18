@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 
 from odoo import api, fields, models
 from odoo.exceptions import ValidationError
+from odoo.tools.safe_eval import safe_eval
 
 from .gamification_badge import ALLOWED_CONDITION_MODELS
 
@@ -233,15 +234,23 @@ class GamificationProfile(models.Model):
                   and badge.condition_domain
                   and badge.condition_model in ALLOWED_CONDITION_MODELS):
                 try:
-                    import ast
-                    domain = ast.literal_eval(badge.condition_domain)
+                    domain = safe_eval(
+                        badge.condition_domain,
+                        {"uid": self.user_id.id},
+                        mode="eval", nocopy=True,
+                    )
+                    if not isinstance(domain, list):
+                        raise ValueError("Domain must be a list")
                     user_field = badge.condition_user_field or 'create_uid'
                     domain.append((user_field, '=', self.user_id.id))
                     count = self.env[badge.condition_model].sudo().search_count(domain)
                     if count >= (badge.condition_threshold or 1):
                         awarded = True
                 except Exception:
-                    pass
+                    _logger.warning(
+                        "Badge %s: invalid condition_domain in profile check: %s",
+                        badge.name, badge.condition_domain,
+                    )
 
             if awarded:
                 self._grant_badge(badge)

@@ -96,5 +96,87 @@
             <field name="xp_amount">2</field>
             <field name="condition_description">Activit&#233; planifi&#233;e termin&#233;e</field>
         </record>
+
+        <!-- Meeting agenda rules -->
+        <record id="xp_rule_agenda_create" model="bf.gamification.xp.rule">
+            <field name="name">Ordre du jour cr&#233;&#233;</field>
+            <field name="source">agenda</field>
+            <field name="trigger">create</field>
+            <field name="xp_amount">3</field>
+            <field name="condition_description">Cr&#233;ation d'un OdJ pour une rencontre</field>
+        </record>
+        <record id="xp_rule_agenda_confirm" model="bf.gamification.xp.rule">
+            <field name="name">OdJ confirm&#233;</field>
+            <field name="source">agenda</field>
+            <field name="trigger">complete</field>
+            <field name="xp_amount">5</field>
+            <field name="condition_description">OdJ pass&#233; en &#171; Confirm&#233; &#187;</field>
+        </record>
+
+        <!-- Meeting record rules -->
+        <record id="xp_rule_meeting_create" model="bf.gamification.xp.rule">
+            <field name="name">Compte rendu cr&#233;&#233;</field>
+            <field name="source">meeting</field>
+            <field name="trigger">create</field>
+            <field name="xp_amount">3</field>
+            <field name="condition_description">Cr&#233;ation d'un compte rendu</field>
+        </record>
+        <record id="xp_rule_meeting_reviewed" model="bf.gamification.xp.rule">
+            <field name="name">Compte rendu r&#233;vis&#233;</field>
+            <field name="source">meeting</field>
+            <field name="trigger">write</field>
+            <field name="xp_amount">5</field>
+            <field name="condition_description">CR pass&#233; en &#171; R&#233;vis&#233; &#187;</field>
+        </record>
+        <record id="xp_rule_meeting_sent" model="bf.gamification.xp.rule">
+            <field name="name">Compte rendu envoy&#233;</field>
+            <field name="source">meeting</field>
+            <field name="trigger">complete</field>
+            <field name="xp_amount">12</field>
+            <field name="condition_description">CR envoy&#233; au client</field>
+        </record>
+
+        <!-- Meeting decision rules -->
+        <record id="xp_rule_decision_create" model="bf.gamification.xp.rule">
+            <field name="name">D&#233;cision document&#233;e</field>
+            <field name="source">decision</field>
+            <field name="trigger">create</field>
+            <field name="xp_amount">2</field>
+            <field name="condition_description">D&#233;cision ajout&#233;e au compte rendu</field>
+        </record>
+
+        <!-- Knowledge matrix item rules -->
+        <record id="xp_rule_knowledge_item_done" model="bf.gamification.xp.rule">
+            <field name="name">&#201;l&#233;ment de matrice compl&#233;t&#233;</field>
+            <field name="source">knowledge_item</field>
+            <field name="trigger">complete</field>
+            <field name="xp_amount">5</field>
+            <field name="condition_description">Item de matrice pass&#233; en &#171; Compl&#233;t&#233; &#187;</field>
+        </record>
+
+        <!-- Corporate resolution rules -->
+        <record id="xp_rule_resolution_adopted" model="bf.gamification.xp.rule">
+            <field name="name">R&#233;solution adopt&#233;e</field>
+            <field name="source">resolution</field>
+            <field name="trigger">complete</field>
+            <field name="xp_amount">10</field>
+            <field name="condition_description">R&#233;solution corporative pass&#233;e en &#171; Adopt&#233;e &#187;</field>
+        </record>
+
+        <!-- Email triage rules -->
+        <record id="xp_rule_email_replied" model="bf.gamification.xp.rule">
+            <field name="name">Courriel r&#233;pondu</field>
+            <field name="source">email_triage</field>
+            <field name="trigger">complete</field>
+            <field name="xp_amount">2</field>
+            <field name="condition_description">bf.email pass&#233; en &#171; R&#233;pondu &#187;</field>
+        </record>
+        <record id="xp_rule_email_archived" model="bf.gamification.xp.rule">
+            <field name="name">Courriel archiv&#233;</field>
+            <field name="source">email_triage</field>
+            <field name="trigger">write</field>
+            <field name="xp_amount">1</field>
+            <field name="condition_description">bf.email pass&#233; en &#171; Archiv&#233; &#187; (triage)</field>
+        </record>
     </data>
 </odoo>

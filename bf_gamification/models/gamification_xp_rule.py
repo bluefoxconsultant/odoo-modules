@@ -16,6 +16,12 @@ class GamificationXpRule(models.Model):
         ('message', 'Message'),
         ('helpdesk', 'Ticket'),
         ('activity', 'Activité'),
+        ('meeting', 'Compte rendu'),
+        ('agenda', 'Ordre du jour'),
+        ('decision', 'Décision'),
+        ('knowledge_item', 'Élément de matrice'),
+        ('resolution', 'Résolution corporative'),
+        ('email_triage', 'Triage courriel'),
     ], string="Source", required=True)
     trigger = fields.Selection([
         ('create', 'Création'),
