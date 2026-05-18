@@ -50,7 +50,7 @@
                             font-weight: 600;
                             text-transform: uppercase;
                             letter-spacing: 2pt;
-                            color: <t t-esc="(env.company and env.company.report_brand_primary) or '#29ABE2'"/>;
+                            color: <t t-esc="(env.company and env.company.report_brand_primary) or '#714B67'"/>;
                             margin: 0 0 3pt 0;
                         }
                         .km-banner h1 {
@@ -67,7 +67,7 @@
                         }
                         .km-accent-bar {
                             height: 3px;
-                            background: <t t-esc="(env.company and env.company.report_brand_primary) or '#29ABE2'"/>;
+                            background: <t t-esc="(env.company and env.company.report_brand_primary) or '#714B67'"/>;
                             margin: 0;
                             width: 100%;
                         }
@@ -131,7 +131,7 @@
                         }
                         .km-kpi-total { color: <t t-esc="(env.company and env.company.report_brand_dark) or '#212529'"/>; }
                         .km-kpi-done { color: #27ae60; }
-                        .km-kpi-progress { color: <t t-esc="(env.company and env.company.report_brand_primary) or '#29ABE2'"/>; }
+                        .km-kpi-progress { color: <t t-esc="(env.company and env.company.report_brand_primary) or '#714B67'"/>; }
                         .km-kpi-overdue { color: #e74c3c; }
 
                         /* &#9472;&#9472; Progress bar &#9472;&#9472; */
@@ -147,7 +147,7 @@
                         }
                         .km-progress-bar-fill {
                             height: 100%;
-                            background: <t t-esc="(env.company and env.company.report_brand_primary) or '#29ABE2'"/>;
+                            background: <t t-esc="(env.company and env.company.report_brand_primary) or '#714B67'"/>;
                             border-radius: 3px;
                         }
 
@@ -161,7 +161,7 @@
                             color: <t t-esc="(env.company and env.company.report_brand_dark) or '#212529'"/>;
                             margin: 16pt 0 8pt 0;
                             padding-bottom: 4pt;
-                            border-bottom: 2px solid <t t-esc="(env.company and env.company.report_brand_primary) or '#29ABE2'"/>;
+                            border-bottom: 2px solid <t t-esc="(env.company and env.company.report_brand_primary) or '#714B67'"/>;
                             display: inline-block;
                         }
 
@@ -201,7 +201,7 @@
                         }
                         .km-badge-done { background: #27ae60; }
                         .km-badge-accepted { background: #27ae60; }
-                        .km-badge-in_progress { background: <t t-esc="(env.company and env.company.report_brand_primary) or '#29ABE2'"/>; }
+                        .km-badge-in_progress { background: <t t-esc="(env.company and env.company.report_brand_primary) or '#714B67'"/>; }
                         .km-badge-pending { background: #888; }
                         .km-badge-proposed { background: #f39c12; }
                         .km-badge-rejected { background: #95a5a6; }

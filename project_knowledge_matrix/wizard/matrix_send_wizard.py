@@ -23,9 +23,8 @@ border-radius:12px 12px 0 0;">\
 border="0"><tbody><tr>\
 <td align="left" style="color:#FFFFFF;font-family:'Lexend','Segoe UI',\
 Arial,sans-serif;font-size:16px;font-weight:600;">\
-<a href="https://www.bluefoxconsultant.com" style="text-decoration:none;">\
-<img src="https://www.bluefoxconsultant.com/web/image/website/1/logo/\
-Blue%20Fox?unique=803cc14" alt="Blue Fox" style="height:48px;width:auto;\
+<a href="{company_website}" style="text-decoration:none;">\
+<img src="{logo_url}" alt="{company_name}" style="height:48px;width:auto;\
 display:block;border:0;"/></a></td>\
 <td align="right" style="color:#E6EDF3;font-family:'Lexend','Segoe UI',\
 Arial,sans-serif;font-size:22px;font-weight:800;letter-spacing:0.2px;">\
@@ -57,11 +56,11 @@ font-size:12px;color:#6B7280;">\
 Solutions &eacute;thiques et souveraines pour vos donn&eacute;es.</td>\
 <td align="right" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;\
 font-size:12px;color:#9CA3AF;">\
-<a href="https://www.bluefoxconsultant.com/r/politique-de-confidentialite" \
+<a href="{privacy_url}" \
 style="color:#9CA3AF;text-decoration:underline;">\
 Politique de confidentialit&eacute;</a>\
 <span style="color:#9CA3AF;"> | </span>\
-<a href="https://www.bluefoxconsultant.com/r/termes-et-conditions" \
+<a href="{terms_url}" \
 style="color:#9CA3AF;text-decoration:underline;">Conditions</a>\
 </td></tr></tbody></table></td></tr>\
 </tbody></table>\
@@ -131,14 +130,21 @@ class MatrixSendWizard(models.TransientModel):
 
     def _wrap_branded_body(self, inner_html):
         """Wrap inner message HTML with the company-branded email layout.
-        Colors pulled from bf_lexend company fields; falls back to canonical hex."""
+        Colors pulled from bf_lexend company fields; falls back to canonical hex.
+        Logo, website, and policy/terms URLs are tenant-aware so each company
+        in the database sends emails with its own visual identity."""
         company = self.env.company
+        website = company.website or 'https://www.bluefoxconsultant.com'
         return Markup(_BRANDED_WRAPPER.format(
-            primary=company.report_brand_primary or '#29ABE2',
-            dark=company.report_brand_dark or '#22303B',
+            primary=company.report_brand_primary or '#714B67',
+            dark=company.report_brand_dark or '#212529',
             company_name=company.name or 'Blue Fox',
             company_email=company.email or 'service@bluefoxconsultant.com',
             company_phone=company.phone or '514-513-2535',
+            company_website=website,
+            logo_url='/web/image/res.company/%d/logo' % company.id,
+            privacy_url=website.rstrip('/') + '/r/politique-de-confidentialite',
+            terms_url=website.rstrip('/') + '/r/termes-et-conditions',
             content=str(inner_html or ''),
         ))
 

@@ -1,6 +1,6 @@
 {
     'name': 'Project Knowledge Matrix',
-    'version': '18.0.9.10.0',
+    'version': '18.0.9.12.2',
     'category': 'Services/Project',
     'summary': 'Base de connaissances projets, politiques et documentation',
     'description': """
@@ -44,7 +44,7 @@ Fonctionnalités:
     'author': 'Blue Fox Inc.',
     'website': 'https://bluefoxconsultant.com',
     'license': 'LGPL-3',
-    'depends': ['project', 'mail', 'hr'],
+    'depends': ['project', 'mail', 'hr', 'bluefox_branding'],
     'external_dependencies': {
         'python': ['cryptography'],
     },

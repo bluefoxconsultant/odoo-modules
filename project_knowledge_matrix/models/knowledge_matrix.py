@@ -302,13 +302,28 @@ class KnowledgeMatrix(models.Model):
                 'margin:0;">Cordialement,<br/>Blue Fox</p>'
             ) % (label, progress, matrix.completed_count, matrix.item_count)
 
-            # Use the same wrapper as the wizard
+            # Use the same wrapper as the wizard (full .format() — same Python
+            # placeholder set: {primary}/{dark}/{company_name}/{company_email}/
+            # {company_phone}/{content}).  Bug history: an earlier shortcut used
+            # `.replace('{content}', inner_html)` which left the other braces
+            # unrendered, producing literal `{company_email}` in sent emails.
             from odoo.addons.project_knowledge_matrix.wizard.matrix_send_wizard import (
                 _BRANDED_WRAPPER,
             )
-            body_html = Markup(
-                _BRANDED_WRAPPER.replace('{content}', inner_html)
-            )
+            company = matrix.project_id.company_id or self.env.company
+            website = company.website or 'https://www.bluefoxconsultant.com'
+            body_html = Markup(_BRANDED_WRAPPER.format(
+                primary=company.report_brand_primary or '#714B67',
+                dark=company.report_brand_dark or '#212529',
+                company_name=company.name or 'Blue Fox',
+                company_email=company.email or 'service@bluefoxconsultant.com',
+                company_phone=company.phone or '514-513-2535',
+                company_website=website,
+                logo_url='/web/image/res.company/%d/logo' % company.id,
+                privacy_url=website.rstrip('/') + '/r/politique-de-confidentialite',
+                terms_url=website.rstrip('/') + '/r/termes-et-conditions',
+                content=inner_html,
+            ))
 
             subject = "Rapport de matrice \u2014 %s" % label
             sender = self.env.user.email_formatted

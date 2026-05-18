@@ -88,6 +88,12 @@ export class KnowledgeDashboard extends Component {
         return mapping[model] || [];
     }
 
+    _dateStr(daysFromNow) {
+        const d = new Date();
+        d.setDate(d.getDate() + daysFromNow);
+        return d.toISOString().split('T')[0];
+    }
+
     // Navigation actions
     openDocumentsNeedingAttention() {
         this.action.doAction({
@@ -210,6 +216,28 @@ export class KnowledgeDashboard extends Component {
         });
     }
 
+    openDraftDocuments() {
+        this.action.doAction({
+            type: "ir.actions.act_window",
+            name: "Documents brouillons",
+            res_model: "project.document",
+            views: [[false, "list"], [false, "form"]],
+            domain: [...this._getProjectDomain("project.document"), ["state", "=", "draft"]],
+            context: {},
+        });
+    }
+
+    openArchivedDocuments() {
+        this.action.doAction({
+            type: "ir.actions.act_window",
+            name: "Documents archivés",
+            res_model: "project.document",
+            views: [[false, "list"], [false, "form"]],
+            domain: [...this._getProjectDomain("project.document"), ["state", "=", "archived"]],
+            context: { active_test: false },
+        });
+    }
+
     openInternalDocuments() {
         this.action.doAction({
             type: "ir.actions.act_window",
@@ -272,6 +300,202 @@ export class KnowledgeDashboard extends Component {
             res_model: "project.document",
             views: [[false, "list"], [false, "form"]],
             domain: [...this._getProjectDomain("project.document"), ["state", "=", "active"], ["version_count", "=", 0]],
+            context: {},
+        });
+    }
+
+    openRejectedDecisions() {
+        this.action.doAction({
+            type: "ir.actions.act_window",
+            name: "Décisions rejetées",
+            res_model: "project.knowledge.item",
+            views: [[false, "list"], [false, "form"]],
+            domain: [...this._getProjectDomain("project.knowledge.item"), ["item_type", "=", "decision"], ["state", "=", "rejected"]],
+            context: {},
+        });
+    }
+
+    openReviewDocs0_30() {
+        this.action.doAction({
+            type: "ir.actions.act_window",
+            name: "Révisions dans 0-30 jours",
+            res_model: "project.document",
+            views: [[false, "list"], [false, "form"]],
+            domain: [...this._getProjectDomain("project.document"), ["state", "=", "active"], ["review_date", ">=", this._dateStr(0)], ["review_date", "<=", this._dateStr(30)]],
+            context: {},
+        });
+    }
+
+    openReviewDocs30_60() {
+        this.action.doAction({
+            type: "ir.actions.act_window",
+            name: "Révisions dans 30-60 jours",
+            res_model: "project.document",
+            views: [[false, "list"], [false, "form"]],
+            domain: [...this._getProjectDomain("project.document"), ["state", "=", "active"], ["review_date", ">", this._dateStr(30)], ["review_date", "<=", this._dateStr(60)]],
+            context: {},
+        });
+    }
+
+    openReviewDocs60_90() {
+        this.action.doAction({
+            type: "ir.actions.act_window",
+            name: "Révisions dans 60-90 jours",
+            res_model: "project.document",
+            views: [[false, "list"], [false, "form"]],
+            domain: [...this._getProjectDomain("project.document"), ["state", "=", "active"], ["review_date", ">", this._dateStr(60)], ["review_date", "<=", this._dateStr(90)]],
+            context: {},
+        });
+    }
+
+    openExpiringDocs0_30() {
+        this.action.doAction({
+            type: "ir.actions.act_window",
+            name: "Expirations dans 0-30 jours",
+            res_model: "project.document",
+            views: [[false, "list"], [false, "form"]],
+            domain: [...this._getProjectDomain("project.document"), ["state", "=", "active"], ["expiration_date", ">=", this._dateStr(0)], ["expiration_date", "<=", this._dateStr(30)]],
+            context: {},
+        });
+    }
+
+    openExpiringDocs30_60() {
+        this.action.doAction({
+            type: "ir.actions.act_window",
+            name: "Expirations dans 30-60 jours",
+            res_model: "project.document",
+            views: [[false, "list"], [false, "form"]],
+            domain: [...this._getProjectDomain("project.document"), ["state", "=", "active"], ["expiration_date", ">", this._dateStr(30)], ["expiration_date", "<=", this._dateStr(60)]],
+            context: {},
+        });
+    }
+
+    openExpiringDocs60_90() {
+        this.action.doAction({
+            type: "ir.actions.act_window",
+            name: "Expirations dans 60-90 jours",
+            res_model: "project.document",
+            views: [[false, "list"], [false, "form"]],
+            domain: [...this._getProjectDomain("project.document"), ["state", "=", "active"], ["expiration_date", ">", this._dateStr(60)], ["expiration_date", "<=", this._dateStr(90)]],
+            context: {},
+        });
+    }
+
+    openVersionsThisYear() {
+        const year = new Date().getFullYear();
+        const yearStart = `${year}-01-01`;
+        this.action.doAction({
+            type: "ir.actions.act_window",
+            name: `Versions publiées en ${year}`,
+            res_model: "project.document.version",
+            views: [[false, "list"], [false, "form"]],
+            domain: [...(this.state.projectId ? [["document_id.project_id", "=", this.state.projectId]] : []), ["state", "=", "released"], ["release_date", ">=", yearStart]],
+            context: {},
+        });
+    }
+
+    openAcknowledgedClientDistributions() {
+        this.action.doAction({
+            type: "ir.actions.act_window",
+            name: "Distributions clients accusées",
+            res_model: "project.document.distribution",
+            views: [[false, "list"], [false, "form"]],
+            domain: [...this._getProjectDomain("project.document.distribution"), ["recipient_type", "=", "partner"], ["state", "=", "acknowledged"]],
+            context: {},
+        });
+    }
+
+    openAcknowledgedInternalDistributions() {
+        this.action.doAction({
+            type: "ir.actions.act_window",
+            name: "Distributions internes accusées",
+            res_model: "project.document.distribution",
+            views: [[false, "list"], [false, "form"]],
+            domain: [...this._getProjectDomain("project.document.distribution"), ["recipient_type", "=", "employee"], ["state", "=", "acknowledged"]],
+            context: {},
+        });
+    }
+
+    openSoftwareCatalog() {
+        this.action.doAction({
+            type: "ir.actions.act_window",
+            name: "Catalogue logiciels",
+            res_model: "document.software",
+            views: [[false, "list"], [false, "form"]],
+            domain: [["active", "=", true]],
+            context: {},
+        });
+    }
+
+    openInProgressItems() {
+        this.action.doAction({
+            type: "ir.actions.act_window",
+            name: "Éléments en cours",
+            res_model: "project.knowledge.item",
+            views: [[false, "list"], [false, "form"]],
+            domain: [...this._getProjectDomain("project.knowledge.item"), ["state", "=", "in_progress"]],
+            context: {},
+        });
+    }
+
+    openExpiringCredentials() {
+        this.action.doAction({
+            type: "ir.actions.act_window",
+            name: "Identifiants expirant sous 30 jours",
+            res_model: "project.credential",
+            views: [[false, "list"], [false, "form"]],
+            domain: [...this._getProjectDomain("project.credential"), ["state", "=", "active"], ["expiration_date", ">=", this._dateStr(0)], ["expiration_date", "<=", this._dateStr(30)]],
+            context: {},
+        });
+    }
+
+    openExpiredCredentials() {
+        this.action.doAction({
+            type: "ir.actions.act_window",
+            name: "Identifiants expirés",
+            res_model: "project.credential",
+            views: [[false, "list"], [false, "form"]],
+            domain: [...this._getProjectDomain("project.credential"), ["state", "=", "active"], ["expiration_date", "<", this._dateStr(0)]],
+            context: {},
+        });
+    }
+
+    openRevokedCredentials() {
+        this.action.doAction({
+            type: "ir.actions.act_window",
+            name: "Identifiants révoqués",
+            res_model: "project.credential",
+            views: [[false, "list"], [false, "form"]],
+            domain: [...this._getProjectDomain("project.credential"), ["state", "=", "revoked"]],
+            context: {},
+        });
+    }
+
+    openDistributionsThisMonth() {
+        const now = new Date();
+        const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+        this.action.doAction({
+            type: "ir.actions.act_window",
+            name: "Distributions ce mois",
+            res_model: "project.document.distribution",
+            views: [[false, "list"], [false, "form"]],
+            domain: [...this._getProjectDomain("project.document.distribution"), ["distribution_date", ">=", monthStart]],
+            context: {},
+        });
+    }
+
+    openDistributionsLastMonth() {
+        const now = new Date();
+        const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const lastMonthEnd = new Date(thisMonthStart - 1);
+        const lastMonthStart = `${lastMonthEnd.getFullYear()}-${String(lastMonthEnd.getMonth() + 1).padStart(2, '0')}-01`;
+        const lastMonthEndStr = lastMonthEnd.toISOString().split('T')[0];
+        this.action.doAction({
+            type: "ir.actions.act_window",
+            name: "Distributions mois dernier",
+            res_model: "project.document.distribution",
+            views: [[false, "list"], [false, "form"]],
+            domain: [...this._getProjectDomain("project.document.distribution"), ["distribution_date", ">=", lastMonthStart], ["distribution_date", "<=", lastMonthEndStr]],
             context: {},
         });
     }
