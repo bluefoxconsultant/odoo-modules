@@ -222,14 +222,28 @@ class HostingService(models.Model):
         copy=False,
         help="Indicateur pour prévenir la création d'activités d'expiration en double",
     )
+    disconnect_acknowledged_date = fields.Date(
+        string="Date d'accusé de non-renouvellement",
+        readonly=True,
+        copy=False,
+        tracking=True,
+        help="Date à laquelle la non-reconduction du service a été confirmée avec le client.",
+    )
+    disconnect_reason = fields.Char(
+        string="Motif de non-renouvellement",
+        copy=False,
+        tracking=True,
+        help="Contexte court : migration vers X, décision client, fin de contrat, etc.",
+    )
 
     # État
     state = fields.Selection(
         selection=[
             ("draft", "Brouillon"),
             ("active", "Actif"),
-            ("suspended", "Suspendu"),
+            ("to_disconnect", "À déconnecter"),
             ("expired", "Expiré"),
+            ("suspended", "Suspendu"),
             ("cancelled", "Annulé"),
         ],
         string="État",
@@ -717,6 +731,18 @@ class HostingService(models.Model):
         for service in self:
             service._create_maintenance_from_templates()
 
+    def action_acknowledge_disconnect(self):
+        """Ouvrir l'assistant qui acte la non-reconduction du service."""
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Confirmer la non-reconduction",
+            "res_model": "hosting.service.disconnect.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"default_service_id": self.id},
+        }
+
     def action_suspend(self):
         """Suspendre le service."""
         self.write({"state": "suspended"})
@@ -961,7 +987,7 @@ class HostingService(models.Model):
         """Tâche planifiée pour expirer automatiquement les services en retard."""
         today = fields.Date.today()
         services = self.search([
-            ("state", "=", "active"),
+            ("state", "in", ("active", "to_disconnect")),
             ("date_expiration", "<", today),
         ])
         services.write({"state": "expired"})

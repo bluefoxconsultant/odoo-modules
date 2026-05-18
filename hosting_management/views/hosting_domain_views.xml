@@ -22,6 +22,10 @@
                        decoration-danger="state == 'expired'"
                        decoration-muted="state == 'transferred'"/>
                 <field name="annual_cost" string="Cout annuel" optional="show"/>
+                <field name="dmarc_managed" string="DMARC suivi" optional="hide"/>
+                <field name="dmarc_policy" string="Policy DMARC" optional="hide"/>
+                <field name="dmarc_drift" string="Drift DMARC" widget="boolean_toggle" optional="show"
+                       readonly="1" invisible="not dmarc_managed"/>
             </list>
         </field>
     </record>
@@ -37,6 +41,8 @@
                             class="oe_highlight" invisible="state == 'active'"/>
                     <button name="action_set_transferred" string="Transferer" type="object"
                             invisible="state == 'transferred'"/>
+                    <button name="action_dmarc_check_now" string="Vérifier DMARC maintenant"
+                            type="object" invisible="not dmarc_managed"/>
                     <field name="state" widget="statusbar" statusbar_visible="active,expiring_soon,expired"/>
                 </header>
                 <sheet>
@@ -92,6 +98,39 @@
                                 </list>
                             </field>
                         </page>
+                        <page string="DMARC" name="dmarc">
+                            <group>
+                                <group string="Configuration">
+                                    <field name="dmarc_managed"/>
+                                    <field name="dmarc_policy" required="dmarc_managed"
+                                           invisible="not dmarc_managed"/>
+                                    <field name="dmarc_rua" required="dmarc_managed"
+                                           invisible="not dmarc_managed"
+                                           placeholder="dmarc@exemple.com"/>
+                                    <field name="dmarc_pct" invisible="not dmarc_managed"/>
+                                    <field name="dmarc_next_review_date"
+                                           invisible="not dmarc_managed"/>
+                                </group>
+                                <group string="État DNS">
+                                    <field name="dmarc_dns_value_expected" readonly="1"
+                                           invisible="not dmarc_managed"/>
+                                    <field name="dmarc_dns_value_observed" readonly="1"
+                                           invisible="not dmarc_managed"/>
+                                    <field name="dmarc_last_dns_check" readonly="1"
+                                           invisible="not dmarc_managed"/>
+                                    <field name="dmarc_drift" readonly="1"
+                                           widget="boolean_toggle"
+                                           invisible="not dmarc_managed"/>
+                                </group>
+                            </group>
+                            <div class="alert alert-warning" role="alert"
+                                 invisible="not dmarc_drift">
+                                <strong>Drift DMARC détecté.</strong>
+                                Le TXT <code>_dmarc</code> observé via Cloudflare DoH ne
+                                correspond pas à la valeur attendue. Vérifiez la zone DNS
+                                ou ajustez la configuration attendue.
+                            </div>
+                        </page>
                         <page string="Notes" name="notes">
                             <field name="notes" nolabel="1"/>
                         </page>
@@ -100,6 +139,8 @@
                     <field name="active" invisible="1"/>
                     <field name="domain_activity_created" invisible="1"/>
                     <field name="ssl_activity_created" invisible="1"/>
+                    <field name="dmarc_drift_notified" invisible="1"/>
+                    <field name="dmarc_review_activity_created" invisible="1"/>
                 </sheet>
                 <chatter/>
             </form>
@@ -126,6 +167,11 @@
                 <filter name="filter_ssl_expiring" string="SSL expirant"
                         domain="[('ssl_type', '!=', 'none'), ('ssl_expiry_date', '&lt;=', (context_today() + relativedelta(days=30)).strftime('%Y-%m-%d')), ('ssl_expiry_date', '&gt;=', context_today().strftime('%Y-%m-%d'))]"/>
                 <filter name="filter_no_auto_renew" string="Sans renouvellement auto" domain="[('auto_renew', '=', False)]"/>
+                <separator/>
+                <filter name="filter_dmarc_managed" string="DMARC suivi" domain="[('dmarc_managed', '=', True)]"/>
+                <filter name="filter_dmarc_drift" string="Drift DMARC" domain="[('dmarc_drift', '=', True)]"/>
+                <filter name="filter_dmarc_review_due" string="Révision DMARC due"
+                        domain="[('dmarc_managed', '=', True), ('dmarc_next_review_date', '!=', False), ('dmarc_next_review_date', '&lt;=', context_today().strftime('%Y-%m-%d'))]"/>
                 <separator/>
                 <filter name="filter_archived" string="Archives" domain="[('active', '=', False)]"/>
                 <group expand="0" string="Grouper par">

@@ -15,7 +15,7 @@
             <field name="subject">{{ ctx.get('email_subject', 'Information importante') }} - {{ object.company_id.name }}</field>
             <field name="body_html" type="html">
 
-<t t-set="company" t-value="(getattr(object, 'company_id', False)) or user.company_id"/>
+<t t-set="company" t-value="(object.company_id if hasattr(object, 'company_id') and object.company_id else user.company_id)"/>
 <t t-set="brand_primary" t-value="(company and company.report_brand_primary) or '#714B67'"/>
 <t t-set="brand_dark" t-value="(company and company.report_brand_dark) or '#212529'"/>
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F8FAFC;">
@@ -35,8 +35,8 @@
                           <tbody>
                             <tr>
                               <td align="left">
-                                <a href="#" style="text-decoration:none;">
-                                  <img src="/web/image/res.company/{{ object.company_id.id }}/logo" alt="Company" style="height:44px;width:auto;display:block;border:0;" height="44"/>
+                                <a t-attf-href="{{ company.website or 'https://www.bluefoxconsultant.com' }}" style="text-decoration:none;">
+                                  <img t-attf-src="/web/image/res.company/{{ company.id }}/logo" t-att-alt="company.name or 'Company'" style="height:44px;width:auto;display:block;border:0;" height="44"/>
                                 </a>
                               </td>
                               <td align="right" style="color:#E6EDF3;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:14px;font-weight:400;letter-spacing:0.3px;">
@@ -68,7 +68,7 @@
                         </p>
                         <p t-attf-style="margin:16px 0 0 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;line-height:26px;color:{{ brand_dark }};font-weight:400;">
                           Cordialement,<br/>
-                          <strong>L'&#233;quipe {{ object.company_id.name }}</strong>
+                          <strong>L'&#233;quipe <t t-out="company.name or 'Blue Fox'"/></strong>
                         </p>
                       </td>
                     </tr>
@@ -89,17 +89,17 @@
                           <tbody>
                             <tr>
                               <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#6B7280;line-height:20px;">
-                                <strong t-attf-style="color:{{ brand_dark }};font-size:14px;">{{ object.company_id.name }}</strong><br/>
+                                <strong t-attf-style="color:{{ brand_dark }};font-size:14px;"><t t-out="company.name or 'Blue Fox'"/></strong><br/>
                                 Solutions &#233;thiques et souveraines pour vos donn&#233;es.
                               </td>
                             </tr>
                             <tr>
                               <td style="padding-top:12px;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;color:#9CA3AF;line-height:18px;">
-                                <a href="mailto:{{ (object.company_id.email or '') }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;">{{ (object.company_id.email or '') }}</a>
+                                <a t-attf-href="mailto:{{ company.email or '' }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;"><t t-out="company.email or ''"/></a>
                                 <span style="color:#D1D5DB;"> &#183; </span>
-                                <a href="tel:{{ (object.company_id.phone or '') }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;">{{ (object.company_id.phone or '') }}</a>
+                                <a t-attf-href="tel:{{ company.phone or '' }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;"><t t-out="company.phone or ''"/></a>
                                 <span style="color:#D1D5DB;"> &#183; </span>
-                                <a href="#" t-attf-style="color:{{ brand_primary }};text-decoration:none;">{{ (object.company_id.website or '').replace('https://','').replace('http://','') or 'example.com' }}</a>
+                                <a t-if="company.website" t-att-href="company.website" t-attf-style="color:{{ brand_primary }};text-decoration:none;"><t t-out="(company.website or '').replace('https://','').replace('http://','')"/></a>
                               </td>
                             </tr>
                             <tr>
@@ -108,9 +108,9 @@
                                   <tbody>
                                     <tr>
                                       <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:11px;">
-                                        <a href="#" style="color:#9CA3AF;text-decoration:underline;">Confidentialit&#233;</a>
+                                        <a t-attf-href="{{ company.website or 'https://www.bluefoxconsultant.com' }}/r/politique-de-confidentialite" style="color:#9CA3AF;text-decoration:underline;">Confidentialit&#233;</a>
                                         <span style="color:#D1D5DB;"> | </span>
-                                        <a href="#" style="color:#9CA3AF;text-decoration:underline;">Conditions</a>
+                                        <a t-attf-href="{{ company.website or 'https://www.bluefoxconsultant.com' }}/r/termes-et-conditions" style="color:#9CA3AF;text-decoration:underline;">Conditions</a>
                                       </td>
                                     </tr>
                                   </tbody>
@@ -159,7 +159,7 @@
             <field name="subject">Rapport mensuel de vos services - {{ ctx.get('report_month', 'ce mois') }} - {{ object.company_id.name }}</field>
             <field name="body_html" type="html">
 
-<t t-set="company" t-value="(getattr(object, 'company_id', False)) or user.company_id"/>
+<t t-set="company" t-value="(object.company_id if hasattr(object, 'company_id') and object.company_id else user.company_id)"/>
 <t t-set="brand_primary" t-value="(company and company.report_brand_primary) or '#714B67'"/>
 <t t-set="brand_dark" t-value="(company and company.report_brand_dark) or '#212529'"/>
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F8FAFC;">
@@ -179,8 +179,8 @@
                           <tbody>
                             <tr>
                               <td align="left">
-                                <a href="#" style="text-decoration:none;">
-                                  <img src="/web/image/res.company/{{ object.company_id.id }}/logo" alt="Company" style="height:44px;width:auto;display:block;border:0;" height="44"/>
+                                <a t-attf-href="{{ company.website or 'https://www.bluefoxconsultant.com' }}" style="text-decoration:none;">
+                                  <img t-attf-src="/web/image/res.company/{{ company.id }}/logo" t-att-alt="company.name or 'Company'" style="height:44px;width:auto;display:block;border:0;" height="44"/>
                                 </a>
                               </td>
                               <td align="right" style="color:#E6EDF3;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:20px;font-weight:700;letter-spacing:0.3px;">
@@ -284,7 +284,7 @@
                         </p>
                         <p t-attf-style="margin:16px 0 0 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;line-height:26px;color:{{ brand_dark }};font-weight:400;">
                           Cordialement,<br/>
-                          <strong>L'&#233;quipe {{ object.company_id.name }}</strong>
+                          <strong>L'&#233;quipe <t t-out="company.name or 'Blue Fox'"/></strong>
                         </p>
                       </td>
                     </tr>
@@ -305,17 +305,17 @@
                           <tbody>
                             <tr>
                               <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#6B7280;line-height:20px;">
-                                <strong t-attf-style="color:{{ brand_dark }};font-size:14px;">{{ object.company_id.name }}</strong><br/>
+                                <strong t-attf-style="color:{{ brand_dark }};font-size:14px;"><t t-out="company.name or 'Blue Fox'"/></strong><br/>
                                 Solutions &#233;thiques et souveraines pour vos donn&#233;es.
                               </td>
                             </tr>
                             <tr>
                               <td style="padding-top:12px;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;color:#9CA3AF;line-height:18px;">
-                                <a href="mailto:{{ (object.company_id.email or '') }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;">{{ (object.company_id.email or '') }}</a>
+                                <a t-attf-href="mailto:{{ company.email or '' }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;"><t t-out="company.email or ''"/></a>
                                 <span style="color:#D1D5DB;"> &#183; </span>
-                                <a href="tel:{{ (object.company_id.phone or '') }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;">{{ (object.company_id.phone or '') }}</a>
+                                <a t-attf-href="tel:{{ company.phone or '' }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;"><t t-out="company.phone or ''"/></a>
                                 <span style="color:#D1D5DB;"> &#183; </span>
-                                <a href="#" t-attf-style="color:{{ brand_primary }};text-decoration:none;">{{ (object.company_id.website or '').replace('https://','').replace('http://','') or 'example.com' }}</a>
+                                <a t-if="company.website" t-att-href="company.website" t-attf-style="color:{{ brand_primary }};text-decoration:none;"><t t-out="(company.website or '').replace('https://','').replace('http://','')"/></a>
                               </td>
                             </tr>
                             <tr>
@@ -324,9 +324,9 @@
                                   <tbody>
                                     <tr>
                                       <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:11px;">
-                                        <a href="#" style="color:#9CA3AF;text-decoration:underline;">Confidentialit&#233;</a>
+                                        <a t-attf-href="{{ company.website or 'https://www.bluefoxconsultant.com' }}/r/politique-de-confidentialite" style="color:#9CA3AF;text-decoration:underline;">Confidentialit&#233;</a>
                                         <span style="color:#D1D5DB;"> | </span>
-                                        <a href="#" style="color:#9CA3AF;text-decoration:underline;">Conditions</a>
+                                        <a t-attf-href="{{ company.website or 'https://www.bluefoxconsultant.com' }}/r/termes-et-conditions" style="color:#9CA3AF;text-decoration:underline;">Conditions</a>
                                       </td>
                                     </tr>
                                   </tbody>
@@ -366,7 +366,8 @@
         <!-- 3. NOTIFICATION DE MAINTENANCE PLANIFI&#201;E               -->
         <!-- ctx : maintenance_date, maintenance_duration,                -->
         <!--       affected_services, expected_impact, message_body       -->
-        <!-- Accent bar : ambre #F59E0B (avertissement)                   -->
+        <!-- Accent bar : brand_primary (harmonisé avec les autres        -->
+        <!-- templates client : générique, mensuel)                       -->
         <!-- ============================================================ -->
         <record id="mail_template_client_maintenance_notice" model="mail.template">
             <field name="name">Client : Avis de maintenance</field>
@@ -376,7 +377,7 @@
             <field name="subject">Avis de maintenance planifi&#233;e - {{ ctx.get('maintenance_date', '') }} - {{ object.company_id.name }}</field>
             <field name="body_html" type="html">
 
-<t t-set="company" t-value="(getattr(object, 'company_id', False)) or user.company_id"/>
+<t t-set="company" t-value="(object.company_id if hasattr(object, 'company_id') and object.company_id else user.company_id)"/>
 <t t-set="brand_primary" t-value="(company and company.report_brand_primary) or '#714B67'"/>
 <t t-set="brand_dark" t-value="(company and company.report_brand_dark) or '#212529'"/>
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F8FAFC;">
@@ -396,11 +397,11 @@
                           <tbody>
                             <tr>
                               <td align="left">
-                                <a href="#" style="text-decoration:none;">
-                                  <img src="/web/image/res.company/{{ object.company_id.id }}/logo" alt="Company" style="height:44px;width:auto;display:block;border:0;" height="44"/>
+                                <a t-attf-href="{{ company.website or 'https://www.bluefoxconsultant.com' }}" style="text-decoration:none;">
+                                  <img t-attf-src="/web/image/res.company/{{ company.id }}/logo" t-att-alt="company.name or 'Company'" style="height:44px;width:auto;display:block;border:0;" height="44"/>
                                 </a>
                               </td>
-                              <td align="right" style="color:#FDE68A;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:20px;font-weight:700;letter-spacing:0.3px;">
+                              <td align="right" style="color:#E6EDF3;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:20px;font-weight:600;letter-spacing:0.3px;">
                                 Avis de maintenance
                               </td>
                             </tr>
@@ -409,9 +410,9 @@
                       </td>
                     </tr>
 
-                    <!-- Accent bar - Amber (warning) -->
+                    <!-- Accent bar - brand_primary -->
                     <tr>
-                      <td style="height:4px;line-height:4px;background-color:#F59E0B;">&amp;nbsp;</td>
+                      <td t-attf-style="height:4px;line-height:4px;background-color:{{ brand_primary }};">&amp;nbsp;</td>
                     </tr>
 
                     <!-- Content -->
@@ -425,7 +426,7 @@
                         </p>
 
                         <!-- Maintenance details card -->
-                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:24px;border-radius:12px;border:1px solid #FDE68A;background-color:#FFFBEB;">
+                        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:24px;border-radius:12px;border:1px solid #E5E7EB;background-color:#F9FAFB;">
                           <tbody>
                             <!-- Date & heure -->
                             <tr>
@@ -433,7 +434,7 @@
                                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                                   <tbody>
                                     <tr>
-                                      <td width="140" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;color:#92400E;text-transform:uppercase;letter-spacing:0.5px;vertical-align:top;padding-top:2px;">
+                                      <td width="140" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:0.5px;vertical-align:top;padding-top:2px;">
                                         Date et heure
                                       </td>
                                       <td t-attf-style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;font-weight:500;color:{{ brand_dark }};">
@@ -450,7 +451,7 @@
                                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                                   <tbody>
                                     <tr>
-                                      <td width="140" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;color:#92400E;text-transform:uppercase;letter-spacing:0.5px;vertical-align:top;padding-top:2px;">
+                                      <td width="140" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:0.5px;vertical-align:top;padding-top:2px;">
                                         Dur&#233;e estim&#233;e
                                       </td>
                                       <td t-attf-style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;font-weight:500;color:{{ brand_dark }};">
@@ -467,7 +468,7 @@
                                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                                   <tbody>
                                     <tr>
-                                      <td width="140" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;color:#92400E;text-transform:uppercase;letter-spacing:0.5px;vertical-align:top;padding-top:2px;">
+                                      <td width="140" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:0.5px;vertical-align:top;padding-top:2px;">
                                         Services affect&#233;s
                                       </td>
                                       <td t-attf-style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;font-weight:500;color:{{ brand_dark }};">
@@ -484,7 +485,7 @@
                                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                                   <tbody>
                                     <tr>
-                                      <td width="140" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;color:#92400E;text-transform:uppercase;letter-spacing:0.5px;vertical-align:top;padding-top:2px;">
+                                      <td width="140" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;color:#6B7280;text-transform:uppercase;letter-spacing:0.5px;vertical-align:top;padding-top:2px;">
                                         Impact attendu
                                       </td>
                                       <td t-attf-style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;font-weight:500;color:{{ brand_dark }};">
@@ -508,7 +509,7 @@
                         </p>
                         <p t-attf-style="margin:16px 0 0 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;line-height:26px;color:{{ brand_dark }};font-weight:400;">
                           Cordialement,<br/>
-                          <strong>L'&#233;quipe {{ object.company_id.name }}</strong>
+                          <strong>L'&#233;quipe <t t-out="company.name or 'Blue Fox'"/></strong>
                         </p>
                       </td>
                     </tr>
@@ -529,17 +530,17 @@
                           <tbody>
                             <tr>
                               <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#6B7280;line-height:20px;">
-                                <strong t-attf-style="color:{{ brand_dark }};font-size:14px;">{{ object.company_id.name }}</strong><br/>
+                                <strong t-attf-style="color:{{ brand_dark }};font-size:14px;"><t t-out="company.name or 'Blue Fox'"/></strong><br/>
                                 Solutions &#233;thiques et souveraines pour vos donn&#233;es.
                               </td>
                             </tr>
                             <tr>
                               <td style="padding-top:12px;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;color:#9CA3AF;line-height:18px;">
-                                <a href="mailto:{{ (object.company_id.email or '') }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;">{{ (object.company_id.email or '') }}</a>
+                                <a t-attf-href="mailto:{{ company.email or '' }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;"><t t-out="company.email or ''"/></a>
                                 <span style="color:#D1D5DB;"> &#183; </span>
-                                <a href="tel:{{ (object.company_id.phone or '') }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;">{{ (object.company_id.phone or '') }}</a>
+                                <a t-attf-href="tel:{{ company.phone or '' }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;"><t t-out="company.phone or ''"/></a>
                                 <span style="color:#D1D5DB;"> &#183; </span>
-                                <a href="#" t-attf-style="color:{{ brand_primary }};text-decoration:none;">{{ (object.company_id.website or '').replace('https://','').replace('http://','') or 'example.com' }}</a>
+                                <a t-if="company.website" t-att-href="company.website" t-attf-style="color:{{ brand_primary }};text-decoration:none;"><t t-out="(company.website or '').replace('https://','').replace('http://','')"/></a>
                               </td>
                             </tr>
                             <tr>
@@ -548,9 +549,9 @@
                                   <tbody>
                                     <tr>
                                       <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:11px;">
-                                        <a href="#" style="color:#9CA3AF;text-decoration:underline;">Confidentialit&#233;</a>
+                                        <a t-attf-href="{{ company.website or 'https://www.bluefoxconsultant.com' }}/r/politique-de-confidentialite" style="color:#9CA3AF;text-decoration:underline;">Confidentialit&#233;</a>
                                         <span style="color:#D1D5DB;"> | </span>
-                                        <a href="#" style="color:#9CA3AF;text-decoration:underline;">Conditions</a>
+                                        <a t-attf-href="{{ company.website or 'https://www.bluefoxconsultant.com' }}/r/termes-et-conditions" style="color:#9CA3AF;text-decoration:underline;">Conditions</a>
                                       </td>
                                     </tr>
                                   </tbody>
@@ -564,11 +565,11 @@
                   </tbody>
                 </table>
 
-                <!-- Bottom double accent - Amber variant -->
+                <!-- Bottom double accent - brand_primary + brand_dark -->
                 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="width:600px;max-width:600px;margin:12px auto 0;">
                   <tbody>
                     <tr>
-                      <td style="height:3px;line-height:3px;background-color:#F59E0B;width:50%;border-radius:2px 0 0 2px;">&amp;nbsp;</td>
+                      <td t-attf-style="height:3px;line-height:3px;background-color:{{ brand_primary }};width:50%;border-radius:2px 0 0 2px;">&amp;nbsp;</td>
                       <td t-attf-style="height:3px;line-height:3px;background-color:{{ brand_dark }};width:50%;border-radius:0 2px 2px 0;">&amp;nbsp;</td>
                     </tr>
                   </tbody>
@@ -600,7 +601,7 @@
             <field name="subject">Rapport d'intervention compl&#233;t&#233;e - {{ object.company_id.name }}</field>
             <field name="body_html" type="html">
 
-<t t-set="company" t-value="(getattr(object, 'company_id', False)) or user.company_id"/>
+<t t-set="company" t-value="(object.company_id if hasattr(object, 'company_id') and object.company_id else user.company_id)"/>
 <t t-set="brand_primary" t-value="(company and company.report_brand_primary) or '#714B67'"/>
 <t t-set="brand_dark" t-value="(company and company.report_brand_dark) or '#212529'"/>
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F8FAFC;">
@@ -620,8 +621,8 @@
                           <tbody>
                             <tr>
                               <td align="left">
-                                <a href="#" style="text-decoration:none;">
-                                  <img src="/web/image/res.company/{{ object.company_id.id }}/logo" alt="Company" style="height:44px;width:auto;display:block;border:0;" height="44"/>
+                                <a t-attf-href="{{ company.website or 'https://www.bluefoxconsultant.com' }}" style="text-decoration:none;">
+                                  <img t-attf-src="/web/image/res.company/{{ company.id }}/logo" t-att-alt="company.name or 'Company'" style="height:44px;width:auto;display:block;border:0;" height="44"/>
                                 </a>
                               </td>
                               <td align="right" style="color:#A7F3D0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:20px;font-weight:700;letter-spacing:0.3px;">
@@ -728,7 +729,7 @@
                         </p>
                         <p t-attf-style="margin:16px 0 0 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;line-height:26px;color:{{ brand_dark }};font-weight:400;">
                           Cordialement,<br/>
-                          <strong>L'&#233;quipe {{ object.company_id.name }}</strong>
+                          <strong>L'&#233;quipe <t t-out="company.name or 'Blue Fox'"/></strong>
                         </p>
                       </td>
                     </tr>
@@ -749,17 +750,17 @@
                           <tbody>
                             <tr>
                               <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#6B7280;line-height:20px;">
-                                <strong t-attf-style="color:{{ brand_dark }};font-size:14px;">{{ object.company_id.name }}</strong><br/>
+                                <strong t-attf-style="color:{{ brand_dark }};font-size:14px;"><t t-out="company.name or 'Blue Fox'"/></strong><br/>
                                 Solutions &#233;thiques et souveraines pour vos donn&#233;es.
                               </td>
                             </tr>
                             <tr>
                               <td style="padding-top:12px;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;color:#9CA3AF;line-height:18px;">
-                                <a href="mailto:{{ (object.company_id.email or '') }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;">{{ (object.company_id.email or '') }}</a>
+                                <a t-attf-href="mailto:{{ company.email or '' }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;"><t t-out="company.email or ''"/></a>
                                 <span style="color:#D1D5DB;"> &#183; </span>
-                                <a href="tel:{{ (object.company_id.phone or '') }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;">{{ (object.company_id.phone or '') }}</a>
+                                <a t-attf-href="tel:{{ company.phone or '' }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;"><t t-out="company.phone or ''"/></a>
                                 <span style="color:#D1D5DB;"> &#183; </span>
-                                <a href="#" t-attf-style="color:{{ brand_primary }};text-decoration:none;">{{ (object.company_id.website or '').replace('https://','').replace('http://','') or 'example.com' }}</a>
+                                <a t-if="company.website" t-att-href="company.website" t-attf-style="color:{{ brand_primary }};text-decoration:none;"><t t-out="(company.website or '').replace('https://','').replace('http://','')"/></a>
                               </td>
                             </tr>
                             <tr>
@@ -768,9 +769,9 @@
                                   <tbody>
                                     <tr>
                                       <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:11px;">
-                                        <a href="#" style="color:#9CA3AF;text-decoration:underline;">Confidentialit&#233;</a>
+                                        <a t-attf-href="{{ company.website or 'https://www.bluefoxconsultant.com' }}/r/politique-de-confidentialite" style="color:#9CA3AF;text-decoration:underline;">Confidentialit&#233;</a>
                                         <span style="color:#D1D5DB;"> | </span>
-                                        <a href="#" style="color:#9CA3AF;text-decoration:underline;">Conditions</a>
+                                        <a t-attf-href="{{ company.website or 'https://www.bluefoxconsultant.com' }}/r/termes-et-conditions" style="color:#9CA3AF;text-decoration:underline;">Conditions</a>
                                       </td>
                                     </tr>
                                   </tbody>
@@ -820,7 +821,7 @@
             <field name="subject">Bienvenue ! Vos services sont pr&#234;ts</field>
             <field name="body_html" type="html">
 
-<t t-set="company" t-value="(getattr(object, 'company_id', False)) or user.company_id"/>
+<t t-set="company" t-value="(object.company_id if hasattr(object, 'company_id') and object.company_id else user.company_id)"/>
 <t t-set="brand_primary" t-value="(company and company.report_brand_primary) or '#714B67'"/>
 <t t-set="brand_dark" t-value="(company and company.report_brand_dark) or '#212529'"/>
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F8FAFC;">
@@ -840,8 +841,8 @@
                           <tbody>
                             <tr>
                               <td align="center">
-                                <a href="#" style="text-decoration:none;">
-                                  <img src="/web/image/res.company/{{ object.company_id.id }}/logo" alt="Company" style="height:56px;width:auto;display:block;border:0;" height="56"/>
+                                <a t-attf-href="{{ company.website or 'https://www.bluefoxconsultant.com' }}" style="text-decoration:none;">
+                                  <img t-attf-src="/web/image/res.company/{{ company.id }}/logo" t-att-alt="company.name or 'Company'" style="height:56px;width:auto;display:block;border:0;" height="56"/>
                                 </a>
                               </td>
                             </tr>
@@ -909,16 +910,16 @@
                                     <tr>
                                       <td style="padding:6px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:15px;color:#374151;font-weight:300;">
                                         Courriel :
-                                        <a href="mailto:{{ ctx.get('support_email', '{{ (object.company_id.email or '') }}') }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;font-weight:400;">
-                                          <t t-out="ctx.get('support_email', '{{ (object.company_id.email or '') }}')"/>
+                                        <a t-attf-href="mailto:{{ ctx.get('support_email') or company.email or '' }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;font-weight:400;">
+                                          <t t-out="ctx.get('support_email') or company.email or ''"/>
                                         </a>
                                       </td>
                                     </tr>
                                     <tr>
                                       <td style="padding:6px 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:15px;color:#374151;font-weight:300;">
                                         T&#233;l&#233;phone :
-                                        <a href="tel:{{ ctx.get('support_phone', '{{ (object.company_id.phone or '') }}') }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;font-weight:400;">
-                                          <t t-out="ctx.get('support_phone', '{{ (object.company_id.phone or '') }}')"/>
+                                        <a t-attf-href="tel:{{ ctx.get('support_phone') or company.phone or '' }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;font-weight:400;">
+                                          <t t-out="ctx.get('support_phone') or company.phone or ''"/>
                                         </a>
                                       </td>
                                     </tr>
@@ -944,7 +945,7 @@
                           <tbody>
                             <tr>
                               <td align="center">
-                                <a href="#" t-attf-style="display:inline-block;padding:14px 36px;background-color:{{ brand_primary }};color:#ffffff;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;font-weight:600;text-decoration:none;border-radius:10px;">
+                                <a t-attf-href="{{ ctx.get('cta_url') or company.website or 'https://www.bluefoxconsultant.com' }}" t-attf-style="display:inline-block;padding:14px 36px;background-color:{{ brand_primary }};color:#ffffff;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;font-weight:600;text-decoration:none;border-radius:10px;">
                                   D&#233;couvrir nos services
                                 </a>
                               </td>
@@ -962,7 +963,7 @@
                         </p>
                         <p t-attf-style="margin:16px 0 0 0;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;line-height:26px;color:{{ brand_dark }};font-weight:400;">
                           Chaleureusement,<br/>
-                          <strong>L'&#233;quipe {{ object.company_id.name }}</strong>
+                          <strong>L'&#233;quipe <t t-out="company.name or 'Blue Fox'"/></strong>
                         </p>
                       </td>
                     </tr>
@@ -983,17 +984,17 @@
                           <tbody>
                             <tr>
                               <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#6B7280;line-height:20px;">
-                                <strong t-attf-style="color:{{ brand_dark }};font-size:14px;">{{ object.company_id.name }}</strong><br/>
+                                <strong t-attf-style="color:{{ brand_dark }};font-size:14px;"><t t-out="company.name or 'Blue Fox'"/></strong><br/>
                                 Solutions &#233;thiques et souveraines pour vos donn&#233;es.
                               </td>
                             </tr>
                             <tr>
                               <td style="padding-top:12px;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;color:#9CA3AF;line-height:18px;">
-                                <a href="mailto:{{ (object.company_id.email or '') }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;">{{ (object.company_id.email or '') }}</a>
+                                <a t-attf-href="mailto:{{ company.email or '' }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;"><t t-out="company.email or ''"/></a>
                                 <span style="color:#D1D5DB;"> &#183; </span>
-                                <a href="tel:{{ (object.company_id.phone or '') }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;">{{ (object.company_id.phone or '') }}</a>
+                                <a t-attf-href="tel:{{ company.phone or '' }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;"><t t-out="company.phone or ''"/></a>
                                 <span style="color:#D1D5DB;"> &#183; </span>
-                                <a href="#" t-attf-style="color:{{ brand_primary }};text-decoration:none;">{{ (object.company_id.website or '').replace('https://','').replace('http://','') or 'example.com' }}</a>
+                                <a t-if="company.website" t-att-href="company.website" t-attf-style="color:{{ brand_primary }};text-decoration:none;"><t t-out="(company.website or '').replace('https://','').replace('http://','')"/></a>
                               </td>
                             </tr>
                             <tr>
@@ -1002,9 +1003,9 @@
                                   <tbody>
                                     <tr>
                                       <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:11px;">
-                                        <a href="#" style="color:#9CA3AF;text-decoration:underline;">Confidentialit&#233;</a>
+                                        <a t-attf-href="{{ company.website or 'https://www.bluefoxconsultant.com' }}/r/politique-de-confidentialite" style="color:#9CA3AF;text-decoration:underline;">Confidentialit&#233;</a>
                                         <span style="color:#D1D5DB;"> | </span>
-                                        <a href="#" style="color:#9CA3AF;text-decoration:underline;">Conditions</a>
+                                        <a t-attf-href="{{ company.website or 'https://www.bluefoxconsultant.com' }}/r/termes-et-conditions" style="color:#9CA3AF;text-decoration:underline;">Conditions</a>
                                       </td>
                                     </tr>
                                   </tbody>

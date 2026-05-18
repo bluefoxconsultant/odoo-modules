@@ -6,7 +6,7 @@
         <field name="name">hosting.service.tree</field>
         <field name="model">hosting.service</field>
         <field name="arch" type="xml">
-            <list decoration-danger="state == 'expired'" decoration-warning="storage_alert or (date_expiration and days_until_expiration &lt; 30)" decoration-muted="state == 'cancelled'">
+            <list decoration-danger="state == 'expired'" decoration-warning="storage_alert or (date_expiration and days_until_expiration &lt; 30)" decoration-info="state == 'to_disconnect'" decoration-muted="state == 'cancelled'">
                 <field name="code"/>
                 <field name="name" string="Nom"/>
                 <field name="partner_id" string="Client"/>
@@ -16,7 +16,7 @@
                 <field name="storage_used_percent" string="Stockage" widget="progressbar"/>
                 <field name="date_expiration" string="Date d'expiration"/>
                 <field name="days_until_expiration" string="Jours restants"/>
-                <field name="state" string="État" widget="badge" decoration-success="state == 'active'" decoration-info="state == 'draft'" decoration-warning="state == 'suspended'" decoration-danger="state == 'expired'" decoration-muted="state == 'cancelled'"/>
+                <field name="state" string="État" widget="badge" decoration-success="state == 'active'" decoration-info="state in ('draft', 'to_disconnect')" decoration-warning="state == 'suspended'" decoration-danger="state == 'expired'" decoration-muted="state == 'cancelled'"/>
                 <field name="update_available" string="Mise à jour dispo." optional="show"/>
                 <field name="storage_alert" column_invisible="1"/>
             </list>
@@ -31,14 +31,16 @@
             <form>
                 <header>
                     <button name="action_activate" string="Activer" type="object" class="oe_highlight" invisible="state != 'draft'"/>
-                    <button name="action_suspend" string="Suspendre" type="object" invisible="state not in ('active',)"/>
+                    <button name="action_acknowledge_disconnect" string="Marquer à déconnecter" type="object" invisible="state != 'active'"/>
+                    <button name="action_suspend" string="Suspendre" type="object" invisible="state not in ('active', 'to_disconnect')"/>
                     <button name="action_activate" string="Réactiver" type="object" class="oe_highlight" invisible="state not in ('suspended', 'expired')"/>
+                    <button name="action_activate" string="Reprendre le service" type="object" class="oe_highlight" invisible="state != 'to_disconnect'"/>
                     <button name="action_cancel" string="Annuler" type="object" invisible="state in ('cancelled',)"/>
                     <button name="action_set_draft" string="Remettre en brouillon" type="object" invisible="state not in ('cancelled',)"/>
                     <button name="action_mark_updated" string="Marquer comme mis à jour" type="object" class="btn-secondary" invisible="not target_version_id"/>
                     <button name="action_update_to_latest" string="Mettre à jour vers la dernière version" type="object" class="btn-secondary" invisible="not update_available"/>
                     <button name="action_check_docker_version" string="Vérifier la version Docker" type="object" class="btn-secondary" invisible="not docker_container"/>
-                    <field name="state" widget="statusbar" statusbar_visible="draft,active,expired"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,active,to_disconnect,expired"/>
                 </header>
                 <sheet>
                     <!-- Environment Ribbon -->
@@ -134,6 +136,8 @@
                             <field name="date_start" string="Date de début"/>
                             <field name="date_expiration" string="Date d'expiration"/>
                             <field name="days_until_expiration" string="Jours restants" readonly="1"/>
+                            <field name="disconnect_acknowledged_date" invisible="state != 'to_disconnect'"/>
+                            <field name="disconnect_reason" invisible="state != 'to_disconnect'"/>
                         </group>
                         <group string="Facturation">
                             <field name="contract_id" string="Contrat"/>
@@ -309,7 +313,9 @@
                 <separator/>
                 <filter name="filter_my_services" string="Mes services" domain="[('user_id', '=', uid)]"/>
                 <separator/>
+                <filter name="filter_in_service" string="En service" domain="[('state', 'in', ('active', 'to_disconnect'))]"/>
                 <filter name="filter_active" string="Actifs" domain="[('state', '=', 'active')]"/>
+                <filter name="filter_to_disconnect" string="À déconnecter" domain="[('state', '=', 'to_disconnect')]"/>
                 <filter name="filter_draft" string="Brouillon" domain="[('state', '=', 'draft')]"/>
                 <filter name="filter_suspended" string="Suspendus" domain="[('state', '=', 'suspended')]"/>
                 <filter name="filter_expired" string="Expirés" domain="[('state', '=', 'expired')]"/>
@@ -343,7 +349,7 @@
         <field name="res_model">hosting.service</field>
         <field name="view_mode">list,kanban,form</field>
         <field name="search_view_id" ref="hosting_service_view_search"/>
-        <field name="context">{'search_default_filter_active': 1, 'search_default_filter_production': 1}</field>
+        <field name="context">{'search_default_filter_in_service': 1, 'search_default_filter_production': 1}</field>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">
                 Créez votre premier service d'hébergement
@@ -373,7 +379,7 @@
         <field name="res_model">hosting.service</field>
         <field name="view_mode">list,kanban,form</field>
         <field name="search_view_id" ref="hosting_service_view_search"/>
-        <field name="domain">[('date_expiration', '&lt;=', (context_today() + relativedelta(days=90)).strftime('%Y-%m-%d')), ('date_expiration', '&gt;', context_today().strftime('%Y-%m-%d')), ('state', '=', 'active')]</field>
+        <field name="domain">[('date_expiration', '&lt;=', (context_today() + relativedelta(days=90)).strftime('%Y-%m-%d')), ('date_expiration', '&gt;', context_today().strftime('%Y-%m-%d')), ('state', 'in', ('active', 'to_disconnect'))]</field>
     </record>
 
     <!-- Services Needing Updates Action -->
@@ -382,7 +388,31 @@
         <field name="res_model">hosting.service</field>
         <field name="view_mode">list,kanban,form</field>
         <field name="search_view_id" ref="hosting_service_view_search"/>
-        <field name="domain">[('update_available', '=', True), ('state', '=', 'active')]</field>
+        <field name="domain">[('update_available', '=', True), ('state', 'in', ('active', 'to_disconnect'))]</field>
+    </record>
+
+    <!-- Disconnect Wizard Form -->
+    <record id="hosting_service_disconnect_wizard_view_form" model="ir.ui.view">
+        <field name="name">hosting.service.disconnect.wizard.form</field>
+        <field name="model">hosting.service.disconnect.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Confirmer la non-reconduction">
+                <sheet>
+                    <group>
+                        <field name="service_id" readonly="1" options="{'no_open': True}"/>
+                        <field name="disconnect_acknowledged_date"/>
+                        <field name="disconnect_reason" placeholder="Ex. migration vers Microsoft 365, fin de contrat client, etc."/>
+                    </group>
+                    <div class="alert alert-info" role="alert">
+                        Le service restera en ligne jusqu'à sa date d'expiration, puis sera automatiquement marqué comme expiré. Les rappels de renouvellement sont désactivés.
+                    </div>
+                </sheet>
+                <footer>
+                    <button name="action_confirm" string="Confirmer" type="object" class="btn-primary"/>
+                    <button string="Annuler" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
     </record>
 
 </odoo>

@@ -8,7 +8,7 @@
         <field name="email_to">{{ ctx.get('recipient').email }}</field>
         <field name="body_html" type="html">
 
-<t t-set="company" t-value="(getattr(object, 'company_id', False)) or user.company_id"/>
+<t t-set="company" t-value="(object.company_id if hasattr(object, 'company_id') and object.company_id else user.company_id)"/>
 <t t-set="brand_primary" t-value="(company and company.report_brand_primary) or '#714B67'"/>
 <t t-set="brand_dark" t-value="(company and company.report_brand_dark) or '#212529'"/>
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F8FAFC;">
@@ -29,8 +29,8 @@
                                                     <tbody>
                                                         <tr>
                                                             <td align="left" style="color:#FFFFFF; font-family:'Lexend','Segoe UI',Arial,sans-serif; font-size:16px; font-weight:600;">
-                                                                <a href="#" style="text-decoration:none;">
-                                                                    <img src="/web/image/res.company/1/logo" alt="Company" style="height:48px; width:auto; display:block; border:0;"/>
+                                                                <a t-attf-href="{{ company.website or 'https://www.bluefoxconsultant.com' }}" style="text-decoration:none;">
+                                                                    <img t-attf-src="/web/image/res.company/{{ company.id }}/logo" t-att-alt="company.name or 'Logo'" style="height:48px; width:auto; display:block; border:0;"/>
                                                                 </a>
                                                             </td>
                                                             <td align="right" style="color:#E6EDF3; font-family:'Lexend','Segoe UI',Arial,sans-serif; font-size:22px; font-weight:800; letter-spacing:0.2px;">
@@ -58,9 +58,9 @@
                                                 </p>
                                                 <p style="font-size:13px; line-height:20px; color:#6B7280; margin:16px 0 0 0;">
                                                     Pour toute assistance, contactez-nous à
-                                                    <a href="mailto:hosting@example.com" t-attf-style="color:{{ brand_primary }}; text-decoration:none;">hosting@example.com</a>
+                                                    <a t-attf-href="mailto:{{ company.email or '' }}" t-attf-style="color:{{ brand_primary }}; text-decoration:none;"><t t-out="company.email or ''"/></a>
                                                     ou appelez le
-                                                    <a href="tel:{{ (object.company_id.phone or '') }}" t-attf-style="color:{{ brand_primary }}; text-decoration:none;">{{ (object.company_id.phone or '') }}</a>.
+                                                    <a t-attf-href="tel:{{ company.phone or '' }}" t-attf-style="color:{{ brand_primary }}; text-decoration:none;"><t t-out="company.phone or ''"/></a>.
                                                 </p>
                                             </td>
                                         </tr>
@@ -77,13 +77,13 @@
                                                     <tbody>
                                                         <tr>
                                                             <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif; font-size:12px; color:#6B7280;">
-                                                                <strong t-attf-style="color:{{ brand_dark }};">Gestion d'hébergement</strong><br/>
-                                                                Solutions éthiques et souveraines pour vos données.
+                                                                <strong t-attf-style="color:{{ brand_dark }};"><t t-out="company.name or 'Blue Fox'"/></strong><br/>
+                                                                Rapport généré automatiquement par votre module d'hébergement.
                                                             </td>
                                                             <td align="right" style="font-family:'Lexend','Segoe UI',Arial,sans-serif; font-size:12px; color:#9CA3AF;">
-                                                                <a href="#" style="color:#9CA3AF; text-decoration:underline;">Politique de confidentialité</a>
+                                                                <a t-attf-href="{{ company.website or 'https://www.bluefoxconsultant.com' }}/r/politique-de-confidentialite" style="color:#9CA3AF; text-decoration:underline;">Politique de confidentialité</a>
                                                                 <span style="color:#9CA3AF;"> | </span>
-                                                                <a href="#" style="color:#9CA3AF; text-decoration:underline;">Conditions</a>
+                                                                <a t-attf-href="{{ company.website or 'https://www.bluefoxconsultant.com' }}/r/termes-et-conditions" style="color:#9CA3AF; text-decoration:underline;">Conditions</a>
                                                             </td>
                                                         </tr>
                                                     </tbody>

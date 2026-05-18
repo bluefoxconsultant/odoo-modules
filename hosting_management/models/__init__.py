@@ -9,6 +9,7 @@ from . import hosting_software_version
 from . import hosting_service_tag
 from . import hosting_accepted_http_code
 from . import hosting_service
+from . import hosting_service_disconnect_wizard
 from . import hosting_update_log
 from . import hosting_health_check
 from . import hosting_health_daily_snapshot

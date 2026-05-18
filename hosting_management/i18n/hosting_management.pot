@@ -3943,7 +3943,7 @@ msgstr ""
 
 #. module: hosting_management
 #: model:ir.model.fields,help:hosting_management.field_hosting_server__name
-msgid "Nom convivial du serveur (ex. : « Primetime 1 »)"
+msgid "Nom convivial du serveur (ex. : « Mon serveur »)"
 msgstr ""
 
 #. module: hosting_management
