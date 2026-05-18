@@ -3,6 +3,7 @@ import logging
 import socket
 import threading
 
+import pytz
 from markupsafe import Markup, escape
 
 from odoo import api, fields, models
@@ -11,6 +12,44 @@ from odoo.exceptions import UserError
 _logger = logging.getLogger(__name__)
 
 _DEFAULT_BRIDGE_SOCKET = "/run/claude-bridge/bridge.sock"
+
+_TZ_CITY_LABEL = {
+    'America/Toronto': 'Montréal',
+    'America/Montreal': 'Montréal',
+    'Pacific/Auckland': 'Auckland',
+}
+
+
+def _tz_city(tz_name):
+    if not tz_name:
+        return ''
+    if tz_name in _TZ_CITY_LABEL:
+        return _TZ_CITY_LABEL[tz_name]
+    return tz_name.split('/')[-1].replace('_', ' ')
+
+
+def _format_meeting_date_display(record):
+    """Format record.date in the client's tz, with the originator's tz in
+    parentheses when it differs. record must expose date, partner_id,
+    organizer_id, create_uid."""
+    if not record.date:
+        return ''
+    client_tz_name = (record.partner_id.tz if record.partner_id else None) \
+        or 'America/Toronto'
+    organizer = record.organizer_id or record.create_uid
+    originator_tz_name = (organizer.tz if organizer else None) \
+        or 'America/Toronto'
+
+    utc_dt = pytz.utc.localize(record.date)
+    client_dt = utc_dt.astimezone(pytz.timezone(client_tz_name))
+    primary = client_dt.strftime('%Y-%m-%d %H:%M %Z')
+
+    if client_tz_name == originator_tz_name:
+        return primary
+
+    originator_dt = utc_dt.astimezone(pytz.timezone(originator_tz_name))
+    secondary = originator_dt.strftime('%Y-%m-%d %H:%M %Z')
+    return f"{primary} ({_tz_city(originator_tz_name)}: {secondary})"
 
 
 def _post_to_bridge(socket_path, endpoint, payload, timeout):
@@ -113,6 +152,57 @@ class MeetingRecord(models.Model):
     location = fields.Char(
         string='Lieu',
     )
+    meeting_type = fields.Selection(
+        [
+            ('in_person', 'Présentiel'),
+            ('video', 'Visio'),
+            ('phone', 'Téléphonique'),
+            ('hybrid', 'Hybride'),
+            ('async', 'Asynchrone'),
+        ],
+        string='Mode',
+        default='video',
+        required=True,
+        index=True,
+        tracking=True,
+        help='Mode de la rencontre. Visio par défaut (cas dominant via Noota). '
+             'Téléphonique permet de lier un appel archivé via le module pont.',
+    )
+    meeting_type_icon = fields.Char(
+        string='Icône mode',
+        compute='_compute_meeting_type_icon',
+        store=True,
+        help='Glyphe unicode représentant le mode — utilisé en list/kanban.',
+    )
+    lang = fields.Selection(
+        lambda self: self.env['res.lang'].get_installed(),
+        string='Langue',
+        compute='_compute_lang',
+        store=True,
+        readonly=False,
+        help="Langue du compte rendu : pilote la langue du rapport PDF et du "
+             "courriel d'envoi. Initialisée depuis la langue du client.",
+    )
+
+    @api.depends('meeting_type')
+    def _compute_meeting_type_icon(self):
+        glyphs = {
+            'in_person': '👥',
+            'video': '🎥',
+            'phone': '📞',
+            'hybrid': '🔀',
+            'async': '💬',
+        }
+        for rec in self:
+            rec.meeting_type_icon = glyphs.get(rec.meeting_type, '')
+
+    @api.depends('partner_id')
+    def _compute_lang(self):
+        default_lang = self.env.lang or 'fr_CA'
+        for rec in self:
+            if rec.lang:
+                continue
+            rec.lang = (rec.partner_id and rec.partner_id.lang) or default_lang
     series_name = fields.Char(
         string='Série',
         help='Nom de la série récurrente (ex. Statutaire BSI)',
@@ -377,6 +467,34 @@ class MeetingRecord(models.Model):
         for rec in self:
             rec.knowledge_item_count = len(rec.knowledge_item_ids)
 
+    meeting_attachment_ids = fields.One2many(
+        'ir.attachment',
+        compute='_compute_meeting_attachment_ids',
+        inverse='_inverse_meeting_attachment_ids',
+        string='Documents',
+    )
+
+    def _compute_meeting_attachment_ids(self):
+        for rec in self:
+            rec.meeting_attachment_ids = self.env['ir.attachment'].search([
+                ('res_model', '=', 'meeting.record'),
+                ('res_id', '=', rec.id),
+            ])
+
+    def _inverse_meeting_attachment_ids(self):
+        # Make sure inline edits to bf_visibility_window/from/until persist.
+        # The One2many is computed (no real FK to inverse) — Odoo writes back
+        # to ir.attachment directly via the inline list.
+        pass
+
+    @api.onchange('calendar_event_id')
+    def _onchange_calendar_event_id_fill_participants(self):
+        for rec in self:
+            if rec.calendar_event_id and not rec.participant_ids:
+                attendees = rec.calendar_event_id.partner_ids
+                if attendees:
+                    rec.participant_ids = [(6, 0, attendees.ids)]
+
     def write(self, vals):
         """Cascade `project_id` change to linked action-item tasks.
 
@@ -608,6 +726,7 @@ class MeetingRecord(models.Model):
 
         return {
             'today': fields.Date.context_today(self).strftime('%Y-%m-%d'),
+            'date_display': _format_meeting_date_display(self),
             'topics': data.get('topics', []),
             'deliverables': data.get('deliverables', []),
             'open_questions': data.get('open_questions', []),

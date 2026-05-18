@@ -9,6 +9,8 @@
             <list default_order="date desc">
                 <field name="date"/>
                 <field name="room_name"/>
+                <field name="meeting_type_icon" string="" optional="show" width="40px"/>
+                <field name="meeting_type" column_invisible="1"/>
                 <field name="project_id"/>
                 <field name="partner_id" optional="show"/>
                 <field name="series_name" optional="hide"/>
@@ -153,12 +155,17 @@
                             <field name="partner_id"/>
                             <field name="date"/>
                             <field name="duration_minutes"/>
+                            <field name="meeting_type" widget="radio" options="{'horizontal': true}"/>
                         </group>
                         <group>
                             <field name="room_name"/>
-                            <field name="location"/>
+                            <field name="location" invisible="meeting_type in ('phone', 'async')"/>
                             <field name="series_name"/>
                             <field name="organizer_id"/>
+                            <field name="lang"/>
+                            <field name="calendar_event_id"
+                                   options="{'no_create': True}"
+                                   placeholder="Lier un événement calendrier..."/>
                         </group>
                     </group>
                     <group>
@@ -234,13 +241,30 @@
                             <separator string="Transcription brute" invisible="not verbatim"/>
                             <field name="verbatim" nolabel="1" readonly="1" invisible="not verbatim"/>
                         </page>
+                        <page string="Documents" name="documents">
+                            <p class="text-muted">
+                                Pièces jointes liées au compte rendu. La colonne <strong>Fenêtre</strong>
+                                permet de masquer un document hors d'une plage temporelle relative à la date
+                                de la rencontre — utile pour les pre-reads confidentiels ou les decks éphémères.
+                                Les gestionnaires voient toujours tout, indépendamment de la fenêtre.
+                            </p>
+                            <field name="meeting_attachment_ids" nolabel="1">
+                                <list editable="bottom">
+                                    <field name="name"/>
+                                    <field name="bf_visibility_window"/>
+                                    <field name="bf_visible_from" optional="hide"/>
+                                    <field name="bf_visible_until" optional="hide"/>
+                                    <field name="bf_is_visible_now" widget="boolean_toggle" readonly="1"/>
+                                    <field name="mimetype" optional="hide"/>
+                                </list>
+                            </field>
+                        </page>
                         <page string="Technique" name="technical">
                             <group>
                                 <group>
                                     <field name="source_filename"/>
                                     <field name="source_nc_path"/>
                                     <field name="source_type"/>
-                                    <field name="calendar_event_id"/>
                                     <field name="agenda_id"/>
                                 </group>
                                 <group>
@@ -284,6 +308,17 @@
                 <filter name="filter_sent" string="Envoyé"
                         domain="[('report_state', '=', 'sent')]"/>
                 <separator/>
+                <filter name="filter_type_in_person" string="Présentiel"
+                        domain="[('meeting_type', '=', 'in_person')]"/>
+                <filter name="filter_type_video" string="Visio"
+                        domain="[('meeting_type', '=', 'video')]"/>
+                <filter name="filter_type_phone" string="Téléphonique"
+                        domain="[('meeting_type', '=', 'phone')]"/>
+                <filter name="filter_type_hybrid" string="Hybride"
+                        domain="[('meeting_type', '=', 'hybrid')]"/>
+                <filter name="filter_type_async" string="Asynchrone"
+                        domain="[('meeting_type', '=', 'async')]"/>
+                <separator/>
                 <filter name="filter_this_month" string="Ce mois"
                         domain="[('date', '&gt;=', (context_today() - relativedelta(day=1)).strftime('%%Y-%%m-%%d')),
                                  ('date', '&lt;', (context_today() + relativedelta(months=1, day=1)).strftime('%%Y-%%m-%%d'))]"/>
@@ -296,6 +331,8 @@
                             context="{'group_by': 'series_name'}"/>
                     <filter name="group_state" string="État"
                             context="{'group_by': 'report_state'}"/>
+                    <filter name="group_meeting_type" string="Mode"
+                            context="{'group_by': 'meeting_type'}"/>
                 </group>
             </search>
         </field>

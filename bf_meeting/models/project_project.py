@@ -14,6 +14,11 @@ class ProjectProject(models.Model):
         string='Nombre de comptes rendus',
         compute='_compute_meeting_count',
     )
+    bf_skip_dashboard = fields.Boolean(
+        string='Exclure du tableau de bord rencontres',
+        help="Cocher pour masquer toutes les rencontres rattachées à ce "
+             "projet du tableau de bord des rencontres (OdJ et CR).",
+    )
 
     @api.depends('meeting_record_ids')
     def _compute_meeting_count(self):

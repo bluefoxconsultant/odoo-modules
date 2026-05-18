@@ -10,6 +10,8 @@ from markupsafe import Markup, escape
 from odoo import api, fields, models
 from odoo.exceptions import UserError
 
+from .meeting_record import _format_meeting_date_display
+
 _logger = logging.getLogger(__name__)
 
 ACTIVE_AGENDA_STATES = ('draft', 'confirmed')
@@ -19,6 +21,69 @@ REMINDER_LEAD_DAYS = 7
 REMINDER_ACTIVITY_SUMMARY = "Envoyer l'ordre du jour avant la rencontre"
 
 _DEFAULT_BRIDGE_SOCKET = "/run/claude-bridge/bridge.sock"
+
+
+_EMPTY_HTML_VALUES = ('', '<p><br></p>', '<p><br/></p>', '<p></p>')
+
+
+def _html_is_blank(value):
+    """True if an Html field is effectively empty (incl. Odoo's <p><br/></p>)."""
+    if not value:
+        return True
+    return value.strip() in _EMPTY_HTML_VALUES
+
+
+def _wrap_agenda_original(html):
+    """Wrap agenda description HTML in a styled blockquote.
+
+    The inline style survives sanitize_style=True and gives notetakers an
+    immediate visual cue distinguishing pre-filled context from their own
+    annotations. The class hook lets us swap to a CSS asset later.
+    """
+    return Markup(
+        '<div class="bf-agenda-original" '
+        'style="border-left-width: 3px; border-left-style: solid; '
+        'border-left-color: #29ABE1; padding-left: 0.75em; color: #555; '
+        'margin: 0.25em 0;">'
+        '<p><small><em>Contexte d\'origine</em></small></p>'
+        '%s'
+        '</div>'
+        '<p><br/></p>'
+    ) % Markup(html or '')
+
+
+def _highlight_user_additions(html_str):
+    """Mark notes typed outside the agenda blockquote as user additions.
+
+    Walks top-level nodes and applies a yellow-highlight inline style to any
+    block that is not the pre-filled <blockquote class="bf-agenda-original">.
+    Empty paragraphs are left untouched so the rendered compte rendu stays
+    visually clean.
+    """
+    if not html_str:
+        return html_str
+    from lxml import html as _html
+    try:
+        wrapper = _html.fragment_fromstring(html_str, create_parent='div')
+    except Exception:
+        return html_str
+    highlight = 'background-color: #fff3cd; padding: 0 2px;'
+    changed = False
+    for child in list(wrapper):
+        cls = (child.get('class') or '')
+        if 'bf-agenda-original' in cls:
+            continue
+        if not (child.text_content() or '').strip():
+            continue
+        existing = (child.get('style') or '').rstrip()
+        sep = '; ' if existing and not existing.endswith(';') else ''
+        child.set('style', f'{existing}{sep}{highlight}')
+        changed = True
+    if not changed:
+        return html_str
+    return ''.join(
+        _html.tostring(c, encoding='unicode', with_tail=True) for c in wrapper
+    )
 
 
 def _post_to_bridge(socket_path, endpoint, payload, timeout):
@@ -113,6 +178,55 @@ class MeetingAgenda(models.Model):
     location = fields.Char(
         string='Lieu',
     )
+    meeting_type = fields.Selection(
+        [
+            ('in_person', 'Présentiel'),
+            ('video', 'Visio'),
+            ('phone', 'Téléphonique'),
+            ('hybrid', 'Hybride'),
+            ('async', 'Asynchrone'),
+        ],
+        string='Mode',
+        default='video',
+        required=True,
+        index=True,
+        tracking=True,
+        help='Mode prévu pour la rencontre. Propagé au compte rendu à la création.',
+    )
+    meeting_type_icon = fields.Char(
+        string='Icône mode',
+        compute='_compute_meeting_type_icon',
+        store=True,
+    )
+    lang = fields.Selection(
+        lambda self: self.env['res.lang'].get_installed(),
+        string='Langue',
+        compute='_compute_lang',
+        store=True,
+        readonly=False,
+        help="Langue de l'ordre du jour : pilote le rapport PDF et le "
+             "courriel d'envoi. Propagée au compte rendu.",
+    )
+
+    @api.depends('meeting_type')
+    def _compute_meeting_type_icon(self):
+        glyphs = {
+            'in_person': '👥',
+            'video': '🎥',
+            'phone': '📞',
+            'hybrid': '🔀',
+            'async': '💬',
+        }
+        for rec in self:
+            rec.meeting_type_icon = glyphs.get(rec.meeting_type, '')
+
+    @api.depends('partner_id')
+    def _compute_lang(self):
+        default_lang = self.env.lang or 'fr_CA'
+        for rec in self:
+            if rec.lang:
+                continue
+            rec.lang = (rec.partner_id and rec.partner_id.lang) or default_lang
     series_name = fields.Char(
         string='Série',
         index=True,
@@ -402,6 +516,31 @@ class MeetingAgenda(models.Model):
             rec.agenda_task_ids = collected
             rec.agenda_task_count = len(collected)
 
+    meeting_attachment_ids = fields.One2many(
+        'ir.attachment',
+        compute='_compute_meeting_attachment_ids',
+        inverse='_inverse_meeting_attachment_ids',
+        string='Documents',
+    )
+
+    def _compute_meeting_attachment_ids(self):
+        for rec in self:
+            rec.meeting_attachment_ids = self.env['ir.attachment'].search([
+                ('res_model', '=', 'meeting.agenda'),
+                ('res_id', '=', rec.id),
+            ])
+
+    def _inverse_meeting_attachment_ids(self):
+        pass
+
+    @api.onchange('calendar_event_id')
+    def _onchange_calendar_event_id_fill_participants(self):
+        for rec in self:
+            if rec.calendar_event_id and not rec.participant_ids:
+                attendees = rec.calendar_event_id.partner_ids
+                if attendees:
+                    rec.participant_ids = [(6, 0, attendees.ids)]
+
     @api.model_create_multi
     def create(self, vals_list):
         records = super().create(vals_list)
@@ -424,6 +563,67 @@ class MeetingAgenda(models.Model):
         for rec in self:
             if rec.auto_send_on_confirm:
                 rec.action_send_agenda()
+
+    def action_clone_from_last_series(self):
+        """Pré-remplir l'OdJ à partir de la dernière occurrence de la série.
+
+        Cherche le dernier ``meeting.agenda`` confirmé/terminé avec même
+        ``series_name`` et ``project_id`` antérieur à la date de cet OdJ,
+        et reprend : sujets (nom, durée, présentateur, séquence, description),
+        participants, durée planifiée, objectifs, contexte et préparation —
+        sauf si les champs cibles sont déjà remplis.
+        """
+        self.ensure_one()
+        if not self.series_name:
+            raise UserError(
+                "L'ordre du jour doit avoir un nom de série pour cloner "
+                "depuis une rencontre précédente."
+            )
+        previous = self.search([
+            ('id', '!=', self.id),
+            ('series_name', '=', self.series_name),
+            ('project_id', '=', self.project_id.id),
+            ('state', 'in', ('confirmed', 'done')),
+            ('date', '<', self.date or fields.Datetime.now()),
+        ], order='date desc', limit=1)
+        if not previous:
+            raise UserError(
+                f"Aucune rencontre antérieure trouvée dans la série "
+                f"« {self.series_name} » pour ce projet."
+            )
+
+        copy_text = lambda src, dst: dst if dst else src
+        updates = {
+            'objectives': copy_text(previous.objectives, self.objectives),
+            'context_html': copy_text(previous.context_html, self.context_html),
+            'preparation_html': copy_text(previous.preparation_html, self.preparation_html),
+            'duration_planned': self.duration_planned or previous.duration_planned,
+        }
+        if not self.participant_ids and previous.participant_ids:
+            updates['participant_ids'] = [(6, 0, previous.participant_ids.ids)]
+        if not self.location and previous.location:
+            updates['location'] = previous.location
+        if self.meeting_type == 'video' and previous.meeting_type != 'video':
+            updates['meeting_type'] = previous.meeting_type
+        self.write(updates)
+
+        # Topics: only copy if this agenda has no topics yet
+        if not self.topic_ids and previous.topic_ids:
+            for src_topic in previous.topic_ids.sorted('sequence'):
+                self.env['meeting.agenda.topic'].create({
+                    'agenda_id': self.id,
+                    'sequence': src_topic.sequence,
+                    'name': src_topic.name,
+                    'duration_planned': src_topic.duration_planned,
+                    'presenter_id': src_topic.presenter_id.id if src_topic.presenter_id else False,
+                    'description': src_topic.description,
+                })
+
+        self.message_post(
+            body=f"Cloné depuis « {previous.name} » ({previous.date.strftime('%Y-%m-%d') if previous.date else 'sans date'}).",
+            message_type='comment',
+        )
+        return True
 
     def action_refine_agenda(self):
         """Lancer le skill /refine-agenda via le bridge Claude.
@@ -653,30 +853,51 @@ class MeetingAgenda(models.Model):
             })
 
     def action_start_meeting(self):
-        """Démarrer la rencontre : confirme l'OdJ si encore draft, loggue
+        """Démarrer la rencontre : confirme l'OdJ si encore draft, pré-remplit
+        les zones de notes en direct avec le contenu des sujets, loggue
         l'heure de début au chatter, retourne une notification pointant vers
         l'onglet « Notes en direct ».
         """
         self.ensure_one()
         if self.state == 'draft':
             self.action_confirm()
+
+        # Pré-remplit per-topic live notes (idempotent : ne touche que les
+        # boîtes vides pour ne jamais écraser ce que le notetaker a déjà saisi).
+        for topic in self.topic_ids:
+            if _html_is_blank(topic.live_notes_html) and not _html_is_blank(topic.description):
+                topic.live_notes_html = _wrap_agenda_original(topic.description)
+
+        # Pré-remplit le scratchpad maître avec un dump de tous les sujets,
+        # même ceux sans description (heading + paragraphe vide). Idempotent
+        # de la même façon.
+        if _html_is_blank(self.live_notes_html) and self.topic_ids:
+            parts = []
+            for topic in self.topic_ids.sorted('sequence'):
+                parts.append(Markup('<h3>%s</h3>') % (topic.name or ''))
+                if not _html_is_blank(topic.description):
+                    parts.append(_wrap_agenda_original(topic.description))
+                else:
+                    parts.append(Markup('<p><br/></p>'))
+            self.live_notes_html = Markup('').join(parts)
+
         self.message_post(
             body=Markup(
-                "<p><b>🎙️ Rencontre démarrée</b> — "
+                "<p><b>▶️ Rencontre démarrée</b> — "
                 f"prise de notes en direct lancée par {escape(self.env.user.name)}.</p>"
             ),
             message_type='comment',
         )
+        # Re-ouvre le formulaire pour forcer le reload des champs Html
+        # pré-remplis (display_notification seul ne rafraîchit pas la vue).
         return {
-            "type": "ir.actions.client",
-            "tag": "display_notification",
-            "params": {
-                "type": "success",
-                "title": "Rencontre démarrée",
-                "message": "Onglet « Notes en direct » prêt — bonne rencontre !",
-                "sticky": False,
-                "next": {"type": "ir.actions.act_window_close"},
-            },
+            "type": "ir.actions.act_window",
+            "res_model": "meeting.agenda",
+            "res_id": self.id,
+            "view_mode": "form",
+            "views": [[False, "form"]],
+            "target": "current",
+            "context": {"default_active_tab": "live_notes"},
         }
 
     def action_quick_add_task(self):
@@ -762,6 +983,7 @@ class MeetingAgenda(models.Model):
             'participant_count': len(self.participant_ids),
             'tagged_tasks': tagged_tasks,
             'tagged_task_count': len(tagged_tasks),
+            'date_display': _format_meeting_date_display(self),
         }
 
     def action_create_meeting_record(self):
@@ -781,6 +1003,8 @@ class MeetingAgenda(models.Model):
             'date': self.date,
             'room_name': self.name,
             'location': self.location,
+            'meeting_type': self.meeting_type,
+            'lang': self.lang,
             'series_name': self.series_name,
             'organizer_id': self.organizer_id.id if self.organizer_id else False,
             'participant_ids': [(6, 0, self.participant_ids.ids)],
@@ -797,13 +1021,15 @@ class MeetingAgenda(models.Model):
         record = self.env['meeting.record'].create(vals)
 
         # Create topics from agenda topics — carry per-topic live notes
-        # into the record's points_html.
+        # into the record's points_html. Apply track-changes-style highlight
+        # so user additions (typed outside the agenda blockquote) render
+        # with a yellow background in the compte rendu.
         for topic in self.topic_ids:
             self.env['meeting.topic'].create({
                 'meeting_id': record.id,
                 'sequence': topic.sequence,
                 'name': topic.name,
-                'points_html': topic.live_notes_html or False,
+                'points_html': _highlight_user_additions(topic.live_notes_html) or False,
             })
 
         # Transfer live decisions captured on the agenda to the new record.

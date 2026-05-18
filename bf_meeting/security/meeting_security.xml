@@ -164,5 +164,34 @@
             <field name="groups" eval="[(4, ref('group_meeting_manager'))]"/>
         </record>
 
+        <!-- Time-windowed attachments: scoped to meeting.record / meeting.agenda
+             only. Other attachments are unaffected. Managers (group_meeting_manager)
+             always see everything regardless of window. -->
+        <record id="rule_meeting_attachment_visibility_user" model="ir.rule">
+            <field name="name">Pièces jointes rencontres : fenêtre de visibilité</field>
+            <field name="model_id" ref="base.model_ir_attachment"/>
+            <field name="domain_force">[
+                '|',
+                ('res_model', 'not in', ['meeting.record', 'meeting.agenda']),
+                '&amp;',
+                '|', ('bf_visible_from', '=', False),
+                     ('bf_visible_from', '&lt;=', time.strftime('%Y-%m-%d %H:%M:%S')),
+                '|', ('bf_visible_until', '=', False),
+                     ('bf_visible_until', '&gt;=', time.strftime('%Y-%m-%d %H:%M:%S'))
+            ]</field>
+            <field name="groups" eval="[(4, ref('group_meeting_user'))]"/>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="True"/>
+            <field name="perm_create" eval="True"/>
+            <field name="perm_unlink" eval="True"/>
+        </record>
+
+        <record id="rule_meeting_attachment_visibility_manager" model="ir.rule">
+            <field name="name">Pièces jointes rencontres : gestionnaire voit tout</field>
+            <field name="model_id" ref="base.model_ir_attachment"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="groups" eval="[(4, ref('group_meeting_manager'))]"/>
+        </record>
+
     </data>
 </odoo>

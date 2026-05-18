@@ -14,6 +14,9 @@ class CalendarEvent(models.Model):
         'meeting.record',
         string='Compte rendu',
         compute='_compute_meeting_record_id',
+        inverse='_inverse_meeting_record_id',
+        help="Compte rendu lié à cette rencontre. Choisir un compte rendu "
+             "existant pour le rattacher à cet événement (ou vider pour détacher).",
     )
     meeting_record_count = fields.Integer(
         string='Comptes rendus',
@@ -29,6 +32,9 @@ class CalendarEvent(models.Model):
         'meeting.agenda',
         string='Ordre du jour',
         compute='_compute_meeting_agenda_id',
+        inverse='_inverse_meeting_agenda_id',
+        help="Ordre du jour lié à cette rencontre. Choisir un OdJ existant "
+             "pour le rattacher à cet événement (ou vider pour détacher).",
     )
     meeting_agenda_count = fields.Integer(
         string='Ordres du jour',
@@ -39,6 +45,37 @@ class CalendarEvent(models.Model):
         string='Sans ordre du jour formel',
         help="Cocher pour les rencontres internes courtes ou récurrentes qui ne "
              "nécessitent pas d'ordre du jour formel.",
+    )
+    bf_skip_dashboard = fields.Boolean(
+        string='Exclure du tableau de bord',
+        help="Cocher pour masquer cette rencontre du tableau de bord des "
+             "rencontres. Utile pour les rencontres dont on ne souhaite plus "
+             "voir le suivi (one-shot, annulée en pratique, etc.) sans pour "
+             "autant les marquer comme « sans OdJ formel ».",
+    )
+    bf_dashboard_skipped_steps = fields.Char(
+        string='Étapes ignorées (tableau de bord)',
+        default='',
+        help="Liste séparée par virgules d'indices d'étapes (1-7) marquées "
+             "comme non requises pour cette rencontre dans le tableau de bord. "
+             "1=OdJ rédigé, 2=OdJ révisé, 3=OdJ envoyé, 4=Rencontre, "
+             "5=CR rédigé, 6=CR révisé, 7=CR envoyé.",
+    )
+    bf_agenda_responsible_id = fields.Many2one(
+        'res.users',
+        string="Responsable de l'OdJ",
+        default=lambda self: self.env.user.id,
+        help="Personne responsable de préparer, réviser et envoyer l'ordre "
+             "du jour. Par défaut : organisateur de la rencontre. Pilote le "
+             "routage du digest quotidien.",
+    )
+    bf_minutes_responsible_id = fields.Many2one(
+        'res.users',
+        string='Responsable du CR',
+        default=lambda self: self.env.user.id,
+        help="Personne responsable de rédiger, réviser et envoyer le compte "
+             "rendu. Par défaut : organisateur de la rencontre. Pilote le "
+             "routage du digest quotidien.",
     )
     bf_needs_agenda = fields.Boolean(
         string="Besoin d'un ordre du jour",
@@ -54,11 +91,29 @@ class CalendarEvent(models.Model):
             event.meeting_record_id = event.meeting_record_ids[:1]
             event.meeting_record_count = len(event.meeting_record_ids)
 
+    def _inverse_meeting_record_id(self):
+        for event in self:
+            target = event.meeting_record_id
+            for existing in event.meeting_record_ids:
+                if existing != target:
+                    existing.calendar_event_id = False
+            if target and target.calendar_event_id != event:
+                target.calendar_event_id = event.id
+
     @api.depends('meeting_agenda_ids')
     def _compute_meeting_agenda_id(self):
         for event in self:
             event.meeting_agenda_id = event.meeting_agenda_ids[:1]
             event.meeting_agenda_count = len(event.meeting_agenda_ids)
+
+    def _inverse_meeting_agenda_id(self):
+        for event in self:
+            target = event.meeting_agenda_id
+            for existing in event.meeting_agenda_ids:
+                if existing != target:
+                    existing.calendar_event_id = False
+            if target and target.calendar_event_id != event:
+                target.calendar_event_id = event.id
 
     @api.depends('meeting_agenda_ids', 'bf_skip_agenda', 'start')
     def _compute_bf_needs_agenda(self):

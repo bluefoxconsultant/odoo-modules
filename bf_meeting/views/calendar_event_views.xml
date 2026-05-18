@@ -38,7 +38,18 @@
                 </div>
             </xpath>
             <xpath expr="//field[@name='name']" position="after">
+                <field name="meeting_agenda_id"
+                       options="{'no_create': True}"
+                       placeholder="Lier un ordre du jour existant..."/>
+                <field name="meeting_record_id"
+                       options="{'no_create': True}"
+                       placeholder="Lier un compte rendu existant..."/>
                 <field name="bf_skip_agenda"/>
+                <field name="bf_skip_dashboard"/>
+                <field name="bf_agenda_responsible_id"
+                       widget="many2one_avatar_user"/>
+                <field name="bf_minutes_responsible_id"
+                       widget="many2one_avatar_user"/>
                 <field name="bf_needs_agenda" invisible="1"/>
             </xpath>
         </field>

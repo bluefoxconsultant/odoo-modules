@@ -1,6 +1,6 @@
 {
     'name': 'Rencontres',
-    'version': '18.0.3.17.0',
+    'version': '18.0.3.31.0',
     'category': 'Services/Meetings',
     'summary': 'Gestion des rencontres, ordres du jour et comptes rendus',
     'description': """
@@ -63,6 +63,7 @@ compte rendu.
         'data/meeting_report_mail_template.xml',
         'data/meeting_agenda_mail_template.xml',
         'data/meeting_agenda_cron.xml',
+        'data/meeting_dashboard_cron.xml',
         'data/bf_onboarding.xml',
         'views/meeting_decision_views.xml',
         'views/meeting_topic_views.xml',
@@ -73,9 +74,18 @@ compte rendu.
         'views/project_task_views.xml',
         'views/project_views.xml',
         'views/res_company_views.xml',
+        'views/res_users_views.xml',
+        'views/meeting_dashboard_views.xml',
         'views/menu_views.xml',
     ],
     'installable': True,
     'application': True,
     'auto_install': False,
+    'assets': {
+        'web.assets_backend': [
+            'bf_meeting/static/src/scss/meeting_dashboard.scss',
+            'bf_meeting/static/src/js/meeting_dashboard.js',
+            'bf_meeting/static/src/xml/meeting_dashboard.xml',
+        ],
+    },
 }

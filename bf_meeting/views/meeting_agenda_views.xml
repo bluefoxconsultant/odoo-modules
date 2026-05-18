@@ -13,6 +13,8 @@
                 <field name="is_today" column_invisible="1"/>
                 <field name="date"/>
                 <field name="name"/>
+                <field name="meeting_type_icon" string="" optional="show" width="40px"/>
+                <field name="meeting_type" column_invisible="1"/>
                 <field name="project_id"/>
                 <field name="partner_id" optional="show"/>
                 <field name="series_name" optional="hide"/>
@@ -112,7 +114,7 @@
                             invisible="state != 'draft'"/>
                     <button name="action_start_meeting" type="object"
                             string="Démarrer la rencontre"
-                            icon="fa-microphone"
+                            icon="fa-play"
                             class="btn-primary"
                             invisible="state not in ('draft','confirmed')"/>
                     <button name="action_quick_add_task" type="object"
@@ -132,6 +134,11 @@
                             groups="bf_meeting.group_meeting_manager"
                             invisible="state != 'draft' or refine_state == 'queued'"
                             confirm="Lancer TentaClaude pour pré-remplir cet ordre du jour ? L'opération prend quelques minutes."/>
+                    <button name="action_clone_from_last_series" type="object"
+                            string="Cloner depuis la série"
+                            icon="fa-copy"
+                            invisible="state != 'draft' or not series_name"
+                            confirm="Reprendre les sujets, participants et durée de la dernière rencontre confirmée de cette série ?"/>
                     <button name="%(bf_meeting.action_report_meeting_agenda)d" type="action"
                             string="Imprimer PDF"
                             class="btn-secondary"/>
@@ -179,11 +186,16 @@
                             <field name="partner_id"/>
                             <field name="date"/>
                             <field name="duration_planned"/>
+                            <field name="meeting_type" widget="radio" options="{'horizontal': true}"/>
                         </group>
                         <group>
-                            <field name="location"/>
+                            <field name="location" invisible="meeting_type in ('phone', 'async')"/>
                             <field name="series_name"/>
                             <field name="organizer_id"/>
+                            <field name="lang"/>
+                            <field name="calendar_event_id"
+                                   options="{'no_create': True}"
+                                   placeholder="Lier un événement calendrier..."/>
                             <field name="auto_send_on_confirm"/>
                         </group>
                     </group>
@@ -235,7 +247,7 @@
                         </page>
                         <page string="Notes en direct" name="live_notes">
                             <div class="alert alert-info" role="alert">
-                                <i class="fa fa-microphone"/> Scratchpad de prise de notes
+                                <i class="fa fa-pencil-square-o"/> Scratchpad de prise de notes
                                 pendant la rencontre. <strong>N'affecte pas l'ordre du
                                 jour</strong> (PDF, courriel) ; le contenu est transféré
                                 dans le résumé du compte rendu à sa création.
@@ -275,10 +287,26 @@
                             <field name="preparation_html" nolabel="1"
                                    placeholder="Ce qui doit être préparé avant la rencontre..."/>
                         </page>
+                        <page string="Documents" name="documents">
+                            <p class="text-muted">
+                                Pièces jointes liées à l'OdJ. La colonne <strong>Fenêtre</strong> permet
+                                de masquer un document hors d'une plage temporelle relative à la date
+                                de la rencontre — utile pour les pre-reads ou les decks éphémères.
+                            </p>
+                            <field name="meeting_attachment_ids" nolabel="1">
+                                <list editable="bottom">
+                                    <field name="name"/>
+                                    <field name="bf_visibility_window"/>
+                                    <field name="bf_visible_from" optional="hide"/>
+                                    <field name="bf_visible_until" optional="hide"/>
+                                    <field name="bf_is_visible_now" widget="boolean_toggle" readonly="1"/>
+                                    <field name="mimetype" optional="hide"/>
+                                </list>
+                            </field>
+                        </page>
                         <page string="Technique" name="technical">
                             <group>
                                 <group>
-                                    <field name="calendar_event_id"/>
                                     <field name="meeting_record_id" readonly="1"/>
                                 </group>
                                 <group>
@@ -329,6 +357,17 @@
                 <filter name="filter_this_month" string="Ce mois"
                         domain="[('date', '&gt;=', (context_today() - relativedelta(day=1)).strftime('%%Y-%%m-%%d')),
                                  ('date', '&lt;', (context_today() + relativedelta(months=1, day=1)).strftime('%%Y-%%m-%%d'))]"/>
+                <separator/>
+                <filter name="filter_type_in_person" string="Présentiel"
+                        domain="[('meeting_type', '=', 'in_person')]"/>
+                <filter name="filter_type_video" string="Visio"
+                        domain="[('meeting_type', '=', 'video')]"/>
+                <filter name="filter_type_phone" string="Téléphonique"
+                        domain="[('meeting_type', '=', 'phone')]"/>
+                <filter name="filter_type_hybrid" string="Hybride"
+                        domain="[('meeting_type', '=', 'hybrid')]"/>
+                <filter name="filter_type_async" string="Asynchrone"
+                        domain="[('meeting_type', '=', 'async')]"/>
                 <group expand="0" string="Regrouper par">
                     <filter name="group_project" string="Projet"
                             context="{'group_by': 'project_id'}"/>
@@ -338,6 +377,8 @@
                             context="{'group_by': 'state'}"/>
                     <filter name="group_series" string="Série"
                             context="{'group_by': 'series_name'}"/>
+                    <filter name="group_meeting_type" string="Mode"
+                            context="{'group_by': 'meeting_type'}"/>
                 </group>
             </search>
         </field>
