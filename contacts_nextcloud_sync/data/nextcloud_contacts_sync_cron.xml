@@ -13,7 +13,7 @@
     </data>
 
     <data noupdate="0">
-        <!-- Full resync: consistency safety net, created/updated on upgrade -->
+        <!-- Full resync: manual only — disabled to prevent contact recreation -->
         <record id="cron_nextcloud_contacts_full_resync" model="ir.cron">
             <field name="name">Nextcloud Contacts Full Resync</field>
             <field name="model_id" ref="model_nextcloud_contacts_sync_config"/>
@@ -21,7 +21,7 @@
             <field name="code">model._cron_full_resync()</field>
             <field name="interval_number">6</field>
             <field name="interval_type">hours</field>
-            <field name="active">True</field>
+            <field name="active">False</field>
         </record>
     </data>
 </odoo>

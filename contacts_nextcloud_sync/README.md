@@ -311,10 +311,6 @@ The module is designed to self-heal from interrupted operations:
 
 LGPL-3.0
 
-## Disclaimer
-
-This module is provided as-is, without warranty of any kind. Use at your own risk. Blue Fox Inc. assumes no liability for any damages arising from the use of this software.
-
 ---
 
-<sub>Authored and maintained by Blue Fox Inc. AI coding assistants were used as productivity tools during development.</sub>
+*Developed with AI assistance (Claude, Anthropic).*

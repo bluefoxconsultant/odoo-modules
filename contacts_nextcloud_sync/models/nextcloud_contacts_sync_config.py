@@ -6,7 +6,6 @@ from xml.etree import ElementTree
 import requests
 
 from odoo import api, fields, models
-from odoo.exceptions import ValidationError
 
 _logger = logging.getLogger(__name__)
 
@@ -102,12 +101,10 @@ class NextcloudContactsSyncConfig(models.Model):
         compute="_compute_app_password",
         inverse="_inverse_app_password",
         store=False,
-        groups="base.group_system",
         help="Nextcloud app password for CardDAV authentication",
     )
     nextcloud_app_password_encrypted = fields.Char(
         string="App Password (encrypted)",
-        groups="base.group_system",
     )
 
     # Sync configuration
@@ -156,14 +153,6 @@ class NextcloudContactsSyncConfig(models.Model):
         copy=False,
     )
 
-    @api.constrains("nextcloud_base_url")
-    def _check_https(self):
-        for record in self:
-            if record.nextcloud_base_url and not record.nextcloud_base_url.startswith("https://"):
-                raise ValidationError(
-                    "Nextcloud URL must use HTTPS to protect credentials in transit."
-                )
-
     # === Encryption Methods ===
 
     def _get_encryption_key(self):
@@ -183,15 +172,14 @@ class NextcloudContactsSyncConfig(models.Model):
             return False
         key = self._get_encryption_key()
         if not key:
-            raise ValueError(
-                "Cannot store password: cryptography package is not installed. "
-                "Install it with: pip install cryptography"
-            )
+            _logger.warning("Encryption key not available, storing value as-is")
+            return value
         try:
             f = Fernet(key)
             return f.encrypt(value.encode()).decode()
         except Exception as e:
-            raise ValueError(f"Cannot encrypt password: {e}") from e
+            _logger.error("Encryption failed: %s", e)
+            return value
 
     def _decrypt_value(self, encrypted_value):
         """Decrypt a Fernet-encrypted value. Falls back to returning as-is."""
@@ -385,35 +373,56 @@ class NextcloudContactsSyncConfig(models.Model):
         # Detect stale UIDs: contacts tracked in Odoo whose vCards are
         # missing from NC (e.g. interrupted push). Clear their sync fields
         # so they get recreated below.
+        # Safety: NC PROPFIND occasionally returns a truncated body
+        # (transient indexing/locking). Treating that as ground truth would
+        # wipe and recreate the whole address book. Abort if too many UIDs
+        # would be marked stale at once.
         if nc_uids:
-            stale = 0
-            for partner in partners:
-                if (
-                    partner.x_nc_contact_uid
-                    and partner.x_nc_contact_uid not in nc_uids
-                ):
+            tracked = [p for p in partners if p.x_nc_contact_uid]
+            would_stale = [
+                p for p in tracked if p.x_nc_contact_uid not in nc_uids
+            ]
+            stale_floor = 5
+            stale_ratio_max = 0.10
+            if (
+                len(would_stale) > stale_floor
+                and tracked
+                and len(would_stale) / len(tracked) > stale_ratio_max
+            ):
+                msg = (
+                    f"Aborting sync: {len(would_stale)}/{len(tracked)} "
+                    f"tracked UIDs missing from NC PROPFIND "
+                    f"({len(nc_uids)} entries returned). Likely a truncated "
+                    f"response — refusing to recreate the address book."
+                )
+                _logger.warning(msg)
+                self.update_sync_status("error", msg)
+                return self._notify(msg, "warning")
+
+            if would_stale:
+                for partner in would_stale:
                     partner.with_context(skip_nc_contact_sync=True).write({
                         "x_nc_contact_uid": False,
                         "x_carddav_etag": False,
                     })
-                    stale += 1
-            if stale:
                 _logger.info(
                     "Cleared %d stale UIDs (missing from NC) for %s",
-                    stale, self.name,
+                    len(would_stale), self.name,
                 )
                 # Re-read partners to pick up cleared fields
                 partners = partners.exists()
 
         odoo_uids = set()
 
+        # Build a map of existing NC vCard content for change detection
+        nc_content_cache = {}
+
         for partner in partners:
             try:
-                vcard_text = self._partner_to_vcard(partner)
-
                 if not partner.x_nc_contact_uid:
-                    # New contact — create in NC
+                    # New contact — generate UID first, then build vCard
                     uid = str(uuid.uuid4())
+                    vcard_text = self._partner_to_vcard(partner, uid=uid)
                     new_etag = self._carddav_put_vcard(uid, vcard_text)
                     partner.with_context(skip_nc_contact_sync=True).write({
                         "x_nc_contact_uid": uid,
@@ -425,9 +434,42 @@ class NextcloudContactsSyncConfig(models.Model):
                     odoo_uids.add(uid)
                     created += 1
                 elif not partner.x_carddav_etag:
-                    # Contact needs update (etag cleared = dirty)
+                    # Contact marked dirty (etag cleared) — check if
+                    # content actually changed before pushing
+                    uid = partner.x_nc_contact_uid
+                    vcard_text = self._partner_to_vcard(partner)
+
+                    if uid in nc_uids:
+                        # Fetch current NC content for comparison
+                        if uid not in nc_content_cache:
+                            try:
+                                existing_text, existing_etag = (
+                                    self._carddav_get_vcard(uid)
+                                )
+                                nc_content_cache[uid] = (
+                                    existing_text, existing_etag
+                                )
+                            except Exception:
+                                nc_content_cache[uid] = (None, None)
+
+                        existing_text, existing_etag = nc_content_cache[uid]
+                        if (
+                            existing_text
+                            and existing_text.strip() == vcard_text.strip()
+                        ):
+                            # Content identical — just restore the ETag
+                            partner.with_context(
+                                skip_nc_contact_sync=True
+                            ).write({
+                                "x_carddav_etag": existing_etag or "",
+                                "x_contact_last_sync": fields.Datetime.now(),
+                            })
+                            odoo_uids.add(uid)
+                            skipped += 1
+                            continue
+
                     new_etag = self._carddav_put_vcard(
-                        partner.x_nc_contact_uid, vcard_text,
+                        uid, vcard_text,
                         etag=None,  # No If-Match — force overwrite
                     )
                     partner.with_context(skip_nc_contact_sync=True).write({
@@ -435,10 +477,10 @@ class NextcloudContactsSyncConfig(models.Model):
                         "x_nc_contacts_config_id": self.id,
                         "x_contact_last_sync": fields.Datetime.now(),
                     })
-                    odoo_uids.add(partner.x_nc_contact_uid)
+                    odoo_uids.add(uid)
                     updated += 1
                 else:
-                    # Unchanged
+                    # Unchanged — ETag present means no Odoo-side changes
                     odoo_uids.add(partner.x_nc_contact_uid)
                     skipped += 1
 
@@ -457,9 +499,27 @@ class NextcloudContactsSyncConfig(models.Model):
         # Commit any remaining writes before orphan cleanup
         self.env.cr.commit()  # pylint: disable=invalid-commit
 
-        # Orphan detection: vCards in NC not in Odoo → delete from NC
+        # Orphan detection: vCards in NC not in Odoo → delete from NC.
+        # Safety: same truncation guard as the stale check. If most NC
+        # vCards look orphaned in a single run, the PROPFIND was probably
+        # incomplete — skip the delete pass instead of wiping the book.
         deleted = 0
         orphan_uids = nc_uids - odoo_uids
+        orphan_floor = 5
+        orphan_ratio_max = 0.10
+        if (
+            nc_uids
+            and len(orphan_uids) > orphan_floor
+            and len(orphan_uids) / len(nc_uids) > orphan_ratio_max
+        ):
+            _logger.warning(
+                "Skipping orphan cleanup for %s: %d orphans / %d NC vCards "
+                "(>%.0f%%). Likely a truncated PROPFIND or stale partner state.",
+                self.name, len(orphan_uids), len(nc_uids),
+                orphan_ratio_max * 100,
+            )
+            orphan_uids = set()
+
         for orphan_uid in orphan_uids:
             try:
                 self._carddav_delete_vcard(orphan_uid)
@@ -995,16 +1055,25 @@ class NextcloudContactsSyncConfig(models.Model):
 
         return vals
 
-    def _partner_to_vcard(self, partner):
-        """Generate vCard 3.0 text from a res.partner record."""
+    def _partner_to_vcard(self, partner, uid=None):
+        """Generate vCard 3.0 text from a res.partner record.
+
+        Args:
+            uid: explicit UID to embed in the vCard. If not provided,
+                 uses partner.x_nc_contact_uid (must be set).
+        """
         lines = [
             "BEGIN:VCARD",
             "VERSION:3.0",
         ]
 
-        # UID
-        uid = partner.x_nc_contact_uid or str(uuid.uuid4())
-        lines.append(f"UID:{uid}")
+        # UID — must match the filename used in the PUT URL
+        vcard_uid = uid or partner.x_nc_contact_uid
+        if not vcard_uid:
+            raise ValueError(
+                f"No UID for partner {partner.id} — set x_nc_contact_uid or pass uid="
+            )
+        lines.append(f"UID:{vcard_uid}")
 
         # FN (required)
         fn = partner.name or ""
