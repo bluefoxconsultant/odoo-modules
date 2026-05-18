@@ -1,6 +1,6 @@
 {
     "name": "Suivi des consentements (Loi 25)",
-    "version": "18.0.3.1.3",
+    "version": "18.0.3.1.4",
     "category": "Privacy/Compliance",
     "summary": "Vie privée, consentements et destruction documentaire (Loi 25)",
     "description": """
@@ -34,7 +34,7 @@ Destruction et anonymisation documentaire :
     'author': 'Blue Fox Inc.',
     "website": "https://bluefoxconsultant.com",
     'license': 'LGPL-3',
-    "depends": ["base", "mail", "project", "portal"],
+    "depends": ["base", "mail", "project", "portal", "bluefox_branding"],
     "external_dependencies": {
         "python": ["cryptography", "dateutil"],
     },
