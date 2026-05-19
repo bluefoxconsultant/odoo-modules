@@ -26,3 +26,8 @@ from . import hosting_backup_log
 from . import hosting_backup_snapshot
 from . import hosting_audit_log
 from . import hosting_security_event
+from . import hosting_endpoint
+from . import hosting_endpoint_group
+from . import hosting_license
+from . import hosting_license_seat
+from . import project_project

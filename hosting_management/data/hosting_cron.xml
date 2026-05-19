@@ -114,5 +114,38 @@
             <field name="active">True</field>
         </record>
 
+        <!-- Tâche planifiée : Synchronisation Action1 (RMM) -->
+        <record id="ir_cron_hosting_endpoint_action1_sync" model="ir.cron">
+            <field name="name">Hébergement : Synchronisation Action1</field>
+            <field name="model_id" ref="model_hosting_endpoint"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_action1_sync()</field>
+            <field name="interval_number">6</field>
+            <field name="interval_type">hours</field>
+            <field name="active">True</field>
+        </record>
+
+        <!-- Tâche planifiée : Alertes hebdomadaires expiration de licences -->
+        <record id="ir_cron_hosting_license_expiry_alerts" model="ir.cron">
+            <field name="name">Hébergement : Alertes expiration licences</field>
+            <field name="model_id" ref="model_hosting_license"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_expiry_alerts()</field>
+            <field name="interval_number">7</field>
+            <field name="interval_type">days</field>
+            <field name="active">True</field>
+        </record>
+
+        <!-- Tâche planifiée : Alerte hebdomadaire garantie postes du parc -->
+        <record id="ir_cron_hosting_endpoint_warranty_alerts" model="ir.cron">
+            <field name="name">Hébergement : Alertes garantie postes du parc</field>
+            <field name="model_id" ref="model_hosting_endpoint"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_warranty_alerts()</field>
+            <field name="interval_number">7</field>
+            <field name="interval_type">days</field>
+            <field name="active">True</field>
+        </record>
+
     </data>
 </odoo>

@@ -46,3 +46,13 @@ access_hosting_accepted_http_code_user,hosting.accepted.http.code.user,model_hos
 access_hosting_accepted_http_code_manager,hosting.accepted.http.code.manager,model_hosting_accepted_http_code,group_hosting_manager,1,1,1,1
 access_hosting_service_disconnect_wizard_user,hosting.service.disconnect.wizard.user,model_hosting_service_disconnect_wizard,group_hosting_user,1,1,1,1
 access_hosting_service_disconnect_wizard_manager,hosting.service.disconnect.wizard.manager,model_hosting_service_disconnect_wizard,group_hosting_manager,1,1,1,1
+access_hosting_endpoint_user,hosting.endpoint.user,model_hosting_endpoint,group_hosting_user,1,1,1,0
+access_hosting_endpoint_manager,hosting.endpoint.manager,model_hosting_endpoint,group_hosting_manager,1,1,1,1
+access_hosting_endpoint_group_user,hosting.endpoint.group.user,model_hosting_endpoint_group,group_hosting_user,1,1,1,0
+access_hosting_endpoint_group_manager,hosting.endpoint.group.manager,model_hosting_endpoint_group,group_hosting_manager,1,1,1,1
+access_hosting_license_user,hosting.license.user,model_hosting_license,group_hosting_user,1,1,1,0
+access_hosting_license_manager,hosting.license.manager,model_hosting_license,group_hosting_manager,1,1,1,1
+access_hosting_license_seat_user,hosting.license.seat.user,model_hosting_license_seat,group_hosting_user,1,1,1,0
+access_hosting_license_seat_manager,hosting.license.seat.manager,model_hosting_license_seat,group_hosting_manager,1,1,1,1
+access_hosting_license_import_wizard_user,hosting.license.import.wizard.user,model_hosting_license_import_wizard,group_hosting_user,1,1,1,1
+access_hosting_license_import_wizard_manager,hosting.license.import.wizard.manager,model_hosting_license_import_wizard,group_hosting_manager,1,1,1,1

@@ -8,6 +8,12 @@ from odoo import api, fields, models
 class ResPartner(models.Model):
     _inherit = "res.partner"
 
+    has_sla = fields.Boolean(
+        string="Client sous SLA",
+        tracking=True,
+        help="Activer pour les clients ayant une entente de niveau de service. "
+        "Débloque la section Parc informatique et les fonctionnalités associées.",
+    )
     hosting_service_ids = fields.One2many(
         comodel_name="hosting.service",
         inverse_name="partner_id",
@@ -16,6 +22,24 @@ class ResPartner(models.Model):
     hosting_service_count = fields.Integer(
         string="Nombre de services d'hébergement",
         compute="_compute_hosting_service_count",
+    )
+    hosting_endpoint_ids = fields.One2many(
+        comodel_name="hosting.endpoint",
+        inverse_name="partner_id",
+        string="Postes du parc",
+    )
+    hosting_endpoint_count = fields.Integer(
+        string="Nombre de postes",
+        compute="_compute_hosting_endpoint_count",
+    )
+    hosting_license_seat_ids = fields.One2many(
+        comodel_name="hosting.license.seat",
+        inverse_name="partner_id",
+        string="Sièges de licence affectés",
+    )
+    hosting_license_count = fields.Integer(
+        string="Nombre de licences",
+        compute="_compute_hosting_license_count",
     )
     hosting_services_expiring_count = fields.Integer(
         string="Services expirant",
@@ -34,6 +58,40 @@ class ResPartner(models.Model):
     def _compute_hosting_service_count(self):
         for partner in self:
             partner.hosting_service_count = len(partner.hosting_service_ids)
+
+    @api.depends("hosting_endpoint_ids")
+    def _compute_hosting_endpoint_count(self):
+        for partner in self:
+            partner.hosting_endpoint_count = len(partner.hosting_endpoint_ids)
+
+    def action_view_hosting_endpoints(self):
+        """Ouvrir les postes du parc pour ce partenaire."""
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": f"Parc informatique - {self.name}",
+            "res_model": "hosting.endpoint",
+            "views": [[False, "list"], [False, "form"], [False, "kanban"]],
+            "domain": [("partner_id", "=", self.id)],
+            "context": {"default_partner_id": self.id},
+        }
+
+    @api.depends("hosting_license_seat_ids")
+    def _compute_hosting_license_count(self):
+        for partner in self:
+            partner.hosting_license_count = len(partner.hosting_license_seat_ids)
+
+    def action_view_hosting_licenses(self):
+        """Ouvrir les sièges de licence affectés à ce partenaire."""
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": f"Licences - {self.name}",
+            "res_model": "hosting.license.seat",
+            "views": [[False, "list"], [False, "form"]],
+            "domain": [("partner_id", "=", self.id)],
+            "context": {"default_partner_id": self.id, "default_assignee_type": "partner"},
+        }
 
     @api.depends(
         "hosting_service_ids",

@@ -6260,8 +6260,8 @@ msgstr "Nom affiché"
 
 #. module: hosting_management
 #: model:ir.model.fields,help:hosting_management.field_hosting_server__name
-msgid "Nom convivial du serveur (ex. : « Mon serveur »)"
-msgstr "Nom convivial du serveur (ex. : « Mon serveur »)"
+msgid "Nom convivial du serveur (ex. : « Primetime 1 »)"
+msgstr "Nom convivial du serveur (ex. : « Primetime 1 »)"
 
 #. module: hosting_management
 #: model:ir.model.fields,field_description:hosting_management.field_hosting_server__hostname

@@ -45,7 +45,7 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | `bluefox_branding` | Configurable Branding Pack | 18.0.2.0.0 | LGPL-3 | Per-company brand color + email layout overrides driven by `bf_lexend` company fields (CSS variables injected via QWeb layout — no SCSS recompile) |
 | `contacts_nextcloud_sync` | Contacts Nextcloud Sync | 18.0.1.0.0 | LGPL-3 | Sync Odoo contacts with a Nextcloud address book via CardDAV |
 | `daily_todo_digest` | Daily To-Do Digest | 18.0.1.3.0 | LGPL-3 | Daily email digest with activities, overdue tasks, and a week-ahead view |
-| `hosting_management` | Hosting Management | 18.0.2.36.0 | LGPL-3 | Manage hosting services with version tracking and billing |
+| `hosting_management` | Hosting Management | 18.0.2.46.0 | LGPL-3 | Manage hosting services, client computer parks (endpoints, BitLocker, Action1 sync) and software license pools |
 | `privacy_consent` | Privacy & Consent Tracking (Loi 25) | 18.0.3.1.3 | LGPL-3 | Privacy, consents, and document destruction (Quebec Loi 25) |
 | `project_knowledge_matrix` | Project Knowledge Matrix | 18.0.9.10.0 | LGPL-3 | Project knowledge base, policies, and documentation |
 

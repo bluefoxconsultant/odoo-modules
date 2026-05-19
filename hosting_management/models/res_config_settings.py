@@ -281,6 +281,78 @@ class ResConfigSettings(models.TransientModel):
             },
         }
 
+    # ------------------------------------------------------------------
+    # Intégration Action1 (RMM)
+    # ------------------------------------------------------------------
+    hosting_action1_enabled = fields.Boolean(
+        string="Activer la synchronisation Action1",
+        config_parameter="hosting.action1_enabled",
+        default=False,
+        help="Activer le cron qui synchronise les endpoints et groupes depuis "
+        "la console Action1 toutes les 6 heures.",
+    )
+    hosting_action1_api_token = fields.Char(
+        string="Jeton API Action1",
+        config_parameter="hosting.action1_api_token",
+        help="Bearer token API Action1. Stocké chiffré n'est PAS la valeur par "
+        "défaut — utiliser un secret manager pour l'expurger en backup.",
+    )
+    hosting_action1_api_base_url = fields.Char(
+        string="URL de base API Action1",
+        config_parameter="hosting.action1_api_base_url",
+        default="https://app.action1.com/api/3.0",
+        help="URL racine de l'API Action1 (sans slash final).",
+    )
+    hosting_action1_console_base = fields.Char(
+        string="URL de base console Action1",
+        config_parameter="hosting.action1_console_base",
+        default="https://app.action1.com",
+        help="URL racine de la console web Action1 ; sert à construire les liens "
+        "cliquables vers chaque endpoint.",
+    )
+    hosting_action1_conflict_strategy = fields.Selection(
+        selection=[
+            ("action1_wins",
+             "Action1 gagne (Action1 écrase la saisie Odoo — défaut)"),
+            ("odoo_wins",
+             "Odoo gagne (la sync ne remplit que les champs vides)"),
+            ("manual_only",
+             "Création uniquement (la sync n'écrit jamais sur les postes existants)"),
+        ],
+        string="Résolution de conflits Action1",
+        config_parameter="hosting.action1_conflict_strategy",
+        default="action1_wins",
+        help="Comportement par défaut quand un poste existe déjà dans Odoo et "
+        "qu'Action1 envoie des valeurs différentes. Peut être surchargé par "
+        "poste via la case « Saisie manuelle prioritaire ».",
+    )
+    hosting_action1_last_sync = fields.Datetime(
+        string="Dernière synchro Action1",
+        config_parameter="hosting.action1_last_sync",
+        readonly=True,
+    )
+
+    def action_sync_action1_now(self):
+        """Déclencher manuellement la synchro Action1 et notifier."""
+        stats = self.env["hosting.endpoint"]._action1_sync(manual=True)
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("Synchronisation Action1"),
+                "message": _(
+                    "Terminée : %(c)s créés, %(u)s mis à jour, %(s)s ignorés, "
+                    "%(e)s erreur(s).",
+                    c=stats["created"],
+                    u=stats["updated"],
+                    s=stats["skipped"],
+                    e=stats["errors"],
+                ),
+                "type": "success" if stats["errors"] == 0 else "warning",
+                "sticky": stats["errors"] > 0,
+            },
+        }
+
     def action_sync_cloudflare_domains(self):
         """Lancer la synchronisation Cloudflare manuellement."""
         self.env["hosting.domain"]._cron_sync_cloudflare_domains()

@@ -2,7 +2,7 @@
 {
     "name": "Gestion d'hébergement",
     "summary": "Gérer les services d'hébergement pour les clients avec suivi de versions et facturation",
-    "version": "18.0.2.41.0",
+    "version": "18.0.2.46.0",
     "category": "Services",
     'website': 'https://bluefoxconsultant.com',
     "author": "Blue Fox Inc.",
@@ -14,6 +14,9 @@
         "mail",
         "contacts",
         "contract",
+        "project",
+        "account",
+        "project_knowledge_matrix",
         "bluefox_branding",
     ],
     "data": [
@@ -35,7 +38,6 @@
         "data/hosting_accepted_http_code_data.xml",
         "data/hosting_domain_data.xml",
         "data/hosting_audit_cron.xml",
-        "data/hosting_backup_repository_data.private.xml",
         # Views
         "views/hosting_software_views.xml",
         "views/hosting_software_version_views.xml",
@@ -55,6 +57,11 @@
         "views/hosting_domain_views.xml",
         "views/hosting_audit_log_views.xml",
         "views/hosting_security_event_views.xml",
+        "views/hosting_endpoint_views.xml",
+        "views/hosting_endpoint_group_views.xml",
+        "views/hosting_license_views.xml",
+        "views/project_views.xml",
+        "wizards/hosting_license_import_wizard_views.xml",
         "views/res_partner_views.xml",
         "views/res_config_settings_views.xml",
         "views/hosting_menu.xml",
@@ -66,6 +73,8 @@
         "web.assets_backend": [
             "hosting_management/static/src/js/hosting_dashboard.js",
             "hosting_management/static/src/xml/hosting_dashboard.xml",
+            "hosting_management/static/src/js/secret_key_field.js",
+            "hosting_management/static/src/xml/secret_key_field.xml",
         ],
     },
 }

@@ -28,6 +28,46 @@
                         invisible="hosting_services_storage_alert_count == 0">
                     <field name="hosting_services_storage_alert_count" widget="statinfo" string="Storage Alert"/>
                 </button>
+                <button name="action_view_hosting_endpoints" type="object"
+                        class="oe_stat_button" icon="fa-laptop"
+                        invisible="not has_sla and hosting_endpoint_count == 0">
+                    <field name="hosting_endpoint_count" widget="statinfo" string="Postes"/>
+                </button>
+                <button name="action_view_hosting_licenses" type="object"
+                        class="oe_stat_button" icon="fa-key"
+                        invisible="hosting_license_count == 0">
+                    <field name="hosting_license_count" widget="statinfo" string="Licences"/>
+                </button>
+            </xpath>
+
+            <!-- Case has_sla : placée près du champ company_type pour visibilité -->
+            <xpath expr="//field[@name='vat']" position="after">
+                <field name="has_sla" invisible="not is_company"
+                       widget="boolean_toggle"/>
+            </xpath>
+
+            <!-- Onglet Parc informatique (read-only, sans BitLocker — Odoo
+                 strippe le champ pour les non-managers de toute façon).
+                 Visible uniquement pour les clients SLA. -->
+            <xpath expr="//notebook" position="inside">
+                <page string="Parc informatique" name="hosting_park"
+                      invisible="not has_sla and hosting_endpoint_count == 0">
+                    <field name="hosting_endpoint_ids" readonly="1">
+                        <list>
+                            <field name="code"/>
+                            <field name="name"/>
+                            <field name="endpoint_type" widget="badge"/>
+                            <field name="lifecycle_state" widget="badge"
+                                   decoration-success="lifecycle_state == 'deployed'"
+                                   decoration-warning="lifecycle_state == 'in_repair'"
+                                   decoration-muted="lifecycle_state == 'retired'"/>
+                            <field name="assigned_display" string="Usager"/>
+                            <field name="os"/>
+                            <field name="os_eol_tag"/>
+                            <field name="warranty_end"/>
+                        </list>
+                    </field>
+                </page>
             </xpath>
         </field>
     </record>

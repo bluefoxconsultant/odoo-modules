@@ -65,4 +65,81 @@
         <field name="groups" eval="[(4, ref('group_hosting_manager'))]"/>
     </record>
 
+    <!-- Endpoint : l'utilisateur voit les postes des clients dont il a au moins un service en charge -->
+    <record id="hosting_endpoint_rule_user" model="ir.rule">
+        <field name="name">Parc : l'utilisateur voit les postes de ses clients</field>
+        <field name="model_id" ref="model_hosting_endpoint"/>
+        <field name="domain_force">[('partner_id.hosting_service_ids.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_hosting_user'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <!-- Endpoint : le gestionnaire voit tout -->
+    <record id="hosting_endpoint_rule_manager" model="ir.rule">
+        <field name="name">Parc : le gestionnaire voit tout</field>
+        <field name="model_id" ref="model_hosting_endpoint"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('group_hosting_manager'))]"/>
+    </record>
+
+    <!-- Groupe endpoint : l'utilisateur voit les groupes de ses clients -->
+    <record id="hosting_endpoint_group_rule_user" model="ir.rule">
+        <field name="name">Groupe : l'utilisateur voit les groupes de ses clients</field>
+        <field name="model_id" ref="model_hosting_endpoint_group"/>
+        <field name="domain_force">[('partner_id.hosting_service_ids.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_hosting_user'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <record id="hosting_endpoint_group_rule_manager" model="ir.rule">
+        <field name="name">Groupe : le gestionnaire voit tout</field>
+        <field name="model_id" ref="model_hosting_endpoint_group"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('group_hosting_manager'))]"/>
+    </record>
+
+    <!-- License : utilisateur voit les pools BF mutualisés OU ceux de ses clients -->
+    <record id="hosting_license_rule_user" model="ir.rule">
+        <field name="name">Licence : l'utilisateur voit les pools BF + ceux de ses clients</field>
+        <field name="model_id" ref="model_hosting_license"/>
+        <field name="domain_force">['|', ('owner_partner_id', '=', user.company_id.partner_id.id), ('owner_partner_id.hosting_service_ids.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_hosting_user'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <record id="hosting_license_rule_manager" model="ir.rule">
+        <field name="name">Licence : le gestionnaire voit tout</field>
+        <field name="model_id" ref="model_hosting_license"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('group_hosting_manager'))]"/>
+    </record>
+
+    <!-- License Seat : héritage logique de la licence parent -->
+    <record id="hosting_license_seat_rule_user" model="ir.rule">
+        <field name="name">Siège : l'utilisateur voit les sièges de ses pools</field>
+        <field name="model_id" ref="model_hosting_license_seat"/>
+        <field name="domain_force">['|', ('license_id.owner_partner_id', '=', user.company_id.partner_id.id), ('license_id.owner_partner_id.hosting_service_ids.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_hosting_user'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <record id="hosting_license_seat_rule_manager" model="ir.rule">
+        <field name="name">Siège : le gestionnaire voit tout</field>
+        <field name="model_id" ref="model_hosting_license_seat"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('group_hosting_manager'))]"/>
+    </record>
+
 </odoo>

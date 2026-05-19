@@ -108,6 +108,48 @@
         action="hosting_domain_action_expiring"
         sequence="25"/>
 
+    <!-- Parc client (SLA) -->
+    <menuitem
+        id="hosting_menu_endpoints_root"
+        name="Parc client"
+        parent="hosting_menu_infrastructure"
+        sequence="30"/>
+
+    <menuitem
+        id="hosting_menu_endpoints_all"
+        name="Tous les postes"
+        parent="hosting_menu_endpoints_root"
+        action="hosting_endpoint_action_all"
+        sequence="10"/>
+
+    <menuitem
+        id="hosting_menu_endpoints_warranty"
+        name="Garantie expirante"
+        parent="hosting_menu_endpoints_root"
+        action="hosting_endpoint_action_warranty_warning"
+        sequence="20"/>
+
+    <menuitem
+        id="hosting_menu_endpoints_os_eol"
+        name="OS en fin de support"
+        parent="hosting_menu_endpoints_root"
+        action="hosting_endpoint_action_os_eol"
+        sequence="30"/>
+
+    <menuitem
+        id="hosting_menu_endpoints_retired"
+        name="Postes retirés"
+        parent="hosting_menu_endpoints_root"
+        action="hosting_endpoint_action_retired"
+        sequence="40"/>
+
+    <menuitem
+        id="hosting_menu_endpoint_groups"
+        name="Groupes (mapping Action1)"
+        parent="hosting_menu_endpoints_root"
+        action="hosting_endpoint_group_action"
+        sequence="50"/>
+
     <!-- Security Menu -->
     <menuitem
         id="hosting_menu_security"
@@ -135,6 +177,48 @@
         name="Logiciels"
         parent="hosting_menu_root"
         sequence="20"/>
+
+    <!-- Licences Menu -->
+    <menuitem
+        id="hosting_menu_licenses"
+        name="Licences"
+        parent="hosting_menu_root"
+        sequence="22"/>
+
+    <menuitem
+        id="hosting_menu_licenses_all"
+        name="Pools"
+        parent="hosting_menu_licenses"
+        action="hosting_license_action_all"
+        sequence="10"/>
+
+    <menuitem
+        id="hosting_menu_licenses_seats_free"
+        name="Sièges libres"
+        parent="hosting_menu_licenses"
+        action="hosting_license_seat_action_free"
+        sequence="20"/>
+
+    <menuitem
+        id="hosting_menu_licenses_expiring"
+        name="Expirant (≤ 90 j)"
+        parent="hosting_menu_licenses"
+        action="hosting_license_action_expiring"
+        sequence="30"/>
+
+    <menuitem
+        id="hosting_menu_licenses_over_allocated"
+        name="Sur-allocations"
+        parent="hosting_menu_licenses"
+        action="hosting_license_action_over_allocated"
+        sequence="40"/>
+
+    <menuitem
+        id="hosting_menu_licenses_import"
+        name="Importer un pool"
+        parent="hosting_menu_licenses"
+        action="hosting_license_import_wizard_action"
+        sequence="50"/>
 
     <menuitem
         id="hosting_menu_software_catalog"
