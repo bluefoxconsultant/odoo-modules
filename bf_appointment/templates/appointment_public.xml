@@ -16,6 +16,7 @@
             <t t-set="breadcrumbs_searchbar" t-value="False"/>
             <t t-call="bf_appointment.appointment_brand_style"/>
             <t t-set="_en" t-value="(env.context.get('lang') or 'fr_CA').lower().startswith('en')"/>
+            <t t-set="additional_title" t-value="'Book an appointment' if _en else 'Prendre rendez-vous'"/>
             
 <t t-set="brand_primary" t-value="(env.company and env.company.report_brand_primary) or '#714B67'"/>
 <t t-set="brand_dark" t-value="(env.company and env.company.report_brand_dark) or '#212529'"/>
@@ -104,6 +105,7 @@
             <t t-set="breadcrumbs_searchbar" t-value="False"/>
             <t t-call="bf_appointment.appointment_brand_style"/>
             <t t-set="_en" t-value="(env.context.get('lang') or 'fr_CA').lower().startswith('en')"/>
+            <t t-set="additional_title" t-value="booking_type.name if booking_type else ('Appointment' if _en else 'Rendez-vous')"/>
             
 <t t-set="brand_primary" t-value="(env.company and env.company.report_brand_primary) or '#714B67'"/>
 <t t-set="brand_dark" t-value="(env.company and env.company.report_brand_dark) or '#212529'"/>
@@ -398,6 +400,7 @@
             <t t-set="breadcrumbs_searchbar" t-value="False"/>
             <t t-call="bf_appointment.appointment_brand_style"/>
             <t t-set="_en" t-value="(env.context.get('lang') or 'fr_CA').lower().startswith('en')"/>
+            <t t-set="additional_title" t-value="('Pick a time — ' if _en else 'Choisir un créneau — ') + (booking_sudo.type_id.name or '')"/>
             <div class="bf-appointment-schedule">
                 <div class="bf-section-header text-center">
                     <h3 t-out="'Pick your time' if _en else 'Choisissez votre créneau'"/>
@@ -596,6 +599,7 @@
             <t t-set="breadcrumbs_searchbar" t-value="False"/>
             <t t-call="bf_appointment.appointment_brand_style"/>
             <t t-set="_en" t-value="(env.context.get('lang') or 'fr_CA').lower().startswith('en')"/>
+            <t t-set="additional_title" t-value="'Meeting cancelled' if _en else 'Rendez-vous annulé'"/>
             
 <t t-set="brand_primary" t-value="(env.company and env.company.report_brand_primary) or '#714B67'"/>
 <t t-set="brand_dark" t-value="(env.company and env.company.report_brand_dark) or '#212529'"/>

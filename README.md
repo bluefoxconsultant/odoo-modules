@@ -17,7 +17,7 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | Directory | Name | Version | License | Description |
 |---|---|---|---|---|
 | `audit_ti` | Audit TI - Loi 25 | 18.0.1.17.0 | LGPL-3 | IT security audit management for Quebec's Loi 25 compliance |
-| `bf_appointment` | Blue Fox Appointment | 18.0.2.15.7 | LGPL-3 | Self-service public booking pages (extends `resource_booking`) |
+| `bf_appointment` | Blue Fox Appointment | 18.0.2.24.0 | LGPL-3 | Self-service public booking pages (extends `resource_booking`) |
 | `bf_bloc_notes` | BF Bloc-notes | 18.0.2.1.0 | LGPL-3 | Rich quick notes with multi-record links, one-click activity conversion, keyboard shortcuts, and systray icon (Alt+N) |
 | `bf_bureau` | BF Bureau — multi-pane views | 18.0.3.0.0 | LGPL-3 | User-configurable dashboards ("desks") with multi-pane Odoo actions, six layouts, keyboard shortcuts, time slots, and a sidebar |
 | `bf_calendar_caldav_snooze` | BF Calendar CalDAV Snooze Bridge | 18.0.1.0.0 | LGPL-3 | RFC 9074 bridge mirroring `calendar.attendee` snooze/dismiss state to Nextcloud `.ics` VALARM (`ACKNOWLEDGED` + `SNOOZE-VALARM`) in both directions |

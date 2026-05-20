@@ -85,19 +85,32 @@ def _resolve_lang_from_accept_header():
 
 
 def _apply_locale_from_request():
-    """Switch request env lang to match the booker's intent. Idempotent.
+    """Switch request env lang for prefix-less booking links. Idempotent.
 
-    Trust order:
-      1. lang already in context - set by website middleware from URL prefix
-         (`/en/...`), `frontend_lang` cookie, or its own Accept-Language parse.
-         Respect it whenever it resolves to English so the language toggle
-         (which redirects to `/en/appointment`) actually flips the page.
-      2. Accept-Language fallback for non-website routes (email confirmation
-         links, cancel links) where middleware lang resolution may not run.
+    The public pages (landing, type detail, intake POST) carry the language in
+    the URL: `/en/appointment/...` is English, the prefix-less `/appointment/...`
+    is the fr_CA default. Odoo's website middleware already resolves that
+    correctly into the request context, so we leave it untouched here.
+
+    Earlier this function applied an Accept-Language fallback to *every* route,
+    which let an English browser (`Accept-Language: en-CA`) override the French
+    URL and defeated the language toggle: after switching to Français the page
+    stayed English because the browser still advertised English. The URL prefix
+    must win on the public pages.
+
+    The booking pages reached from confirmation/cancel emails
+    (`/appointment/b/<id>/<token>/...`) are prefix-less, so the URL gives no
+    language hint. There - and only there - we fall back to the booker's
+    Accept-Language to choose en_CA vs fr_CA.
 
     Falls back to fr_CA if the resolved lang is not installed on this tenant
     (e.g. mono-lingual PMEC ships fr_CA only - setting en_CA would 400).
     """
+    # Public pages: the URL prefix is authoritative. Leave the context lang
+    # exactly as the website middleware resolved it from the URL.
+    if "/appointment/b/" not in (request.httprequest.path or ""):
+        return
+    # Email-link booking pages: no URL language signal, use Accept-Language.
     current = request.env.context.get("lang")
     if current and current.lower().startswith("en"):
         return

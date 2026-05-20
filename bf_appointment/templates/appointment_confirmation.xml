@@ -6,6 +6,7 @@
             <t t-set="breadcrumbs_searchbar" t-value="False"/>
             <t t-call="bf_appointment.appointment_brand_style"/>
             <t t-set="_en" t-value="(env.context.get('lang') or 'fr_CA').lower().startswith('en')"/>
+            <t t-set="additional_title" t-value="('Your appointment — ' if _en else 'Votre rendez-vous — ') + (booking_sudo.type_id.name or '')"/>
             
 <t t-set="brand_primary" t-value="(env.company and env.company.report_brand_primary) or '#714B67'"/>
 <t t-set="brand_dark" t-value="(env.company and env.company.report_brand_dark) or '#212529'"/>
