@@ -34,6 +34,7 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | `bf_mail_import` | BF Email Import (.eml) | 18.0.1.2.0 | LGPL-3 | Import .eml files into the Odoo chatter |
 | `bf_mail_subject_clean` | BF Email Subject Cleanup | 18.0.1.0.0 | LGPL-3 | Prevents "Re: Re: Re:" stacking on subjects sent through the chatter |
 | `bf_mail_vigie` | BF Email Re-router | 18.0.2.0.0 | LGPL-3 | "Re-route" button on `bf.email` to move a misrouted email to the correct chatter |
+| `bf_mass_notes` | Blue Fox — Notes en lot | 18.0.1.0.0 | LGPL-3 | List-view Action to post a chatter note (or message) to many selected records at once; binds to all `mail.thread` models |
 | `bf_meeting` | Meetings | 18.0.3.10.0 | LGPL-3 | Agendas, meeting records, and discussion items unified around `calendar.event` with automatic reminders |
 | `bf_persona` | Persona des contacts | 18.0.2.0.0 | LGPL-3 | Active relationship intelligence: composer hint with auto-cc, monthly auto-seed from email signals, weekly degradation detector with optional ntfy alert, kanban dashboard |
 | `bf_sms_archive` | SMS & Call Archive | 18.0.1.3.0 | LGPL-3 | Archive and search Android SMS and call logs |
