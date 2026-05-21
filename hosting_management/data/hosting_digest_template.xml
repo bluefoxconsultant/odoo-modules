@@ -29,7 +29,7 @@
                                                     <tbody>
                                                         <tr>
                                                             <td align="left" style="color:#FFFFFF; font-family:'Lexend','Segoe UI',Arial,sans-serif; font-size:16px; font-weight:600;">
-                                                                <a t-attf-href="{{ company.website or 'https://www.bluefoxconsultant.com' }}" style="text-decoration:none;">
+                                                                <a t-attf-href="{{ company.website or 'https://bluefoxconsultant.com' }}" style="text-decoration:none;">
                                                                     <img t-attf-src="/web/image/res.company/{{ company.id }}/logo" t-att-alt="company.name or 'Logo'" style="height:48px; width:auto; display:block; border:0;"/>
                                                                 </a>
                                                             </td>
@@ -81,9 +81,9 @@
                                                                 Rapport généré automatiquement par votre module d'hébergement.
                                                             </td>
                                                             <td align="right" style="font-family:'Lexend','Segoe UI',Arial,sans-serif; font-size:12px; color:#9CA3AF;">
-                                                                <a t-attf-href="{{ company.website or 'https://www.bluefoxconsultant.com' }}/r/politique-de-confidentialite" style="color:#9CA3AF; text-decoration:underline;">Politique de confidentialité</a>
+                                                                <a t-attf-href="{{ company.website or 'https://bluefoxconsultant.com' }}/r/politique-de-confidentialite" style="color:#9CA3AF; text-decoration:underline;">Politique de confidentialité</a>
                                                                 <span style="color:#9CA3AF;"> | </span>
-                                                                <a t-attf-href="{{ company.website or 'https://www.bluefoxconsultant.com' }}/r/termes-et-conditions" style="color:#9CA3AF; text-decoration:underline;">Conditions</a>
+                                                                <a t-attf-href="{{ company.website or 'https://bluefoxconsultant.com' }}/r/termes-et-conditions" style="color:#9CA3AF; text-decoration:underline;">Conditions</a>
                                                             </td>
                                                         </tr>
                                                     </tbody>

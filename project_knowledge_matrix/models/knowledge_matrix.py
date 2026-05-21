@@ -311,7 +311,7 @@ class KnowledgeMatrix(models.Model):
                 _BRANDED_WRAPPER,
             )
             company = matrix.project_id.company_id or self.env.company
-            website = company.website or 'https://www.bluefoxconsultant.com'
+            website = company.website or 'https://bluefoxconsultant.com'
             body_html = Markup(_BRANDED_WRAPPER.format(
                 primary=company.report_brand_primary or '#714B67',
                 dark=company.report_brand_dark or '#212529',

@@ -49,6 +49,11 @@
                                 </group>
                             </group>
                             <group>
+                                <group string="Rencontres">
+                                    <field name="include_meetings"/>
+                                </group>
+                            </group>
+                            <group>
                                 <group string="Météo">
                                     <field name="include_weather"/>
                                     <field name="weather_city" invisible="not include_weather"/>

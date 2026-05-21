@@ -5,7 +5,6 @@
     "summary": "Add Attente - Client / Attente - Externe task states",
     "author": "Blue Fox Inc.",
     "website": "https://bluefoxconsultant.com",
-    "license": "LGPL-3",
     "depends": ["project"],
     "data": [],
     "assets": {
@@ -15,4 +14,5 @@
     },
     "installable": True,
     "auto_install": False,
+    "license": "LGPL-3",
 }

@@ -478,9 +478,9 @@ The module provides a REST API endpoint that receives verbose output and structu
 {
   "success": true,
   "action": "created",
-  "service_id": 80,
-  "service_code": "HST-0067",
-  "partner_id": 3740
+  "service_id": 12,
+  "service_code": "HST-XXXX",
+  "partner_id": 345
 }
 ```
 

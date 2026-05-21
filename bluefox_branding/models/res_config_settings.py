@@ -12,6 +12,17 @@ class ResConfigSettings(models.TransientModel):
         related="company_id.report_brand_dark",
         readonly=False,
     )
+    # Native Odoo per-company colors — these (not report_brand_*) drive PDF
+    # report headers/accents via the standard document layout. Surfaced here so
+    # the whole brand identity lives in one panel.
+    primary_color = fields.Char(
+        related="company_id.primary_color",
+        readonly=False,
+    )
+    secondary_color = fields.Char(
+        related="company_id.secondary_color",
+        readonly=False,
+    )
     brand_email_tagline = fields.Char(
         related="company_id.brand_email_tagline",
         readonly=False,
@@ -25,6 +36,14 @@ class ResConfigSettings(models.TransientModel):
         related="company_id.brand_email_signature_default",
         readonly=False,
         sanitize=False,
+    )
+    brand_privacy_url = fields.Char(
+        related="company_id.brand_privacy_url",
+        readonly=False,
+    )
+    brand_terms_url = fields.Char(
+        related="company_id.brand_terms_url",
+        readonly=False,
     )
     company_font = fields.Selection(
         related="company_id.font",

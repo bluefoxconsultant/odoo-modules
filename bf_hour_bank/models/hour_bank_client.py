@@ -381,7 +381,8 @@ class HourBankClient(models.Model):
 
         # Styles
         header_font = Font(name='Calibri', bold=True, size=11, color='FFFFFF')
-        header_fill = PatternFill(start_color='2E3132', end_color='2E3132', fill_type='solid')
+        header_hex = (self.env.company.report_brand_dark or '#212529').lstrip('#').upper()
+        header_fill = PatternFill(start_color=header_hex, end_color=header_hex, fill_type='solid')
         credit_fill = PatternFill(start_color='C6EFCE', end_color='C6EFCE', fill_type='solid')
         number_fmt = '#,##0.00'
         thin_border = Border(

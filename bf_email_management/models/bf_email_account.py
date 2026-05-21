@@ -63,6 +63,13 @@ class BfEmailAccount(models.Model):
         required=True,
         help="Adresse de connexion (ex. user@example.com).",
     )
+    email_aliases = fields.Char(
+        string="Alias additionnels",
+        help="Adresses additionnelles considérées comme « moi » pour le calcul "
+             "de is_to_me / is_cc_to_me (catchall, alias, ancienne adresse). "
+             "Séparées par virgule ou point-virgule. Ex. : "
+             "bonjour@bluefoxconsultant.com, info@bluefoxconsultant.com",
+    )
     password = fields.Char(
         string="Mot de passe IMAP",
         required=True,

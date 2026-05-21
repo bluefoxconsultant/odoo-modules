@@ -46,6 +46,8 @@
                         <group string="Identité">
                             <field name="user_id" readonly="1"/>
                             <field name="active" invisible="1"/>
+                            <field name="email_aliases"
+                                   placeholder="bonjour@…, info@…"/>
                         </group>
                         <group string="Serveur IMAP">
                             <field name="host" placeholder="imap.example.com"/>

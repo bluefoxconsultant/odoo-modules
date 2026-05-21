@@ -23,11 +23,11 @@ _BF_FOOTER_HTML = """\
 <span style="color:#D1D5DB;"> &middot; </span>
 <a href="tel:+15145132535" style="color:inherit;text-decoration:none;">514-513-2535</a>
 <span style="color:#D1D5DB;"> &middot; </span>
-<a href="https://www.bluefoxconsultant.com" style="color:inherit;text-decoration:none;">bluefoxconsultant.com</a>
+<a href="https://bluefoxconsultant.com" style="color:inherit;text-decoration:none;">bluefoxconsultant.com</a>
 <br/>
-<a href="https://www.bluefoxconsultant.com/r/politique-de-confidentialite" style="color:#9CA3AF;text-decoration:underline;">Confidentialité</a>
+<a href="https://bluefoxconsultant.com/r/politique-de-confidentialite" style="color:#9CA3AF;text-decoration:underline;">Confidentialité</a>
 <span style="color:#D1D5DB;"> | </span>
-<a href="https://www.bluefoxconsultant.com/r/termes-et-conditions" style="color:#9CA3AF;text-decoration:underline;">Conditions</a>"""
+<a href="https://bluefoxconsultant.com/r/termes-et-conditions" style="color:#9CA3AF;text-decoration:underline;">Conditions</a>"""
 
 
 def migrate(cr, version):

@@ -3,7 +3,7 @@
     "summary": "Tableau de bord unifi\u00e9 agr\u00e9geant facturation, h\u00e9bergement, connaissances et vie priv\u00e9e",
     "version": "18.0.1.0.0",
     "category": "Services",
-    "website": "https://bluefox.ca",
+    "website": "https://bluefoxconsultant.com",
     "author": "Blue Fox Inc.",
     "license": "LGPL-3",
     "application": False,

@@ -545,6 +545,7 @@ class MeetingDashboardLine(models.Model):
         # ordering of init_models places this view first.
         self.env.cr.execute("""
             ALTER TABLE calendar_event
+                ADD COLUMN IF NOT EXISTS bf_skip_agenda BOOLEAN DEFAULT FALSE,
                 ADD COLUMN IF NOT EXISTS bf_skip_dashboard BOOLEAN DEFAULT FALSE,
                 ADD COLUMN IF NOT EXISTS bf_dashboard_skipped_steps VARCHAR,
                 ADD COLUMN IF NOT EXISTS bf_agenda_responsible_id INTEGER,

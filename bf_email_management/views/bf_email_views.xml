@@ -2,6 +2,18 @@
 <odoo>
 
     <!-- ============================================================ -->
+    <!-- SERVER ACTION                                                -->
+    <!-- Defined first: the tree view header button below references   -->
+    <!-- it via %(action_bf_email_sync_now)d, so it must load earlier. -->
+    <!-- ============================================================ -->
+    <record id="action_bf_email_sync_now" model="ir.actions.server">
+        <field name="name">Synchroniser maintenant</field>
+        <field name="model_id" ref="model_bf_email"/>
+        <field name="state">code</field>
+        <field name="code">action = model.action_sync_now()</field>
+    </record>
+
+    <!-- ============================================================ -->
     <!-- TREE VIEW                                                    -->
     <!-- ============================================================ -->
     <record id="bf_email_view_tree" model="ir.ui.view">
@@ -12,9 +24,11 @@
                   decoration-muted="is_handled"
                   decoration-warning="not res_model and not is_handled"
                   decoration-success="is_to_me and not is_handled"
+                  decoration-danger="is_foreign_owner"
                   default_order="date desc">
                 <field name="is_handled" column_invisible="True"/>
                 <field name="is_to_me" column_invisible="True"/>
+                <field name="is_foreign_owner" column_invisible="True"/>
                 <header>
                     <button name="%(action_bf_email_sync_now)d"
                             string="Synchroniser maintenant"
@@ -97,6 +111,8 @@
                             type="object"
                             class="btn-primary"
                             icon="fa-share"/>
+                    <widget name="bf_email_new_record_dropdown"
+                            invisible="is_foreign_owner"/>
                     <button name="action_reroute"
                             string="Lier &#224; un dossier"
                             type="object"
@@ -147,6 +163,15 @@
                            statusbar_visible="new,read,replied"/>
                 </header>
                 <sheet>
+                    <field name="is_foreign_owner" invisible="1"/>
+                    <field name="has_helpdesk" invisible="1"/>
+                    <field name="has_expense" invisible="1"/>
+                    <div class="alert alert-danger" role="alert"
+                         invisible="not context.get('bf_admin_zone') and not is_foreign_owner">
+                        <i class="fa fa-exclamation-triangle"/>
+                        Zone admin &#8212; vous consultez les courriels d'autres
+                        utilisateurs (lecture seule).
+                    </div>
                     <widget name="web_ribbon"
                             title="Trait&#233;"
                             bg_color="text-bg-success"
@@ -394,7 +419,7 @@
                 <separator/>
                 <filter name="filter_my_emails"
                         string="Mes courriels"
-                        domain="[('author_id.user_ids', 'in', uid)]"/>
+                        domain="['|', '|', '|', ('is_to_me', '=', True), ('is_cc_to_me', '=', True), ('is_from_me', '=', True), ('author_id.user_ids', 'in', uid)]"/>
                 <filter name="filter_no_record"
                         string="Sans dossier (&#224; router)"
                         domain="[('res_model', '=', False)]"/>
@@ -564,13 +589,6 @@
         <field name="code">records.action_unhandle()</field>
     </record>
 
-    <record id="action_bf_email_sync_now" model="ir.actions.server">
-        <field name="name">Synchroniser maintenant</field>
-        <field name="model_id" ref="model_bf_email"/>
-        <field name="state">code</field>
-        <field name="code">action = model.action_sync_now()</field>
-    </record>
-
     <!-- ============================================================ -->
     <!-- ACTIONS                                                      -->
     <!-- ============================================================ -->
@@ -598,6 +616,7 @@
         <field name="res_model">bf.email</field>
         <field name="view_mode">list,kanban,form,graph,pivot</field>
         <field name="search_view_id" ref="bf_email_view_search"/>
+        <field name="context">{'search_default_filter_my_emails': 1}</field>
     </record>
 
     <record id="bf_email_action_graph" model="ir.actions.act_window">

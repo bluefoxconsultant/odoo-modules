@@ -1,6 +1,6 @@
 {
     "name": "Blue Fox Branding",
-    "version": "18.0.2.2.0",
+    "version": "18.0.3.0.0",
     "category": "Tools",
     "summary": "White-label branding panel + branded email templates",
     "description": """
@@ -35,6 +35,7 @@
         "portal",  # for website_brand_css_variables.xml inheriting portal.frontend_layout
         "bf_lexend",  # provides the Lexend font assets + ("Lexend", "Lexend") selection_add on res.company.font
         "bf_onboarding_base",
+        "l10n_ca",  # for views/report_layout_overrides.xml inheriting l10n_ca_external_layout_folder
     ],
     "data": [
         "data/mail_layout_override.xml",
@@ -42,6 +43,7 @@
         "views/res_config_settings_views.xml",
         "views/brand_css_variables.xml",
         "views/website_brand_css_variables.xml",
+        "views/report_layout_overrides.xml",
         # mail_template_overrides.xml is NOT loaded by Odoo data loader
         # (original templates have noupdate=True). Instead, post_init_hook
         # reads this file and applies updates via ORM write().
@@ -55,6 +57,11 @@
         ],
         "web.assets_frontend": [
             "bluefox_branding/static/src/scss/branding.scss",
+        ],
+        # Make HTML-editor embedded file pills render in PDF reports.
+        # See report_embedded_files.scss for the why.
+        "web.report_assets_common": [
+            "bluefox_branding/static/src/scss/report_embedded_files.scss",
         ],
     },
     "post_init_hook": "post_init_hook",

@@ -132,10 +132,10 @@ class HourBankSendWizard(models.TransientModel):
         Logo, website, and policy/terms URLs are tenant-aware so each company
         in the database sends emails with its own visual identity."""
         company = self.env.company
-        website = company.website or 'https://www.bluefoxconsultant.com'
+        website = company.website or 'https://bluefoxconsultant.com'
         return Markup(_BRANDED_WRAPPER.format(
-            primary=company.report_brand_primary or '#29ABE2',
-            dark=company.report_brand_dark or '#22303B',
+            primary=company.report_brand_primary or '#714B67',
+            dark=company.report_brand_dark or '#212529',
             company_name=company.name or 'Blue Fox',
             company_email=company.email or 'service@bluefoxconsultant.com',
             company_phone=company.phone or '514-513-2535',

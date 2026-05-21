@@ -157,6 +157,13 @@
                                                             </t>
                                                         </td>
                                                     </tr>
+                                                    <tr t-if="company and (company.brand_privacy_url or company.brand_terms_url)">
+                                                        <td t-attf-style="padding-top:12px;font-family:{{ brand_font_stack }};font-size:11px;">
+                                                            <a t-if="company.brand_privacy_url" t-att-href="company.brand_privacy_url" style="color:#9CA3AF;text-decoration:underline;">Confidentialit&#233;</a>
+                                                            <t t-if="company.brand_privacy_url and company.brand_terms_url"><span style="color:#D1D5DB;"> | </span></t>
+                                                            <a t-if="company.brand_terms_url" t-att-href="company.brand_terms_url" style="color:#9CA3AF;text-decoration:underline;">Conditions</a>
+                                                        </td>
+                                                    </tr>
                                                     <tr t-if="show_footer">
                                                         <td t-attf-style="padding-top:12px;font-family:{{ brand_font_stack }};font-size:11px;">
                                                             <a href="/mail/unfollow" style="color:#9CA3AF;text-decoration:underline;">Se d&#233;sabonner</a>

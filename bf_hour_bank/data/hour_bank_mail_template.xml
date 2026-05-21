@@ -10,8 +10,8 @@
             <field name="body_html" type="html">
 
 <t t-set="company" t-value="(object.company_id if hasattr(object, 'company_id') and object.company_id else user.company_id)"/>
-<t t-set="brand_primary" t-value="(company and company.report_brand_primary) or '#29ABE2'"/>
-<t t-set="brand_dark" t-value="(company and company.report_brand_dark) or '#22303B'"/>
+<t t-set="brand_primary" t-value="(company and company.report_brand_primary) or '#714B67'"/>
+<t t-set="brand_dark" t-value="(company and company.report_brand_dark) or '#212529'"/>
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#F8FAFC;">
     <tbody>
         <tr>
@@ -30,7 +30,7 @@
                                                     <tbody>
                                                         <tr>
                                                             <td align="left" style="color:#FFFFFF; font-family:'Lexend','Segoe UI',Arial,sans-serif; font-size:16px; font-weight:600;">
-                                                                <a t-attf-href="{{ company.website or 'https://www.bluefoxconsultant.com' }}" style="text-decoration:none;">
+                                                                <a t-attf-href="{{ company.website or 'https://bluefoxconsultant.com' }}" style="text-decoration:none;">
                                                                     <img t-attf-src="/web/image/res.company/{{ company.id }}/logo" t-att-alt="company.name or 'Logo'" style="height:48px; width:auto; display:block; border:0;"/>
                                                                 </a>
                                                             </td>
@@ -90,9 +90,9 @@
                                                                 Suivi automatique des heures consomm&#233;es vs. provisionn&#233;es.
                                                             </td>
                                                             <td align="right" style="font-family:'Lexend','Segoe UI',Arial,sans-serif; font-size:12px; color:#9CA3AF;">
-                                                                <a t-attf-href="{{ company.website or 'https://www.bluefoxconsultant.com' }}/r/politique-de-confidentialite" style="color:#9CA3AF; text-decoration:underline;">Politique de confidentialit&#233;</a>
+                                                                <a t-attf-href="{{ company.website or 'https://bluefoxconsultant.com' }}/r/politique-de-confidentialite" style="color:#9CA3AF; text-decoration:underline;">Politique de confidentialit&#233;</a>
                                                                 <span style="color:#9CA3AF;"> | </span>
-                                                                <a t-attf-href="{{ company.website or 'https://www.bluefoxconsultant.com' }}/r/termes-et-conditions" style="color:#9CA3AF; text-decoration:underline;">Conditions</a>
+                                                                <a t-attf-href="{{ company.website or 'https://bluefoxconsultant.com' }}/r/termes-et-conditions" style="color:#9CA3AF; text-decoration:underline;">Conditions</a>
                                                             </td>
                                                         </tr>
                                                     </tbody>

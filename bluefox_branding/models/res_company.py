@@ -5,14 +5,17 @@ class ResCompany(models.Model):
     _inherit = "res.company"
 
     report_brand_primary = fields.Char(
-        string="Couleur primaire (rapports)",
+        string="Couleur primaire (marque)",
         default="#714B67",
-        help="Couleur d'accent pour les rapports PDF, courriels et UI (ex: bannière, bulles, barres).",
+        help="Couleur d'accent pour la navbar, les boutons et les courriels brandés "
+             "(ex: bannière, bulles, barres). Les rapports PDF utilisent plutôt "
+             "« Couleur primaire (PDF) ».",
     )
     report_brand_dark = fields.Char(
-        string="Couleur foncée (rapports)",
+        string="Couleur foncée (marque)",
         default="#212529",
-        help="Couleur de fond foncée pour les rapports PDF et courriels (ex: bannière).",
+        help="Couleur de fond foncée pour les en-têtes de courriels brandés et la navbar. "
+             "Les rapports PDF utilisent plutôt « Couleur secondaire (PDF) ».",
     )
 
     brand_email_tagline = fields.Char(
@@ -38,6 +41,20 @@ class ResCompany(models.Model):
             "Signature HTML utilisée dans le bloc signature des courriels brandés "
             "quand l'utilisateur n'a pas de signature personnelle. Laissez vide pour "
             "le comportement Odoo standard."
+        ),
+    )
+    brand_privacy_url = fields.Char(
+        string="Lien politique de confidentialité (courriels)",
+        help=(
+            "URL affichée dans le pied des courriels brandés. Laissez vide pour "
+            "masquer le lien."
+        ),
+    )
+    brand_terms_url = fields.Char(
+        string="Lien conditions (courriels)",
+        help=(
+            "URL affichée dans le pied des courriels brandés. Laissez vide pour "
+            "masquer le lien."
         ),
     )
     favicon = fields.Binary(

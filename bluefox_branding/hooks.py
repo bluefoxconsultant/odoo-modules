@@ -24,9 +24,9 @@ _LATE_INVOICE_BODY = """\
 <td t-attf-style="background-color:{{ brand_dark }};padding:20px 32px;border-radius:16px 16px 0 0;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tbody><tr>
 <td align="left">
-<a href="https://www.bluefoxconsultant.com" style="text-decoration:none;">
-<img src="https://www.bluefoxconsultant.com/web/image/website/1/logo/Blue%20Fox?unique=803cc14"
-     alt="Blue Fox" style="height:44px;width:auto;display:block;border:0;" height="44"/>
+<a t-att-href="company.website or '#'" style="text-decoration:none;">
+<img t-attf-src="/web/image/res.company/{{ company.id }}/logo"
+     t-att-alt="company.name" style="height:44px;width:auto;display:block;border:0;" height="44"/>
 </a>
 </td>
 <td align="right" style="color:#E6EDF3;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:14px;font-weight:400;letter-spacing:0.3px;">
@@ -36,7 +36,7 @@ _LATE_INVOICE_BODY = """\
 </td>
 </tr>
 
-<tr><td style="height:4px;line-height:4px;background-color:#D97706;">&#160;</td></tr>
+<tr><td t-attf-style="height:4px;line-height:4px;background-color:{{ brand_primary }};">&#160;</td></tr>
 
 <tr>
 <td style="padding:28px 32px;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:15px;line-height:24px;color:#374151;font-weight:300;">
@@ -53,7 +53,7 @@ est actuellement en retard de paiement.
 
 <p style="margin:0 0 16px 0;">
 La date d'&#233;ch&#233;ance &#233;tait le
-<strong style="color:#D97706;"><t t-out="format_date(object.invoice_date_due)"/></strong>.
+<strong t-attf-style="color:{{ brand_dark }};"><t t-out="format_date(object.invoice_date_due)"/></strong>.
 </p>
 
 <p style="margin:0 0 16px 0;">
@@ -67,7 +67,7 @@ Pour toute question, n'h&#233;sitez pas &#224; nous contacter.
 
 <p style="margin:24px 0 0 0;font-size:14px;">
 Cordialement,<br/>
-<strong t-attf-style="color:{{ brand_dark }};">L'&#233;quipe <t t-out="company.name or 'Blue Fox'"/></strong>
+<strong t-attf-style="color:{{ brand_dark }};">L'&#233;quipe <t t-out="company.name"/></strong>
 </p>
 
 </td>
@@ -86,24 +86,28 @@ Cordialement,<br/>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tbody>
 <tr>
 <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:#6B7280;line-height:20px;">
-<strong t-attf-style="color:{{ brand_dark }};font-size:14px;"><t t-out="company.name or 'Blue Fox'"/></strong><br/>
-Solutions &#233;thiques et souveraines pour vos donn&#233;es.
+<t t-set="brand_tagline" t-value="(company.brand_email_tagline or company.report_header) or ''"/>
+<strong t-attf-style="color:{{ brand_dark }};font-size:14px;"><t t-out="company.name"/></strong>
+<t t-if="brand_tagline"><br/><span t-out="brand_tagline"/></t>
 </td>
 </tr>
 <tr>
 <td style="padding-top:12px;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;color:#9CA3AF;line-height:18px;">
+<t t-if="not is_html_empty(company.brand_email_footer_html)" t-out="company.brand_email_footer_html"/>
+<t t-else="">
 <a t-if="company.email" t-attf-href="mailto:{{ company.email }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;" t-out="company.email"/>
 <t t-if="company.email and company.phone"><span style="color:#D1D5DB;"> &#183; </span></t>
 <a t-if="company.phone" t-attf-href="tel:{{ company.phone }}" t-attf-style="color:{{ brand_primary }};text-decoration:none;" t-out="company.phone"/>
 <t t-if="(company.email or company.phone) and company.website"><span style="color:#D1D5DB;"> &#183; </span></t>
 <a t-if="company.website" t-att-href="company.website" t-attf-style="color:{{ brand_primary }};text-decoration:none;" t-out="company.website"/>
+</t>
 </td>
 </tr>
-<tr>
+<tr t-if="company.brand_privacy_url or company.brand_terms_url">
 <td style="padding-top:12px;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:11px;">
-<a href="https://www.bluefoxconsultant.com/r/politique-de-confidentialite" style="color:#9CA3AF;text-decoration:underline;">Confidentialit&#233;</a>
-<span style="color:#D1D5DB;"> | </span>
-<a href="https://www.bluefoxconsultant.com/r/termes-et-conditions" style="color:#9CA3AF;text-decoration:underline;">Conditions</a>
+<a t-if="company.brand_privacy_url" t-att-href="company.brand_privacy_url" style="color:#9CA3AF;text-decoration:underline;">Confidentialit&#233;</a>
+<t t-if="company.brand_privacy_url and company.brand_terms_url"><span style="color:#D1D5DB;"> | </span></t>
+<a t-if="company.brand_terms_url" t-att-href="company.brand_terms_url" style="color:#9CA3AF;text-decoration:underline;">Conditions</a>
 </td>
 </tr>
 </tbody></table>
@@ -116,7 +120,7 @@ Solutions &#233;thiques et souveraines pour vos donn&#233;es.
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600"
        style="width:600px;max-width:600px;margin:12px auto 0;">
 <tbody><tr>
-<td style="height:3px;line-height:3px;background-color:#D97706;width:50%;border-radius:2px 0 0 2px;">&#160;</td>
+<td t-attf-style="height:3px;line-height:3px;background-color:{{ brand_primary }};width:50%;border-radius:2px 0 0 2px;">&#160;</td>
 <td t-attf-style="height:3px;line-height:3px;background-color:{{ brand_dark }};width:50%;border-radius:0 2px 2px 0;">&#160;</td>
 </tr></tbody>
 </table>

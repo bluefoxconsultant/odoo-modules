@@ -1,80 +1,85 @@
-# Configurable Branding Pack
+# Configurable Branding Pack (`bluefox_branding`)
 
-Per-company brand-color + email-layout overrides for Odoo Community.
+Per-company brand colors, fonts, logo and branded email layouts for Odoo
+Community. Every surface follows the **active / record company**, so a
+multi-company database renders each company in its own identity — no SCSS
+recompile, no per-tenant build.
 
-This module is configurable. Colors come from `res.company.report_brand_primary`
-and `res.company.report_brand_dark` (fields provided by `bf_lexend`), so each
-tenant picks their own palette in **Settings > Companies > _your company_ >
-Brand colors**. No SCSS recompile, no per-tenant build.
+The fallback values match Odoo's stock theme, so installing the module is a
+visual no-op until brand fields are configured.
 
-The fallback hex values match Odoo's stock theme (#714B67 plum, #212529 dark),
-so installing this module is a visual no-op until brand colors are configured.
+## Configuration
 
-## What this module overrides
+Everything lives in one panel: **Settings → General Settings → Identité de
+marque**.
 
-### Backend chrome
+- **Couleurs de marque (interface et courriels)** — `report_brand_primary` /
+  `report_brand_dark`: navbar, buttons, and branded emails.
+- **Couleurs des rapports PDF** — Odoo's native `primary_color` /
+  `secondary_color`: PDF report header/accents (surfaced here for convenience;
+  they drive the document layout, not the colors above).
+- **Identité visuelle** — logo, favicon, website, report header tagline.
+- **Typographie** — company font (Lexend by default, via `bf_lexend`).
+- **Courriels brandés** — email tagline, custom footer HTML, default
+  signature, and optional privacy / terms links.
 
-- Top navbar
-- App menu / burger menu (mobile)
-- Main-menu module (full-screen home menu)
-- Buttons (`.btn-primary`), badges, progress bars, links, focus rings,
-  selection color, kanban accents
+All fields are stored on `res.company` and read at render time, so switching
+the active company re-skins the UI on the next page load and re-brands the
+next outgoing email.
 
-All of the above re-skin via CSS variables (`var(--brand-primary, fallback)`,
-`var(--brand-dark, fallback)`) populated at request time from the current
-company's settings. See `static/src/scss/branding.scss`.
+## What this module does
 
-### Transactional email layouts
+### Backend + portal chrome
 
-Two new layouts:
+Navbar, menus, buttons, badges, progress bars, links and kanban accents
+re-skin via CSS variables (`var(--brand-primary, …)`, `var(--brand-dark, …)`)
+populated at request time from `request.env.company`. See
+`static/src/scss/branding.scss`.
 
-- `bluefox_branding.bf_mail_layout` — standalone branded layout (header
-  with company logo, accent bar in brand primary, footer with company
-  contact info)
-- `bluefox_branding.bf_mail_layout_with_signature` — same plus the
-  responsible-user signature block
+### Branded transactional email layouts
 
-These are not overrides of Odoo's `mail.mail_notification_layout`. They're
-only used when the composer wizard explicitly references them via
-`email_layout_xmlid` (invoices, quotes, contracts). Chatter notifications
-and internal messages stay on Odoo's default.
+Two layouts read every identity bit from the `company` variable
+(logo via `/web/image/res.company/<id>/logo`, name, website, tagline, footer,
+signature, legal links):
 
-### Standard mail templates
+- `bluefox_branding.bf_mail_layout`
+- `bluefox_branding.bf_mail_layout_with_signature`
 
-Templates from `om_account_followup`, `contract`, `helpdesk_mgmt`,
-`survey`, and `calendar` ship as `noupdate=1` in their origin module
-and cannot be patched declaratively. This module's `post_init_hook`
-reads `data/mail_template_overrides.xml` and writes the branded
-versions over them at install time, in every active language.
+These are not overrides of `mail.mail_notification_layout`; the composer wizard
+swaps Odoo's default layouts to them for invoices, quotes and contracts.
+Chatter / internal notifications stay on Odoo's default.
 
-A separate hook also patches the late-invoice template (template 141
-in stock Odoo, which has no XML ID).
+### Tenant-neutral standard templates
 
-### Legacy Odoo purple
+Templates from `om_account_followup`, `contract`, `helpdesk_mgmt`, `survey` and
+`calendar` ship `noupdate=1` in their origin module and cannot be patched
+declaratively. The `post_init_hook` reads `data/mail_template_overrides.xml`
+and writes branded versions over them in every active language. The
+self-contained ones (followups, calendar, survey) and the late-invoice notice
+(stock template 141, no XML ID) read **all** identity from `res.company` — no
+hardcoded brand values — so they follow whichever company owns the record.
 
-`mail.mail._send`, `mail.mail.create`, `mail.mail.write` and
-`mail.render.mixin._render_template` all run a small regex sweep that
-replaces Odoo's legacy `#875A7B` plum (and its `rgb()` / `#714B67`
-variants) with the configured brand primary in HTML email bodies.
-This catches Odoo's own templates that still ship hardcoded purple.
+> Note: followup / calendar / survey templates are sent via
+> `mail.template.send_mail()`, which does not apply `email_layout_xmlid`
+> wrapping, so they remain self-contained rather than reusing `bf_mail_layout`.
+
+### Legacy Odoo purple sweep
+
+`mail.mail._send` / `create` / `write` and `mail.render.mixin._render_template`
+run a small regex sweep replacing Odoo's legacy `#875A7B` plum (and its
+`rgb()` / `#714B67` variants) with the active company's brand primary. Shared
+logic lives in `models/brand_color_mixin.py`.
 
 ## Dependencies
 
 | Module | Why |
 |--------|-----|
 | `web`, `mail`, `account`, `sale`, `calendar`, `portal` | Odoo core |
-| `om_account_followup`, `contract`, `helpdesk_mgmt`, `survey` | Templates this module rewrites |
-| `bf_lexend` | Defines `res.company.report_brand_primary` / `report_brand_dark` + Lexend font |
+| `om_account_followup`, `contract`, `helpdesk_mgmt`, `survey` | Templates this module rebrands |
+| `bf_lexend` | Lexend font + `res.company.font` selection |
+| `bf_onboarding_base` | Onboarding panel helper |
+| `l10n_ca` | Document layout override for the CA folder layout |
 
-## Configuration
+## Licence
 
-1. Install the module.
-2. Go to **Settings > Companies > _your company_** (or the multi-company
-   settings page from `bf_lexend`).
-3. Set **Brand color (primary)** and **Brand color (dark)** to your hex
-   values.
-4. Save. The backend re-skins on the next page load. Outgoing emails using
-   the branded layouts pick up the new colors on their next render.
-
-The module never reads or writes any colors outside the company brand
-fields — there's nothing tenant-specific stored anywhere else.
+Distributed under **LGPL-3**. See the `LICENSE` file.

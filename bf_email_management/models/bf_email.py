@@ -268,6 +268,25 @@ class BfEmail(models.Model):
         default=True,
     )
 
+    is_foreign_owner = fields.Boolean(
+        string="Propriété d'un autre utilisateur",
+        compute="_compute_is_foreign_owner",
+        help="Vrai lorsque la ligne appartient à un autre utilisateur que "
+             "l'utilisateur courant. Pilote la bannière et la coloration de la "
+             "zone admin (lecture seule).",
+    )
+
+    # Optional cross-app availability — drives the "Nouveau ▾" dropdown items.
+    # Non-stored: no DB column, recomputed at load. See README §Création.
+    has_helpdesk = fields.Boolean(
+        string="Helpdesk installé",
+        compute="_compute_optional_apps",
+    )
+    has_expense = fields.Boolean(
+        string="Notes de frais installées",
+        compute="_compute_optional_apps",
+    )
+
     # ------------------------------------------------------------------
     # Inbox-Zero workflow (decoupled from status)
     # ------------------------------------------------------------------
@@ -338,6 +357,21 @@ class BfEmail(models.Model):
              "Dabbish & Kraut 2006 — direct-To ~3× plus de chance "
              "de réponse vs CC.",
     )
+    is_cc_to_me = fields.Boolean(
+        string="En CC à moi",
+        compute="_compute_signals",
+        store=True,
+        help="Mon adresse présente dans CC: (et pas dans To:). "
+             "Signal plus faible que is_to_me — FYI plutôt qu'action.",
+    )
+    is_from_me = fields.Boolean(
+        string="De moi",
+        compute="_compute_signals",
+        store=True,
+        help="Mon adresse dans From: (alias inclus). Couvre les envois "
+             "via catchall (bonjour@, info@) où author_id n'est pas lié "
+             "à l'utilisateur courant.",
+    )
     is_late_night = fields.Boolean(
         string="Hors heures",
         compute="_compute_signals",
@@ -400,6 +434,20 @@ class BfEmail(models.Model):
     # ------------------------------------------------------------------
     # Computed fields
     # ------------------------------------------------------------------
+    @api.depends("user_id")
+    def _compute_is_foreign_owner(self):
+        me = self.env.user
+        for rec in self:
+            rec.is_foreign_owner = bool(rec.user_id and rec.user_id != me)
+
+    @api.depends_context("uid")
+    def _compute_optional_apps(self):
+        has_h = "helpdesk.ticket" in self.env
+        has_e = "hr.expense" in self.env
+        for rec in self:
+            rec.has_helpdesk = has_h
+            rec.has_expense = has_e
+
     @staticmethod
     def _scrub_body(text):
         """Strip NUL bytes (PG TEXT refuses 0x00) and normalize."""
@@ -533,6 +581,13 @@ class BfEmail(models.Model):
         for login in accounts.mapped("login"):
             if login:
                 addrs.add(login.strip().lower())
+        for alias_blob in accounts.mapped("email_aliases"):
+            if not alias_blob:
+                continue
+            for piece in re.split(r"[,;\s]+", alias_blob):
+                piece = piece.strip().lower()
+                if piece:
+                    addrs.add(piece)
         if target.partner_id and target.partner_id.email:
             addrs.add(target.partner_id.email.strip().lower())
         if target.email:
@@ -574,7 +629,14 @@ class BfEmail(models.Model):
             )
 
             to_addrs = (rec.email_to or "").lower()
+            cc_addrs = (rec.email_cc or "").lower()
+            from_addrs = (rec.email_from or "").lower()
             rec.is_to_me = any(addr in to_addrs for addr in self_addrs)
+            rec.is_cc_to_me = (
+                not rec.is_to_me
+                and any(addr in cc_addrs for addr in self_addrs)
+            )
+            rec.is_from_me = any(addr in from_addrs for addr in self_addrs)
 
             if rec.date:
                 hour = rec.date.hour
@@ -1095,7 +1157,10 @@ class BfEmail(models.Model):
             "default_subject": subject,
             "default_notify": True,
             "force_email": True,
-            "is_quoted_reply": not is_forward,
+            # mail_quoted_reply._compute_body only injects quote_body when
+            # is_quoted_reply is truthy. Forwards must opt in too, otherwise the
+            # forwarded body is silently dropped and the composer opens empty.
+            "is_quoted_reply": True,
             "quote_body": quote_body,
             "mail_create_nosubscribe": True,
         }
@@ -1243,6 +1308,21 @@ class BfEmail(models.Model):
                 ids.append(partner.id)
         return ids
 
+    def _compose_signature_block(self):
+        """Editable landing line + the current user's signature.
+
+        Mirrors the top of ``mail.message._prep_quoted_reply_body`` so the
+        composer always opens with a cursor above the quote and the user's
+        signature present \u2014 even for orphan IMAP rows that have no chatter
+        message to delegate to. ``signature`` is the same field the multi-company
+        signature module renders, so replies pick up the normalized signature.
+        """
+        self.ensure_one()
+        return (
+            '<p style="margin:0 0 12px 0;"><br/></p>'
+            f'{self.env.user.signature or ""}'
+        )
+
     def _build_reply_quote_body(self):
         """Build the quoted-reply HTML for the composer."""
         self.ensure_one()
@@ -1255,11 +1335,15 @@ class BfEmail(models.Model):
         date = fields.Datetime.to_string(self.date) if self.date else ""
         sender = self.email_from or ""
         return (
+            '<div>'
+            f'{self._compose_signature_block()}'
+            '<br/><br/>'
             '<blockquote style="border-left:3px solid #ccc;padding-left:8px;'
             'margin:8px 0;color:#666;">'
             f'<p><em>Le {date}, {sender} a \u00e9crit :</em></p>'
             f'{body}'
             '</blockquote>'
+            '</div>'
         )
 
     def _build_forward_body(self):
@@ -1272,6 +1356,9 @@ class BfEmail(models.Model):
             if self.email_cc else ''
         )
         return (
+            '<div>'
+            f'{self._compose_signature_block()}'
+            '<br/><br/>'
             '<p>---------- Forwarded message ---------- </p>'
             f'<p><strong>De&nbsp;:</strong> {self.email_from or ""}<br/>'
             f'<strong>Date&nbsp;:</strong> {date}<br/>'
@@ -1280,6 +1367,7 @@ class BfEmail(models.Model):
             f'{cc_line}'
             '</p>'
             f'<div>{body}</div>'
+            '</div>'
         )
 
     def _extract_orphan_attachments(self):
@@ -1532,6 +1620,86 @@ class BfEmail(models.Model):
                 "default_bf_email_ids": [(6, 0, self.ids)],
             },
         }
+
+    # ------------------------------------------------------------------
+    # "Nouveau ▾" — create a record (task / ticket / expense / invoice)
+    # pre-filled from the email. Create-only: the form opens with default_*
+    # context; the email is NOT attached to the chatter nor marked handled
+    # (use "Lier à un dossier" for that). Triggered by the header OWL widget.
+    # ------------------------------------------------------------------
+    def _open_create_form(self, model, name, ctx):
+        """Return an act_window opening a new (res_id=False) form of ``model``
+        pre-filled via the ``default_*`` keys in ``ctx``."""
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": name,
+            "res_model": model,
+            "view_mode": "form",
+            "views": [[False, "form"]],
+            "target": "current",
+            "context": ctx,
+        }
+
+    def action_create_task(self):
+        """Open a new project.task pre-filled from this email."""
+        self.ensure_one()
+        ctx = {
+            "default_name": self.subject or _("(Sans objet)"),
+            "default_partner_id": self.partner_id.id or False,
+            "default_description": self.body_html or self.body_preview or "",
+        }
+        return self._open_create_form("project.task", _("Nouvelle tâche"), ctx)
+
+    def action_create_helpdesk_ticket(self):
+        """Open a new helpdesk.ticket pre-filled from this email."""
+        self.ensure_one()
+        if "helpdesk.ticket" not in self.env:
+            raise UserError(_("Le module Centre d'assistance n'est pas installé."))
+        ctx = {
+            "default_name": self.subject or _("(Sans objet)"),
+            "default_partner_id": self.partner_id.id or False,
+            "default_partner_email": self.email_from or "",
+            "default_description": self.body_html or self.body_preview or "",
+        }
+        return self._open_create_form("helpdesk.ticket", _("Nouveau ticket"), ctx)
+
+    def action_create_expense(self):
+        """Open a new hr.expense pre-filled from this email."""
+        self.ensure_one()
+        if "hr.expense" not in self.env:
+            raise UserError(_("Le module Notes de frais n'est pas installé."))
+        ctx = {
+            "default_name": self.subject or _("(Sans objet)"),
+            "default_employee_id": self.env.user.employee_id.id or False,
+        }
+        return self._open_create_form("hr.expense", _("Nouvelle dépense"), ctx)
+
+    def action_create_vendor_bill(self):
+        """Open a new vendor bill (account.move) pre-filled from this email."""
+        self.ensure_one()
+        ctx = {
+            "default_move_type": "in_invoice",
+            "default_partner_id": self.partner_id.id or False,
+            "default_ref": self.subject or "",
+            "default_narration": self.body_html or self.body_preview or "",
+        }
+        return self._open_create_form(
+            "account.move", _("Nouvelle facture fournisseur"), ctx,
+        )
+
+    def action_create_customer_invoice(self):
+        """Open a new customer invoice (account.move) pre-filled from this email."""
+        self.ensure_one()
+        ctx = {
+            "default_move_type": "out_invoice",
+            "default_partner_id": self.partner_id.id or False,
+            "default_invoice_origin": self.subject or "",
+            "default_narration": self.body_html or self.body_preview or "",
+        }
+        return self._open_create_form(
+            "account.move", _("Nouvelle facture client"), ctx,
+        )
 
     # ------------------------------------------------------------------
     # Cron: incremental sync from mail.message

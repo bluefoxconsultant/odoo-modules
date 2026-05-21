@@ -43,6 +43,7 @@ A centralized email management module for Odoo 18 that provides a single, dedupl
 - **Auto mark-as-read** — opening an email in the form automatically transitions the row. Reading the underlying `mail.message` in any chatter also flips status (via `mail.notification` override).
 - **Auto mark-as-replied** — when an outbound row is created with `in_reply_to` matching an inbound row's Message-ID, the inbound is flipped to `replied` automatically (no manual click).
 - **Bulk actions** — Mark read, Mark replied, Traiter, Remettre en boîte, Reporter, Re-router — all available as server actions on the list view.
+- **« Nouveau ▾ » — create a record from the email (5.3+)**. Header dropdown (OWL widget `bf_email_new_record_dropdown`) opens a pre-filled create form for a **Tâche** (`project.task`), **Ticket** (`helpdesk.ticket`), **Dépense** (`hr.expense`), **Facture fournisseur** or **Facture client** (`account.move`). Defaults map subject → name/ref, partner → partner, body → description. Create-only: the email is not attached to the chatter nor marked handled (use *Lier à un dossier* for that). The Ticket/Dépense items appear only when `helpdesk_mgmt` / `hr_expense` are installed (`has_helpdesk` / `has_expense`) — no hard manifest dependency.
 
 ### Interactive Dashboard (OWL)
 - Date range filters: 7d / 30d / 90d / year / all / custom — **all charts including daily volume now respect the selection** (preset "Tout" derives the range from the actual data).

@@ -21,7 +21,7 @@ class ResConfigSettings(models.TransientModel):
         string="Nextcloud URL",
         config_parameter="bf_calendar_nc_talk.url",
         help="Base URL of the Nextcloud instance hosting Talk "
-             "(e.g. https://nextcloud.example.com). No trailing slash.",
+             "(e.g. https://nextcloud.bluefoxconsultant.com). No trailing slash.",
     )
     bf_nc_talk_user = fields.Char(
         string="Service account",

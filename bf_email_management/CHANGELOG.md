@@ -4,6 +4,25 @@ All notable changes to `bf_email_management` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This module follows Odoo's `MAJOR.MINOR.PATCH` convention prefixed with the Odoo series (`18.0.X.Y.Z`).
 
+## [18.0.5.3.0] — 2026-05-20
+
+### Added
+
+- **Bouton « Nouveau ▾ » sur la fiche courriel.** Nouveau widget OWL d'en-tête (`bf_email_new_record_dropdown`) qui crée un dossier à partir du courriel : **Tâche** (`project.task`), **Ticket** (`helpdesk.ticket`), **Dépense** (`hr.expense`), **Facture fournisseur** et **Facture client** (`account.move`, `in_invoice`/`out_invoice`). Chaque entrée ouvre le formulaire de création **pré-rempli** (sujet → nom/réf, contact → partenaire, corps → description) via le `context` `default_*` ; comportement « créer seulement » — le courriel n'est ni rattaché au chatter ni marqué « Traité » (utiliser « Lier à un dossier » pour cela). Backend : méthodes `bf.email.action_create_task` / `action_create_helpdesk_ticket` / `action_create_expense` / `action_create_vendor_bill` / `action_create_customer_invoice` + helper `_open_create_form`.
+- **Détection optionnelle Helpdesk / Notes de frais.** Champs calculés non stockés `has_helpdesk` / `has_expense` (`_compute_optional_apps`) : les entrées *Ticket* / *Dépense* du menu n'apparaissent que si `helpdesk_mgmt` / `hr_expense` sont installés. Aucune nouvelle dépendance dure au manifest — le module reste portable.
+
+## [18.0.5.2.0] — 2026-05-20
+
+### Fixed
+
+- **Réponse aux courriels orphelins : signature absente et « mode citation ».** Pour les lignes IMAP sans chatter associé (`mail_message_id` vide), le corps de réponse ne contenait qu'un `<blockquote>` — pas de ligne éditable au-dessus, pas de signature. Le corps reproduit désormais la structure de `mail.message._prep_quoted_reply_body` (ligne éditable + signature de l'utilisateur + citation), comme pour les réponses sur chatter. Nouveau helper `bf.email._compose_signature_block`.
+- **Transfert : corps vidé.** Les transferts passaient `is_quoted_reply=False`, or `mail_quoted_reply._compute_body` n'injecte `quote_body` que lorsque ce flag est vrai — le corps transféré était donc silencieusement perdu et le compositeur s'ouvrait vide. `_open_composer` force maintenant `is_quoted_reply=True` pour réponse **et** transfert, et `_build_forward_body` inclut la ligne éditable + la signature.
+
+### Added
+
+- **Zone admin (lecture seule) sur les courriels.** Nouveau groupe `group_email_admin` (catégorie « Gestion des courriels ») avec des `ir.rule` `[(1, '=', 1)]` en lecture seule sur `bf.email`, `bf.email.account` et `bf.email.rule`. Combinées par OU avec les règles propriétaire existantes, elles donnent à un admin la visibilité sur tous les courriels tout en laissant les utilisateurs normaux ne voir que les leurs ; aucune écriture sur les lignes d'autrui. L'appartenance au groupe n'est PAS livrée en données — à attribuer manuellement aux humains seulement.
+- **Menu admin dédié + bannière rouge.** Nouvelle action/menu « Tous les courriels — admin » (gardé par `group_email_admin`, contexte `bf_admin_zone`) ; bannière rouge permanente dans le formulaire et coloration `decoration-danger` des lignes appartenant à un autre utilisateur, via le champ calculé non stocké `is_foreign_owner`.
+
 ## [18.0.5.0.0] — 2026-05-12
 
 ### Added

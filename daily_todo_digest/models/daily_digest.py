@@ -135,6 +135,12 @@ class DailyDigestConfig(models.Model):
         string="Citation inspirante",
         default=True,
     )
+    include_meetings = fields.Boolean(
+        string="Rencontres (OdJ + CR)",
+        default=True,
+        help="Inclure les rencontres à venir avec OdJ à préparer et les comptes rendus "
+             "des rencontres passées encore à compléter (cycle bf_meeting).",
+    )
 
     # Company filter
     company_id = fields.Many2one(
@@ -240,6 +246,7 @@ class DailyDigestConfig(models.Model):
             data.get("today_activities"),
             data.get("overdue_tasks"),
             data.get("today_tasks"),
+            data.get("meetings_by_user"),
         ])
 
         if not has_content:
@@ -389,7 +396,19 @@ class DailyDigestConfig(models.Model):
         if self.include_quote:
             data["quote"] = self.env["daily.digest.quote"].get_random_quote()
 
+        if self.include_meetings:
+            data["meetings_by_user"] = self._get_meetings_buckets(user_ids)
+
         return data
+
+    def _get_meetings_buckets(self, user_ids):
+        """Delegate to meeting.dashboard so the bucket logic stays in one place."""
+        if not user_ids:
+            return {}
+        Dashboard = self.env.get("meeting.dashboard")
+        if Dashboard is None:
+            return {}
+        return Dashboard.sudo()._get_digest_buckets(user_ids=user_ids)
 
     def _get_activities(self, user_ids, domain_extra):
         """Get activities matching criteria for specified users."""
@@ -610,6 +629,14 @@ class DailyDigestConfig(models.Model):
         if total_hidden > 0:
             content_parts.append(self._render_hidden_tasks_summary(hidden_overdue, hidden_today))
 
+        # Meetings: OdJ to prepare (≤7d) + CR to complete (past pending)
+        if self.include_meetings and (user_data.get("meetings_odj") or user_data.get("meetings_cr")):
+            content_parts.append(self._render_meetings_section(
+                user_data.get("meetings_odj") or [],
+                user_data.get("meetings_cr") or [],
+                user,
+            ))
+
         # Week preview (next 7 days summary)
         if data.get("week_preview"):
             content_parts.append(self._render_week_preview(data["week_preview"]))
@@ -620,6 +647,8 @@ class DailyDigestConfig(models.Model):
             user_data.get("today_activities"),
             user_data.get("overdue_tasks"),
             user_data.get("today_tasks"),
+            user_data.get("meetings_odj"),
+            user_data.get("meetings_cr"),
         ]) and total_hidden == 0:
             content_parts.append(f"""
                 <div style="background-color:#d1e7dd;border:1px solid #a3cfbb;border-radius:8px;padding:16px;margin:16px 0;">
@@ -640,10 +669,13 @@ class DailyDigestConfig(models.Model):
         preheader_parts = []
         overdue_count = len(user_data.get("overdue_activities", [])) + len(user_data.get("overdue_tasks", []))
         today_count = len(user_data.get("today_activities", [])) + len(user_data.get("today_tasks", []))
+        meetings_count = len(user_data.get("meetings_odj", [])) + len(user_data.get("meetings_cr", []))
         if overdue_count > 0:
             preheader_parts.append(f"{overdue_count} en retard")
         if today_count > 0:
             preheader_parts.append(f"{today_count} aujourd'hui")
+        if meetings_count > 0:
+            preheader_parts.append(f"{meetings_count} rencontre{'s' if meetings_count > 1 else ''}")
         if data.get("weather"):
             w = data["weather"]
             preheader_parts.append(f"{w.get('emoji', '')} {w['current_temp']}°C")
@@ -700,6 +732,12 @@ class DailyDigestConfig(models.Model):
                 t for t in visible_tasks
                 if user_name in t.get("user", "")
             ]
+
+        # Meetings: keyed by uid, slice this user's bucket out
+        meetings = data.get("meetings_by_user") or {}
+        bucket = meetings.get(user.id) or {"odj": [], "cr": []}
+        user_data["meetings_odj"] = bucket.get("odj", [])
+        user_data["meetings_cr"] = bucket.get("cr", [])
 
         return user_data
 
@@ -972,6 +1010,93 @@ class DailyDigestConfig(models.Model):
             </div>
         """
 
+    def _render_meetings_section(self, odj_rows, cr_rows, user):
+        """Render the meetings block (OdJ to prepare + CR to complete).
+
+        Mirrors the layout of `_render_task_section` so the integrated block
+        feels native inside Votre journée. OdJ list uses `accent`, CR list
+        uses `red` because past+pending is always overdue.
+        """
+        from markupsafe import escape
+
+        base_url = self.env["ir.config_parameter"].sudo().get_param("web.base.url", "").rstrip("/")
+        tz_name = user.tz or DEFAULT_TZ
+
+        def _row(r):
+            dt = r["date"]
+            if dt:
+                if dt.tzinfo is None:
+                    dt = pytz.UTC.localize(dt)
+                local_dt = dt.astimezone(pytz.timezone(tz_name))
+                date_str = local_dt.strftime("%a %d/%m, %H:%M")
+            else:
+                date_str = "—"
+            # Link priority : record > agenda > calendar event
+            if r.get("record_id"):
+                url = f"{base_url}/odoo/meeting.record/{r['record_id']}"
+            elif r.get("agenda_id"):
+                url = f"{base_url}/odoo/meeting.agenda/{r['agenda_id']}"
+            elif r.get("event_id"):
+                url = f"{base_url}/odoo/calendar/{r['event_id']}"
+            else:
+                url = "#"
+            meta_bits = []
+            if r.get("project_name"):
+                meta_bits.append(escape(r["project_name"]))
+            if r.get("partner_name"):
+                meta_bits.append(escape(r["partner_name"]))
+            meta = " · ".join(str(b) for b in meta_bits)
+            return f"""
+                <tr>
+                    <td style="padding:12px;border-bottom:1px solid {COLORS['border']};font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:14px;">
+                        <a href="{url}" style="color:{COLORS['accent']};text-decoration:none;font-weight:500;">{escape(r['name'] or '(sans nom)')}</a>
+                        <br/>
+                        <span style="font-size:12px;color:{COLORS['text_gray']};">{meta}</span>
+                    </td>
+                    <td style="padding:12px;border-bottom:1px solid {COLORS['border']};font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;color:{COLORS['text_gray']};white-space:nowrap;">
+                        {date_str}
+                    </td>
+                </tr>
+            """
+
+        def _block(title, rows, color, badge_bg):
+            if not rows:
+                return ""
+            rows_html = "".join(_row(r) for r in rows)
+            return f"""
+                <div style="margin:0 0 16px 0;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:8px;">
+                        <tr>
+                            <td style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:16px;font-weight:600;color:{COLORS['header']};">
+                                {title}
+                            </td>
+                            <td align="right">
+                                <span style="display:inline-block;background-color:{badge_bg};color:{color};font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;padding:4px 10px;border-radius:12px;">
+                                    {len(rows)}
+                                </span>
+                            </td>
+                        </tr>
+                    </table>
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid {COLORS['border']};border-radius:8px;overflow:hidden;">
+                        <thead>
+                            <tr style="background-color:{color};">
+                                <th style="padding:10px 12px;text-align:left;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;color:{COLORS['white']};text-transform:uppercase;">
+                                    Rencontre
+                                </th>
+                                <th style="padding:10px 12px;text-align:left;font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;font-weight:600;color:{COLORS['white']};text-transform:uppercase;width:120px;">
+                                    Date
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>{rows_html}</tbody>
+                    </table>
+                </div>
+            """
+
+        odj_block = _block("📋 OdJ à préparer (7 prochains jours)", odj_rows, COLORS["accent"], "#e8f6fd")
+        cr_block = _block("📝 CR à compléter", cr_rows, COLORS["red"], "#f8d7da")
+        return f'<div style="margin:0 0 24px 0;">{odj_block}{cr_block}</div>'
+
     def _render_quote_section(self, quote):
         """Render the inspirational quote section."""
         return f"""
@@ -1014,8 +1139,8 @@ class DailyDigestConfig(models.Model):
                             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                                 <tr>
                                     <td align="left">
-                                        <a href="https://www.bluefoxconsultant.com" style="text-decoration:none;">
-                                            <img src="https://www.bluefoxconsultant.com/web/image/website/1/logo/Blue%20Fox?unique=803cc14" alt="Blue Fox" height="48" style="display:block;border:0;height:48px;width:auto;">
+                                        <a href="https://bluefoxconsultant.com" style="text-decoration:none;">
+                                            <img src="https://bluefoxconsultant.com/web/image/website/1/logo/Blue%20Fox?unique=803cc14" alt="Blue Fox" height="48" style="display:block;border:0;height:48px;width:auto;">
                                         </a>
                                     </td>
                                     <td align="right" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:20px;font-weight:700;color:{COLORS['text_light']};">

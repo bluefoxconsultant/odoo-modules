@@ -34,6 +34,7 @@ Uses Blue Fox branding.
         "base",
         "mail",
         "project",
+        "bf_meeting",
     ],
     "data": [
         "security/ir.model.access.csv",

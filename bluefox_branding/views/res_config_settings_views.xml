@@ -29,13 +29,23 @@
                         </div>
                     </setting>
 
-                    <setting string="Couleurs de marque"
-                             help="Couleurs utilisées dans la navbar, les boutons, les courriels brandés et les rapports PDF.">
+                    <setting string="Couleurs de marque (interface et courriels)"
+                             help="Couleurs utilisées dans la navbar, les boutons et les courriels brandés. Les rapports PDF utilisent les couleurs « (PDF) » ci-dessous.">
                         <div class="row mt16">
                             <label for="report_brand_primary" class="col-lg-3 o_light_label"/>
                             <field name="report_brand_primary" widget="color"/>
                             <label for="report_brand_dark" class="col-lg-3 o_light_label"/>
                             <field name="report_brand_dark" widget="color"/>
+                        </div>
+                    </setting>
+
+                    <setting string="Couleurs des rapports PDF"
+                             help="Couleurs natives Odoo utilisées dans l'en-tête et les accents des rapports PDF (factures, devis, etc.) via la mise en page des documents.">
+                        <div class="row mt16">
+                            <label for="primary_color" class="col-lg-3 o_light_label" string="Couleur primaire (PDF)"/>
+                            <field name="primary_color" widget="color"/>
+                            <label for="secondary_color" class="col-lg-3 o_light_label" string="Couleur secondaire (PDF)"/>
+                            <field name="secondary_color" widget="color"/>
                         </div>
                     </setting>
 
@@ -60,6 +70,14 @@
                         <div class="row mt16">
                             <label for="brand_email_signature_default" class="col-lg-3 o_light_label"/>
                             <field name="brand_email_signature_default" placeholder="Signature HTML par défaut quand l'utilisateur n'en a pas."/>
+                        </div>
+                        <div class="row mt16">
+                            <label for="brand_privacy_url" class="col-lg-3 o_light_label"/>
+                            <field name="brand_privacy_url" placeholder="https://exemple.com/politique-de-confidentialite"/>
+                        </div>
+                        <div class="row mt16">
+                            <label for="brand_terms_url" class="col-lg-3 o_light_label"/>
+                            <field name="brand_terms_url" placeholder="https://exemple.com/termes-et-conditions"/>
                         </div>
                     </setting>
 

@@ -134,7 +134,7 @@ class MatrixSendWizard(models.TransientModel):
         Logo, website, and policy/terms URLs are tenant-aware so each company
         in the database sends emails with its own visual identity."""
         company = self.env.company
-        website = company.website or 'https://www.bluefoxconsultant.com'
+        website = company.website or 'https://bluefoxconsultant.com'
         return Markup(_BRANDED_WRAPPER.format(
             primary=company.report_brand_primary or '#714B67',
             dark=company.report_brand_dark or '#212529',

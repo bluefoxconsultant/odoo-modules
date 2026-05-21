@@ -735,8 +735,8 @@ This module is licensed under the GNU Lesser General Public License v3.0 (LGPL-3
 
 ## Credits
 
-**Author**: Blue Fox Inc
-**Website**: [bluefoxinc.com](https://bluefoxinc.com)
+**Author**: Blue Fox Inc.
+**Website**: [bluefoxconsultant.com](https://bluefoxconsultant.com)
 
 *This module was developed with assistance from Claude, Anthropic's AI assistant.*
 

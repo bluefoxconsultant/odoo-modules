@@ -3,7 +3,7 @@
     "summary": "Bouton systray ouvrant la Boîte de réception bf.email avec compteur (lus + non lus)",
     "version": "18.0.1.0.1",
     "category": "Tools",
-    "website": "https://bluefox.ca",
+    "website": "https://bluefoxconsultant.com",
     "author": "Blue Fox Inc.",
     "license": "LGPL-3",
     "application": False,
