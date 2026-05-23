@@ -1,11 +1,11 @@
 {
     "name": "Document Nextcloud Sync",
     "summary": "Synchronisation documents Odoo-Nextcloud via WebDAV",
-    "version": "18.0.1.2.0",
+    "version": "18.0.1.3.0",
     "category": "Services/Project",
     "website": "https://bluefoxconsultant.com",
     "author": "Blue Fox Inc.",
-    'license': 'LGPL-3',
+    "license": "LGPL-3",
     "application": False,
     "installable": True,
     "depends": [

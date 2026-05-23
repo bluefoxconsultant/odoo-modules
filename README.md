@@ -25,7 +25,7 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | `bf_chatter_send_now_force` | BF Chatter — Force Send on Scheduled Send Now | 18.0.1.0.0 | LGPL-3 | The "Send Now" button on a scheduled chatter message sends immediately instead of waiting up to 5 min for the mail queue cron (restores parity with the daily auto-send cron) |
 | `bf_dark_mode` | Blue Fox Dark Mode | 18.0.1.0.0 | LGPL-3 | Dark mode for Odoo using the Blue Fox palette |
 | `bf_default_all_companies` | BF Default All Companies | 18.0.1.0.0 | LGPL-3 | Pre-selects every allowed company in the multi-company switcher on first login |
-| `bf_document_nextcloud_sync` | Document Nextcloud Sync | 18.0.1.1.0 | LGPL-3 | Document sync between Odoo and Nextcloud via WebDAV |
+| `bf_document_nextcloud_sync` | Document Nextcloud Sync | 18.0.1.3.0 | LGPL-3 | Document sync between Odoo and Nextcloud via WebDAV |
 | `bf_email_management` | Email Management | 18.0.5.1.1 | LGPL-3 | Unified IMAP inbox + Odoo chatter projection, two-pane OWL folder browser (Apple Mail / Thunderbird), bulk per-row target inference |
 | `bf_gamification` | Fox Quest | 18.0.2.1.0 | LGPL-3 | Gamification system with XP, levels, badges, and rewards |
 | `bf_helpdesk` | Blue Fox — Helpdesk | 18.0.4.0.0 | LGPL-3 | Branded helpdesk extension: per-team public form, hour-bank ribbon, waiting states, ntfy critical hook, persona panel, knowledge-matrix link, ticket→meeting, IA triage via Claude, CSAT on close, branded portal, dashboard tile, IMAP gateway hardening, SLA + macros + auto-tag + auto-ack |
@@ -36,6 +36,7 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | `bf_mail_vigie` | BF Email Re-router | 18.0.2.0.0 | LGPL-3 | "Re-route" button on `bf.email` to move a misrouted email to the correct chatter |
 | `bf_mass_notes` | Blue Fox — Notes en lot | 18.0.1.0.0 | LGPL-3 | List-view Action to post a chatter note (or message) to many selected records at once; binds to all `mail.thread` models |
 | `bf_meeting` | Meetings | 18.0.3.10.0 | LGPL-3 | Agendas, meeting records, and discussion items unified around `calendar.event` with automatic reminders |
+| `bf_nextcloud_browser` | Nextcloud File Browser | 18.0.3.2.0 | LGPL-3 | Embedded + standalone Nextcloud WebDAV file browser on projects/tasks: folder tree, modal preview, drag-and-drop upload/move, configurable share presets, open-in-Nextcloud for office files, Knowledge Matrix linking, systray launcher |
 | `bf_persona` | Persona des contacts | 18.0.2.0.0 | LGPL-3 | Active relationship intelligence: composer hint with auto-cc, monthly auto-seed from email signals, weekly degradation detector with optional ntfy alert, kanban dashboard |
 | `bf_sms_archive` | SMS & Call Archive | 18.0.1.3.0 | LGPL-3 | Archive and search Android SMS and call logs |
 | `bf_studio_light` | Blue Fox — Studio Light | 18.0.5.1.0 | LGPL-3 | Field builder for Odoo Community: add custom fields (incl. polymorphic reference with model whitelist), smart buttons (count via JSON controller, no compute Python), and inject them in views without writing a module — survives `-u all` upgrades |

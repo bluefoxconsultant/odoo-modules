@@ -120,7 +120,7 @@ Go to **Knowledge Matrix > Configuration > Nextcloud Documents**:
 | Name | Display name | `Nextcloud Blue Fox` |
 | Nextcloud URL | Base URL (HTTPS required) | `https://nextcloud.example.com` |
 | WebDAV Path | WebDAV endpoint path | `/remote.php/dav/files/` |
-| Nextcloud User | Username for auth | `olivier` |
+| Nextcloud User | Username for auth | `svc-odoo` |
 | App Password | Nextcloud app password (encrypted) | *(Settings > Security > App passwords)* |
 | Share Expiry | Default share link duration | `30` days |
 | Share Password | Auto-generate passwords on shares | Enabled |

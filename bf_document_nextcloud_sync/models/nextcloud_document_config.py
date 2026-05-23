@@ -6,8 +6,11 @@ import secrets
 import string
 from datetime import datetime, timedelta
 from urllib.parse import quote as url_quote
+from urllib.parse import unquote as url_unquote
 from urllib.parse import urlparse
 from xml.etree import ElementTree
+
+from defusedxml import ElementTree as SafeET
 
 import requests
 
@@ -72,6 +75,8 @@ def _sanitize_nc_path(path):
     """Sanitize a Nextcloud file path against traversal attacks."""
     if not path:
         return path
+    # URL-decode first to catch %2e%2e (%2F, etc.) bypass attempts
+    path = url_unquote(path)
     # Reject null bytes and control characters
     if "\x00" in path or any(ord(c) < 32 for c in path):
         raise ValidationError(
@@ -90,12 +95,18 @@ def _sanitize_nc_path(path):
 
 
 def _validate_path_under_prefix(path, prefix):
-    """Ensure path is under the allowed prefix directory."""
+    """Ensure path is under the allowed prefix directory.
+
+    Uses an exact-or-separator boundary so that prefix '/Blue Fox' does NOT
+    also match a sibling like '/Blue Fox2'.
+    """
     if not prefix:
         return
     norm_path = posixpath.normpath(path)
     norm_prefix = posixpath.normpath(prefix)
-    if not norm_path.startswith(norm_prefix):
+    if norm_prefix == "/":
+        return
+    if norm_path != norm_prefix and not norm_path.startswith(norm_prefix + "/"):
         raise ValidationError(
             _(
                 "Le chemin '%s' est en dehors du dossier autorise '%s'."
@@ -238,24 +249,24 @@ class NextcloudDocumentConfig(models.Model):
         except Exception:
             pass
 
-        # Priority 3: ir.config_parameter (fallback, less secure)
-        ICP = self.env["ir.config_parameter"].sudo()
-        key = ICP.get_param("bf_document_nextcloud_sync.encryption_key")
-        if not key:
-            key = Fernet.generate_key().decode()
-            ICP.set_param("bf_document_nextcloud_sync.encryption_key", key)
-            _logger.warning(
-                "Fernet key generated in ir.config_parameter. "
-                "For better security, set NC_DOC_SYNC_FERNET_KEY environment "
-                "variable or nc_doc_sync_fernet_key in odoo.conf."
-            )
-        return key.encode()
+        _logger.error(
+            "No Fernet key configured for bf_document_nextcloud_sync. "
+            "Set NC_DOC_SYNC_FERNET_KEY env var or "
+            "nc_doc_sync_fernet_key in odoo.conf."
+        )
+        return None
 
     def _encrypt_value(self, value):
         """Encrypt a string value using Fernet symmetric encryption."""
         if not value:
             return False
         key = self._get_encryption_key()
+        if not key:
+            raise UserError(
+                _("Cle de chiffrement manquante. Configurez "
+                  "NC_DOC_SYNC_FERNET_KEY dans l'environnement "
+                  "ou nc_doc_sync_fernet_key dans odoo.conf.")
+            )
         try:
             f = Fernet(key)
             return f.encrypt(value.encode()).decode()
@@ -270,13 +281,15 @@ class NextcloudDocumentConfig(models.Model):
         if not encrypted_value:
             return False
         key = self._get_encryption_key()
+        if not key:
+            _logger.error("Cannot decrypt: no Fernet key configured")
+            return False
         try:
             f = Fernet(key)
             return f.decrypt(encrypted_value.encode()).decode()
         except InvalidToken:
-            # May be legacy unencrypted data
-            _logger.debug("Value appears unencrypted, returning as-is")
-            return encrypted_value
+            _logger.error("Decryption failed: key mismatch or corrupted data")
+            return False
         except Exception as e:
             _logger.error("Decryption failed: %s", type(e).__name__)
             return False
@@ -407,8 +420,9 @@ class NextcloudDocumentConfig(models.Model):
         """Parse a PROPFIND multistatus response into a list of file dicts."""
         results = []
         try:
-            root = ElementTree.fromstring(xml_text)
-        except ElementTree.ParseError as e:
+            root = SafeET.fromstring(xml_text)
+        except (ElementTree.ParseError, SafeET.DTDForbidden,
+                SafeET.EntitiesForbidden, SafeET.ExternalReferenceForbidden) as e:
             _logger.error("Failed to parse PROPFIND XML: %s", e)
             return results
 
@@ -435,7 +449,7 @@ class NextcloudDocumentConfig(models.Model):
             entry = {
                 "href": href,
                 "is_dir": is_dir,
-                "name": posixpath.basename(href.rstrip("/")),
+                "name": url_unquote(posixpath.basename(href.rstrip("/"))),
             }
 
             lastmod = prop.find(f"{{{DAV_NS}}}getlastmodified")
@@ -638,7 +652,7 @@ class NextcloudDocumentConfig(models.Model):
 
         # Parse OCS XML response
         try:
-            root = ElementTree.fromstring(resp.text)
+            root = SafeET.fromstring(resp.text)
             data_el = root.find(".//data")
             result = {}
             if data_el is not None:
@@ -656,7 +670,8 @@ class NextcloudDocumentConfig(models.Model):
             if expire_date:
                 result["expire_date"] = expire_date
             return result
-        except ElementTree.ParseError as e:
+        except (ElementTree.ParseError, SafeET.DTDForbidden,
+                SafeET.EntitiesForbidden, SafeET.ExternalReferenceForbidden) as e:
             _logger.error("Failed to parse OCS response: %s", e)
             raise UserError(
                 _("Impossible de lire la reponse OCS pour le partage.")
