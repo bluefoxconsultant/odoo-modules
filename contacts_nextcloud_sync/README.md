@@ -4,7 +4,7 @@ Synchronize Odoo 18 contacts with a Nextcloud address book via CardDAV. Direct H
 
 ## Features
 
-- **Direct CardDAV**: PUT/GET/DELETE/PROPFIND from within Odoo &mdash; no n8n or external middleware required
+- **Direct CardDAV**: PUT/GET/DELETE/PROPFIND from within Odoo &mdash; no external middleware required
 - **Exclusion-tag filtering**: All contacts sync by default; tag specific contacts to *exclude* them
 - **Companies & individuals**: Syncs both `is_company=True` and `is_company=False` partners (type=contact)
 - **Configurable direction**: Bidirectional, Odoo&rarr;NC, or NC&rarr;Odoo (default: Odoo&rarr;NC)

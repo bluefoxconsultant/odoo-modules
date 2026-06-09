@@ -101,10 +101,12 @@ class NextcloudContactsSyncConfig(models.Model):
         compute="_compute_app_password",
         inverse="_inverse_app_password",
         store=False,
+        groups="base.group_system",
         help="Nextcloud app password for CardDAV authentication",
     )
     nextcloud_app_password_encrypted = fields.Char(
         string="App Password (encrypted)",
+        groups="base.group_system",
     )
 
     # Sync configuration
@@ -767,9 +769,17 @@ class NextcloudContactsSyncConfig(models.Model):
     # === CardDAV HTTP Operations ===
 
     def _carddav_auth(self):
-        """Return (user, password) tuple for CardDAV requests."""
+        """Return (user, password) tuple for CardDAV requests.
+
+        The password fields are restricted to base.group_system so a normal
+        internal user cannot read the credential over RPC. Decrypt via sudo
+        here so the sync (cron / manual) still authenticates regardless of the
+        caller's group, without re-exposing the field.
+        """
         self.ensure_one()
-        return (self.nextcloud_user, self.nextcloud_app_password)
+        record = self.sudo()
+        password = record._decrypt_value(record.nextcloud_app_password_encrypted)
+        return (self.nextcloud_user, password)
 
     def _carddav_propfind_vcards(self):
         """PROPFIND Depth:1 to list all vCard UIDs and ETags.
