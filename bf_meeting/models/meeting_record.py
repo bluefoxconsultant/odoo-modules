@@ -3,7 +3,6 @@ import logging
 import socket
 import threading
 
-import pytz
 from markupsafe import Markup, escape
 
 from odoo import api, fields, models
@@ -13,43 +12,23 @@ _logger = logging.getLogger(__name__)
 
 _DEFAULT_BRIDGE_SOCKET = "/run/claude-bridge/bridge.sock"
 
-_TZ_CITY_LABEL = {
-    'America/Toronto': 'Montréal',
-    'America/Montreal': 'Montréal',
-    'Pacific/Auckland': 'Auckland',
-}
-
-
-def _tz_city(tz_name):
-    if not tz_name:
-        return ''
-    if tz_name in _TZ_CITY_LABEL:
-        return _TZ_CITY_LABEL[tz_name]
-    return tz_name.split('/')[-1].replace('_', ' ')
-
-
 def _format_meeting_date_display(record):
     """Format record.date in the client's tz, with the originator's tz in
     parentheses when it differs. record must expose date, partner_id,
-    organizer_id, create_uid."""
+    organizer_id, create_uid.
+
+    Timezone resolution, conversion and city labelling live in the shared
+    ``bf.timezone`` helper (module ``bf_timezone``)."""
     if not record.date:
         return ''
+    tz_helper = record.env['bf.timezone']
+    default_tz = tz_helper.default_tz()
     client_tz_name = (record.partner_id.tz if record.partner_id else None) \
-        or 'America/Toronto'
+        or default_tz
     organizer = record.organizer_id or record.create_uid
     originator_tz_name = (organizer.tz if organizer else None) \
-        or 'America/Toronto'
-
-    utc_dt = pytz.utc.localize(record.date)
-    client_dt = utc_dt.astimezone(pytz.timezone(client_tz_name))
-    primary = client_dt.strftime('%Y-%m-%d %H:%M %Z')
-
-    if client_tz_name == originator_tz_name:
-        return primary
-
-    originator_dt = utc_dt.astimezone(pytz.timezone(originator_tz_name))
-    secondary = originator_dt.strftime('%Y-%m-%d %H:%M %Z')
-    return f"{primary} ({_tz_city(originator_tz_name)}: {secondary})"
+        or default_tz
+    return tz_helper.format_dual(record.date, client_tz_name, originator_tz_name)
 
 
 def _post_to_bridge(socket_path, endpoint, payload, timeout):
