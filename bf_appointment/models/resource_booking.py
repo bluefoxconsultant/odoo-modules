@@ -168,18 +168,18 @@ class ResourceBooking(models.Model):
         """
         import pytz
         ctx_tz = self.env.context.get("tz")
+        tz_helper = self.env["bf.timezone"]
         for rec in self:
             if not rec.start:
                 rec.start_date_local = ""
                 rec.start_time_local = ""
                 continue
-            tz_name = (
-                ctx_tz
-                or (rec.partner_id.tz if rec.partner_id else None)
-                or (rec.user_id.tz if rec.user_id else None)
-                or (rec.type_id.resource_calendar_id.tz if rec.type_id else None)
-                or "America/Toronto"
-            )
+            tz_name = tz_helper.resolve([
+                ctx_tz,
+                rec.partner_id.tz if rec.partner_id else None,
+                rec.user_id.tz if rec.user_id else None,
+                rec.type_id.resource_calendar_id.tz if rec.type_id else None,
+            ])
             try:
                 start_dt = rec.start
                 if isinstance(start_dt, str):
@@ -364,7 +364,7 @@ class ResourceBooking(models.Model):
 
             booker = self.partner_id or (self.partner_ids[:1] if self.partner_ids else False)
             booker_name = (booker.name if booker else "").strip() or "Invité"
-            tz_name = self.type_id.resource_calendar_id.tz or "America/Toronto"
+            tz_name = self.type_id.resource_calendar_id.tz or self.env["bf.timezone"].default_tz()
             local_start = ""
             if self.start:
                 local_start = pytz.utc.localize(self.start).astimezone(
@@ -563,19 +563,12 @@ class ResourceBooking(models.Model):
         self.ensure_one()
         cal_company = self.env.company.resource_calendar_id
         cal_type = self.type_id.resource_calendar_id
-        for candidate in (
+        return self.env["bf.timezone"].resolve([
             self.partner_id.tz if self.partner_id else None,
             self.user_id.tz if self.user_id else None,
             cal_type.tz if cal_type else None,
             cal_company.tz if cal_company else None,
-        ):
-            if candidate:
-                try:
-                    ZoneInfo(candidate)
-                    return candidate
-                except Exception:
-                    continue
-        return "America/Toronto"
+        ], validate=True)
 
     def _get_ics_attachment(self):
         """Return an ir.attachment record with the ICS file for email attachment."""

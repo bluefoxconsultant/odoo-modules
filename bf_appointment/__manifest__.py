@@ -1,12 +1,12 @@
 {
     "name": "Blue Fox Appointment",
-    "version": "18.0.2.24.0",
+    "version": "18.0.2.25.0",
     "category": "Appointments",
     "summary": "Public self-service booking pages extending Resource Booking",
     'author': 'Blue Fox Inc.',
     'website': 'https://bluefoxconsultant.com',
     'license': 'LGPL-3',
-    "depends": ["resource_booking", "portal", "mail", "project", "privacy_consent", "bluefox_branding", "bf_onboarding_base"],
+    "depends": ["resource_booking", "portal", "mail", "project", "privacy_consent", "bluefox_branding", "bf_onboarding_base", "bf_timezone"],
     "data": [
         "security/appointment_security.xml",
         "security/ir.model.access.csv",
