@@ -161,6 +161,7 @@
                         /* ── Signature ── */
                         .res-signatures {
                             margin-top: 26pt;
+                            margin-bottom: 60pt;
                             page-break-inside: avoid;
                         }
                         .res-sig-heading {
@@ -195,16 +196,14 @@
 
                         /* ── Footer ── */
                         .res-footer {
-                            position: absolute;
-                            bottom: 1cm;
-                            left: 0;
-                            right: 0;
+                            margin-top: 24pt;
                             padding: 8pt 24pt 0 24pt;
                             border-top: 1px solid #dde0e4;
                             display: table;
                             width: 100%;
                             font-size: 9.5pt;
                             color: #aaa;
+                            page-break-inside: avoid;
                         }
                         .res-footer-left {
                             display: table-cell;

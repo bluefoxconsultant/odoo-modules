@@ -140,7 +140,7 @@ class MatrixSendWizard(models.TransientModel):
             dark=company.report_brand_dark or '#212529',
             company_name=company.name or 'Blue Fox',
             company_email=company.email or 'service@bluefoxconsultant.com',
-            company_phone=company.phone or '514-513-2535',
+            company_phone=company.phone or '',
             company_website=website,
             logo_url='/web/image/res.company/%d/logo' % company.id,
             privacy_url=website.rstrip('/') + '/r/politique-de-confidentialite',

@@ -2,8 +2,10 @@ import logging
 
 from datetime import timedelta
 
+from markupsafe import Markup
+
 from odoo import api, fields, models
-from odoo.exceptions import ValidationError, UserError
+from odoo.exceptions import AccessError, ValidationError, UserError
 
 _logger = logging.getLogger(__name__)
 
@@ -563,7 +565,49 @@ class KnowledgeItem(models.Model):
                     ], limit=1, order='id asc')
                     if matrix:
                         vals['matrix_id'] = matrix.id
-        return super().create(vals_list)
+        records = super().create(vals_list)
+        # Capture depuis le chatter d'une tâche : poster le courriel source (corps +
+        # pièces jointes, dont le .eml) en note interne plutôt que dans la description.
+        capture_message_id = self.env.context.get('capture_message_id')
+        if capture_message_id:
+            self._post_captured_message(records, capture_message_id)
+        return records
+
+    def _post_captured_message(self, records, message_id):
+        """Poste le message source en note interne sur les éléments capturés.
+
+        Copie les pièces jointes du message (pour ne pas dépointer celles de
+        l'original) et publie le tout en ``mail.mt_note`` — aucune notification.
+
+        Le message source est lu SANS ``sudo`` : l'ACL de l'utilisateur courant
+        s'applique, sinon n'importe quel utilisateur pourrait exfiltrer un
+        ``mail.message`` arbitraire via la clé de contexte ``capture_message_id``.
+        """
+        src = self.env['mail.message'].browse(message_id)
+        if not src.exists():
+            return
+        try:
+            src.check_access('read')
+        except AccessError:
+            return
+        for rec in records:
+            att_ids = [
+                att.copy({
+                    'res_model': rec._name,
+                    'res_id': rec.id,
+                    'res_field': False,
+                }).id
+                for att in src.attachment_ids
+            ]
+            rec.message_post(
+                body=Markup(src.body) if src.body else Markup(''),
+                subject=src.subject or False,
+                author_id=src.author_id.id or False,
+                email_from=src.email_from or False,
+                message_type='comment',
+                subtype_xmlid='mail.mt_note',
+                attachment_ids=att_ids,
+            )
 
     def write(self, vals):
         """Mettre en majuscule l'ID de décision à l'écriture.

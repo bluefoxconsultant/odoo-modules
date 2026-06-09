@@ -1,9 +1,6 @@
 import re
 
-from markupsafe import Markup, escape
-
 from odoo import api, models
-from odoo.tools import html_sanitize
 
 
 class ProjectTask(models.Model):
@@ -14,11 +11,16 @@ class ProjectTask(models.Model):
     def action_create_knowledge_item_from_message(self, task_id, message_id, author_name, message_body):
         """Crée un élément de connaissance pré-rempli depuis un message du chatter.
 
+        Le corps du message (souvent un courriel importé) n'est PAS injecté dans la
+        description : il est posté dans le chatter du nouvel élément au moment de
+        l'enregistrement, avec ses pièces jointes (dont le .eml). Voir
+        ``project.knowledge.item.create`` qui consomme ``capture_message_id``.
+
         Args:
             task_id: ID de la tâche source
             message_id: ID du message mail.message
             author_name: Nom de l'auteur du message
-            message_body: Corps HTML du message
+            message_body: Corps HTML du message (conservé pour compat. JS, non utilisé)
         Returns:
             dict: action act_window vers le formulaire knowledge.item
         """
@@ -50,21 +52,19 @@ class ProjectTask(models.Model):
                     next_num = int(match.group(1)) + 1
                     break
 
-        # Build context description with blockquote attribution
-        safe_body = Markup(html_sanitize(message_body)) if message_body else Markup("")
-        context_desc = Markup(
-            '<blockquote style="border-left: 3px solid #ccc; padding-left: 10px; margin: 10px 0;">'
-            '<p><strong>%s</strong> :</p>%s'
-            '</blockquote>'
-        ) % (escape(author_name or "Inconnu"), safe_body)
+        # Pré-remplir le nom depuis le sujet du message source (éditable).
+        message = self.env['mail.message'].browse(message_id)
+        default_name = message.subject if message.exists() and message.subject else ''
 
         context = {
             'default_project_id': project.id,
             'default_info_provider': author_name or '',
-            'default_context_description': context_desc,
+            'default_name': default_name,
             'default_task_ids': [(4, task.id)],
             'default_decision_id': f'MSG{next_num}',
             'default_assigned_user_id': self.env.uid,
+            # Le corps + pièces jointes (.eml) seront postés dans le chatter au save.
+            'capture_message_id': message_id,
         }
         if matrix:
             context['default_matrix_id'] = matrix.id

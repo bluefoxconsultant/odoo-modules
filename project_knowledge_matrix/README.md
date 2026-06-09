@@ -2,6 +2,8 @@
 
 A comprehensive Odoo 18 module for knowledge management, document control, and project implementation tracking. Designed for organizations needing systematic document versioning, client documentation distribution, internal policy compliance, and structured project information gathering.
 
+*Developed and maintained by [Blue Fox Inc.](https://bluefoxconsultant.com) This module stores encrypted credentials — see [SECURITY.md](SECURITY.md) for the trust model.*
+
 ## Overview
 
 Project Knowledge Matrix helps project managers, documentation teams, and compliance officers:
