@@ -38,6 +38,21 @@
                     <t t-if="state.loading">
                         <i class="fa fa-spinner fa-spin text-muted"/>
                     </t>
+                    <div class="ms-auto d-flex align-items-center gap-2">
+                        <t t-if="state.selected.length">
+                            <span class="badge bg-secondary" t-esc="state.selected.length + ' sélectionné(s)'"/>
+                            <button class="btn btn-sm btn-outline-danger" t-on-click="bulkDelete" t-att-disabled="!canMutate" title="Supprimer la sélection">
+                                <i class="fa fa-trash me-1"/> Supprimer
+                            </button>
+                            <button class="btn btn-sm btn-link p-0" t-on-click="clearSelection" title="Effacer la sélection">
+                                <i class="fa fa-times"/>
+                            </button>
+                        </t>
+                        <div class="input-group input-group-sm o_nc_filter">
+                            <span class="input-group-text"><i class="fa fa-search"/></span>
+                            <input type="text" class="form-control" placeholder="Filtrer…" t-model="state.filter"/>
+                        </div>
+                    </div>
                 </div>
 
                 <t t-if="state.error">
@@ -56,6 +71,10 @@
                             <table class="table table-sm table-hover o_nc_list mb-0">
                                 <thead>
                                     <tr>
+                                        <th class="o_nc_check">
+                                            <input type="checkbox" t-att-checked="allVisibleSelected"
+                                                   t-on-change="toggleSelectAll" t-att-disabled="!canMutate"/>
+                                        </th>
                                         <th class="o_nc_sort" t-on-click="() => this.setSort('name')">
                                             Nom <i t-att-class="sortIcon('name')"/>
                                         </th>
@@ -78,8 +97,13 @@
                                             t-on-dragstart="(ev) => this.onRowDragStart(e, ev)"
                                             t-on-dragover="(ev) => this.onListDragOver(e, ev)"
                                             t-on-drop="(ev) => this.onListDrop(e, ev)">
+                                            <td class="o_nc_check">
+                                                <input type="checkbox" t-att-checked="isSelected(e.rel)"
+                                                       t-on-change="() => this.toggleSelect(e.rel)"
+                                                       t-att-disabled="!canMutate"/>
+                                            </td>
                                             <td class="o_nc_name" t-on-click="() => this.onEntryClick(e)">
-                                                <i t-att-class="this._iconClass(e)"/>
+                                                <i t-att-class="this._iconClass(e)" t-att-style="e.is_dir ? ('color:' + state.folderColor) : ''"/>
                                                 <span class="ms-2" t-esc="e.name"/>
                                             </td>
                                             <td class="text-muted small text-nowrap" t-esc="this._typeLabel(e)"/>
@@ -111,7 +135,7 @@
                                     </t>
                                     <t t-if="!state.entries.length">
                                         <tr>
-                                            <td colspan="5" class="text-muted text-center p-3">Dossier vide</td>
+                                            <td colspan="6" class="text-muted text-center p-3">Dossier vide</td>
                                         </tr>
                                     </t>
                                 </tbody>

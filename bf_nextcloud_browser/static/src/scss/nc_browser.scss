@@ -7,6 +7,9 @@
     padding: 12px 16px;
 
     .o_nc_toolbar {
+        .o_nc_filter {
+            max-width: 220px;
+        }
         .btn-primary {
             background-color: var(--bf-accent);
             border-color: var(--bf-accent);
@@ -107,6 +110,11 @@
         }
         .o_nc_actions {
             white-space: nowrap;
+        }
+        .o_nc_check {
+            width: 1%;
+            white-space: nowrap;
+            text-align: center;
         }
         .o_nc_folder_row.o_nc_drop_target {
             background: rgba(41, 171, 225, 0.12);

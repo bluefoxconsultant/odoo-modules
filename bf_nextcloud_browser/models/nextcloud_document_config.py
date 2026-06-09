@@ -36,6 +36,13 @@ class NextcloudDocumentConfig(models.Model):
         "directement dans Nextcloud (ex. Collabora) plutot que dans l'apercu integre.",
     )
 
+    nc_folder_color = fields.Char(
+        string="Couleur des dossiers",
+        default="#2D3031",
+        help="Couleur (hex) des icones de dossier dans le navigateur. "
+        "Defaut: anthracite Blue Fox. Mettre la couleur d'accent (#29ABE1) pour du contraste.",
+    )
+
     share_preset_ids = fields.One2many(
         "nextcloud.share.preset",
         "config_id",

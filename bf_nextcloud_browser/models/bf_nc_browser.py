@@ -41,6 +41,8 @@ ALLOWED_MODELS = ("project.project", "project.task")
 # Display tz is pinned to Montreal: the service-account user context has no tz,
 # and Blue Fox always shows local Montreal time (never UTC).
 MONTREAL_TZ = pytz.timezone("America/Montreal")
+# Cap RPC uploads (base64 in a single call) to protect the worker's memory.
+MAX_UPLOAD_BYTES = 64 * 1024 * 1024  # 64 MiB
 
 
 def _human_size(num):
@@ -246,6 +248,7 @@ class BfNcBrowser(models.TransientModel):
             "breadcrumb": crumbs,
             "entries": entries,
             "open_extensions": config._open_extensions_list(),
+            "folder_color": config.nc_folder_color or "#2D3031",
             "presets": [
                 {"id": p.id, "name": p.name, "access": p.access}
                 for p in config.share_preset_ids
@@ -310,6 +313,11 @@ class BfNcBrowser(models.TransientModel):
             content = base64.b64decode(data_b64 or "")
         except (ValueError, TypeError):
             raise UserError(_("Contenu de fichier invalide."))
+        if len(content) > MAX_UPLOAD_BYTES:
+            raise UserError(
+                _("Fichier trop volumineux (maximum %s Mo par televersement).")
+                % (MAX_UPLOAD_BYTES // (1024 * 1024))
+            )
         ctype = mimetypes.guess_type(filename)[0] or "application/octet-stream"
         config._webdav_put(target, content, content_type=ctype)
         return {"ok": True}
@@ -506,6 +514,11 @@ class BfNcBrowser(models.TransientModel):
             content = base64.b64decode(data_b64 or "")
         except (ValueError, TypeError):
             raise UserError(_("Contenu de fichier invalide."))
+        if len(content) > MAX_UPLOAD_BYTES:
+            raise UserError(
+                _("Fichier trop volumineux (maximum %s Mo par televersement).")
+                % (MAX_UPLOAD_BYTES // (1024 * 1024))
+            )
         ctype = mimetypes.guess_type(filename)[0] or "application/octet-stream"
         config._webdav_put(target, content, content_type=ctype)
         return {"ok": True}

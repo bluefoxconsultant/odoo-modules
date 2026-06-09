@@ -1,6 +1,7 @@
 /** @odoo-module **/
 
 import { Component, useState, useRef, onWillStart } from "@odoo/owl";
+import { browser } from "@web/core/browser/browser";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { standardWidgetProps } from "@web/views/widgets/standard_widget_props";
@@ -131,6 +132,16 @@ export class NcBrowser extends Component {
         this.notification = useService("notification");
         this.dialog = useService("dialog");
         this.fileInput = useRef("fileInput");
+        // Persisted sort preference (per browser).
+        let sortBy = "name";
+        let sortDir = 1;
+        try {
+            const saved = JSON.parse(browser.localStorage.getItem("bf_nc_browser_sort") || "{}");
+            if (saved.by) sortBy = saved.by;
+            if (saved.dir) sortDir = saved.dir;
+        } catch {
+            // ignore malformed pref
+        }
         this.state = useState({
             ready: false,
             loading: false,
@@ -140,10 +151,13 @@ export class NcBrowser extends Component {
             entries: [],
             dragOver: false, // OS-file drop on the panel
             tree: [],
-            sortBy: "name",
-            sortDir: 1,
+            sortBy,
+            sortDir,
             openExtensions: [],
+            folderColor: "#2D3031",
             presets: [],
+            filter: "",
+            selected: [], // rels of checked entries
         });
         onWillStart(() => this.load(""));
     }
@@ -206,8 +220,11 @@ export class NcBrowser extends Component {
             this.state.breadcrumb = res.breadcrumb;
             this.state.entries = res.entries;
             this.state.openExtensions = res.open_extensions || this.state.openExtensions;
+            this.state.folderColor = res.folder_color || this.state.folderColor;
             this.state.presets = res.presets || this.state.presets;
             this.state.error = "";
+            this.state.selected = [];
+            this.state.filter = "";
             this._syncTree(res.rel_path, res.entries);
         } catch (e) {
             this.state.entries = [];
@@ -326,7 +343,7 @@ export class NcBrowser extends Component {
 
     _iconClass(entry) {
         if (entry.is_dir) {
-            return "fa fa-folder text-warning";
+            return "fa fa-folder"; // colour applied inline from config (state.folderColor)
         }
         const map = {
             pdf: "fa-file-pdf-o",
@@ -361,7 +378,11 @@ export class NcBrowser extends Component {
             if (by === "type") return this._typeLabel(e).toLowerCase();
             return (e.name || "").toLowerCase();
         };
-        return [...this.state.entries].sort((a, b) => {
+        const q = (this.state.filter || "").trim().toLowerCase();
+        const list = q
+            ? this.state.entries.filter((e) => (e.name || "").toLowerCase().includes(q))
+            : this.state.entries;
+        return [...list].sort((a, b) => {
             if (a.is_dir !== b.is_dir) {
                 return a.is_dir ? -1 : 1; // folders pinned first
             }
@@ -380,6 +401,72 @@ export class NcBrowser extends Component {
             this.state.sortBy = col;
             this.state.sortDir = 1;
         }
+        try {
+            browser.localStorage.setItem(
+                "bf_nc_browser_sort",
+                JSON.stringify({ by: this.state.sortBy, dir: this.state.sortDir })
+            );
+        } catch {
+            // ignore storage failures
+        }
+    }
+
+    // --- multi-selection + bulk actions ---
+    isSelected(rel) {
+        return this.state.selected.includes(rel);
+    }
+
+    toggleSelect(rel) {
+        if (this.isSelected(rel)) {
+            this.state.selected = this.state.selected.filter((r) => r !== rel);
+        } else {
+            this.state.selected = [...this.state.selected, rel];
+        }
+    }
+
+    get allVisibleSelected() {
+        const vis = this.sortedEntries;
+        return vis.length > 0 && vis.every((e) => this.isSelected(e.rel));
+    }
+
+    toggleSelectAll() {
+        if (this.allVisibleSelected) {
+            this.state.selected = [];
+        } else {
+            this.state.selected = this.sortedEntries.map((e) => e.rel);
+        }
+    }
+
+    clearSelection() {
+        this.state.selected = [];
+    }
+
+    bulkDelete() {
+        const rels = [...this.state.selected];
+        if (!rels.length) {
+            return;
+        }
+        this.dialog.add(ConfirmationDialog, {
+            title: _t("Supprimer la selection"),
+            body: _t("Supprimer definitivement %s element(s) ?", rels.length),
+            confirmLabel: _t("Supprimer"),
+            confirm: async () => {
+                this.state.loading = true;
+                try {
+                    for (const rel of rels) {
+                        await this._call("delete_entry", [rel]);
+                    }
+                    this.state.selected = [];
+                    this.notification.add(_t("Selection supprimee."), { type: "success" });
+                    await this.load(this.state.relPath);
+                } catch (e) {
+                    this._err(e);
+                } finally {
+                    this.state.loading = false;
+                }
+            },
+            cancel: () => {},
+        });
     }
 
     sortIcon(col) {
