@@ -592,7 +592,21 @@ class MeetingRecord(models.Model):
             _logger.warning("No recipients for meeting report %s", self.name)
             return True
 
-        template.send_mail(self.id, force_send=True)
+        # Multi-company guard: the QWeb report reads project_id.name etc., which
+        # is blocked by ir.rule when the project lives in a company that is not
+        # in allowed_company_ids on the current request. Resolve the project's
+        # company via sudo (the project ref itself is otherwise unreadable in a
+        # mismatched company context) and force it into context before rendering.
+        target_company = (
+            self.sudo().project_id.company_id
+            or self.sudo().company_id
+            or self.env.company
+        )
+        allowed_ids = set(self.env.context.get('allowed_company_ids') or [self.env.company.id])
+        allowed_ids.add(target_company.id)
+        template.with_company(target_company).with_context(
+            allowed_company_ids=list(allowed_ids),
+        ).send_mail(self.id, force_send=True)
         self.write({
             'report_state': 'sent',
             'report_sent_date': fields.Datetime.now(),
