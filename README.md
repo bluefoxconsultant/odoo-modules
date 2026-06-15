@@ -61,7 +61,7 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | `bf_universal_search` | BF Recherche universelle | 18.0.1.4.0 | LGPL-3 | Cross-module search through the command palette |
 | `bluefox_branding` | Blue Fox Branding | 18.0.3.0.0 | LGPL-3 | Per-company brand color + email layout overrides driven by `bf_lexend` company fields (CSS variables injected via QWeb layout — no SCSS recompile) |
 | `contacts_nextcloud_sync` | Contacts Nextcloud Sync | 18.0.1.1.1 | LGPL-3 | Sync Odoo contacts with a Nextcloud address book via CardDAV |
-| `daily_todo_digest` | Daily To-Do Digest | 18.0.1.3.0 | LGPL-3 | Daily email digest with activities, overdue tasks, and a week-ahead view |
+| `daily_todo_digest` | Daily To-Do Digest | 18.0.2.0.0 | LGPL-3 | Daily email digest with activities, overdue tasks, and a week-ahead view |
 | `hosting_management` | Gestion d'hébergement | 18.0.2.46.0 | LGPL-3 | Manage hosting services, client computer parks (endpoints, BitLocker, Action1 sync) and software license pools |
 | `privacy_consent` | Suivi des consentements (Loi 25) | 18.0.3.1.4 | LGPL-3 | Privacy, consents, and document destruction (Quebec Loi 25) |
 | `project_knowledge_matrix` | Project Knowledge Matrix | 18.0.9.12.3 | LGPL-3 | Project knowledge base, policies, and documentation |

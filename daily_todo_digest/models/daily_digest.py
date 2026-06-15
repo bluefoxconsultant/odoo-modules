@@ -36,6 +36,19 @@ MOIS_FR = {
 }
 
 
+def _coerce_translatable(val):
+    """Defensive: if a translatable jsonb field leaked as a raw dict
+    ({'en_US': ..., 'fr_CA': ...}), resolve it to a single string instead of
+    rendering the dict verbatim. The upstream SQL fix in
+    bf_meeting._get_digest_buckets is the real fix; this is belt-and-braces."""
+    if isinstance(val, dict):
+        for key in ("fr_CA", "en_CA", "en_US"):
+            if val.get(key):
+                return val[key]
+        return next((v for v in val.values() if v), "")
+    return val
+
+
 def format_date_fr(date_obj):
     """Format a date in French: 'Jeudi, le 5 février 2026'"""
     day_en = date_obj.strftime('%A')
@@ -65,6 +78,35 @@ COLORS = {
 }
 
 
+class DailyDigestSendLog(models.Model):
+    """Per-(config, user) send tracking.
+
+    The digest is sent in each recipient's own timezone (recipients in
+    different timezones fire at different UTC instants for the same
+    `send_hour`). The legacy config-level `last_sent` can't express that, so
+    we track the last send per recipient here to avoid double-sends.
+    """
+
+    _name = "daily.digest.send.log"
+    _description = "Daily Digest Send Log"
+
+    config_id = fields.Many2one(
+        "daily.digest.config", required=True, ondelete="cascade", index=True
+    )
+    user_id = fields.Many2one(
+        "res.users", required=True, ondelete="cascade", index=True
+    )
+    last_sent = fields.Datetime(string="Dernier envoi (UTC)")
+
+    _sql_constraints = [
+        (
+            "uniq_config_user",
+            "unique(config_id, user_id)",
+            "Un seul journal d'envoi par destinataire et par digest.",
+        ),
+    ]
+
+
 class DailyDigestConfig(models.Model):
     _name = "daily.digest.config"
     _description = "Daily Digest Configuration"
@@ -83,7 +125,8 @@ class DailyDigestConfig(models.Model):
     send_hour = fields.Integer(
         string="Heure d'envoi",
         default=4,
-        help="Heure d'envoi (0-23, fuseau horaire du serveur)",
+        help="Heure d'envoi (0-23), évaluée dans le fuseau horaire de chaque "
+             "destinataire (res.users.tz, défaut America/Montreal).",
     )
 
     # Widget toggles
@@ -118,8 +161,10 @@ class DailyDigestConfig(models.Model):
         default=True,
     )
     weather_city = fields.Char(
-        string="Ville météo",
+        string="Ville météo (défaut)",
         default="Montréal",
+        help="Ville par défaut. Chaque destinataire peut la remplacer dans "
+             "ses préférences (Ville météo (digest) sur sa fiche utilisateur).",
     )
     weather_latitude = fields.Float(
         string="Latitude",
@@ -194,34 +239,61 @@ class DailyDigestConfig(models.Model):
 
     @api.model
     def _cron_send_daily_digests(self):
-        """Cron job to send daily digests."""
-        # Get current time in Montreal timezone
-        now_utc = fields.Datetime.now()
-        local_tz = pytz.timezone(DEFAULT_TZ)
-        now_local = pytz.UTC.localize(now_utc).astimezone(local_tz)
-        current_hour = now_local.hour
-        today = now_local.date()
+        """Cron job to send daily digests.
 
+        Evaluates `send_hour` and the "already sent today" guard in EACH
+        recipient's own timezone (`res.users.tz`), so the same config delivers
+        at the local morning hour for recipients in different timezones.
+        """
+        now_utc = fields.Datetime.now()
         configs = self.search([("active", "=", True)])
 
         for config in configs:
-            # Check if it's the right hour (in Montreal timezone)
-            if config.send_hour != current_hour:
-                continue
-
-            # Check if already sent today (in Montreal timezone)
-            if config.last_sent:
-                last_sent_local = pytz.UTC.localize(config.last_sent).astimezone(local_tz)
-                last_sent_date = last_sent_local.date()
-                if last_sent_date >= today:
+            for user in config.user_ids:
+                if not user.email:
                     continue
 
-            try:
-                config._send_digest()
-                config.last_sent = now_utc  # Store in UTC
-                _logger.info("Daily digest '%s' sent successfully", config.name)
-            except Exception:
-                _logger.exception("Failed to send daily digest '%s'", config.name)
+                tz_name = user.tz or DEFAULT_TZ
+                user_tz = pytz.timezone(tz_name)
+                now_local = pytz.UTC.localize(now_utc).astimezone(user_tz)
+
+                # Right hour in the recipient's timezone?
+                if config.send_hour != now_local.hour:
+                    continue
+
+                # Already sent today (recipient's local day)?
+                log = config._get_send_log(user)
+                if log.last_sent:
+                    last_local = pytz.UTC.localize(log.last_sent).astimezone(user_tz)
+                    if last_local.date() >= now_local.date():
+                        continue
+
+                try:
+                    config._send_digest(test_user=user)
+                    log.last_sent = now_utc  # store in UTC
+                    config.last_sent = now_utc  # legacy: last send of any recipient
+                    _logger.info(
+                        "Daily digest '%s' sent to %s (%s)",
+                        config.name, user.name, tz_name,
+                    )
+                except Exception:
+                    _logger.exception(
+                        "Failed to send daily digest '%s' to %s",
+                        config.name, user.name,
+                    )
+
+    def _get_send_log(self, user):
+        """Return (creating if needed) the per-user send log for this config."""
+        self.ensure_one()
+        log = self.env["daily.digest.send.log"].search(
+            [("config_id", "=", self.id), ("user_id", "=", user.id)], limit=1
+        )
+        if not log:
+            log = self.env["daily.digest.send.log"].create({
+                "config_id": self.id,
+                "user_id": user.id,
+            })
+        return log
 
     def _send_digest(self, test_user=None):
         """Send the digest email to all recipients.
@@ -236,34 +308,37 @@ class DailyDigestConfig(models.Model):
             _logger.warning("No recipients configured for digest '%s'", self.name)
             return
 
-        # Gather data (use test_user for filtering if provided)
-        target_users = test_user if test_user else self.user_ids
-        data = self._gather_digest_data(target_users)
-
-        # Check if there's any content to send
-        has_content = any([
-            data.get("overdue_activities"),
-            data.get("today_activities"),
-            data.get("overdue_tasks"),
-            data.get("today_tasks"),
-            data.get("meetings_by_user"),
-        ])
-
-        if not has_content:
-            _logger.info("No activities or tasks to report for digest '%s'", self.name)
-            # Still send if weather or quote are enabled
-            if not self.include_weather and not self.include_quote:
-                return
-
         for user in recipients:
             if not user.email:
                 _logger.warning("User %s has no email, skipping", user.name)
                 continue
 
+            # Gather data per recipient, in the recipient's own timezone, so the
+            # "today" window (and week preview) reflect their local day.
+            tz_name = user.tz or DEFAULT_TZ
+            data = self._gather_digest_data(user, tz_name=tz_name)
+
+            has_content = any([
+                data.get("overdue_activities"),
+                data.get("today_activities"),
+                data.get("overdue_tasks"),
+                data.get("today_tasks"),
+                data.get("meetings_by_user"),
+            ])
+            if not has_content and not self.include_weather and not self.include_quote:
+                _logger.info(
+                    "Nothing to report for %s on digest '%s'", user.name, self.name
+                )
+                continue
+
             # Generate personalized HTML
-            today = fields.Date.today()
-            date_str = format_date_fr(today)
             body_html = self._generate_html(data, user)
+
+            # Subject date in the recipient's local day
+            today_local = pytz.UTC.localize(fields.Datetime.now()).astimezone(
+                pytz.timezone(tz_name)
+            ).date()
+            date_str = format_date_fr(today_local)
 
             mail_values = {
                 "subject": f"🌄 Votre journée | {date_str}",
@@ -275,19 +350,24 @@ class DailyDigestConfig(models.Model):
             mail = self.env["mail.mail"].sudo().create(mail_values)
             mail.send()
 
-    def _gather_digest_data(self, users=None):
+    def _gather_digest_data(self, users=None, tz_name=None):
         """Gather all data for the digest.
 
         Args:
             users: Specific users to gather data for (defaults to self.user_ids)
+            tz_name: Timezone used to compute the local "today" window
+                (defaults to America/Montreal). Pass the recipient's tz so the
+                day boundaries match their locale.
         """
         self.ensure_one()
-        today = fields.Date.today()
+        tz_name = tz_name or DEFAULT_TZ
+        # "Today" in the recipient's local day, not the server's.
+        local_tz = pytz.timezone(tz_name)
+        today = pytz.UTC.localize(fields.Datetime.now()).astimezone(local_tz).date()
         data = {}
 
-        # Calculate datetime bounds for today in local timezone (Montreal)
-        # This ensures proper comparison for Datetime fields stored in UTC
-        local_tz = pytz.timezone(DEFAULT_TZ)
+        # Calculate datetime bounds for today in the recipient's timezone.
+        # This ensures proper comparison for Datetime fields stored in UTC.
         today_start_local = local_tz.localize(
             fields.Datetime.to_datetime(f"{today} 00:00:00")
         )
@@ -390,8 +470,9 @@ class DailyDigestConfig(models.Model):
 
         data["week_preview"] = week_preview
 
-        if self.include_weather:
-            data["weather"] = self._get_weather()
+        # Weather is fetched per-recipient in `_generate_html` (each user can
+        # have their own city/coordinates), so it is intentionally NOT gathered
+        # here.
 
         if self.include_quote:
             data["quote"] = self.env["daily.digest.quote"].get_random_quote()
@@ -486,16 +567,42 @@ class DailyDigestConfig(models.Model):
 
         return {"visible": visible_tasks, "hidden_count": hidden_count}
 
-    def _get_weather(self):
-        """Get weather data from Open-Meteo API (free, no API key needed)."""
+    def _resolve_weather_location(self, user=None):
+        """Resolve (city, latitude, longitude, tz_name) for the weather widget.
+
+        Priority: the recipient's own preferences — active as soon as they set
+        a `digest_weather_city` on their user record — then the config's
+        default city/coordinates. The tz is the recipient's (so Open-Meteo
+        aligns the daily high/low to their local day).
+        """
+        if user and user.digest_weather_city:
+            return (
+                user.digest_weather_city,
+                user.digest_weather_latitude,
+                user.digest_weather_longitude,
+                user.tz or DEFAULT_TZ,
+            )
+        return (
+            self.weather_city,
+            self.weather_latitude,
+            self.weather_longitude,
+            (user.tz if user else None) or DEFAULT_TZ,
+        )
+
+    def _get_weather(self, user=None):
+        """Get weather data from Open-Meteo API (free, no API key needed).
+
+        Resolves the location per-recipient (see `_resolve_weather_location`).
+        """
+        city, latitude, longitude, tz_name = self._resolve_weather_location(user)
         try:
             url = "https://api.open-meteo.com/v1/forecast"
             params = {
-                "latitude": self.weather_latitude,
-                "longitude": self.weather_longitude,
+                "latitude": latitude,
+                "longitude": longitude,
                 "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weathercode",
                 "current": "temperature_2m,weathercode",
-                "timezone": "America/Montreal",
+                "timezone": tz_name,
                 "forecast_days": 1,
             }
             response = requests.get(url, params=params, timeout=10)
@@ -541,7 +648,7 @@ class DailyDigestConfig(models.Model):
             weather_info = weather_codes.get(weather_code, ("🌡️", "Inconnu"))
 
             return {
-                "city": self.weather_city,
+                "city": city,
                 "current_temp": round(current.get("temperature_2m", 0)),
                 "high": round(daily.get("temperature_2m_max", [0])[0]),
                 "low": round(daily.get("temperature_2m_min", [0])[0]),
@@ -557,8 +664,14 @@ class DailyDigestConfig(models.Model):
     def _generate_html(self, data, user):
         """Generate the HTML email body."""
         self.ensure_one()
-        today = fields.Date.today()
+        tz_name = user.tz or DEFAULT_TZ
+        today = pytz.UTC.localize(fields.Datetime.now()).astimezone(
+            pytz.timezone(tz_name)
+        ).date()
         today_str = format_date_fr(today)
+
+        # Weather is per-recipient (own city/coordinates + own timezone).
+        weather = self._get_weather(user) if self.include_weather else None
 
         # Pull brand colors from the user's company. Single-threaded write to
         # the module-level palette is safe inside the cron-driven send loop.
@@ -583,8 +696,8 @@ class DailyDigestConfig(models.Model):
         """)
 
         # Weather section
-        if self.include_weather and data.get("weather"):
-            content_parts.append(self._render_weather_section(data["weather"]))
+        if weather:
+            content_parts.append(self._render_weather_section(weather))
 
         # Overdue activities
         if self.include_overdue_activities and user_data.get("overdue_activities"):
@@ -676,8 +789,8 @@ class DailyDigestConfig(models.Model):
             preheader_parts.append(f"{today_count} aujourd'hui")
         if meetings_count > 0:
             preheader_parts.append(f"{meetings_count} rencontre{'s' if meetings_count > 1 else ''}")
-        if data.get("weather"):
-            w = data["weather"]
+        if weather:
+            w = weather
             preheader_parts.append(f"{w.get('emoji', '')} {w['current_temp']}°C")
         preheader = " | ".join(preheader_parts) if preheader_parts else "Votre agenda du jour"
 
@@ -1042,9 +1155,9 @@ class DailyDigestConfig(models.Model):
                 url = "#"
             meta_bits = []
             if r.get("project_name"):
-                meta_bits.append(escape(r["project_name"]))
+                meta_bits.append(escape(_coerce_translatable(r["project_name"])))
             if r.get("partner_name"):
-                meta_bits.append(escape(r["partner_name"]))
+                meta_bits.append(escape(_coerce_translatable(r["partner_name"])))
             meta = " · ".join(str(b) for b in meta_bits)
             return f"""
                 <tr>

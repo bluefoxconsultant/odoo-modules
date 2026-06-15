@@ -69,11 +69,11 @@
                             <div class="alert alert-info" role="alert">
                                 <h4>Comment fonctionne le digest quotidien?</h4>
                                 <ul>
-                                    <li><strong>Heure d'envoi:</strong> Le cron vérifie toutes les heures. À l'heure configurée, le digest est envoyé aux destinataires.</li>
+                                    <li><strong>Heure d'envoi:</strong> Le cron vérifie toutes les heures. Le digest part à l'heure configurée <strong>dans le fuseau horaire de chaque destinataire</strong> (champ Fuseau de sa fiche utilisateur).</li>
                                     <li><strong>Activités:</strong> Les activités (mail.activity) assignées aux destinataires sont incluses.</li>
-                                    <li><strong>Tâches:</strong> Les tâches de projet assignées aux destinataires sont incluses (incluant les sous-tâches).</li>
+                                    <li><strong>Tâches:</strong> Les tâches de projet assignées aux destinataires sont incluses (incluant les sous-tâches). La fenêtre « du jour » est calculée dans le fuseau de chaque destinataire.</li>
                                     <li><strong>Tâches à venir:</strong> Aperçu des tâches des prochains jours (1 à 7 jours configurables).</li>
-                                    <li><strong>Météo:</strong> Utilise l'API gratuite Open-Meteo. Ajustez la latitude/longitude pour votre ville.</li>
+                                    <li><strong>Météo:</strong> Utilise l'API gratuite Open-Meteo. La ville/coordonnées par défaut ci-dessus s'appliquent, mais chaque destinataire peut définir sa propre ville dans ses préférences (Ville météo (digest)).</li>
                                     <li><strong>Citations:</strong> Une citation aléatoire est sélectionnée parmi la collection.</li>
                                 </ul>
                                 <p class="mt-3">

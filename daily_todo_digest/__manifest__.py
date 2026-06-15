@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Daily To-Do Digest",
-    "version": "18.0.1.3.0",
+    "version": "18.0.2.0.0",
     "category": "Productivity",
     "summary": "Daily email digest with overdue and today's activities, tasks, and subtasks",
     "description": """
@@ -40,6 +40,7 @@ Uses Blue Fox branding.
         "security/ir.model.access.csv",
         "data/inspirational_quotes.xml",
         "data/daily_digest_cron.xml",
+        "views/res_users_views.xml",
         "views/daily_digest_views.xml",
     ],
     "installable": True,
