@@ -13,9 +13,11 @@ _logger = logging.getLogger(__name__)
 _DEFAULT_BRIDGE_SOCKET = "/run/claude-bridge/bridge.sock"
 
 def _format_meeting_date_display(record):
-    """Format record.date in the client's tz, with the originator's tz in
-    parentheses when it differs. record must expose date, partner_id,
-    organizer_id, create_uid.
+    """Format record.date with the client's tz first and the originator's tz
+    second, rendered in smaller muted characters, when they differ. Returns
+    Markup so the styling survives QWeb ``t-out`` rendering (PDF report and
+    mail template). record must expose date, partner_id, organizer_id,
+    create_uid.
 
     Timezone resolution, conversion and city labelling live in the shared
     ``bf.timezone`` helper (module ``bf_timezone``)."""
@@ -28,7 +30,15 @@ def _format_meeting_date_display(record):
     organizer = record.organizer_id or record.create_uid
     originator_tz_name = (organizer.tz if organizer else None) \
         or default_tz
-    return tz_helper.format_dual(record.date, client_tz_name, originator_tz_name)
+    fmt = "%Y-%m-%d %H:%M %Z"
+    primary = tz_helper.to_tz(record.date, client_tz_name).strftime(fmt)
+    if not originator_tz_name or originator_tz_name == client_tz_name:
+        return escape(primary)
+    secondary = tz_helper.to_tz(record.date, originator_tz_name).strftime(fmt)
+    # Client time first (normal); originator time second, smaller and muted.
+    return Markup(
+        '%s <span style="font-size:0.82em;color:#9CA3AF;">(%s : %s)</span>'
+    ) % (primary, tz_helper.tz_city(originator_tz_name), secondary)
 
 
 def _post_to_bridge(socket_path, endpoint, payload, timeout):
@@ -530,6 +540,12 @@ class MeetingRecord(models.Model):
         """Marquer le rapport comme révisé."""
         self.write({'report_state': 'reviewed'})
 
+    def report_date_display_html(self):
+        """Date (tz client en premier, tz organisateur en plus petit) en Markup,
+        pour le gabarit de courriel du compte rendu."""
+        self.ensure_one()
+        return _format_meeting_date_display(self)
+
     def action_send_report(self):
         """Ouvrir l'assistant d'envoi du rapport par courriel."""
         self.ensure_one()
@@ -563,13 +579,14 @@ class MeetingRecord(models.Model):
             _logger.warning("Meeting report mail template not found")
             return True
 
-        # Auto-populate recipients from participants if empty
-        if not self.report_recipient_ids and self.participant_ids:
-            self.report_recipient_ids = self.participant_ids
-
+        # Only send to the recipients explicitly listed in « Destinataires ».
+        # No participant fallback: auto-filling caused accidental sends to
+        # clients who were never meant to be on the recipient list.
         if not self.report_recipient_ids:
-            _logger.warning("No recipients for meeting report %s", self.name)
-            return True
+            raise UserError(
+                "Aucun destinataire : ajoutez au moins une personne dans le "
+                "champ « Destinataires » avant d'envoyer le compte rendu."
+            )
 
         # Multi-company guard: the QWeb report reads project_id.name etc., which
         # is blocked by ir.rule when the project lives in a company that is not

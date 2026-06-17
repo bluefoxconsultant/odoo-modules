@@ -59,8 +59,7 @@
                                             <t t-out="object.date.strftime('%Y-%m-%d')"/>
                                         </t>
                                         <t t-else="">
-                                            <t t-set="tz_name" t-value="(object.organizer_id.tz or user.tz or 'UTC')"/>
-                                            <t t-out="format_datetime(object.date, tz=tz_name, dt_format='yyyy-MM-dd')"/> à <t t-out="format_datetime(object.date, tz=tz_name, dt_format='HH:mm')"/>
+                                            <t t-out="object.report_date_display_html()"/>
                                         </t>
                                     </t>
                                     <t t-if="object.duration_minutes">

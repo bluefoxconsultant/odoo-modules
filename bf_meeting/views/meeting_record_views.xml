@@ -106,6 +106,7 @@
                     <button name="action_send_report_direct" type="object"
                             string="Envoyer le résumé"
                             class="btn-primary"
+                            confirm="Le compte rendu sera envoyé immédiatement, en pièce jointe PDF, aux personnes listées dans « Destinataires ». Vérifiez la liste avant de confirmer l'envoi."
                             invisible="report_state == 'draft'"/>
                     <button name="action_send_report" type="object"
                             string="Envoyer avec options..."
