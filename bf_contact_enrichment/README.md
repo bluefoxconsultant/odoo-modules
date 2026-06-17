@@ -10,9 +10,15 @@ automatiquement à partir de quatre sources, via le bridge Claude de Blue Fox.
    envoyée au bridge (`/ocr/business-card`), Claude lit la carte et renvoie les
    coordonnées. Le module détecte un contact existant (courriel, nom, domaine)
    et propose de créer ou de mettre à jour ; la carte est jointe à la fiche.
-2. **Signatures courriel** — bouton « Enrichir (courriels) » sur une fiche.
-   Concatène les derniers courriels entrants (`bf.email`) du correspondant,
-   les envoie à `/enrich/signature`, et propose un comparatif champ par champ.
+2. **Signatures courriel** — deux boutons sur la fiche : « Enrichir maintenant
+   (signatures) » applique directement (remplit les vides, un clic), tandis que
+   « Enrichir (réviser) » ouvre un comparatif champ par champ. Les deux
+   concatènent les derniers courriels entrants (`bf.email`, qui reflète l'IMAP,
+   la passerelle et les chatters) du correspondant et les envoient à
+   `/enrich/signature`. **En lot** : *Contacts ▸ (liste) ▸ Action ▸ Enrichir
+   depuis les signatures courriel* met les contacts sélectionnés en file ; un
+   cron les traite en arrière-plan par lots (seuil de confiance, jamais
+   d'écrasement).
 3. **Créer un contact depuis un courriel** — bouton « Créer / enrichir le
    contact » sur une fiche `bf.email` : retrouve ou crée l'expéditeur puis lance
    l'enrichissement par signature.

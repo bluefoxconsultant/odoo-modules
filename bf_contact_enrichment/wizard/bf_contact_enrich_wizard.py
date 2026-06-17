@@ -1,6 +1,5 @@
 from odoo import _, fields, models
 from odoo.exceptions import UserError
-from odoo.tools import html2plaintext
 
 from ..tools import bridge, matching
 
@@ -83,32 +82,11 @@ class BfContactEnrichWizard(models.TransientModel):
     def _fetch_signature(self):
         if "bf.email" not in self.env:
             raise UserError(_("Le module de gestion des courriels n'est pas installé."))
-        partner = self.partner_id
-        BfEmail = self.env["bf.email"]
-        emails = BfEmail.search(
-            [("partner_id", "=", partner.id), ("direction", "=", "in")],
-            order="date desc", limit=5,
-        )
-        if not emails and partner.email:
-            emails = BfEmail.search(
-                [("email_from", "ilike", partner.email), ("direction", "=", "in")],
-                order="date desc", limit=5,
-            )
-        if not emails:
-            raise UserError(_("Aucun courriel entrant trouvé pour ce contact."))
-
-        blocks = []
-        for msg in emails:
-            body = msg.body_html or ""
-            text = html2plaintext(body) if body else (msg.body_preview or "")
-            if text:
-                blocks.append("----- %s -----\n%s" % (msg.date or "", text))
-        text = "\n\n".join(blocks)[:12000]
+        text = self.partner_id._bf_signature_text()
         if not text.strip():
-            raise UserError(_("Les courriels trouvés n'ont pas de contenu exploitable."))
-
+            raise UserError(_("Aucun courriel entrant exploitable pour ce contact."))
         result = bridge.call_bridge(
-            self.env, "/enrich/signature", {"org": "bf", "text": text}, timeout=80)
+            self.env, "/enrich/signature", {"org": "bf", "text": text}, timeout=90)
         if result.get("error"):
             raise UserError(_("Analyse impossible : %s") % result["error"])
         return result.get("data") or {}

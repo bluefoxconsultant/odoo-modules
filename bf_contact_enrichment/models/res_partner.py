@@ -1,4 +1,12 @@
+import logging
+
 from odoo import _, api, fields, models
+from odoo.exceptions import AccessError
+from odoo.tools import html2plaintext
+
+from ..tools import bridge
+
+_logger = logging.getLogger(__name__)
 
 # Fields whose presence counts toward the completeness score.
 # Companies are not expected to have a job title or a parent company.
@@ -15,6 +23,10 @@ class ResPartner(models.Model):
         store=True,
         help="Pourcentage de coordonnées renseignées (courriel, téléphone, "
              "fonction, société, adresse, site web).",
+    )
+    x_bf_enrich_queued = fields.Boolean(
+        string="En file d'enrichissement", default=False, copy=False,
+        help="Marqué pour enrichissement par signature en arrière-plan (cron).",
     )
 
     @api.depends("email", "phone", "mobile", "function", "parent_id",
@@ -122,3 +134,152 @@ class ResPartner(models.Model):
             "target": "new",
             "context": {"default_partner_id": self.id, "default_source": "web"},
         }
+
+    # ── Signature enrichment core (shared: wizard, 1-click, batch cron) ──
+
+    def _bf_signature_text(self, limit=5):
+        """Concatenated bodies of the partner's recent inbound bf.email rows.
+
+        bf.email mirrors IMAP, the mail gateway and chatter, so this already
+        covers IMAP-sourced signatures. Returns '' if none (or no bf.email).
+        """
+        self.ensure_one()
+        if "bf.email" not in self.env:
+            return ""
+        BfEmail = self.env["bf.email"]
+        emails = BfEmail.search(
+            [("partner_id", "=", self.id), ("direction", "=", "in")],
+            order="date desc", limit=limit,
+        )
+        if not emails and self.email:
+            emails = BfEmail.search(
+                [("email_from", "ilike", self.email), ("direction", "=", "in")],
+                order="date desc", limit=limit,
+            )
+        blocks = []
+        for msg in emails:
+            body = msg.body_html or ""
+            text = html2plaintext(body) if body else (msg.body_preview or "")
+            if text:
+                blocks.append("----- %s -----\n%s" % (msg.date or "", text))
+        return "\n\n".join(blocks)[:12000]
+
+    def _bf_enrich_from_signature(self, min_confidence=60):
+        """Fetch this partner's signature data from the bridge and blank-fill it.
+
+        Returns a status: enriched | nothing_new | no_email | low_confidence |
+        error. Never clobbers populated fields; logs applied fields to chatter.
+        """
+        self.ensure_one()
+        text = self._bf_signature_text()
+        if not text.strip():
+            return "no_email"
+        try:
+            result = bridge.call_bridge(
+                self.env, "/enrich/signature", {"org": "bf", "text": text}, timeout=90)
+        except Exception:  # noqa: BLE001 — surface as a status, never raise in batch
+            _logger.exception("Signature enrichment bridge call failed for partner %s", self.id)
+            return "error"
+        if result.get("error"):
+            return "error"
+        data = result.get("data") or {}
+        if (data.get("confidence") or 0) < min_confidence:
+            return "low_confidence"
+
+        Partner = self.env["res.partner"]
+        vals = {
+            "function": data.get("function"),
+            "email": data.get("email"),
+            "phone": data.get("phone"),
+            "mobile": data.get("mobile"),
+            "website": data.get("website"),
+            "street": data.get("street"),
+            "city": data.get("city"),
+            "zip": data.get("zip"),
+            "country_id": Partner._enrich_country_id(data.get("country")),
+        }
+        if data.get("company"):
+            vals["company_name"] = data["company"]
+        vals = {k: v for k, v in vals.items() if v}
+        applied = self._apply_contact_vals(vals, source=_("signature courriel"))
+
+        # Replace a stub name (blank or = email) with the real one.
+        proposed = data.get("full_name") or " ".join(
+            filter(None, [data.get("first_name"), data.get("last_name")])) or ""
+        if proposed:
+            new_name = proposed.strip()
+            if (self.name or "").strip() in ("", (self.email or "").strip()) \
+                    and new_name and self.name != new_name:
+                self.name = new_name
+                self.message_post(
+                    body=_("Nom complété depuis la signature : %s") % new_name)
+                applied = list(applied) + ["name"]
+        return "enriched" if applied else "nothing_new"
+
+    def action_bf_enrich_signature_direct(self):
+        """One-click on the contact form: enrich from signatures (blank-fill)."""
+        self.ensure_one()
+        status = self._bf_enrich_from_signature()
+        msgs = {
+            "enriched": _("Contact enrichi depuis les signatures courriel."),
+            "nothing_new": _("Aucun champ vide à compléter depuis la signature."),
+            "no_email": _("Aucun courriel entrant trouvé pour ce contact."),
+            "low_confidence": _("Signature trop peu fiable — rien appliqué."),
+            "error": _("Enrichissement impossible (service indisponible)."),
+        }
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("Enrichissement"),
+                "message": msgs.get(status, status),
+                "type": "success" if status == "enriched" else "warning",
+                "sticky": False,
+            },
+        }
+
+    def action_bf_queue_signature_enrich(self):
+        """List action: queue the selected contacts for background enrichment."""
+        if not self.env.user.has_group(
+                "bf_contact_enrichment.group_bf_contact_enrich"):
+            raise AccessError(
+                _("Accès refusé : groupe « Enrichissement de contacts » requis."))
+        self.write({"x_bf_enrich_queued": True})
+        cron = self.env.ref(
+            "bf_contact_enrichment.ir_cron_bf_enrich_signatures",
+            raise_if_not_found=False)
+        if cron:
+            cron.sudo()._trigger()
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("Enrichissement en lot"),
+                "message": _("%d contact(s) mis en file ; traités en arrière-plan.")
+                % len(self),
+                "type": "success",
+                "sticky": False,
+            },
+        }
+
+    @api.model
+    def _cron_bf_enrich_signatures(self, chunk=15):
+        """Process queued contacts in chunks; re-trigger if any remain."""
+        queued = self.search([("x_bf_enrich_queued", "=", True)], limit=chunk)
+        if not queued:
+            return
+        for partner in queued:
+            try:
+                partner._bf_enrich_from_signature()
+            except Exception:  # noqa: BLE001
+                _logger.exception(
+                    "Batch signature enrichment failed for partner %s", partner.id)
+            # Clear the flag even on failure so a bad row can't loop forever.
+            partner.x_bf_enrich_queued = False
+            self.env.cr.commit()  # checkpoint each contact
+        if self.search_count([("x_bf_enrich_queued", "=", True)]):
+            cron = self.env.ref(
+                "bf_contact_enrichment.ir_cron_bf_enrich_signatures",
+                raise_if_not_found=False)
+            if cron:
+                cron.sudo()._trigger()
