@@ -336,7 +336,11 @@ class MeetingDashboard(models.Model):
                 dl.is_past, dl.is_upcoming,
                 COALESCE(dl.skipped_steps, '') AS skipped_steps,
                 dl.agenda_resp_id, dl.minutes_resp_id,
-                p.name AS project_name,
+                -- project.project.name is translate=True in Odoo 18 (jsonb).
+                -- Raw SQL returns the whole {'en_US': ..., 'fr_CA': ...} dict,
+                -- which then leaks verbatim into the digest. Extract a single
+                -- language here (fr_CA → en_CA → en_US source fallback).
+                COALESCE(p.name->>'fr_CA', p.name->>'en_CA', p.name->>'en_US') AS project_name,
                 rp.name AS partner_name
             FROM meeting_dashboard_line dl
             LEFT JOIN project_project p ON p.id  = dl.project_id
