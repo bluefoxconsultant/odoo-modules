@@ -227,7 +227,7 @@
                         <!-- KPI -->
                         <div class="mr-kpi-grid">
                             <div class="mr-kpi-card">
-                                <div class="mr-kpi-number"><t t-out="data['participant_count']"/></div>
+                                <div class="mr-kpi-number"><t t-if="doc.attendance_count"><t t-out="doc.attendance_count"/></t><t t-else=""><t t-out="data['participant_count']"/></t></div>
                                 <div class="mr-kpi-label">Participants</div>
                             </div>
                             <div class="mr-kpi-card">
@@ -243,11 +243,19 @@
                         <div class="mr-content">
 
                             <!-- Participants -->
-                            <t t-if="doc.participant_ids">
+                            <t t-if="doc.attendance_ids or doc.participant_ids">
                                 <div class="mr-section-title">Participants</div>
                                 <p>
-                                    <t t-foreach="doc.participant_ids" t-as="p">
-                                        <t t-out="p.name"/><t t-if="not p_last">, </t>
+                                    <t t-if="doc.attendance_ids">
+                                        <t t-foreach="doc.attendance_ids" t-as="a">
+                                            <t t-set="absent" t-value="a.status != 'present'"/>
+                                            <span t-attf-style="color: {{ '#999999' if absent else 'inherit' }};"><t t-out="a.partner_id.name"/><t t-if="a.status == 'excused'"> (excusé)</t><t t-if="a.status == 'absent'"> (absent)</t></span><t t-if="not a_last">, </t>
+                                        </t>
+                                    </t>
+                                    <t t-else="">
+                                        <t t-foreach="doc.participant_ids" t-as="p">
+                                            <t t-out="p.name"/><t t-if="not p_last">, </t>
+                                        </t>
                                     </t>
                                 </p>
                             </t>
