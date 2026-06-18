@@ -39,7 +39,8 @@
                 <field name="partner_id"/>
                 <field name="report_state"/>
                 <field name="task_count"/>
-                <field name="participant_ids"/>
+                <field name="present_count"/>
+                <field name="attendance_count"/>
                 <field name="duration_minutes"/>
                 <templates>
                     <t t-name="card">
@@ -56,9 +57,10 @@
                             <div t-if="record.project_id.value">
                                 <field name="project_id" widget="badge"/>
                             </div>
-                            <div class="mt-1">
-                                <field name="participant_ids" widget="many2many_tags"
-                                       options="{'color_field': 'color'}"/>
+                            <div class="mt-1" t-if="record.attendance_count.raw_value > 0">
+                                <span class="badge text-bg-light">
+                                    <i class="fa fa-users"/> <field name="present_count"/> présent(s)
+                                </span>
                             </div>
                             <div class="mt-1" t-if="record.task_count.raw_value > 0">
                                 <span class="badge text-bg-secondary">
@@ -170,8 +172,13 @@
                         </group>
                     </group>
                     <group>
-                        <group string="Participants">
-                            <field name="participant_ids" widget="many2many_tags" nolabel="1"/>
+                        <group string="Destinataires du rapport">
+                            <field name="report_recipient_ids" widget="many2many_tags" nolabel="1"
+                                   placeholder="Ajouter les destinataires avant d'envoyer le PDF..."/>
+                            <span class="text-muted" colspan="2">
+                                Seules ces personnes recevront le compte rendu via « Envoyer le résumé ».
+                                La liste des participants affichée sur le rapport provient de l'onglet « Présences ».
+                            </span>
                         </group>
                         <group string="Invités">
                             <field name="invited_ids" widget="many2many_tags" nolabel="1"/>
@@ -213,6 +220,11 @@
                             <field name="notes_html" nolabel="1" readonly="1" invisible="not notes_html"/>
                         </page>
                         <page string="Présences" name="attendance">
+                            <p class="text-muted">
+                                Cette liste alimente la section « Participants » du compte rendu
+                                (PDF et courriel). Utilisez le bouton « Importer présences » pour la
+                                pré-remplir depuis l'événement calendrier lié.
+                            </p>
                             <field name="attendance_ids">
                                 <list editable="bottom">
                                     <field name="partner_id"/>
@@ -274,8 +286,6 @@
                                     <field name="active"/>
                                 </group>
                             </group>
-                            <separator string="Destinataires du rapport"/>
-                            <field name="report_recipient_ids" widget="many2many_tags"/>
                             <separator string="Notes de révision"
                                        invisible="not review_notes"/>
                             <field name="review_notes" nolabel="1" readonly="1"
@@ -301,7 +311,8 @@
                 <field name="project_id"/>
                 <field name="partner_id"/>
                 <field name="series_name"/>
-                <field name="participant_ids"/>
+                <field name="attendance_ids" string="Participant (présence)"
+                       filter_domain="[('attendance_ids.partner_id', 'ilike', self)]"/>
                 <filter name="filter_draft" string="Brouillon"
                         domain="[('report_state', '=', 'draft')]"/>
                 <filter name="filter_reviewed" string="Révisé"

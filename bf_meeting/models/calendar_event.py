@@ -157,7 +157,11 @@ class CalendarEvent(models.Model):
             'location': self.location or '',
             'duration_minutes': duration_minutes,
             'calendar_event_id': self.id,
-            'participant_ids': [(6, 0, partner_ids)],
+            # Seed Présences (the report's participant source), status « present ».
+            'attendance_ids': [
+                (0, 0, {'partner_id': pid, 'status': 'present'})
+                for pid in partner_ids
+            ],
             'organizer_id': self.user_id.id if self.user_id else False,
         }
         if agenda and agenda.project_id:

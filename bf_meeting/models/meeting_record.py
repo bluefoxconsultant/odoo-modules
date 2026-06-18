@@ -201,12 +201,16 @@ class MeetingRecord(models.Model):
         'res.users',
         string='Organisateur',
     )
+    # DEPRECATED (v18.0.3.38.0): the participant list on the report is now
+    # driven exclusively by `attendance_ids` (Présences). This field is kept
+    # only so historical records still render via the template fallback; it is
+    # no longer surfaced in the UI nor populated for new records.
     participant_ids = fields.Many2many(
         'res.partner',
         'meeting_record_participant_rel',
         'meeting_id',
         'partner_id',
-        string='Participants',
+        string='Participants (obsolète)',
     )
     invited_ids = fields.Many2many(
         'res.partner',
@@ -302,11 +306,12 @@ class MeetingRecord(models.Model):
         help="Utilisé par le modèle d'email, contourne la sandbox Jinja d'Odoo 18 qui refuse .mapped/.ids sur les recordsets.",
     )
 
-    @api.depends('report_recipient_ids', 'participant_ids')
+    @api.depends('report_recipient_ids')
     def _compute_partner_to_ids(self):
+        # Recipients come ONLY from « Destinataires ». No participant fallback:
+        # auto-filling caused accidental sends to clients (cf. action_send_report_direct).
         for rec in self:
-            recipients = rec.report_recipient_ids or rec.participant_ids
-            rec.partner_to_ids = ','.join(str(pid) for pid in recipients.ids)
+            rec.partner_to_ids = ','.join(str(pid) for pid in rec.report_recipient_ids.ids)
 
     # Source
     source_filename = fields.Char(
@@ -477,12 +482,23 @@ class MeetingRecord(models.Model):
         pass
 
     @api.onchange('calendar_event_id')
-    def _onchange_calendar_event_id_fill_participants(self):
+    def _onchange_calendar_event_id_fill_attendance(self):
+        """Seed Présences from the linked calendar event's invitees.
+
+        Présences (`attendance_ids`) is the single source for the participant
+        list on the report, so we seed it (status « present ») rather than the
+        deprecated `participant_ids`.
+        """
         for rec in self:
-            if rec.calendar_event_id and not rec.participant_ids:
-                attendees = rec.calendar_event_id.partner_ids
-                if attendees:
-                    rec.participant_ids = [(6, 0, attendees.ids)]
+            if rec.calendar_event_id and not rec.attendance_ids:
+                existing = rec.attendance_ids.mapped('partner_id')
+                cmds = [
+                    (0, 0, {'partner_id': p.id, 'status': 'present'})
+                    for p in rec.calendar_event_id.partner_ids
+                    if p not in existing
+                ]
+                if cmds:
+                    rec.attendance_ids = cmds
 
     def write(self, vals):
         """Cascade `project_id` change to linked action-item tasks.
@@ -689,10 +705,12 @@ class MeetingRecord(models.Model):
         }
 
     def action_import_attendance(self):
-        """Importer les participants comme présences."""
+        """Importer les invités de l'événement calendrier comme présences."""
         self.ensure_one()
         existing = self.attendance_ids.mapped('partner_id')
-        for partner in self.participant_ids:
+        source = self.calendar_event_id.partner_ids if self.calendar_event_id \
+            else self.env['res.partner']
+        for partner in source:
             if partner not in existing:
                 self.env['meeting.attendance'].create({
                     'meeting_id': self.id,
@@ -742,5 +760,5 @@ class MeetingRecord(models.Model):
             'open_questions': data.get('open_questions', []),
             'decision_count': len(self.decision_ids),
             'task_count': len(self.task_ids),
-            'participant_count': len(self.participant_ids),
+            'participant_count': len(self.attendance_ids) or len(self.participant_ids),
         }
