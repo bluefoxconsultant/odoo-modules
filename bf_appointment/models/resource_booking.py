@@ -154,17 +154,26 @@ class ResourceBooking(models.Model):
     )
 
     @api.depends("start", "type_id.resource_calendar_id.tz",
-                 "partner_id.tz", "user_id.tz")
+                 "partner_id.tz")
+    @api.depends_context("tz")
     def _compute_start_local_strings(self):
         """Render the booking start in the most relevant TZ for the reader.
 
-        Priority: explicit ``tz`` context (set by _send_appointment_email
-        per recipient) → booker's partner.tz → organizer user.tz →
-        booking type's resource calendar tz → America/Toronto.
+        ``depends_context("tz")`` keys the field cache on the context tz so
+        the SAME booking rendered for the booker (Montréal) and then the
+        organizer (Auckland) in one transaction does not return the first
+        render's cached value to the second — the bug that would otherwise
+        send the organizer the booker's local time and vice-versa.
 
-        This lets the same booking show Auckland time in the email sent to
-        an organizer abroad and Montréal time in the email sent to a local
-        booker, without storing two copies.
+        Priority: explicit ``tz`` context (set by _send_appointment_email
+        per recipient — Auckland for the organizer, the booker display tz
+        for the booker) → booker's partner.tz → booking type's display
+        calendar tz (Montréal) → configured default.
+
+        The organizer's ``user_id.tz`` is deliberately NOT a fallback: with
+        no context tz this method renders booker-facing content, and the
+        organizer (Auckland) must never leak into it. The organizer path
+        supplies its tz explicitly through the context.
         """
         import pytz
         ctx_tz = self.env.context.get("tz")
@@ -177,7 +186,6 @@ class ResourceBooking(models.Model):
             tz_name = tz_helper.resolve([
                 ctx_tz,
                 rec.partner_id.tz if rec.partner_id else None,
-                rec.user_id.tz if rec.user_id else None,
                 rec.type_id.resource_calendar_id.tz if rec.type_id else None,
             ])
             try:
@@ -364,7 +372,7 @@ class ResourceBooking(models.Model):
 
             booker = self.partner_id or (self.partner_ids[:1] if self.partner_ids else False)
             booker_name = (booker.name if booker else "").strip() or "Invité"
-            tz_name = self.type_id.resource_calendar_id.tz or self.env["bf.timezone"].default_tz()
+            tz_name = self._get_booker_display_tz()
             local_start = ""
             if self.start:
                 local_start = pytz.utc.localize(self.start).astimezone(
@@ -450,6 +458,14 @@ class ResourceBooking(models.Model):
             return False
         duration_hours = self.duration or 1.0
         stop = self.start + timedelta(hours=duration_hours)
+        # Localize once, in the booker display tz, and reuse for BOTH the
+        # human-readable DESCRIPTION and DTSTART/DTEND below — otherwise the
+        # notes text renders in naive UTC and contradicts the grid time
+        # (the RDV #344 bug class, just in the .ics body instead of the email).
+        tzname = self._get_ics_tzname()
+        tz = ZoneInfo(tzname)
+        start_local = self.start.replace(tzinfo=ZoneInfo("UTC")).astimezone(tz)
+        end_local = stop.replace(tzinfo=ZoneInfo("UTC")).astimezone(tz)
         base_url = self.get_base_url()
         booking_url = (
             f"{base_url}/appointment/b/{self.id}/{self.access_token}"
@@ -460,10 +476,10 @@ class ResourceBooking(models.Model):
         desc_parts = [self.type_id.name or _("Rendez-vous")]
         desc_parts.append("")
         desc_parts.append(
-            _("Date : %s") % self.start.strftime("%A %d %B %Y")
+            _("Date : %s") % start_local.strftime("%A %d %B %Y")
         )
         desc_parts.append(
-            _("Heure : %s") % self.start.strftime("%H:%M")
+            _("Heure : %s") % start_local.strftime("%H:%M")
         )
         desc_parts.append(
             _("Dur\u00e9e : %s") % self.get_duration_display()
@@ -495,17 +511,22 @@ class ResourceBooking(models.Model):
         location = self.videocall_location or self.location or ""
         # UID
         uid = f"bf-appointment-{self.id}@{base_url.split('//')[1] if '//' in base_url else 'odoo'}"
-        # Format dates. Odoo stores datetimes naive-UTC; render with TZID so
-        # calendar clients display the booking in the booker's local time
-        # (the same time shown on the public booking page). The DTSTAMP stays
-        # UTC per RFC 5545 (§3.8.7.2).
-        tzname = self._get_ics_tzname()
-        tz = ZoneInfo(tzname)
-        start_local = self.start.replace(tzinfo=ZoneInfo("UTC")).astimezone(tz)
-        end_local = stop.replace(tzinfo=ZoneInfo("UTC")).astimezone(tz)
-        dtstart = start_local.strftime("%Y%m%dT%H%M%S")
-        dtend = end_local.strftime("%Y%m%dT%H%M%S")
+        # Format dates. Odoo stores datetimes naive-UTC. For America/Toronto we
+        # ship a matching VTIMEZONE and render DTSTART/DTEND with TZID; for any
+        # other zone we have no VTIMEZONE to ship, so we emit the instant in
+        # UTC (DTSTART:...Z), which is unambiguous in every client. A bare TZID
+        # with no matching VTIMEZONE is treated as floating local time
+        # (RFC 5545 §3.2.19) and mis-renders in strict clients like Outlook
+        # desktop. The DTSTAMP stays UTC per RFC 5545 (§3.8.7.2).
         dtstamp = fields.Datetime.now().strftime("%Y%m%dT%H%M%SZ")
+        if tzname == "America/Toronto":
+            vtimezone_block = _VTIMEZONE_AMERICA_TORONTO
+            dtstart_line = f"DTSTART;TZID={tzname}:{start_local.strftime('%Y%m%dT%H%M%S')}\r\n"
+            dtend_line = f"DTEND;TZID={tzname}:{end_local.strftime('%Y%m%dT%H%M%S')}\r\n"
+        else:
+            vtimezone_block = ""
+            dtstart_line = f"DTSTART:{self.start.strftime('%Y%m%dT%H%M%S')}Z\r\n"
+            dtend_line = f"DTEND:{stop.strftime('%Y%m%dT%H%M%S')}Z\r\n"
         summary = _escape_ics(
             self.name or (_("RDV - %s") % self.type_id.name)
         )
@@ -524,13 +545,13 @@ class ResourceBooking(models.Model):
             "PRODID:-//Blue Fox Inc//BF Appointment//FR\r\n"
             "CALSCALE:GREGORIAN\r\n"
             "METHOD:REQUEST\r\n"
-            + (_VTIMEZONE_AMERICA_TORONTO if tzname == "America/Toronto" else "")
+            + vtimezone_block
             + "BEGIN:VEVENT\r\n"
             f"UID:{uid}\r\n"
             f"DTSTAMP:{dtstamp}\r\n"
-            f"DTSTART;TZID={tzname}:{dtstart}\r\n"
-            f"DTEND;TZID={tzname}:{dtend}\r\n"
-            f"SUMMARY:{summary}\r\n"
+            + dtstart_line
+            + dtend_line
+            + f"SUMMARY:{summary}\r\n"
             f'ORGANIZER;CN="{organizer_name}":mailto:{organizer_email}\r\n'
         )
         if self.partner_id and self.partner_id.email:
@@ -552,23 +573,79 @@ class ResourceBooking(models.Model):
         )
         return ics.encode("utf-8")
 
-    def _get_ics_tzname(self):
-        """Return the IANA TZ name used to render DTSTART/DTEND in the ICS.
+    def _get_booker_display_tz(self):
+        """Timezone for ALL booker-facing renders: the web confirmation page,
+        the ICS attachment, the booker's emails and the default slot picker.
 
-        Priority: booker partner → assigned user → calendar → America/Toronto.
-        res.company has no native ``tz`` field, so we read it from the
-        company's resource_calendar_id instead (and from the booking's
-        own resource_calendar_id as a closer match).
+        Priority: the booker's own ``partner_id.tz`` → the booking type's
+        display calendar tz (the client-facing "display window", Montréal in
+        the NZ two-layer setup) → the company calendar tz → configured
+        default.
+
+        Deliberately EXCLUDES the organizer's ``user_id.tz``. The organizer
+        (Olivier) sits in Auckland; letting that leak into booker-facing
+        content is exactly what made a Montréal client's confirmation and ICS
+        show NZ time (RDV #344, 2026-06-17). Organizer-facing comms receive
+        the organizer tz explicitly via _send_appointment_email.
         """
         self.ensure_one()
-        cal_company = self.env.company.resource_calendar_id
         cal_type = self.type_id.resource_calendar_id
+        cal_company = self.env.company.resource_calendar_id
         return self.env["bf.timezone"].resolve([
             self.partner_id.tz if self.partner_id else None,
-            self.user_id.tz if self.user_id else None,
             cal_type.tz if cal_type else None,
             cal_company.tz if cal_company else None,
         ], validate=True)
+
+    def _get_available_slots(self, start_dt, end_dt):
+        """Re-bucket OCA's portal slot grid into the booker's display timezone.
+
+        OCA builds the slot grid from intervals that each retain their own
+        resource calendar's tz. In the NZ two-layer setup that means the
+        Montréal display calendar (America/Toronto) and the Auckland
+        availability calendar (Pacific/Auckland) contribute slots in DIFFERENT
+        offsets, grouped by ``.date()``. A Québec booker then sees Auckland-time
+        bubbles mislabelled under the wrong day -- they pick "19 juin 8h" and it
+        lands on the 18th (RDV #343).
+
+        We convert every slot to ``_get_booker_display_tz()`` (or the explicit
+        context tz the picker passes) and regroup by the LOCAL date, deduping
+        identical instants, so the picker shows one consistent local grid. Only
+        the labelling changes; the underlying instants -- and the confirm step,
+        which reads ``slot.isoformat()`` -- are untouched.
+        """
+        raw = super()._get_available_slots(start_dt, end_dt)
+        import pytz
+        tz_name = self.env.context.get("tz") or self._get_booker_display_tz()
+        try:
+            tz = pytz.timezone(tz_name)
+        except Exception:  # pragma: no cover - defensive: bad tz string
+            return raw
+        seen = set()
+        regrouped = {}
+        for day_slots in raw.values():
+            for slot in day_slots:
+                aware = slot if slot.tzinfo else pytz.utc.localize(slot)
+                local = aware.astimezone(tz)
+                key = local.replace(microsecond=0).isoformat()
+                if key in seen:
+                    continue
+                seen.add(key)
+                regrouped.setdefault(local.date(), []).append(local)
+        for day in regrouped:
+            regrouped[day].sort()
+        return regrouped
+
+    def _get_ics_tzname(self):
+        """IANA TZ name used to render DTSTART/DTEND in the ICS.
+
+        Always the booker display tz: the absolute UTC instant is preserved
+        regardless of the TZID, so the organizer's calendar still shows the
+        correct local time, while the booker (and our shipped
+        VTIMEZONE:America/Toronto block) stay consistent.
+        """
+        self.ensure_one()
+        return self._get_booker_display_tz()
 
     def _get_ics_attachment(self):
         """Return an ir.attachment record with the ICS file for email attachment."""
@@ -619,7 +696,11 @@ class ResourceBooking(models.Model):
             recipient_tz = self.user_id.tz if self.user_id else False
             recipient_lang = self.user_id.lang if self.user_id else False
         else:
-            recipient_tz = self.partner_id.tz if self.partner_id else False
+            # Booker-bound: render in the booker display tz. Never inherit the
+            # organizer's (Auckland) tz, and never leave it empty — an empty tz
+            # would let _compute_start_local_strings / the ICS fall through to
+            # the organizer's tz again.
+            recipient_tz = self._get_booker_display_tz()
             recipient_lang = self.partner_id.lang if self.partner_id else False
         # Final fallbacks
         partner_lang = recipient_lang or self.env.lang or "fr_CA"

@@ -662,17 +662,16 @@ class AppointmentController(Controller):
         # Effective TZ for the labels next to the picker. Falls back to the
         # type's resource calendar tz so we never show an empty TZ next to
         # the slots.
-        effective_tz = (
-            tz
-            or booking_sudo.type_id.resource_calendar_id.tz
-            or "America/Toronto"
-        )
+        effective_tz = tz or booking_sudo._get_booker_display_tz()
         values = {
             "booking_sudo": booking_sudo,
             "access_token": token,
             "error": kwargs.get("error"),
             "visitor_tz": tz,
             "effective_tz": effective_tz,
+            "effective_tz_city": request.env["bf.timezone"].sudo().tz_city(
+                effective_tz
+            ),
             "common_timezones": pytz.common_timezones,
             **calendar_ctx,
         }
@@ -789,17 +788,18 @@ class AppointmentController(Controller):
         booking_sudo = self._get_booking_sudo(booking_id, token)
         if not booking_sudo:
             return request.redirect("/appointment")
-        tz_name = (
-            kwargs.get("tz")
-            or booking_sudo.type_id.resource_calendar_id.tz
-            or "UTC"
-        )
+        # Always render the confirmation in the booker display tz so the web
+        # page, the confirmation email and the ICS attachment agree. We
+        # intentionally do NOT honour a transient ?tz here: the picker's
+        # optional override only affects slot display, not the final record.
+        tz_name = booking_sudo._get_booker_display_tz()
         if tz_name in pytz.all_timezones_set:
             booking_sudo = booking_sudo.with_context(tz=tz_name)
         values = {
             "booking_sudo": booking_sudo,
             "access_token": token,
             "tz_name": tz_name,
+            "tz_city_name": request.env["bf.timezone"].sudo().tz_city(tz_name),
         }
         response = request.render(
             "bf_appointment.appointment_confirmation_page", values
@@ -906,7 +906,7 @@ class AppointmentController(Controller):
         return booking_sudo.with_context(
             using_portal=True,
             active_test=False,
-            tz=booking_sudo.type_id.resource_calendar_id.tz,
+            tz=booking_sudo._get_booker_display_tz(),
         )
 
     @staticmethod

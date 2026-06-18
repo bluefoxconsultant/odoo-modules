@@ -133,7 +133,7 @@
                                 <div>
                                     <div class="small text-muted"
                                          t-out="'Timezone' if _en else 'Fuseau horaire'"/>
-                                    <strong t-esc="tz_name"/>
+                                    <strong t-out="tz_city_name or tz_name"/>
                                 </div>
                             </div>
                         </div>

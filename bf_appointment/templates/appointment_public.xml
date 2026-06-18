@@ -464,6 +464,18 @@
                 </div>
             </div>
 
+            <!-- Active display timezone, shown prominently ABOVE the slots so a
+                 booker always knows which timezone the times are in — and so a
+                 Montréal client never mistakes an Auckland slot for a local
+                 morning. The dropdown below lets them adjust if needed. -->
+            <div class="bf-tz-active alert alert-light border rounded-3 py-2 px-3 mb-3 d-flex align-items-center small">
+                <i class="fa fa-globe me-2" aria-hidden="true"/>
+                <span>
+                    <t t-out="'Slot times shown in:' if _en else 'Fuseau horaire des créneaux :'"/>
+                    <strong class="ms-1" t-out="effective_tz_city"/>
+                </span>
+            </div>
+
             <t t-if="booking.requester_advice">
                 <div class="alert alert-info border-0 rounded-3 mb-3">
                     <div t-field="booking.requester_advice"/>
