@@ -1,0 +1,765 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- ============================================================= -->
+    <!-- Public signing page                                            -->
+    <!-- ============================================================= -->
+    <template id="sign_page" name="BF Sign — Page de signature">
+        <t t-set="primary" t-value="req.company_id.report_brand_primary or '#29ABE1'"/>
+        <t t-set="dark" t-value="req.company_id.report_brand_dark or '#2D3031'"/>
+        &lt;!DOCTYPE html&gt;
+        <html lang="fr">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <title>Signature — <t t-esc="req.name"/></title>
+                <script type="text/javascript" src="/web/static/lib/signature_pad/signature_pad.umd.js"></script>
+                <style>
+                    :root { --bf-primary: <t t-esc="primary"/>; --bf-dark: <t t-esc="dark"/>; }
+                    * { box-sizing: border-box; }
+                    body { margin:0; font-family: system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+                           background:#f4f6f8; color:#2D3031; }
+                    .bf-header { background:var(--bf-dark); color:#fff; padding:16px 24px;
+                                 display:flex; align-items:center; gap:14px; }
+                    .bf-header img { max-height:34px; }
+                    .bf-header .t { font-weight:600; font-size:16px; }
+                    .bf-accent { height:4px; background:var(--bf-primary); }
+                    .bf-wrap { max-width:880px; margin:0 auto; padding:24px 16px 64px; }
+                    .bf-card { background:#fff; border:1px solid #e3e7eb; border-radius:10px;
+                               padding:22px; margin-bottom:18px; }
+                    .bf-card h2 { margin:0 0 12px; font-size:15px; text-transform:uppercase;
+                                  letter-spacing:.5px; color:var(--bf-primary); }
+                    .bf-meta { font-size:14px; color:#555; margin-bottom:6px; }
+                    iframe.bf-doc { width:100%; height:520px; border:1px solid #d7dce1; border-radius:6px; }
+                    /* Rendered document with placement markers */
+                    .bf-doc-view { display:flex; flex-direction:column; align-items:center;
+                                   gap:16px; margin-top:12px; }
+                    .bf-doc-loading, .bf-doc-fallback { padding:26px; color:#8a939b; font-size:14px;
+                                                        text-align:center; }
+                    .bf-doc-fallback a { color:var(--bf-primary); }
+                    .bf-page { position:relative; flex-shrink:0; width:100%; max-width:760px;
+                               border:1px solid #e3e7eb; background:#fff;
+                               box-shadow:0 1px 7px rgba(0,0,0,.12); }
+                    .bf-page-img { display:block; width:100%; height:auto; }
+                    .bf-marker { position:absolute; box-sizing:border-box; cursor:pointer;
+                                 border:2px dashed var(--bf-primary); border-radius:4px;
+                                 background:rgba(41,171,225,.10); background-size:contain;
+                                 background-repeat:no-repeat; background-position:center;
+                                 overflow:visible; }
+                    .bf-marker-badge { position:absolute; top:-11px; left:-11px; width:22px; height:22px;
+                                       background:var(--bf-primary); color:#fff; border-radius:50%;
+                                       font-size:12px; font-weight:700; line-height:22px; text-align:center;
+                                       box-shadow:0 1px 3px rgba(0,0,0,.35); z-index:2; }
+                    .bf-marker-label { position:absolute; left:0; top:-1px;
+                                       transform:translateY(-100%); white-space:nowrap;
+                                       font-size:11px; font-weight:600; color:var(--bf-primary);
+                                       background:rgba(255,255,255,.92); padding:1px 5px; border-radius:3px;
+                                       max-width:220px; overflow:hidden; text-overflow:ellipsis; }
+                    .bf-marker-value { position:absolute; left:3px; right:3px; bottom:2px;
+                                       font-size:11px; color:#11181f; line-height:1.2;
+                                       overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+                    .bf-marker-fill { border-color:#E67E22; background:rgba(230,126,34,.10); }
+                    .bf-marker-fill .bf-marker-label { color:#E67E22; }
+                    .bf-marker-filled { border-style:solid; border-color:#27AE60;
+                                        background-color:rgba(39,174,96,.07); }
+                    .bf-marker-filled .bf-marker-badge { background:#27AE60; }
+                    .bf-doc-legend { display:flex; flex-wrap:wrap; gap:8px 16px; margin:10px 0 0;
+                                     font-size:13px; color:#555; }
+                    .bf-doc-legend .it { display:flex; align-items:center; gap:6px; }
+                    .bf-num { display:inline-block; min-width:20px; height:20px; line-height:20px;
+                              text-align:center; background:var(--bf-primary); color:#fff;
+                              border-radius:50%; font-size:12px; font-weight:700; padding:0 3px; }
+                    .bf-href { display:inline-block; line-height:20px; padding:0 9px; margin-left:6px;
+                               background:var(--bf-primary); color:#fff; border-radius:11px;
+                               font-size:12px; font-weight:700; vertical-align:middle; }
+                    .bf-pad-wrap { position:relative; }
+                    canvas.bf-pad { width:100%; height:180px; border:1px dashed #9aa4ad;
+                                    border-radius:8px; background:#fff; touch-action:none; }
+                    .bf-pad-hint { position:absolute; left:14px; bottom:10px; color:#b6bdc4;
+                                   font-size:13px; pointer-events:none; }
+                    .bf-sigmode { display:flex; gap:8px; margin-bottom:10px; }
+                    .bf-mode-btn { border:1px solid #cfd6dc; background:#fff; border-radius:6px;
+                                   padding:6px 16px; font-size:13px; cursor:pointer; color:#555; }
+                    .bf-mode-btn.bf-mode-active { background:var(--bf-primary); color:#fff;
+                                                  border-color:var(--bf-primary); }
+                    .bf-type-row { display:flex; gap:8px; margin-top:10px; }
+                    .bf-type-input { flex:1; padding:11px; font-size:16px; border:1px solid #cfd6dc;
+                                     border-radius:8px; }
+                    .bf-type-style { padding:11px; border:1px solid #cfd6dc; border-radius:8px;
+                                     background:#fff; font-size:14px; }
+                    .bf-consent { display:flex; gap:10px; align-items:flex-start; font-size:14px; line-height:1.5; }
+                    .bf-consent input { margin-top:3px; transform:scale(1.25); }
+                    .bf-actions { display:flex; justify-content:space-between; align-items:center;
+                                  margin-top:14px; gap:12px; flex-wrap:wrap; }
+                    .bf-btn { border:0; border-radius:8px; padding:12px 22px; font-size:15px;
+                              font-weight:600; cursor:pointer; }
+                    .bf-btn-primary { background:var(--bf-primary); color:#fff; }
+                    .bf-btn-ghost { background:transparent; color:#555; border:1px solid #cfd6dc; }
+                    .bf-err { background:#fdecea; color:#b3261e; border:1px solid #f5c2bd;
+                              border-radius:8px; padding:12px 14px; font-size:14px; margin-bottom:16px; }
+                    .bf-foot { text-align:center; color:#9aa4ad; font-size:12px; margin-top:8px; }
+                </style>
+            </head>
+            <body>
+                <div class="bf-header">
+                    <img t-attf-src="/web/image/res.company/#{req.company_id.id}/logo" alt=""/>
+                    <span class="t"><t t-esc="req.company_id.name"/></span>
+                </div>
+                <div class="bf-accent"/>
+                <div class="bf-wrap">
+
+                    <t t-if="error">
+                        <div class="bf-err">
+                            <t t-if="error_message"><t t-esc="error_message"/></t>
+                            <t t-else="">Veuillez signer (et parapher le cas échéant) puis cocher la case de consentement.</t>
+                        </div>
+                    </t>
+
+                    <div class="bf-card">
+                        <h2>Document à signer</h2>
+                        <div class="bf-meta"><strong>Référence :</strong> <t t-esc="req.name"/></div>
+                        <div class="bf-meta"><strong>Signataire :</strong> <t t-esc="signer.name"/></div>
+                        <t t-if="overlay_fields">
+                            <p class="bf-meta" style="margin-top:8px;">
+                                Les zones numérotées sur le document indiquent où votre signature
+                                et vos informations seront apposées. Touchez une zone pour aller
+                                au champ correspondant.
+                            </p>
+                        </t>
+
+                        <!-- Rendered pages are injected here; markers are moved onto them -->
+                        <div id="bf_doc" class="bf-doc-view"
+                             t-attf-data-pdf="/sign/#{req.id}/#{access_token}/document">
+                            <div class="bf-doc-loading">Chargement du document…</div>
+                        </div>
+
+                        <!-- Marker prototypes (hidden): JS repositions them onto each page -->
+                        <div id="bf_markers" style="display:none;">
+                            <t t-foreach="overlay_fields" t-as="of">
+                                <t t-set="n" t-value="field_numbers[of.id]"/>
+                                <t t-set="is_input"
+                                   t-value="of.field_type in ('text', 'date') and of.fill_mode == 'signer'"/>
+                                <div t-attf-class="bf-marker#{of.field_type in ('text','date') and ' bf-marker-fill' or ''}"
+                                     t-att-data-page="of.page"
+                                     t-att-data-x="of.pos_x" t-att-data-y="of.pos_y"
+                                     t-att-data-w="of.width" t-att-data-h="of.height"
+                                     t-att-data-type="of.field_type"
+                                     t-att-data-input="is_input and ('field_%s' % of.id) or ''">
+                                    <span class="bf-marker-badge"><t t-esc="n"/></span>
+                                    <span class="bf-marker-label">
+                                        <t t-if="of.field_type == 'signature'">Signature</t>
+                                        <t t-elif="of.field_type == 'initials'">Paraphe</t>
+                                        <t t-elif="of.field_type == 'date'">
+                                            <t t-esc="of.value_text or 'Date'"/></t>
+                                        <t t-else=""><t t-esc="of.value_text or 'Texte'"/></t>
+                                    </span>
+                                    <span class="bf-marker-value">
+                                        <t t-if="of.fill_mode == 'fixed'"><t t-esc="of.value_text or ''"/></t>
+                                        <t t-elif="of.fill_mode == 'auto' and of.field_type == 'date'">date de signature</t>
+                                    </span>
+                                </div>
+                            </t>
+                        </div>
+
+                        <noscript>
+                            <iframe class="bf-doc" t-attf-src="/sign/#{req.id}/#{access_token}/document"/>
+                        </noscript>
+                    </div>
+
+                    <form method="post" t-attf-action="/sign/#{req.id}/#{access_token}/submit" id="bf_form">
+                        <input type="hidden" name="signature" id="bf_sign_data"/>
+                        <input type="hidden" name="initials" id="bf_ini_data"/>
+
+                        <div class="bf-card" id="bf_card_signature">
+                            <h2>Votre signature<t t-if="sig_nums"><span class="bf-href" t-esc="sig_nums"/></t></h2>
+                            <t t-if="sig_nums">
+                                <p class="bf-meta">Apparaîtra à l'emplacement <t t-esc="sig_nums"/> du document.</p>
+                            </t>
+                            <div class="bf-sigmode">
+                                <button type="button" class="bf-mode-btn bf-mode-active" data-sigmode="draw">Dessiner</button>
+                                <button type="button" class="bf-mode-btn" data-sigmode="type">Saisir</button>
+                            </div>
+                            <div class="bf-pad-wrap">
+                                <canvas class="bf-pad" id="bf_pad"></canvas>
+                                <span class="bf-pad-hint" id="bf_pad_hint">Signez ici</span>
+                            </div>
+                            <div class="bf-type-row" id="bf_type_row" style="display:none;">
+                                <input type="text" class="bf-type-input" id="bf_type_name"
+                                       t-att-value="signer.name or ''" placeholder="Tapez votre nom"/>
+                                <select class="bf-type-style" id="bf_type_style">
+                                    <option value="'Brush Script MT','Segoe Script','Snell Roundhand',cursive">Manuscrit</option>
+                                    <option value="'Apple Chancery','URW Chancery L',cursive">Cursif</option>
+                                    <option value="Georgia,'Times New Roman',serif">Élégant</option>
+                                </select>
+                            </div>
+                            <div class="bf-actions">
+                                <button type="button" class="bf-btn bf-btn-ghost" data-clear="bf_pad">Effacer</button>
+                            </div>
+                        </div>
+
+                        <t t-if="need_initials">
+                            <div class="bf-card" id="bf_card_initials">
+                                <h2>Votre paraphe<t t-if="ini_nums"><span class="bf-href" t-esc="ini_nums"/></t></h2>
+                                <div class="bf-pad-wrap">
+                                    <canvas class="bf-pad" id="bf_pad_initials"></canvas>
+                                    <span class="bf-pad-hint">Paraphez ici</span>
+                                </div>
+                                <div class="bf-actions">
+                                    <button type="button" class="bf-btn bf-btn-ghost" data-clear="bf_pad_initials">Effacer</button>
+                                </div>
+                            </div>
+                        </t>
+
+                        <t t-set="fill_fields" t-value="signer.field_ids.filtered(lambda f: f.field_type in ('text', 'date') and f.fill_mode == 'signer')"/>
+                        <t t-if="fill_fields">
+                            <div class="bf-card" id="bf_card_fill">
+                                <h2>Informations à remplir</h2>
+                                <t t-foreach="fill_fields" t-as="ff">
+                                    <div style="margin-bottom:14px;">
+                                        <label t-attf-for="field_#{ff.id}" style="display:flex; align-items:center; gap:8px; font-size:14px; margin-bottom:4px; color:#444;">
+                                            <span class="bf-num"><t t-esc="field_numbers[ff.id]"/></span>
+                                            <span>
+                                                <t t-esc="ff.value_text or (ff.field_type == 'date' and 'Date' or 'Texte')"/>
+                                                <span t-if="ff.required" style="color:#b3261e;"> *</span>
+                                            </span>
+                                        </label>
+                                        <input t-attf-id="field_#{ff.id}" t-attf-name="field_#{ff.id}"
+                                               t-att-type="ff.field_type == 'date' and 'date' or 'text'"
+                                               t-att-required="ff.required and 'required' or None"
+                                               style="width:100%; padding:10px; border:1px solid #cfd6dc; border-radius:8px; font:inherit;"/>
+                                    </div>
+                                </t>
+                            </div>
+                        </t>
+
+                        <div class="bf-card">
+                            <h2>Consentement</h2>
+                            <label class="bf-consent">
+                                <input type="checkbox" name="consent" id="bf_consent" value="on"/>
+                                <span t-esc="req.consent_text"/>
+                            </label>
+                            <div class="bf-actions">
+                                <span class="bf-meta">En signant, vous acceptez ce qui précède.</span>
+                                <button type="submit" class="bf-btn bf-btn-primary" id="bf_submit">
+                                    Signer le document
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+
+                    <form method="post" t-attf-action="/sign/#{req.id}/#{access_token}/refuse"
+                          id="bf_refuse_form" class="bf-card">
+                        <h2>Refuser de signer</h2>
+                        <p class="bf-meta">Si vous ne souhaitez pas signer ce document, indiquez la raison
+                            (facultatif) puis confirmez. L'expéditeur en sera informé.</p>
+                        <textarea name="reason" rows="2" placeholder="Motif (facultatif)"
+                                  style="width:100%; border:1px solid #cfd6dc; border-radius:8px; padding:10px; font:inherit; resize:vertical;"/>
+                        <div class="bf-actions">
+                            <span class="bf-meta">Cette action met fin à la demande de signature.</span>
+                            <button type="submit" class="bf-btn bf-btn-ghost" id="bf_refuse_btn">
+                                Refuser de signer
+                            </button>
+                        </div>
+                    </form>
+
+                    <div class="bf-foot">
+                        Signature électronique — la piste de vérification (horodatage, IP) est enregistrée.
+                    </div>
+                </div>
+
+                <script type="text/javascript">
+                    <![CDATA[
+                    (function () {
+                        var pads = {};
+                        var mirror = { pads: function () {} };  // set once markers are wired
+                        function setupPad(id) {
+                            var canvas = document.getElementById(id);
+                            if (!canvas) { return null; }
+                            var pad = new SignaturePad(canvas, { penColor: '#11181f' });
+                            function resize() {
+                                var ratio = Math.max(window.devicePixelRatio || 1, 1);
+                                var data = pad.toData();
+                                canvas.width = canvas.offsetWidth * ratio;
+                                canvas.height = canvas.offsetHeight * ratio;
+                                canvas.getContext('2d').scale(ratio, ratio);
+                                pad.clear();
+                                if (data && data.length) { pad.fromData(data); }
+                            }
+                            window.addEventListener('resize', resize);
+                            resize();
+                            pads[id] = pad;
+                            return pad;
+                        }
+                        setupPad('bf_pad');
+                        setupPad('bf_pad_initials');
+                        Array.prototype.forEach.call(document.querySelectorAll('[data-clear]'), function (btn) {
+                            btn.addEventListener('click', function () {
+                                var id = btn.getAttribute('data-clear');
+                                var p = pads[id];
+                                if (p) { p.clear(); }
+                                var row = document.getElementById('bf_type_row');
+                                if (id === 'bf_pad' && row && row.style.display !== 'none') {
+                                    var ti = document.getElementById('bf_type_name');
+                                    if (ti) { ti.value = ''; }
+                                }
+                                mirror.pads();
+                            });
+                        });
+
+                        // ── Typed signature (alternative to drawing) ───────────────────────
+                        var sigMode = 'draw';
+                        function renderTyped() {
+                            var canvas = document.getElementById('bf_pad');
+                            var pad = pads['bf_pad'];
+                            if (!canvas) { return; }
+                            if (pad) { pad.clear(); }
+                            var name = (document.getElementById('bf_type_name').value || '').trim();
+                            if (name) {
+                                var style = document.getElementById('bf_type_style').value;
+                                var ctx = canvas.getContext('2d');
+                                var w = canvas.offsetWidth, h = canvas.offsetHeight;
+                                var size = Math.min(64, Math.floor(h * 0.5));
+                                ctx.fillStyle = '#11181f';
+                                ctx.textAlign = 'center';
+                                ctx.textBaseline = 'middle';
+                                ctx.font = 'italic ' + size + 'px ' + style;
+                                while (size > 16 && ctx.measureText(name).width > w * 0.9) {
+                                    size -= 2; ctx.font = 'italic ' + size + 'px ' + style;
+                                }
+                                ctx.fillText(name, w / 2, h / 2);
+                            }
+                            mirror.pads();
+                        }
+                        function setSigMode(mode) {
+                            sigMode = mode;
+                            var pad = pads['bf_pad'];
+                            var row = document.getElementById('bf_type_row');
+                            var hint = document.getElementById('bf_pad_hint');
+                            if (row) { row.style.display = (mode === 'type') ? 'flex' : 'none'; }
+                            if (hint) { hint.style.display = (mode === 'draw') ? '' : 'none'; }
+                            Array.prototype.forEach.call(document.querySelectorAll('[data-sigmode]'), function (b) {
+                                b.classList.toggle('bf-mode-active', b.getAttribute('data-sigmode') === mode);
+                            });
+                            if (pad) {
+                                pad.clear();
+                                if (mode === 'type') { pad.off(); } else { pad.on(); }
+                            }
+                            if (mode === 'type') { renderTyped(); } else { mirror.pads(); }
+                        }
+                        Array.prototype.forEach.call(document.querySelectorAll('[data-sigmode]'), function (b) {
+                            b.addEventListener('click', function () { setSigMode(b.getAttribute('data-sigmode')); });
+                        });
+                        (function () {
+                            var ti = document.getElementById('bf_type_name');
+                            var ts = document.getElementById('bf_type_style');
+                            if (ti) { ti.addEventListener('input', function () { if (sigMode === 'type') { renderTyped(); } }); }
+                            if (ts) { ts.addEventListener('change', function () { if (sigMode === 'type') { renderTyped(); } }); }
+                        })();
+
+                        // ── Render the document (PDF.js) + numbered placement markers ──────
+                        (function renderDoc() {
+                            var docEl = document.getElementById('bf_doc');
+                            if (!docEl) { return; }
+                            var pdfUrl = docEl.getAttribute('data-pdf');
+                            var box = document.getElementById('bf_markers');
+                            var markers = box
+                                ? Array.prototype.slice.call(box.querySelectorAll('.bf-marker')) : [];
+
+                            function wireClick(m) {
+                                m.addEventListener('click', function () {
+                                    var inputId = m.getAttribute('data-input');
+                                    var target = inputId ? document.getElementById(inputId) : null;
+                                    if (!target) {
+                                        var type = m.getAttribute('data-type');
+                                        target = document.getElementById(
+                                            type === 'initials' ? 'bf_card_initials' : 'bf_card_signature');
+                                    }
+                                    if (target && target.scrollIntoView) {
+                                        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                    }
+                                    if (target && target.tagName === 'INPUT') {
+                                        setTimeout(function () { target.focus(); }, 250);
+                                    }
+                                });
+                            }
+                            function placeOn(pageEl, num) {
+                                markers.forEach(function (m) {
+                                    if (parseInt(m.getAttribute('data-page'), 10) !== num) { return; }
+                                    m.style.left = (parseFloat(m.getAttribute('data-x')) * 100) + '%';
+                                    m.style.top = (parseFloat(m.getAttribute('data-y')) * 100) + '%';
+                                    m.style.width = (parseFloat(m.getAttribute('data-w')) * 100) + '%';
+                                    m.style.height = (parseFloat(m.getAttribute('data-h')) * 100) + '%';
+                                    pageEl.appendChild(m);
+                                    wireClick(m);
+                                });
+                            }
+                            function fallback() {
+                                docEl.innerHTML = '<div class="bf-doc-fallback">' +
+                                    'Aperçu du document indisponible. ' +
+                                    '<a href="' + pdfUrl + '" target="_blank" rel="noopener">' +
+                                    'Ouvrir le document</a></div>';
+                            }
+                            function wireMirror() {
+                                var sigM = markers.filter(function (m) {
+                                    return m.getAttribute('data-type') === 'signature'; });
+                                var iniM = markers.filter(function (m) {
+                                    return m.getAttribute('data-type') === 'initials'; });
+                                function paint(ms, pad) {
+                                    var u = (pad && !pad.isEmpty()) ? pad.toDataURL('image/png') : '';
+                                    ms.forEach(function (m) {
+                                        m.style.backgroundImage = u ? ('url(' + u + ')') : '';
+                                        m.classList.toggle('bf-marker-filled', !!u);
+                                    });
+                                }
+                                mirror.pads = function () {
+                                    if (sigMode === 'type') {
+                                        var c = document.getElementById('bf_pad');
+                                        var nm = (document.getElementById('bf_type_name').value || '').trim();
+                                        var u = (nm && c) ? c.toDataURL('image/png') : '';
+                                        sigM.forEach(function (m) {
+                                            m.style.backgroundImage = u ? ('url(' + u + ')') : '';
+                                            m.classList.toggle('bf-marker-filled', !!u);
+                                        });
+                                    } else {
+                                        paint(sigM, pads['bf_pad']);
+                                    }
+                                    paint(iniM, pads['bf_pad_initials']);
+                                };
+                                ['bf_pad', 'bf_pad_initials'].forEach(function (id) {
+                                    var c = document.getElementById(id);
+                                    if (!c) { return; }
+                                    ['pointerup', 'pointerleave', 'mouseup', 'touchend'].forEach(function (ev) {
+                                        c.addEventListener(ev, function () { setTimeout(mirror.pads, 0); });
+                                    });
+                                });
+                                markers.forEach(function (m) {
+                                    var inputId = m.getAttribute('data-input');
+                                    if (!inputId) { return; }
+                                    var input = document.getElementById(inputId);
+                                    var valEl = m.querySelector('.bf-marker-value');
+                                    if (!input || !valEl) { return; }
+                                    var sync = function () {
+                                        valEl.textContent = input.value || '';
+                                        m.classList.toggle('bf-marker-filled', !!input.value);
+                                    };
+                                    input.addEventListener('input', sync);
+                                    input.addEventListener('change', sync);
+                                    sync();
+                                });
+                            }
+
+                            // Odoo bundles pdf.js as an ES module; loaded as a classic <script src>
+                            // its top-level `export` throws and window.pdfjsLib is never set on this
+                            // standalone page. Load the module on demand via dynamic import().
+                            import('/web/static/lib/pdfjs/build/pdf.js').then(function (pdfjsLib) {
+                            try {
+                                pdfjsLib.GlobalWorkerOptions.workerSrc =
+                                    '/web/static/lib/pdfjs/build/pdf.worker.js';
+                            } catch (e) { /* worker optional */ }
+                            return pdfjsLib.getDocument(pdfUrl).promise.then(function (pdf) {
+                                docEl.innerHTML = '';
+                                var chain = Promise.resolve();
+                                var width = Math.min(docEl.clientWidth || 720, 760);
+                                var ratio = Math.max(window.devicePixelRatio || 1, 1);
+                                for (var p = 1; p <= pdf.numPages; p++) {
+                                    (function (num) {
+                                        chain = chain.then(function () {
+                                            return pdf.getPage(num).then(function (page) {
+                                                var base = page.getViewport({ scale: 1 });
+                                                var vp = page.getViewport({ scale: (width / base.width) * ratio });
+                                                var canvas = document.createElement('canvas');
+                                                canvas.width = vp.width; canvas.height = vp.height;
+                                                return page.render({
+                                                    canvasContext: canvas.getContext('2d'), viewport: vp
+                                                }).promise.then(function () {
+                                                    var pageEl = document.createElement('div');
+                                                    pageEl.className = 'bf-page';
+                                                    var img = document.createElement('img');
+                                                    img.className = 'bf-page-img';
+                                                    img.alt = 'Page ' + num;
+                                                    img.src = canvas.toDataURL('image/png');
+                                                    pageEl.appendChild(img);
+                                                    docEl.appendChild(pageEl);
+                                                    placeOn(pageEl, num);
+                                                });
+                                            });
+                                        });
+                                    })(p);
+                                }
+                                return chain;
+                            }).then(function () {
+                                wireMirror();
+                            });
+                            }).catch(function (e) {
+                                if (window.console) { console.error('bf_sign: rendu document échoué', e); }
+                                fallback();
+                            });
+                        })();
+
+                        document.getElementById('bf_form').addEventListener('submit', function (e) {
+                            var sig = pads['bf_pad'];
+                            if (sigMode === 'type') {
+                                var nm = (document.getElementById('bf_type_name').value || '').trim();
+                                if (!nm) {
+                                    e.preventDefault(); alert('Veuillez saisir votre nom.'); return false;
+                                }
+                                renderTyped();
+                            } else if (!sig || sig.isEmpty()) {
+                                e.preventDefault(); alert('Veuillez apposer votre signature.'); return false;
+                            }
+                            var ini = pads['bf_pad_initials'];
+                            if (ini) {
+                                if (ini.isEmpty()) {
+                                    e.preventDefault(); alert('Veuillez apposer votre paraphe.'); return false;
+                                }
+                                document.getElementById('bf_ini_data').value = ini.toDataURL('image/png');
+                            }
+                            if (!document.getElementById('bf_consent').checked) {
+                                e.preventDefault(); alert('Veuillez cocher la case de consentement.'); return false;
+                            }
+                            // The canvas holds the signature in both modes (drawn strokes or typed text).
+                            document.getElementById('bf_sign_data').value =
+                                document.getElementById('bf_pad').toDataURL('image/png');
+                            document.getElementById('bf_submit').disabled = true;
+                            document.getElementById('bf_submit').textContent = 'Traitement…';
+                        });
+                        var rf = document.getElementById('bf_refuse_form');
+                        if (rf) {
+                            rf.addEventListener('submit', function (e) {
+                                if (!window.confirm('Confirmer le refus de signer ce document ?')) {
+                                    e.preventDefault();
+                                }
+                            });
+                        }
+                    })();
+                    ]]>
+                </script>
+            </body>
+        </html>
+    </template>
+
+    <!-- ============================================================= -->
+    <!-- Confirmation page                                              -->
+    <!-- ============================================================= -->
+    <template id="sign_done" name="BF Sign — Confirmation">
+        <t t-set="primary" t-value="req.company_id.report_brand_primary or '#29ABE1'"/>
+        <t t-set="dark" t-value="req.company_id.report_brand_dark or '#2D3031'"/>
+        &lt;!DOCTYPE html&gt;
+        <html lang="fr">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <title>Signé — <t t-esc="req.name"/></title>
+                <style>
+                    body { margin:0; font-family: system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+                           background:#f4f6f8; color:#2D3031; }
+                    .bf-header { background:<t t-esc="dark"/>; color:#fff; padding:16px 24px; font-weight:600; }
+                    .bf-accent { height:4px; background:<t t-esc="primary"/>; }
+                    .bf-wrap { max-width:640px; margin:48px auto; padding:0 16px; text-align:center; }
+                    .bf-check { width:64px; height:64px; border-radius:50%; background:#e7f7ed;
+                                color:#1e8e4e; font-size:36px; line-height:64px; margin:0 auto 18px; }
+                    .bf-card { background:#fff; border:1px solid #e3e7eb; border-radius:10px; padding:32px 24px; }
+                    .bf-btn { display:inline-block; margin-top:18px; background:<t t-esc="primary"/>;
+                              color:#fff; text-decoration:none; padding:12px 24px; border-radius:8px; font-weight:600; }
+                    .bf-hash { font-size:12px; color:#8a939b; word-break:break-all; margin-top:18px; }
+                </style>
+            </head>
+            <body>
+                <div class="bf-header"><t t-esc="req.company_id.name"/></div>
+                <div class="bf-accent"/>
+                <div class="bf-wrap">
+                    <div class="bf-card">
+                        <div class="bf-check">✓</div>
+                        <h1 style="font-size:20px; margin:0 0 8px;">Signature enregistrée</h1>
+                        <p style="color:#555;">
+                            Merci, <t t-esc="signer.name"/>. Votre signature a été enregistrée
+                            le <t t-esc="signer.signed_on"/> (UTC).
+                        </p>
+                        <t t-if="req.state == 'signed'">
+                            <p style="color:#555;">Le document est entièrement signé. Un courriel de confirmation
+                               avec le document signé et le certificat a été envoyé.</p>
+                            <a class="bf-btn" t-attf-href="/sign/#{req.id}/#{access_token}/download">
+                                Télécharger le document signé
+                            </a>
+                            <div class="bf-hash" t-if="req.hash_signed">
+                                Empreinte SHA-256 : <t t-esc="req.hash_signed"/>
+                            </div>
+                        </t>
+                        <t t-else="">
+                            <p style="color:#555;">En attente des autres signataires
+                               (<t t-esc="req.signed_count"/>/<t t-esc="req.signer_count"/> signés).
+                               Le document sera finalisé lorsque tout le monde aura signé.</p>
+                        </t>
+                    </div>
+                </div>
+            </body>
+        </html>
+    </template>
+
+    <!-- ============================================================= -->
+    <!-- Refusal confirmation                                           -->
+    <!-- ============================================================= -->
+    <template id="sign_refused" name="BF Sign — Refus enregistré">
+        <t t-set="primary" t-value="req.company_id.report_brand_primary or '#29ABE1'"/>
+        <t t-set="dark" t-value="req.company_id.report_brand_dark or '#2D3031'"/>
+        &lt;!DOCTYPE html&gt;
+        <html lang="fr">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <title>Refusé — <t t-esc="req.name"/></title>
+                <style>
+                    body { margin:0; font-family: system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+                           background:#f4f6f8; color:#2D3031; }
+                    .bf-header { background:<t t-esc="dark"/>; color:#fff; padding:16px 24px; font-weight:600; }
+                    .bf-accent { height:4px; background:<t t-esc="primary"/>; }
+                    .bf-wrap { max-width:640px; margin:48px auto; padding:0 16px; text-align:center; }
+                    .bf-x { width:64px; height:64px; border-radius:50%; background:#fdecea;
+                            color:#b3261e; font-size:36px; line-height:64px; margin:0 auto 18px; }
+                    .bf-card { background:#fff; border:1px solid #e3e7eb; border-radius:10px; padding:32px 24px; }
+                </style>
+            </head>
+            <body>
+                <div class="bf-header"><t t-esc="req.company_id.name"/></div>
+                <div class="bf-accent"/>
+                <div class="bf-wrap">
+                    <div class="bf-card">
+                        <div class="bf-x">✕</div>
+                        <h1 style="font-size:20px; margin:0 0 8px;">Refus enregistré</h1>
+                        <p style="color:#555;">
+                            Vous avez refusé de signer le document <strong t-esc="req.name"/>.
+                            L'expéditeur en a été informé. Vous pouvez fermer cette page.
+                        </p>
+                    </div>
+                </div>
+            </body>
+        </html>
+    </template>
+
+    <!-- ============================================================= -->
+    <!-- Waiting (sequential — not this signer's turn yet)             -->
+    <!-- ============================================================= -->
+    <template id="sign_waiting" name="BF Sign — En attente du tour">
+        &lt;!DOCTYPE html&gt;
+        <html lang="fr">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <title>En attente</title>
+                <style>
+                    body { margin:0; font-family: system-ui,sans-serif; background:#f4f6f8; color:#2D3031;
+                           display:flex; align-items:center; justify-content:center; min-height:100vh; }
+                    .bf-card { background:#fff; border:1px solid #e3e7eb; border-radius:10px;
+                               padding:32px; max-width:480px; text-align:center; }
+                </style>
+            </head>
+            <body>
+                <div class="bf-card">
+                    <h1 style="font-size:18px;">Ce n'est pas encore votre tour</h1>
+                    <p style="color:#555;">
+                        Ce document se signe dans un ordre précis. Vous recevrez un courriel
+                        lorsque ce sera à votre tour de signer.
+                    </p>
+                </div>
+            </body>
+        </html>
+    </template>
+
+    <!-- ============================================================= -->
+    <!-- Unavailable (cancelled / expired / refused)                   -->
+    <!-- ============================================================= -->
+    <template id="sign_unavailable" name="BF Sign — Indisponible">
+        &lt;!DOCTYPE html&gt;
+        <html lang="fr">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <title>Lien indisponible</title>
+                <style>
+                    body { margin:0; font-family: system-ui,sans-serif; background:#f4f6f8; color:#2D3031;
+                           display:flex; align-items:center; justify-content:center; min-height:100vh; }
+                    .bf-card { background:#fff; border:1px solid #e3e7eb; border-radius:10px;
+                               padding:32px; max-width:480px; text-align:center; }
+                </style>
+            </head>
+            <body>
+                <div class="bf-card">
+                    <h1 style="font-size:18px;">Ce lien de signature n'est plus disponible</h1>
+                    <p style="color:#555;">
+                        La demande est
+                        <t t-if="req.state == 'expired'">expirée</t>
+                        <t t-elif="req.state == 'cancelled'">annulée</t>
+                        <t t-else="">close</t>.
+                        Veuillez contacter l'expéditeur si vous pensez qu'il s'agit d'une erreur.
+                    </p>
+                </div>
+            </body>
+        </html>
+    </template>
+
+    <!-- ============================================================= -->
+    <!-- Email OTP identity step                                        -->
+    <!-- ============================================================= -->
+    <template id="sign_otp" name="BF Sign — Vérification par code">
+        <t t-set="primary" t-value="req.company_id.report_brand_primary or '#29ABE1'"/>
+        <t t-set="dark" t-value="req.company_id.report_brand_dark or '#2D3031'"/>
+        &lt;!DOCTYPE html&gt;
+        <html lang="fr">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <title>Vérification — <t t-esc="req.name"/></title>
+                <style>
+                    :root { --bf-primary: <t t-esc="primary"/>; --bf-dark: <t t-esc="dark"/>; }
+                    body { margin:0; font-family: system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+                           background:#f4f6f8; color:#2D3031; }
+                    .bf-header { background:var(--bf-dark); color:#fff; padding:16px 24px;
+                                 display:flex; align-items:center; gap:14px; }
+                    .bf-header img { max-height:34px; }
+                    .bf-header .t { font-weight:600; font-size:16px; }
+                    .bf-accent { height:4px; background:var(--bf-primary); }
+                    .bf-wrap { max-width:520px; margin:0 auto; padding:32px 16px; }
+                    .bf-card { background:#fff; border:1px solid #e3e7eb; border-radius:10px; padding:24px; }
+                    .bf-card h2 { margin:0 0 12px; font-size:18px; }
+                    .bf-meta { font-size:14px; color:#555; margin-bottom:16px; }
+                    .bf-code-input { width:100%; font-size:26px; letter-spacing:8px; text-align:center;
+                                     padding:12px; border:1px solid #cfd6dc; border-radius:8px; box-sizing:border-box; }
+                    .bf-btn { border:0; border-radius:8px; padding:12px 22px; font-size:15px;
+                              font-weight:600; cursor:pointer; }
+                    .bf-btn-primary { background:var(--bf-primary); color:#fff; width:100%; margin-top:16px; }
+                    .bf-link-btn { background:none; border:0; color:var(--bf-primary); cursor:pointer;
+                                   font-size:14px; padding:0; margin-top:14px; }
+                    .bf-err { background:#fdecea; color:#b3261e; border:1px solid #f5c2bd;
+                              border-radius:8px; padding:12px 14px; font-size:14px; margin-bottom:16px; }
+                </style>
+            </head>
+            <body>
+                <div class="bf-header">
+                    <img t-attf-src="/web/image/res.company/#{req.company_id.id}/logo" alt=""/>
+                    <span class="t"><t t-esc="req.company_id.name"/></span>
+                </div>
+                <div class="bf-accent"/>
+                <div class="bf-wrap">
+                    <div class="bf-card">
+                        <h2>Vérification de votre identité</h2>
+                        <t t-if="error">
+                            <div class="bf-err">Code invalide ou expiré. Réessayez ou demandez un nouveau code.</div>
+                        </t>
+                        <p class="bf-meta">Pour consulter et signer <strong t-esc="req.name"/>, saisissez le
+                            code à 6 chiffres envoyé à <strong t-esc="masked_email"/>.</p>
+                        <form method="post" t-attf-action="/sign/#{req.id}/#{access_token}/otp/verify">
+                            <input type="text" name="code" class="bf-code-input" inputmode="numeric"
+                                   autocomplete="one-time-code" maxlength="6" pattern="[0-9]*"
+                                   placeholder="••••••" autofocus="autofocus"/>
+                            <button type="submit" class="bf-btn bf-btn-primary">Vérifier</button>
+                        </form>
+                        <form method="post" t-attf-action="/sign/#{req.id}/#{access_token}/otp/resend">
+                            <button type="submit" class="bf-link-btn">Renvoyer le code</button>
+                        </form>
+                    </div>
+                </div>
+            </body>
+        </html>
+    </template>
+
+</odoo>

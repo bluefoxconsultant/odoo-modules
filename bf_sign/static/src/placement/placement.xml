@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="bf_sign.Placement">
+        <div class="bf-placement" t-ref="root">
+            <t t-if="state.message">
+                <div class="alert alert-info mb-2" t-esc="state.message"/>
+                <button type="button" class="btn btn-sm btn-secondary"
+                        t-on-click="() => this.forceReload()">Recharger</button>
+            </t>
+            <t t-else="">
+                <div class="bf-template-bar">
+                    <span class="me-1">Modèle :</span>
+                    <select class="form-select form-select-sm bf-template-select"
+                            t-on-change="onTemplateChange">
+                        <option value="">—</option>
+                        <t t-foreach="state.templates" t-as="tpl" t-key="tpl.id">
+                            <option t-att-value="tpl.id"
+                                    t-att-selected="tpl.id + '' === state.selectedTemplate ? 'selected' : undefined">
+                                <t t-esc="tpl.name"/>
+                            </option>
+                        </t>
+                    </select>
+                    <button type="button" class="btn btn-sm btn-outline-primary ms-1"
+                            t-on-click="() => this.applyTemplate()">Appliquer</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary ms-1"
+                            t-on-click="() => this.saveTemplate()">Enregistrer comme modèle</button>
+                </div>
+                <div class="bf-toolbar">
+                    <span class="me-1">Signataire :</span>
+                    <select class="form-select form-select-sm bf-signer-select"
+                            t-on-change="onSignerChange">
+                        <t t-foreach="state.signers" t-as="s" t-key="s.id">
+                            <option t-att-value="s.id"
+                                    t-att-selected="s.id === state.activeSignerId ? 'selected' : undefined">
+                                <t t-esc="s.name"/>
+                            </option>
+                        </t>
+                    </select>
+                    <span class="bf-color-dot" t-attf-style="background:{{activeColor()}};"/>
+                    <span class="ms-3 me-1">Ajouter :</span>
+                    <button type="button" class="btn btn-sm btn-secondary me-1"
+                            t-att-class="{'active': state.armedType === 'signature'}"
+                            t-on-click="() => this.arm('signature')">Signature</button>
+                    <button type="button" class="btn btn-sm btn-secondary me-1"
+                            t-att-class="{'active': state.armedType === 'initials'}"
+                            t-on-click="() => this.arm('initials')">Paraphe</button>
+                    <button type="button" class="btn btn-sm btn-secondary me-1"
+                            t-att-class="{'active': state.armedType === 'date'}"
+                            t-on-click="() => this.arm('date')">Date</button>
+                    <button type="button" class="btn btn-sm btn-secondary me-1"
+                            t-att-class="{'active': state.armedType === 'text'}"
+                            t-on-click="() => this.arm('text')">Texte</button>
+                    <span class="text-muted ms-2" t-if="state.armedType">
+                        Cliquez sur le document pour placer le pavé.
+                    </span>
+                    <button type="button" class="btn btn-sm btn-light ms-auto"
+                            t-on-click="() => this.forceReload()">Recharger</button>
+                </div>
+                <div class="text-muted small mb-2">
+                    Les pavés sont enregistrés immédiatement (indépendamment du bouton Enregistrer).
+                </div>
+
+                <div class="bf-pages">
+                    <t t-foreach="state.pages" t-as="pg" t-key="pg.num">
+                        <div class="bf-page" t-att-data-page="pg.num"
+                             t-attf-style="width:{{pg.w}}px;height:{{pg.h}}px;"
+                             t-on-click="(ev) => this.onPageClick(ev, pg)">
+                            <img class="bf-page-img" t-att-src="pg.img" alt=""/>
+                            <t t-foreach="fieldsForPage(pg.num)" t-as="f" t-key="f.id">
+                                <div class="bf-box" t-attf-style="{{boxStyle(f, pg)}}"
+                                     t-on-click.stop=""
+                                     t-on-pointerdown="(ev) => this.startDrag(ev, f, pg)">
+                                    <span class="bf-box-label" t-esc="labelFor(f)"/>
+                                    <select t-if="f.field_type === 'text' || f.field_type === 'date'"
+                                            class="bf-box-mode"
+                                            style="position:absolute; left:1px; bottom:1px; font-size:9px; max-width:94%; padding:0; border:0; background:rgba(255,255,255,.85);"
+                                            t-on-pointerdown.stop="" t-on-click.stop=""
+                                            t-on-change="(ev) => this.setFillMode(f, ev.target.value)">
+                                        <option value="signer" t-att-selected="f.fill_mode === 'signer' ? 'selected' : undefined">Signataire</option>
+                                        <option value="fixed" t-att-selected="f.fill_mode === 'fixed' ? 'selected' : undefined">Fixe</option>
+                                        <option t-if="f.field_type === 'date'" value="auto" t-att-selected="f.fill_mode === 'auto' ? 'selected' : undefined">Auto</option>
+                                    </select>
+                                    <span class="bf-box-del"
+                                          t-on-pointerdown.stop=""
+                                          t-on-click.stop="() => this.removeField(f)">×</span>
+                                    <span class="bf-box-resize"
+                                          t-on-pointerdown.stop="(ev) => this.startResize(ev, f, pg)"/>
+                                </div>
+                            </t>
+                        </div>
+                    </t>
+                </div>
+            </t>
+        </div>
+    </t>
+
+</templates>
