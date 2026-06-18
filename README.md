@@ -48,7 +48,7 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | `bf_onboarding_base` | Blue Fox Onboarding Foundation | 18.0.1.0.0 | LGPL-3 | Shared helpers for Blue Fox per-module onboarding panels. |
 | `bf_persona` | Persona des contacts | 18.0.2.1.0 | LGPL-3 | Active relationship intelligence: composer hint with auto-cc, monthly auto-seed from email signals, weekly degradation detector with optional ntfy alert, kanban dashboard |
 | `bf_security_awareness` | Security Awareness | 18.0.1.9.0 | LGPL-3 | KnowBe4/Terranova-style platform: phishing simulations (open/click/submit, QR, attachments), per-person risk profiles, eLearning remediation, OWL dashboards, a Phish Alert Button with sim-aware triage, and email clawback (PhishRIP-style) to pull a confirmed malicious email from every mailbox (M365 app-only XOAUTH2 or per-mailbox IMAP) into reversible quarantine — see `SECURITY.md` |
-| `bf_sign` | Blue Fox — Signature électronique | 18.0.3.8.0 | LGPL-3 | Signature électronique native (SES) : demande, signature par lien public, certificat de complétion et piste de vérification inaltérable |
+| `bf_sign` | Blue Fox — Signature électronique | 18.0.3.8.3 | LGPL-3 | Signature électronique native (SES) : demande, signature par lien public, certificat de complétion et piste de vérification inaltérable |
 | `bf_sign_purchase` | Blue Fox — Signature pour les achats | 18.0.1.0.0 | LGPL-3 | Envoyer un bon de commande fournisseur pour signature électronique (bf_sign). |
 | `bf_sign_sale` | Blue Fox — Signature pour les ventes | 18.0.1.0.0 | LGPL-3 | Envoyer un devis / bon de commande pour signature électronique (bf_sign). |
 | `bf_sms_archive` | Archive SMS & Appels | 18.0.2.2.0 | LGPL-3 | Archive and search Android SMS and call logs |
@@ -63,7 +63,7 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | `bf_timesheet_timer` | BF Timer - Feuilles de temps | 18.0.1.8.0 | LGPL-3 | Global timesheet timer with multi-timer support and an OWL UI |
 | `bf_timezone` | Blue Fox Timezone Utilities | 18.0.1.0.0 | LGPL-3 | Shared timezone helpers and a configurable default timezone for Blue Fox modules |
 | `bf_universal_search` | BF Recherche universelle | 18.0.1.4.0 | LGPL-3 | Cross-module search through the command palette |
-| `bluefox_branding` | Blue Fox Branding | 18.0.3.0.0 | LGPL-3 | Per-company brand color + email layout overrides driven by `bf_lexend` company fields (CSS variables injected via QWeb layout — no SCSS recompile) |
+| `bluefox_branding` | Blue Fox Branding | 18.0.3.1.0 | LGPL-3 | Per-company brand color + email layout overrides driven by `bf_lexend` company fields (CSS variables injected via QWeb layout — no SCSS recompile) |
 | `contacts_nextcloud_sync` | Contacts Nextcloud Sync | 18.0.1.1.1 | LGPL-3 | Sync Odoo contacts with a Nextcloud address book via CardDAV |
 | `daily_todo_digest` | Daily To-Do Digest | 18.0.2.0.0 | LGPL-3 | Daily email digest with activities, overdue tasks, and a week-ahead view |
 | `hosting_management` | Gestion d'hébergement | 18.0.2.46.0 | LGPL-3 | Manage hosting services, client computer parks (endpoints, BitLocker, Action1 sync) and software license pools |

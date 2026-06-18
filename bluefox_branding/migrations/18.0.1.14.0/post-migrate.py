@@ -1,6 +1,6 @@
 """Re-apply Blue Fox branding — calendar templates aligned on bf_meeting shell.
 
-Drops the orange accent and the contiGNU footer for calendar event templates,
+Drops the orange accent and the legacy footer for calendar event templates,
 matching the palette and the compact header used by bf_meeting.
 """
 import logging

@@ -17,6 +17,14 @@ class ResCompany(models.Model):
         help="Couleur de fond foncée pour les en-têtes de courriels brandés et la navbar. "
              "Les rapports PDF utilisent plutôt « Couleur secondaire (PDF) ».",
     )
+    report_brand_logo = fields.Binary(
+        string="Logo sur fond foncé (marque)",
+        attachment=True,
+        help="Logo — idéalement blanc/clair — utilisé sur les fonds FONCÉS : en-têtes "
+             "de courriels brandés et pages publiques. Le logo standard de la société "
+             "(souvent en couleur) reste utilisé sur les documents à fond clair. "
+             "Si vide, le logo standard est utilisé partout.",
+    )
 
     brand_email_tagline = fields.Char(
         string="Tagline de marque (courriels)",

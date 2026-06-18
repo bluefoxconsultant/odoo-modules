@@ -37,6 +37,11 @@
                             <label for="report_brand_dark" class="col-lg-3 o_light_label"/>
                             <field name="report_brand_dark" widget="color"/>
                         </div>
+                        <div class="row mt16">
+                            <label for="report_brand_logo" class="col-lg-3 o_light_label" string="Logo sur fond foncé"/>
+                            <field name="report_brand_logo" widget="image" class="oe_avatar"
+                                   options="{'size': [0, 64]}"/>
+                        </div>
                     </setting>
 
                     <setting string="Couleurs des rapports PDF"

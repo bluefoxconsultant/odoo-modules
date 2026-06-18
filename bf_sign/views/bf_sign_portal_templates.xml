@@ -102,7 +102,7 @@
             </head>
             <body>
                 <div class="bf-header">
-                    <img t-attf-src="/web/image/res.company/#{req.company_id.id}/logo" alt=""/>
+                    <img t-attf-src="/web/image/res.company/#{req.company_id.id}/#{req.company_id.report_brand_logo and 'report_brand_logo' or 'logo'}" alt=""/>
                     <span class="t"><t t-esc="req.company_id.name"/></span>
                 </div>
                 <div class="bf-accent"/>
@@ -735,7 +735,7 @@
             </head>
             <body>
                 <div class="bf-header">
-                    <img t-attf-src="/web/image/res.company/#{req.company_id.id}/logo" alt=""/>
+                    <img t-attf-src="/web/image/res.company/#{req.company_id.id}/#{req.company_id.report_brand_logo and 'report_brand_logo' or 'logo'}" alt=""/>
                     <span class="t"><t t-esc="req.company_id.name"/></span>
                 </div>
                 <div class="bf-accent"/>

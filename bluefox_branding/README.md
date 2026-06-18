@@ -15,6 +15,9 @@ marque**.
 
 - **Couleurs de marque (interface et courriels)** — `report_brand_primary` /
   `report_brand_dark`: navbar, buttons, and branded emails.
+- **Logo sur fond foncé** — `report_brand_logo`: a light/white logo used on dark
+  header bands (branded emails, public pages). Falls back to the standard logo
+  when empty, so light-background documents keep the colored company logo.
 - **Couleurs des rapports PDF** — Odoo's native `primary_color` /
   `secondary_color`: PDF report header/accents (surfaced here for convenience;
   they drive the document layout, not the colors above).

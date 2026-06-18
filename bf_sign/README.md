@@ -6,7 +6,7 @@ québécois**. Signature électronique simple (SES) prouvable et inaltérable, a
 **sceau numérique PAdES** optionnel (document « signé / non altéré » dans un
 lecteur PDF, à la DocuSeal).
 
-- **Version** : `18.0.3.6.0` — voir [`CHANGELOG.md`](CHANGELOG.md).
+- **Version** : `18.0.3.8.3` — voir [`CHANGELOG.md`](CHANGELOG.md).
 - **Licence** : LGPL-3.
 - **Modèle de menace & non-garanties** : voir [`SECURITY.md`](SECURITY.md).
 

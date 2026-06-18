@@ -106,7 +106,11 @@ class BfSignRequest(models.Model):
     expiry_date = fields.Datetime(string="Échéance", copy=False)
     company_id = fields.Many2one(
         "res.company", string="Société", required=True,
-        default=lambda self: self.env.company)
+        # Prefer the creator's MAIN company over the session's active company, so
+        # a signature request is branded by the user's primary org even when
+        # another company is selected in the multi-company switcher (the field
+        # stays editable in draft if a different company is ever needed).
+        default=lambda self: self.env.user.company_id)
 
     res_model = fields.Char(string="Modèle source")
     res_id = fields.Integer(string="ID source")

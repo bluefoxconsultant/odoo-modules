@@ -217,6 +217,8 @@ class BfSignSigner(models.Model):
         company = self.request_id.company_id
         primary = company.report_brand_primary or "#29ABE1"
         dark = company.report_brand_dark or "#2D3031"
+        # White/light logo on the dark header when configured, else the standard logo.
+        logo_field = "report_brand_logo" if company.report_brand_logo else "logo"
         body = (
             '<div style="font-family:Lexend,system-ui,Arial,sans-serif;color:#2D3031;'
             'font-size:14px;line-height:1.55;max-width:600px;margin:0 auto;">'
@@ -224,7 +226,7 @@ class BfSignSigner(models.Model):
             '<table role="presentation" width="100%%" cellpadding="0" cellspacing="0" border="0" '
             'style="border-collapse:collapse;"><tbody><tr>'
             '<td align="left" style="vertical-align:middle;">'
-            '<img src="/web/image/res.company/%(cid)s/logo" alt="" style="height:36px;display:block;border:0;"/>'
+            '<img src="/web/image/res.company/%(cid)s/%(lf)s" alt="" style="height:36px;display:block;border:0;"/>'
             '</td><td align="right" style="vertical-align:middle;color:#fff;'
             'font-family:Lexend,system-ui,Arial,sans-serif;font-size:20px;font-weight:700;">'
             'Code de vérification</td></tr></tbody></table>'
@@ -237,7 +239,7 @@ class BfSignSigner(models.Model):
             'margin:18px 0;">%(code)s</p>'
             '<p style="color:#777;font-size:12px;">Ce code expire dans 10&nbsp;minutes et ne '
             'doit être partagé avec personne.</p></div></div>'
-        ) % {"dark": dark, "primary": primary, "cid": company.id,
+        ) % {"dark": dark, "primary": primary, "cid": company.id, "lf": logo_field,
              "name": self.name or "", "doc": self.request_id.name or "", "code": code}
         mail = self.env["mail.mail"].sudo().create({
             "subject": _("Code de vérification : %s") % (self.request_id.name or ""),

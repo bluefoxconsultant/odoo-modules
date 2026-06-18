@@ -12,6 +12,10 @@ class ResConfigSettings(models.TransientModel):
         related="company_id.report_brand_dark",
         readonly=False,
     )
+    report_brand_logo = fields.Binary(
+        related="company_id.report_brand_logo",
+        readonly=False,
+    )
     # Native Odoo per-company colors — these (not report_brand_*) drive PDF
     # report headers/accents via the standard document layout. Surfaced here so
     # the whole brand identity lives in one panel.

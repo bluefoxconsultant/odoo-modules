@@ -2,6 +2,22 @@
 
 Le versionnage suit la convention Odoo `18.0.MAJOR.MINOR.PATCH`.
 
+## 18.0.3.8.3 — Logo sur fond foncé dans les en-têtes
+
+- Les en-têtes foncés (courriels brandés + pages publiques de signature) utilisent
+  le **logo sur fond foncé** de la société (`report_brand_logo`, nouveau champ
+  `bluefox_branding`) lorsqu'il est défini — typiquement la version blanche du logo
+  — sinon le logo standard. Évite un logo foncé invisible sur la bande foncée.
+  (Les 3 gabarits courriel `noupdate` sont recréés via migration pour appliquer
+  le changement.)
+
+## 18.0.3.8.1 — Société par défaut = société principale du créateur
+
+- La demande de signature prend par défaut la **société principale** du créateur
+  (au lieu de la société active du sélecteur multi-société), pour que le document
+  soit toujours brandé (couleurs + logo) par l'organisation primaire même si une
+  autre société est sélectionnée. Le champ reste modifiable en brouillon.
+
 ## 18.0.3.8.0 — Durcissement (audit pré-publication)
 
 ### Sécurité
