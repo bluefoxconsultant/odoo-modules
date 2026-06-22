@@ -1,3 +1,5 @@
+import re
+
 from odoo import api, fields, models
 
 STATUS_HIERARCHY = [
@@ -417,7 +419,11 @@ class AuditClient(models.Model):
         brand_primary = "#344054"
         if "report_brand_primary" in company._fields:
             brand_name = company.name or ""
-            brand_primary = company.report_brand_primary or brand_primary
+            # Defence-in-depth: only accept a hex colour before it is formatted
+            # into the report's inline CSS (QWeb escapes the attribute anyway).
+            candidate = company.report_brand_primary or ""
+            if re.match(r"^#[0-9A-Fa-f]{3,8}$", candidate):
+                brand_primary = candidate
             if company.logo:
                 logo_b64 = company.logo.decode() if isinstance(company.logo, bytes) else company.logo
                 mime = "image/png" if logo_b64.startswith("iVBOR") else "image/jpeg"

@@ -1,7 +1,7 @@
 {
     "name": "Audit TI - Loi 25",
     "summary": "Gestion des audits de sécurité informatique pour la conformité Loi 25",
-    "version": "18.0.1.17.0",
+    "version": "18.0.1.17.1",
     "category": "Services",
     'website': 'https://bluefoxconsultant.com',
     "author": "Blue Fox Inc.",
