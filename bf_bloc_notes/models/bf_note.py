@@ -113,9 +113,16 @@ class BfNote(models.Model):
 
     @api.depends("link_ids", "link_ids.res_model", "link_ids.res_id")
     def _compute_res_ref(self):
+        # res_ref is a Reference field: its value is validated against the field
+        # selection (_selection_target_model), NOT just the registry. A link may
+        # point to a model that exists but is outside that selection (e.g.
+        # bf.email, meeting.agenda); assigning it would raise ValueError and break
+        # web_read for the whole note. Fall back to False in that case — the link
+        # itself stays in link_ids and remains openable via action_open_record.
+        allowed = {model for model, _name in self._selection_target_model()}
         for note in self:
             primary = note.link_ids[:1]
-            if primary and primary.res_model and primary.res_id and primary.res_model in self.env:
+            if primary and primary.res_model and primary.res_id and primary.res_model in allowed:
                 note.res_ref = f"{primary.res_model},{primary.res_id}"
             else:
                 note.res_ref = False

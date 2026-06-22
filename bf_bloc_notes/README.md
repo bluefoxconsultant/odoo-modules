@@ -85,6 +85,9 @@ odoo -d <db> -u bf_bloc_notes --test-enable --test-tags /bf_bloc_notes --stop-af
 
 ## Changelog
 
+### 18.0.2.7.1 (2026-06-21)
+- Fix: `_compute_res_ref` validates `res_model` against the reference field's model selection before building the value, avoiding a `ValueError` that could break `web_read` when a note points at a model that is no longer installed.
+
 ### 18.0.2.5.0 (2026-05-06)
 - Security: `bf.note.link._compute_res_name` no longer uses `sudo()`; ACLs applied via `check_access_rights` / `check_access_rule` (prevents leaking `display_name` for unreadable records).
 - Security: `action_open` (on link and primary note) validates access before returning the `act_window`.
