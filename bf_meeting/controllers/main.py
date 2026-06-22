@@ -11,9 +11,11 @@ from odoo.http import Controller, request, route
 _logger = logging.getLogger(__name__)
 
 # ── Anti-brute-force on token validation (per client IP) ──────────────────────
-# Mirrors the bf_sign house style: a failed-token limiter to defeat guessing of
-# the token space, plus a separate POST-volume limiter to stop spam flooding the
-# chatter / topic queue. Both honour X-Real-IP / X-Forwarded-For (behind NPM).
+# Best-effort, in-process limiter: a failed-token limiter to discourage guessing
+# the token space, plus a POST-volume limiter to slow spam flooding of the
+# chatter / topic queue. NOTE: counters are per-worker (multiplied across Odoo
+# HTTP workers, reset on worker recycle) — defence-in-depth, not a hard global
+# bound; pair with proxy-level rate limiting for a strict ceiling.
 _token_fail_lock = threading.Lock()
 _token_fail_data = defaultdict(list)
 _TOKEN_FAIL_MAX = 10
@@ -24,6 +26,10 @@ _post_data = defaultdict(list)
 _POST_MAX = 5
 _POST_WINDOW = 60  # seconds
 
+# Cap distinct tracked IPs so a flood of (real or spoofed) source IPs cannot grow
+# the per-process limiter dicts without bound.
+_MAX_TRACKED_IPS = 10000
+
 # Hard length caps on every free-text input from the public.
 _MAX_NAME = 200
 _MAX_DESC = 4000
@@ -33,12 +39,15 @@ _MAX_EMAIL = 254
 
 
 def _client_ip():
+    """Best-effort client IP for rate limiting.
+
+    Use the socket peer only. When the deployment runs Odoo with
+    ``proxy_mode = True``, werkzeug's ProxyFix has already rewritten
+    ``remote_addr`` to the real client from a *trusted* number of proxy hops, so
+    we never parse X-Forwarded-For / X-Real-IP ourselves — those headers are
+    attacker-controlled when the endpoint is reachable directly.
+    """
     try:
-        env = request.httprequest.environ
-        for key in ("HTTP_X_REAL_IP", "HTTP_X_FORWARDED_FOR"):
-            value = env.get(key, "")
-            if value:
-                return value.split(",")[0].strip()
         return request.httprequest.remote_addr or "unknown"
     except Exception:
         return "unknown"
@@ -61,6 +70,8 @@ def _record_token_failure():
     ip = _client_ip()
     now = time.monotonic()
     with _token_fail_lock:
+        if len(_token_fail_data) > _MAX_TRACKED_IPS:
+            _token_fail_data.clear()  # bound memory under a distinct-IP flood
         _token_fail_data[ip].append(now)
 
 
@@ -68,6 +79,8 @@ def _check_post_rate_limit():
     ip = _client_ip()
     now = time.monotonic()
     with _post_lock:
+        if len(_post_data) > _MAX_TRACKED_IPS:
+            _post_data.clear()  # bound memory under a distinct-IP flood
         cutoff = now - _POST_WINDOW
         kept = [t for t in _post_data[ip] if t > cutoff]
         if len(kept) >= _POST_MAX:
@@ -94,15 +107,14 @@ class MeetingContributionController(Controller):
         """
         if not token or not _check_token_rate_limit():
             return False
-        # Narrow the candidate set to agendas that actually carry a token.
-        agendas = request.env['meeting.agenda'].sudo().search(
-            [('access_token', '!=', False)])
-        match = agendas.filtered(
-            lambda a: a.access_token and hmac.compare_digest(a.access_token, token))
-        if not match:
+        # Indexed equality lookup (access_token is indexed): loads at most one
+        # row, with a constant-time compare_digest guard as belt-and-suspenders.
+        match = request.env['meeting.agenda'].sudo().search(
+            [('access_token', '=', token)], limit=1)
+        if not (match and hmac.compare_digest(match.access_token or '', token)):
             _record_token_failure()
             return False
-        return match[:1]
+        return match
 
     # ── Allow-listed render context ───────────────────────────────────────────
     def _page_ctx(self, agenda, token, ok=None, error=None):

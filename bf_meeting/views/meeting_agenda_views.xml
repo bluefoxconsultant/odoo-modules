@@ -125,7 +125,7 @@
                     <button name="action_send_agenda" type="object"
                             string="Envoyer"
                             class="btn-primary"
-                            invisible="state not in ('confirmed',)"/>
+                            invisible="state not in ('draft', 'confirmed')"/>
                     <button name="action_send_agenda_wizard" type="object"
                             string="Envoyer avec options..."
                             invisible="state not in ('draft', 'confirmed')"/>

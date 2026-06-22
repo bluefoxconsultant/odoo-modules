@@ -903,6 +903,13 @@ class MeetingAgenda(models.Model):
         template = self.env.ref(
             'bf_meeting.meeting_agenda_mail_template', raise_if_not_found=False
         )
+        # Parity with action_send_agenda: mint the contribution token (so the CTA
+        # link renders in the composer) and stamp sent_date so the contribution
+        # window opens for a draft agenda even when sent via the options wizard.
+        if self.allow_contributions:
+            self._ensure_access_token()
+        if not self.sent_date:
+            self.write({'sent_date': fields.Datetime.now()})
         ctx = {
             'default_model': 'meeting.agenda',
             'default_res_ids': self.ids,
@@ -919,6 +926,13 @@ class MeetingAgenda(models.Model):
             'target': 'new',
             'context': ctx,
         }
+
+    def report_date_display_html(self):
+        """Date (tz client d'abord, tz organisateur en plus petit) en Markup,
+        pour le gabarit de courriel de l'ordre du jour — parité avec le PDF et
+        le courriel de compte rendu."""
+        self.ensure_one()
+        return _format_meeting_date_display(self)
 
     def _cron_remind_unsent_agenda(self):
         """Daily : pour les OdJ draft/confirmed dont la rencontre est dans les 7
