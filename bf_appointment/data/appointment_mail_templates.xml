@@ -9,7 +9,7 @@
         <record id="mail_template_intake_acknowledgement" model="mail.template">
             <field name="name">Rendez-vous : Accusé de réception</field>
             <field name="model_id" ref="resource_booking.model_resource_booking"/>
-            <field name="subject">Demande de rendez-vous reçue - {{ object.type_id.name }}</field>
+            <field name="subject">{{ object.type_id.name }} | {{ object.partner_id.name }}</field>
             <field name="email_from">{{ (object.user_id.email_formatted or object.type_id.company_id.email_formatted or '') }}</field>
             <field name="email_to">{{ object.partner_id.email }}</field>
             <field name="lang">{{ object.partner_id.lang }}</field>
@@ -114,7 +114,7 @@
         <record id="mail_template_appointment_confirmation" model="mail.template">
             <field name="name">Rendez-vous : Confirmation</field>
             <field name="model_id" ref="resource_booking.model_resource_booking"/>
-            <field name="subject">Confirmation de votre rendez-vous - {{ object.type_id.name }}</field>
+            <field name="subject">{{ object.type_id.name }} | {{ object.partner_id.name }}</field>
             <field name="email_from">{{ (object.user_id.email_formatted or object.type_id.company_id.email_formatted or '') }}</field>
             <field name="email_to">{{ object.partner_id.email }}</field>
             <field name="lang">{{ object.partner_id.lang }}</field>
@@ -258,7 +258,7 @@
         <record id="mail_template_reminder_2d" model="mail.template">
             <field name="name">Rendez-vous : Rappel 2 jours</field>
             <field name="model_id" ref="resource_booking.model_resource_booking"/>
-            <field name="subject">Rappel - Votre rendez-vous dans 2 jours : {{ object.type_id.name }}</field>
+            <field name="subject">{{ object.type_id.name }} | {{ object.partner_id.name }}</field>
             <field name="email_from">{{ (object.user_id.email_formatted or object.type_id.company_id.email_formatted or '') }}</field>
             <field name="email_to">{{ object.partner_id.email }}</field>
             <field name="lang">{{ object.partner_id.lang }}</field>
@@ -342,7 +342,7 @@
         <record id="mail_template_reminder_1d" model="mail.template">
             <field name="name">Rendez-vous : Rappel 1 jour</field>
             <field name="model_id" ref="resource_booking.model_resource_booking"/>
-            <field name="subject">Rappel - Votre rendez-vous demain : {{ object.type_id.name }}</field>
+            <field name="subject">{{ object.type_id.name }} | {{ object.partner_id.name }}</field>
             <field name="email_from">{{ (object.user_id.email_formatted or object.type_id.company_id.email_formatted or '') }}</field>
             <field name="email_to">{{ object.partner_id.email }}</field>
             <field name="lang">{{ object.partner_id.lang }}</field>
@@ -387,7 +387,7 @@
         <record id="mail_template_reminder_2h" model="mail.template">
             <field name="name">Rendez-vous : Rappel 2 heures</field>
             <field name="model_id" ref="resource_booking.model_resource_booking"/>
-            <field name="subject">Dans 2 heures - {{ object.type_id.name }}</field>
+            <field name="subject">{{ object.type_id.name }} | {{ object.partner_id.name }}</field>
             <field name="email_from">{{ (object.user_id.email_formatted or object.type_id.company_id.email_formatted or '') }}</field>
             <field name="email_to">{{ object.partner_id.email }}</field>
             <field name="lang">{{ object.partner_id.lang }}</field>
@@ -429,7 +429,7 @@
         <record id="mail_template_reminder_1h" model="mail.template">
             <field name="name">Rendez-vous : Rappel 1 heure</field>
             <field name="model_id" ref="resource_booking.model_resource_booking"/>
-            <field name="subject">Dans 1 heure - {{ object.type_id.name }}</field>
+            <field name="subject">{{ object.type_id.name }} | {{ object.partner_id.name }}</field>
             <field name="email_from">{{ (object.user_id.email_formatted or object.type_id.company_id.email_formatted or '') }}</field>
             <field name="email_to">{{ object.partner_id.email }}</field>
             <field name="lang">{{ object.partner_id.lang }}</field>
@@ -475,7 +475,7 @@
         <record id="mail_template_followup_immediate" model="mail.template">
             <field name="name">Rendez-vous : Suivi imm&#233;diat</field>
             <field name="model_id" ref="resource_booking.model_resource_booking"/>
-            <field name="subject">Merci pour votre rendez-vous - {{ object.type_id.name }}</field>
+            <field name="subject">{{ object.type_id.name }} | {{ object.partner_id.name }}</field>
             <field name="email_from">{{ (object.user_id.email_formatted or object.type_id.company_id.email_formatted or '') }}</field>
             <field name="email_to">{{ object.partner_id.email }}</field>
             <field name="lang">{{ object.partner_id.lang }}</field>
@@ -521,7 +521,7 @@
         <record id="mail_template_followup_1h" model="mail.template">
             <field name="name">Rendez-vous : Suivi 1 heure apr&#232;s</field>
             <field name="model_id" ref="resource_booking.model_resource_booking"/>
-            <field name="subject">Suite &#224; notre rendez-vous - {{ object.type_id.name }}</field>
+            <field name="subject">{{ object.type_id.name }} | {{ object.partner_id.name }}</field>
             <field name="email_from">{{ (object.user_id.email_formatted or object.type_id.company_id.email_formatted or '') }}</field>
             <field name="email_to">{{ object.partner_id.email }}</field>
             <field name="lang">{{ object.partner_id.lang }}</field>
@@ -565,7 +565,7 @@
         <record id="mail_template_followup_2h" model="mail.template">
             <field name="name">Rendez-vous : Suivi 2 heures apr&#232;s</field>
             <field name="model_id" ref="resource_booking.model_resource_booking"/>
-            <field name="subject">R&#233;sum&#233; de votre rendez-vous - {{ object.type_id.name }}</field>
+            <field name="subject">{{ object.type_id.name }} | {{ object.partner_id.name }}</field>
             <field name="email_from">{{ (object.user_id.email_formatted or object.type_id.company_id.email_formatted or '') }}</field>
             <field name="email_to">{{ object.partner_id.email }}</field>
             <field name="lang">{{ object.partner_id.lang }}</field>
@@ -613,7 +613,7 @@
         <record id="mail_template_organizer_new_booking" model="mail.template">
             <field name="name">Rendez-vous : Notification organisateur</field>
             <field name="model_id" ref="resource_booking.model_resource_booking"/>
-            <field name="subject">Nouveau rendez-vous : {{ object.partner_id.name }} - {{ object.type_id.name }}</field>
+            <field name="subject">{{ object.type_id.name }} | {{ object.partner_id.name }}</field>
             <field name="email_from">{{ (object.type_id.company_id.email_formatted or '') }}</field>
             <field name="email_to">{{ object.user_id.partner_id.email or object.user_id.login }}</field>
             <field name="lang">{{ object.user_id.lang }}</field>
@@ -667,7 +667,7 @@
         <record id="mail_template_appointment_reminder" model="mail.template">
             <field name="name">Rendez-vous : Rappel (ancien)</field>
             <field name="model_id" ref="resource_booking.model_resource_booking"/>
-            <field name="subject">Rappel - Votre rendez-vous demain : {{ object.type_id.name }}</field>
+            <field name="subject">{{ object.type_id.name }} | {{ object.partner_id.name }}</field>
             <field name="email_from">{{ (object.user_id.email_formatted or object.type_id.company_id.email_formatted or '') }}</field>
             <field name="email_to">{{ object.partner_id.email }}</field>
             <field name="lang">{{ object.partner_id.lang }}</field>
@@ -684,7 +684,7 @@
         <record id="mail_template_appointment_cancellation" model="mail.template">
             <field name="name">Rendez-vous : Annulation (client)</field>
             <field name="model_id" ref="resource_booking.model_resource_booking"/>
-            <field name="subject">Annulation de votre rendez-vous - {{ object.type_id.name }}</field>
+            <field name="subject">{{ object.type_id.name }} | {{ object.partner_id.name }}</field>
             <field name="email_from">{{ (object.user_id.email_formatted or object.type_id.company_id.email_formatted or '') }}</field>
             <field name="email_to">{{ object.partner_id.email }}</field>
             <field name="lang">{{ object.partner_id.lang }}</field>
@@ -785,7 +785,7 @@
         <record id="mail_template_organizer_cancellation" model="mail.template">
             <field name="name">Rendez-vous : Annulation (organisateur)</field>
             <field name="model_id" ref="resource_booking.model_resource_booking"/>
-            <field name="subject">Annulation : {{ object.partner_id.name }} - {{ object.type_id.name }}</field>
+            <field name="subject">{{ object.type_id.name }} | {{ object.partner_id.name }}</field>
             <field name="email_from">{{ (object.type_id.company_id.email_formatted or '') }}</field>
             <field name="email_to">{{ object.user_id.partner_id.email or object.user_id.email }}</field>
             <field name="lang">{{ object.user_id.lang }}</field>
