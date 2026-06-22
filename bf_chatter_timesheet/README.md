@@ -47,6 +47,7 @@ bf_chatter_timesheet/
 | `project` | `project.task` model carrying the new method |
 | `hr_timesheet` | `account.analytic.line` model + ACLs |
 | `bf_timesheet_timer` | Functional companion (timer-based timesheet entry); declared as a peer to keep the BF timesheet UX coherent |
+| `bf_onboarding_base` | Onboarding wizard integration |
 
 No external Python libraries.
 

@@ -11,7 +11,7 @@ from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
 
-_EML_EXTENSIONS = {".eml", ".msg"}
+_EML_EXTENSIONS = {".eml"}
 
 
 class MailImportWizard(models.TransientModel):

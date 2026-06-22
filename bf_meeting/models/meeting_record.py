@@ -194,7 +194,7 @@ class MeetingRecord(models.Model):
             rec.lang = (rec.partner_id and rec.partner_id.lang) or default_lang
     series_name = fields.Char(
         string='Série',
-        help='Nom de la série récurrente (ex. Statutaire BSI)',
+        help='Nom de la série récurrente (ex. Comité de direction mensuel)',
         index=True,
     )
     organizer_id = fields.Many2one(

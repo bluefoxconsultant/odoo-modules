@@ -1,7 +1,7 @@
 {
     "name": "Contacts Nextcloud Sync",
     "summary": "Synchronize Odoo contacts with Nextcloud address book via CardDAV",
-    "version": "18.0.1.1.1",
+    "version": "18.0.1.2.0",
     "category": "Contacts",
     "author": "Blue Fox Inc.",
     'website': 'https://bluefoxconsultant.com',

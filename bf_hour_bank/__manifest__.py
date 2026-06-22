@@ -2,20 +2,20 @@
     'name': 'Banque d\'heures',
     'version': '18.0.1.11.0',
     'category': 'Services/Project',
-    'summary': 'Suivi automatis\u00e9 des banques d\'heures client',
+    'summary': 'Suivi automatisé des banques d\'heures client',
     'description': """
 Banque d'heures
 ===============
 
-Suivi automatis\u00e9 des banques d'heures pour les clients en mode forfaitaire.
+Suivi automatisé des banques d'heures pour les clients en mode forfaitaire.
 
-Fonctionnalit\u00e9s:
+Fonctionnalités:
 -----------------
 * Configuration par client (projets, produits de facturation)
-* Calcul automatique du solde (d\u00e9bits feuilles de temps, cr\u00e9dits factures)
-* G\u00e9n\u00e9ration de rapports PDF et Excel
-* Envoi par courriel avec pi\u00e8ces jointes
-* Sommaire par projet et synth\u00e8se mensuelle
+* Calcul automatique du solde (débits feuilles de temps, crédits factures)
+* Génération de rapports PDF et Excel
+* Envoi par courriel avec pièces jointes
+* Sommaire par projet et synthèse mensuelle
     """,
     'author': 'Blue Fox Inc.',
     'website': 'https://bluefoxconsultant.com',

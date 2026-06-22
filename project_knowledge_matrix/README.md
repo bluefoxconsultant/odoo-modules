@@ -148,7 +148,7 @@ Full corporate governance module for Quebec LSAQ-compliant companies:
 Generate professional branded PDF reports directly from any knowledge matrix:
 
 - **One-click printing**: Blue "Imprimer PDF" button in the matrix form header (not buried in the gear menu)
-- **Blue Fox branding**: Dark banner with company logo, accent blue bar, and Lexend typography via `bf_lexend`
+- **Blue Fox branding**: Dark banner with company logo, accent blue bar, and Lexend typography via `bluefox_branding`
 - **KPI summary**: Four metric cards (Total, Completed, In Progress, Overdue) with a visual progress bar
 - **Section grouping**: Items organized by section (sorted by sequence), each with a compact 6-column table (ID, Element, Status, Priority, Deadline, Assigned)
 - **Color-coded badges**: Green for done/accepted, blue for in_progress, grey for pending, red for overdue; priority badges for urgent (red) and high (orange)
@@ -230,6 +230,7 @@ Server actions for efficient multi-select operations:
 - `project` (Odoo Project Management)
 - `mail` (Discuss/Chatter)
 - `hr` (Human Resources - for employee distribution tracking)
+- `bluefox_branding` (branded PDF reports and email templates)
 - `cryptography` (Python package for credential encryption)
 
 ## Configuration
@@ -605,6 +606,10 @@ This module follows Odoo 18 best practices:
 - Efficient SQL constraints for uniqueness
 
 ## Changelog
+
+### 18.0.9.12.3
+
+- Documentation and metadata sync (license/LICENSE; README dependency list and branding reference corrected). See git history for intermediate changes.
 
 ### 18.0.9.7.0
 

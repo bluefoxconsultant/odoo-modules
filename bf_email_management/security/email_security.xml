@@ -18,7 +18,7 @@
         rows stays denied (admin rule is read-only and the owner rule's domain
         excludes them).
       - Membership is NOT shipped in data — assign group_email_admin to humans
-        only, never to service accounts (Client.e, Meeting Processor API).
+        only, never to automated service / integration accounts.
     -->
 
     <data noupdate="1">

@@ -68,9 +68,10 @@ _NC_WATCH_DIRECT_MAX = 200 * 1024 * 1024
 _CHUNK_MAX_BYTES = 80 * 1024 * 1024
 _BATCH_SIZE = 500
 
-# Disk-based import folder (mounted via docker-compose, no size limit).
+# Default disk-based import folder (mounted via docker-compose, no size limit).
+# Overridable per deployment via ir.config_parameter "bf_sms_archive.disk_inbox_path".
 _DISK_INBOX = "/mnt/sms-inbox"
-# Subfolder under _DISK_INBOX used as scratch space for stream-download + split.
+# Subfolder under the disk inbox used as scratch space for stream-download + split.
 _SPLIT_STAGING_SUBDIR = ".split-staging"
 
 # XML wrapper templates for split chunks — the import wizard expects a
@@ -127,7 +128,7 @@ class SmsArchiveImportWizard(models.TransientModel):
             raise UserError(_(
                 "Le fichier dépasse la limite de %d Mo pour l'import par "
                 "formulaire. Pour les fichiers plus volumineux, déposez-les "
-                "dans /mnt/sms-inbox côté serveur (voir README)."
+                "dans le dossier d'import disque configuré côté serveur (voir README)."
             ) % (_MAX_FILE_SIZE // (1024 * 1024)))
 
         fname = (self.file_name or "").lower()
@@ -664,9 +665,15 @@ class SmsArchiveImportWizard(models.TransientModel):
     # Disk-based import (for multi-GB XMLs that can't fit in Binary/HTTP)
     # ------------------------------------------------------------------
 
+    def _disk_inbox_path(self):
+        """Disk-import folder for multi-GB drops; overridable per deployment
+        via the ir.config_parameter ``bf_sms_archive.disk_inbox_path``."""
+        return self.env["ir.config_parameter"].sudo().get_param(
+            "bf_sms_archive.disk_inbox_path", _DISK_INBOX)
+
     @api.model
     def _cron_disk_import(self):
-        """Scan /mnt/sms-inbox for XML files and import them via iterparse
+        """Scan the configured disk inbox for XML files and import them via iterparse
         directly from disk — no HTTP upload, no base64, no Binary field.
 
         Files are moved to done/ on success or failed/ on error.
@@ -677,25 +684,26 @@ class SmsArchiveImportWizard(models.TransientModel):
         """
         ICP = self.env["ir.config_parameter"].sudo()
         owner_uid = int(ICP.get_param("bf_sms_archive.disk_watch_user_id", "2"))
+        disk_inbox = self._disk_inbox_path()
 
-        if not os.path.isdir(_DISK_INBOX):
-            _logger.debug("SMS disk import: %s not mounted, skipping", _DISK_INBOX)
+        if not os.path.isdir(disk_inbox):
+            _logger.debug("SMS disk import: %s not mounted, skipping", disk_inbox)
             return
 
-        done_dir = os.path.join(_DISK_INBOX, "done")
-        failed_dir = os.path.join(_DISK_INBOX, "failed")
+        done_dir = os.path.join(disk_inbox, "done")
+        failed_dir = os.path.join(disk_inbox, "failed")
         os.makedirs(done_dir, exist_ok=True)
         os.makedirs(failed_dir, exist_ok=True)
 
         # List XML files in the inbox root (not subdirs)
         try:
-            entries = sorted(os.listdir(_DISK_INBOX))
+            entries = sorted(os.listdir(disk_inbox))
         except OSError:
-            _logger.exception("SMS disk import: cannot list %s", _DISK_INBOX)
+            _logger.exception("SMS disk import: cannot list %s", disk_inbox)
             return
 
         for name in entries:
-            src = os.path.join(_DISK_INBOX, name)
+            src = os.path.join(disk_inbox, name)
             if not os.path.isfile(src):
                 continue
             if not name.lower().endswith(".xml"):
@@ -746,7 +754,7 @@ class SmsArchiveImportWizard(models.TransientModel):
         self.ensure_one()
         self._cron_disk_import()
         self.result_message = _(
-            "Import depuis /mnt/sms-inbox déclenché.\n"
+            "Import depuis le dossier d'import disque configuré déclenché.\n"
             "Consultez le journal Odoo pour les détails, ou le dossier "
             "sms-inbox/done (succès) / sms-inbox/failed (erreurs)."
         )
@@ -885,7 +893,7 @@ class SmsArchiveImportWizard(models.TransientModel):
 
                 # Stream-download to staging, split, import each chunk.
                 staging = (
-                    Path(_DISK_INBOX) / _SPLIT_STAGING_SUBDIR
+                    Path(self._disk_inbox_path()) / _SPLIT_STAGING_SUBDIR
                     / Path(fname).stem
                 )
                 # Clean any leftover from a prior aborted run.

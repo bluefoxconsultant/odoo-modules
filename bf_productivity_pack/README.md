@@ -26,4 +26,4 @@ Installing `bf_productivity_pack` installs all of the above. Uninstalling it doe
 
 ## License
 
-GNU LGPL-3. See [`../LICENSE`](../LICENSE) for the full text.
+GNU LGPL-3. See [`LICENSE`](LICENSE) for the full text.

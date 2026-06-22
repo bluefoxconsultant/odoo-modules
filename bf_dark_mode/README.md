@@ -11,7 +11,17 @@ LGPL-3 — see the repository [LICENSE](../LICENSE) and `__manifest__.py` for de
 ### Systray Toggle
 - Sun icon in light mode, moon icon in dark mode
 - One-click toggle from the navbar, visible on every screen
-- Theme preference persisted in a browser cookie (`bf_color_scheme`)
+- Instant client-side toggle stored in a browser cookie (`bf_color_scheme`)
+
+### Per-user persistence
+- A `bf_dark_mode_enabled` boolean is stored on `res.users` and exposed in
+  user **Preferences** (and on the full user form for admins)
+- The preference is shipped to the web client through the session
+  (`session_info`), so the theme is applied **on load without an extra RPC**
+- The choice **follows the user across browsers and devices**, and an
+  administrator can set it as a default
+- On load, the session preference is the source of truth and seeds the local
+  cookie/toggle; toggling persists back to `res.users`
 
 ### Blue Fox Brand Palette
 - Surfaces use the BF dark gray (#2E3132) instead of generic navy/black
@@ -81,7 +91,7 @@ No configuration required. The toggle is available to all backend users.
 ### How It Works
 - The JS component adds/removes the class `bf_dark_mode` on `<body>`
 - All SCSS rules are scoped under `body.bf_dark_mode { ... }` -- zero impact when the toggle is off
-- Theme preference is stored in a browser cookie, not in the database (per-browser, not per-user)
+- The per-user preference (`res.users.bf_dark_mode_enabled`) is the source of truth on load; the browser cookie (`bf_color_scheme`) backs the instant toggle and is re-seeded from the session preference
 
 ### Odoo 18 SCSS Constraints
 - No SCSS color functions (`lighten()`, `darken()`, `mix()`) are used -- all hex values are pre-computed to avoid libsass compilation issues in Odoo's asset pipeline
@@ -99,6 +109,11 @@ bf_dark_mode/
 ├── __init__.py
 ├── __manifest__.py
 ├── README.md
+├── models/
+│   ├── res_users.py                # bf_dark_mode_enabled preference field
+│   └── ir_http.py                  # session_info: ship pref to web client
+├── views/
+│   └── res_users_views.xml         # Preferences + admin user form fields
 └── static/src/
     ├── js/
     │   └── dark_mode_button.js      # OWL 2 systray toggle component
@@ -107,6 +122,19 @@ bf_dark_mode/
     └── xml/
         └── dark_mode_button.xml     # Systray button template
 ```
+
+## Changelog
+
+### 18.0.1.1.0
+- **Per-user persistence**: added `res.users.bf_dark_mode_enabled`, exposed in
+  user Preferences (and the admin user form). The preference is shipped to the
+  web client via `session_info` and read on load, so the dark theme now
+  follows the user across browsers/devices and can be admin-defaulted. The
+  instant client-side cookie toggle is preserved and seeded from the session
+  preference; toggling persists back to `res.users`.
+
+### 18.0.1.0.0
+- Initial release: per-browser cookie systray toggle and Blue Fox dark palette.
 
 ## Credits
 

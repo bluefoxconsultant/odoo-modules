@@ -27,7 +27,7 @@ class MailFollowers(models.Model):
 
         An internal user is `res.users` with `share = false` (active or archived).
         Partner IDs listed in `bf_follower_cleanup.always_remove_partner_ids`
-        are purged unconditionally (e.g. service accounts like Meeting Processor API).
+        are purged unconditionally (e.g. integration/service accounts).
         """
         batch_param = self.env["ir.config_parameter"].sudo().get_param(PARAM_BATCH, "5000")
         try:

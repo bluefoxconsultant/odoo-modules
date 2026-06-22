@@ -5460,8 +5460,8 @@ msgstr "Identifiant court (ex. : NC pour Nextcloud, OD pour Odoo)"
 
 #. module: hosting_management
 #: model:ir.model.fields,help:hosting_management.field_hosting_server__code
-msgid "Identifiant court (ex. : « PT1 »)"
-msgstr "Identifiant court (ex. : « PT1 »)"
+msgid "Identifiant court (ex. : « SRV-A »)"
+msgstr "Identifiant court (ex. : « SRV-A »)"
 
 #. module: hosting_management
 #: model:ir.model.fields,help:hosting_management.field_hosting_backup_run__message_needaction

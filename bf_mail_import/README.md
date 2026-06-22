@@ -12,7 +12,7 @@ When emails are received or sent outside of Odoo (external mail client, webmail,
 - **Multi-file import** — upload multiple `.eml` files in a single operation
 - **Direct import** — single click to import (no preview step)
 - **Chronological order** — files are pre-sorted by send date before import, guaranteeing chronological display in the chatter
-- **Extension validation** — only `.eml` and `.msg` files are accepted
+- **Extension validation** — only `.eml` files are accepted
 - **Duplicate detection** — RFC 2822 `Message-ID` is checked before insertion
 - **Automatic author resolution** — looks up the `res.partner` matching the sender's email address
 - **Threading preservation** — `parent_id` resolved through `In-Reply-To` / `References` headers, with validation that the parent belongs to the same thread
@@ -112,7 +112,7 @@ The button is injected via the standard Odoo 18 patch pattern:
 
 | Case | Behavior |
 |------|----------|
-| Extension other than `.eml`/`.msg` | `UserError` with file name, added to errors, other files continue |
+| Extension other than `.eml` | `UserError` with file name, added to errors, other files continue |
 | Corrupt file | Error caught, added to summary, other files continue |
 | `Message-ID` already present in `mail.message` | File skipped, listed under duplicates |
 | `parent_id` from another thread | Silently ignored (set to `False`) to avoid cross-thread links |
@@ -134,6 +134,11 @@ docker compose exec odoo odoo -d <database> -u bf_mail_import --stop-after-init
 2. Click the **`.eml`** button in the chatter bar (next to "Activities")
 3. Upload one or more `.eml` files
 4. **Import** — the messages appear in the chatter with the original date and sender
+
+## Changelog
+
+### 18.0.1.3.1
+- **`.eml` only**: removed `.msg` from the accepted extension whitelist. Outlook `.msg` files use the OLE compound-document format, which `email.message_from_bytes()` (RFC 2822) cannot parse — they previously passed the extension gate and then failed during parsing. README and validation now consistently state `.eml` only.
 
 ## License
 

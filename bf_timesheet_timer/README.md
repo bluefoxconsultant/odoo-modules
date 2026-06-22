@@ -77,8 +77,7 @@ LGPL-3 — see [LICENSE](#license-text) below.
 ## Requirements
 
 - Odoo 18.0 (Community or Enterprise)
-- Modules: `hr_timesheet`, `project`, `base_setup`
-- Optional: `sh_task_time_adv` (buttons will be hidden if installed; module works without it)
+- Modules: `hr_timesheet`, `project`, `base_setup`, `bf_onboarding_base`
 
 ## Installation
 
@@ -95,8 +94,6 @@ LGPL-3 — see [LICENSE](#license-text) below.
    ```
 
 4. Restart Odoo and hard-refresh your browser (`Ctrl+Shift+R`).
-
-> **Note:** If `sh_task_time_adv` is not installed, remove it from the `depends` list in `__manifest__.py` and delete the two `view_task_*_hide_sh_timer` records from `views/project_task_views.xml`.
 
 ## Configuration
 
@@ -306,13 +303,6 @@ getTimerClass(timer) {
 }
 ```
 
-### Removing sh_task_time_adv Dependency
-
-If you don't have `sh_task_time_adv` installed:
-
-1. Remove `"sh_task_time_adv"` from `depends` in `__manifest__.py`
-2. Delete the two `view_task_*_hide_sh_timer` records from `views/project_task_views.xml`
-
 ## Technical Notes
 
 ### Odoo 18 Compatibility
@@ -378,6 +368,15 @@ bf_timesheet_timer/
 
 ## Changelog
 
+### 18.0.1.8.1
+- **Dropped the `sh_task_time_adv` (Softhealer) dependency**: the module no longer depends on the proprietary Softhealer timer. Removed the two `view_task_*_hide_sh_timer` inherited views (their only purpose was to hide Softhealer's Start/End buttons). The native OWL timer is self-contained and needs neither. Fixed the `license` metadata comment (LGPL-3, not MIT).
+
+### 18.0.1.8.0
+- **Systray bulk stop**: "stop-all" and "stop-red" buttons added to the systray dropdown to stop every running timer (or only the over-threshold red ones) at once.
+
+### 18.0.1.7.0
+- **Onboarding panel**: added a `bf_onboarding_base` onboarding step for the timer; now depends on `bf_onboarding_base`.
+
 ### 18.0.1.6.0 (2026-03-04)
 - **Pause / Resume**: Pause a running timer without stopping it; elapsed time freezes and resumes from where it left off. Pause/resume buttons in the systray dropdown, orange dot indicator when all timers paused.
 - **Configurable rounding**: Settings > Feuilles de temps lets managers choose rounding increment (1/5/10/15 min) and mode (none / round all / round below threshold).
@@ -419,7 +418,6 @@ bf_timesheet_timer/
 - Progressive color coding (normal → orange → red)
 - Keyboard shortcut `Ctrl+Shift+T`
 - Pending timer detection for form/kanban button stops
-- Hides `sh_task_time_adv` buttons when installed
 
 ## Credits
 

@@ -1,6 +1,6 @@
 {
     "name": "BF Survey Upload",
-    "version": "18.0.1.1.0",
+    "version": "18.0.1.2.0",
     "category": "Marketing/Surveys",
     "summary": "Type de question Téléversement de fichiers pour les sondages Odoo",
     "description": """

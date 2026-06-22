@@ -406,8 +406,10 @@ class HelpdeskTicket(models.Model):
         api_key = self._bf_helpdesk_get_anthropic_api_key()
         if not api_key:
             raise UserError(
-                "Clé API Anthropic non configurée. Voir Settings → Claude Chat ou paramètre "
-                "système 'bf_helpdesk.anthropic_api_key'."
+                "Triage IA non configuré : aucune clé API Anthropic disponible. "
+                "Renseignez le paramètre système 'bf_helpdesk.anthropic_api_key', "
+                "ou installez le module optionnel GenFox (bf_claude_chat) qui fournit "
+                "une clé chiffrée."
             )
         model = IConf.get_param("bf_claude_chat.model", "claude-sonnet-4-6")
         timeout = float(IConf.get_param("bf_helpdesk.triage_timeout", "30"))

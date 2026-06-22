@@ -1,3 +1,5 @@
+import base64
+import binascii
 import logging
 import re
 import uuid
@@ -8,6 +10,11 @@ import requests
 from odoo import api, fields, models
 
 _logger = logging.getLogger(__name__)
+
+# Upper bound on an embedded vCard PHOTO payload (decoded bytes). Larger
+# images are skipped on both import and export to keep vCards reasonable and
+# avoid bloating the CardDAV address book.
+_MAX_PHOTO_BYTES = 5 * 1024 * 1024  # 5 MB
 
 try:
     from cryptography.fernet import Fernet, InvalidToken
@@ -27,7 +34,7 @@ SYNC_RELEVANT_FIELDS = {
     "name", "email", "phone", "mobile", "function",
     "parent_id", "company_name", "street", "street2",
     "city", "state_id", "zip", "country_id",
-    "website", "comment",
+    "website", "comment", "image_1920",
 }
 
 
@@ -953,6 +960,7 @@ class NextcloudContactsSyncConfig(models.Model):
             "state": "",
             "zip": "",
             "country": "",
+            "photo": "",
         }
 
         for line in lines:
@@ -1008,6 +1016,9 @@ class NextcloudContactsSyncConfig(models.Model):
                 data["state"] = _unescape_vcard(adr_parts[4]) if len(adr_parts) > 4 else ""
                 data["zip"] = _unescape_vcard(adr_parts[5]) if len(adr_parts) > 5 else ""
                 data["country"] = _unescape_vcard(adr_parts[6]) if len(adr_parts) > 6 else ""
+            elif prop_name == "PHOTO":
+                if not data["photo"]:
+                    data["photo"] = self._extract_vcard_photo(value, params_str)
 
         # Fallback: derive name from N if FN is empty
         if not data["name"] and (data["first_name"] or data["last_name"]):
@@ -1018,6 +1029,44 @@ class NextcloudContactsSyncConfig(models.Model):
             data["first_name"], data["last_name"] = _split_name(data["name"])
 
         return data if data["name"] else None
+
+    @staticmethod
+    def _extract_vcard_photo(value, params_str):
+        """Extract base64 image data from a vCard PHOTO value.
+
+        Handles vCard 3.0 inline base64 (``PHOTO;ENCODING=b;TYPE=JPEG:<b64>``)
+        and vCard 4.0 data URIs (``PHOTO:data:image/jpeg;base64,<b64>``).
+        Returns a clean base64 string suitable for ``image_1920``, or "" when
+        the photo is an external URL reference, not valid base64, or too large.
+
+        ``params_str`` is already upper-cased by the caller.
+        """
+        if not value:
+            return ""
+        raw = value.strip()
+        if raw.lower().startswith("data:"):
+            # vCard 4.0 data URI: data:<mime>;base64,<payload>
+            marker = "base64,"
+            idx = raw.lower().find(marker)
+            if idx == -1:
+                return ""
+            b64 = raw[idx + len(marker):]
+        elif "ENCODING=B" in params_str or "BASE64" in params_str:
+            # vCard 3.0 inline base64 (ENCODING=b or ENCODING=BASE64)
+            b64 = raw
+        else:
+            # External URI reference (http/https) or unknown encoding — skip.
+            return ""
+        b64 = "".join(b64.split())
+        if not b64:
+            return ""
+        try:
+            decoded = base64.b64decode(b64, validate=True)
+        except (ValueError, binascii.Error):
+            return ""
+        if not decoded or len(decoded) > _MAX_PHOTO_BYTES:
+            return ""
+        return b64
 
     def _vcard_data_to_partner_vals(self, contact_data):
         """Convert parsed vCard data dict to res.partner field values."""
@@ -1039,6 +1088,8 @@ class NextcloudContactsSyncConfig(models.Model):
             vals["website"] = contact_data["website"]
         if contact_data.get("notes"):
             vals["comment"] = contact_data["notes"]
+        if contact_data.get("photo"):
+            vals["image_1920"] = contact_data["photo"]
         if contact_data.get("street"):
             vals["street"] = contact_data["street"]
         if contact_data.get("street2"):
@@ -1148,8 +1199,49 @@ class NextcloudContactsSyncConfig(models.Model):
         if partner.comment:
             lines.append(f"NOTE:{_escape_vcard(partner.comment)}")
 
+        # PHOTO (embedded base64, vCard 3.0)
+        lines.extend(self._partner_photo_vcard_lines(partner))
+
         lines.append("END:VCARD")
         return "\r\n".join(lines) + "\r\n"
+
+    def _partner_photo_vcard_lines(self, partner):
+        """Build folded vCard 3.0 PHOTO line(s) from ``partner.image_1920``.
+
+        Returns a list of physical lines (already folded per RFC 6350 §3.2),
+        or [] when there is no usable image (absent, invalid, or too large).
+        """
+        image_b64 = partner.image_1920
+        if not image_b64:
+            return []
+        if isinstance(image_b64, bytes):
+            image_b64 = image_b64.decode("ascii", "ignore")
+        image_b64 = "".join(image_b64.split())
+        if not image_b64:
+            return []
+        try:
+            decoded = base64.b64decode(image_b64, validate=True)
+        except (ValueError, binascii.Error):
+            return []
+        if not decoded or len(decoded) > _MAX_PHOTO_BYTES:
+            return []
+        img_type = "PNG" if decoded[:8] == b"\x89PNG\r\n\x1a\n" else "JPEG"
+        first = f"PHOTO;ENCODING=b;TYPE={img_type}:{image_b64}"
+        return self._fold_vcard_line(first)
+
+    @staticmethod
+    def _fold_vcard_line(line, limit=75):
+        """Fold a long vCard line at ``limit`` octets, continuation lines
+        starting with a single space (RFC 6350 §3.2). The parser unfolds on
+        import, so this is purely for spec-compliant output."""
+        if len(line) <= limit:
+            return [line]
+        out = [line[:limit]]
+        rest = line[limit:]
+        while rest:
+            out.append(" " + rest[: limit - 1])
+            rest = rest[limit - 1:]
+        return out
 
     # === Helpers ===
 

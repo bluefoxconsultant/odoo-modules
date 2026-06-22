@@ -6,8 +6,11 @@ party, distinct from the standard in-progress / done states.
 
 ## What it does
 
-- Extends the task kanban state selection (client-side patch) with the two
-  "waiting" states.
+- Adds the two "waiting" states server-side via a `selection_add` on
+  `project.task.state` (`models/project_task.py`), with an `ondelete` fallback
+  to the default state.
+- Surfaces them in the task kanban state selection through a client-side patch
+  (`static/src/js/task_state_selection_patch.js`).
 - Lets reporting and filters distinguish work that is stalled on an external
   party from work that is actively in progress.
 

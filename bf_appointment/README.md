@@ -20,7 +20,7 @@ Booking* (OCA).
 ## Dépendances
 
 `resource_booking`, `portal`, `mail`, `project`, `privacy_consent`,
-`bluefox_branding`, `bf_onboarding_base`.
+`bluefox_branding`, `bf_onboarding_base`, `bf_timezone`.
 
 ## Licence
 

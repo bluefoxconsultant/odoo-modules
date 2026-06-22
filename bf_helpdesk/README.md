@@ -67,18 +67,22 @@ and asks for a categorization, suggested stage, suggested assignee, and
 a draft first response. The result is stored on `triage_suggestion_html`
 and shown in the "Triage IA" tab.
 
-API key resolution priority:
+The Triage IA feature is **optional**. It requires an Anthropic API key,
+resolved in this priority order:
 1. `ir.config_parameter` `bf_helpdesk.anthropic_api_key` (plain — handy for
    tests / per-tenant override)
-2. `bf_claude_chat` encrypted key (Fernet, requires the same module's setup)
+2. The optional GenFox module (`bf_claude_chat`) encrypted key (Fernet). This
+   module is **not** a hard dependency; `bf_helpdesk` reads its config
+   parameters via `ir.config_parameter` only and never imports it. When it is
+   absent and no plain key is set, the "Triage IA" button simply reports that
+   triage is not configured — every other helpdesk feature works normally.
 
 Network failures persist a soft-error on the ticket (`triage_state=error`)
 without raising a popup; configuration errors (missing API key) raise a
 popup.
 
-## Phase 3 (planned)
+## Changelog
 
-- CSAT survey on close (`bf_survey_upload`)
-- Dashboard tile (`bf_dashboard`)
-- Branded portal templates fr_CA/en_CA
-- Native IMAP gateway gotcha handling (`bf_mail_import` lib)
+| Version | Change |
+|---|---|
+| 18.0.4.1.1 | `bf_claude_chat` (GenFox) downgraded from hard dependency to optional soft-dep — AI triage reads its config via `ir.config_parameter` and degrades gracefully when absent. README cleanup: removed the stale "Phase 3 (planned)" list (all items already shipped) and corrected the CSAT note (uses core `survey`, not `bf_survey_upload`). |

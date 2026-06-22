@@ -126,7 +126,7 @@ class BfSurveyUpload(Survey):
         )
 
         # Aggregate cap across all uploads already attached to this answer.
-        existing_total = sum(
+        existing_attachments = (
             request.env["ir.attachment"]
             .sudo()
             .search(
@@ -135,8 +135,28 @@ class BfSurveyUpload(Survey):
                     ("res_id", "=", answer_sudo.id),
                 ]
             )
-            .mapped("file_size")
         )
+        existing_total = sum(existing_attachments.mapped("file_size"))
+
+        # Per-question cap on the TOTAL number of files (0 = unlimited).
+        # Only meaningful when multiple files are allowed; single-file
+        # questions are already bounded to 1 by validate_question and the
+        # front-end. Checked under the row lock so concurrent uploads cannot
+        # race past the limit.
+        if question.file_upload_multiple and question.max_file_count > 0:
+            incoming = sum(1 for f in files if f and f.filename)
+            if len(existing_attachments) + incoming > question.max_file_count:
+                return request.make_json_response(
+                    {
+                        "error": "too_many_files",
+                        "message": _(
+                            "Vous pouvez téléverser au maximum %(n)s fichier(s) "
+                            "pour cette question.",
+                            n=question.max_file_count,
+                        ),
+                    },
+                    status=400,
+                )
 
         allowed_exts = question._get_allowed_extensions_list()
         created = []

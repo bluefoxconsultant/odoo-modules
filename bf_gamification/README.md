@@ -68,6 +68,9 @@ Built for [Blue Fox Inc.](https://bluefoxconsultant.com)
 | `project_knowledge_matrix` | Document/knowledge item XP integration |
 | `hosting_management` | Maintenance completion XP integration |
 | `helpdesk_mgmt` | Helpdesk ticket resolution XP integration |
+| `bf_onboarding_base` | Shared onboarding-panel helpers (guided setup step) |
+| `bf_meeting` | Meeting record/agenda/decision XP integration |
+| `bf_email_management` | Email (`bf.email`) XP integration |
 
 Odoo 18 Community Edition.
 
@@ -523,6 +526,11 @@ bf_gamification/
 ---
 
 ## Changelog
+
+### v2.3.0
+
+- Synchronisation documentation et métadonnées (licence/LICENSE). Voir
+  l'historique Git pour le détail des changements intermédiaires.
 
 ### v2.0.0 (2026-02-22) — Fox Theme + New XP Sources
 

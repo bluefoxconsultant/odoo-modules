@@ -342,7 +342,7 @@
             </p>
             <p>
                 Suivi des abonnements payants : SaaS, memberships, infrastructure.
-                Optionnellement gérés au nom d'un client (Tencor, BSI…) avec refacturation.
+                Optionnellement gérés au nom d'un client avec refacturation.
             </p>
         </field>
     </record>

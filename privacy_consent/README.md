@@ -225,7 +225,7 @@ Ce manuel couvre :
 ### Prérequis
 
 - Odoo 18.0 Community Edition
-- Modules dépendants : `base`, `mail`, `project`, `portal`
+- Modules dépendants : `base`, `mail`, `project`, `portal`, `bluefox_branding`
 
 ### Procédure
 
@@ -556,6 +556,7 @@ privacy_consent/
 | `mail` | Chatter, activites, templates email |
 | `project` | Extension du modele `project.project` |
 | `portal` | Controleur et templates du portail client |
+| `bluefox_branding` | Gabarits de courriels et rapports brandes |
 
 | Dependance Python | Usage |
 |-------------------|-------|
@@ -566,7 +567,7 @@ privacy_consent/
 
 ## Licence
 
-Ce module est distribué sous licence **MIT**.
+Ce module est distribué sous licence **LGPL-3**.
 
 ```
 This module is licensed under the GNU Lesser General Public License v3.0 (LGPL-3). See [LICENSE](LICENSE) for the full text.
@@ -588,6 +589,7 @@ Pour signaler un problème ou suggérer une amélioration, veuillez contacter l'
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 18.0.3.1.4 | 2026-06 | Synchronisation documentation et métadonnées (licence/LICENSE). Voir l'historique git pour le détail. |
 | 18.0.3.0.1 | 2026-04-11 | Correctifs QA : 17 methodes action_* sans retour XML-RPC, selection secure_wipe manquante, ACL registre (notes editable par Officer), certificat PDF redirige vers rapport QWeb, codes README corriges |
 | 18.0.3.0.0 | 2026-04 | Destruction et anonymisation documentaire : calendrier de conservation, classification documentaire, registre de destruction immuable, campagnes de destruction en lot, evaluations d'anonymisation (Regl. A-2.1), droit a l'effacement, audit de securite complet |
 | 18.0.2.0.0 | 2026-02 | Ajout du manuel d'utilisation complet, integration DocuSeal, politiques de retention, certificats de destruction |

@@ -69,6 +69,7 @@ res.users
 
 - `project` — extension de `project.task` (kanban, form, list, search).
 - `mail` — extension de `mail.activity` (form popup, tree).
+- `bf_onboarding_base` — panneau d'intégration (onboarding).
 
 ## Configuration
 

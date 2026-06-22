@@ -193,7 +193,7 @@
         <field name="help" type="html">
             <p>Cochez « Exclure » sur les contacts dont les rencontres ne
             doivent pas apparaître au tableau de bord. Utile pour les
-            partenaires de collaborations externes (ex. PME Conforme).</p>
+            partenaires de collaborations externes (ex. un partenaire externe).</p>
         </field>
     </record>
 

@@ -37,7 +37,8 @@ bf_mail_subject_clean/
 
 | Module | Role |
 |--------|------|
-| `mail` | Sole dependency — provides `mail.thread.message_post` and the `mail.compose.message` wizard |
+| `mail` | Provides `mail.thread.message_post` and the `mail.compose.message` wizard |
+| `bf_onboarding_base` | Shared onboarding-panel helpers (guided setup step) |
 
 ### Normalization helper
 

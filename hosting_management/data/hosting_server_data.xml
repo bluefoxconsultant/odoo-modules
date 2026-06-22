@@ -4,8 +4,8 @@
 
         <!-- Primary Production Server (update hostname/IP after install) -->
         <record id="server_default" model="hosting.server">
-            <field name="name">Production 1</field>
-            <field name="code">PT1</field>
+            <field name="name">Serveur principal</field>
+            <field name="code">SRV-A</field>
             <field name="hostname">server.example.com</field>
             <field name="server_type">production</field>
             <field name="provider">ovh</field>

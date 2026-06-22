@@ -1,6 +1,6 @@
 {
     'name': "Abonnements",
-    'version': '18.0.1.3.0',
+    'version': '18.0.1.3.1',
     'category': 'Accounting/Accounting',
     'summary': "Gestion des abonnements payants et corrélation avec la facturation fournisseur",
     'description': """
@@ -12,7 +12,7 @@ infrastructure, certificats, noms de domaine, services professionnels récurrent
 
 Fonctionnalités:
 ----------------
-* Suivi des abonnements en propre OU gérés au nom d'un client (Tencor, BSI, etc.)
+* Suivi des abonnements en propre OU gérés au nom d'un client
 * Corrélation manuelle et automatique avec les factures fournisseur (account.move)
 * Refacturation au client en 3 modes (au coût / markup % / montant fixe)
 * Relances automatiques avant renouvellement (activité Odoo)

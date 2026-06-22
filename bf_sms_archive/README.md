@@ -65,8 +65,9 @@ A personal SMS and call log archiving module for Odoo 18. Import Android SMS/MMS
 
 - Odoo 18 Community or Enterprise
 - Python: `defusedxml` (required for safe XML parsing)
+- Python: `requests` (required for the Nextcloud folder watcher / live sync)
 - Python: `pillow-heif` (optional, for HEIC image conversion in MMS)
-- Odoo modules: `base`, `mail`, `project`
+- Odoo modules: `base`, `mail`, `project`, `bf_onboarding_base`
 - Optional: `bf_lexend` -- Provides Lexend font and brand colour settings. Without it, reports use system-ui font and default Odoo colours.
 
 ### Install via CLI
@@ -151,6 +152,40 @@ When `HAS_SMS_ARCHIVE=true` is set in the org `.env`, 9 tools are available:
 | `call_list_calls` | List call log entries with phone, type, and date filters |
 | `call_get_calls_for_thread` | View call history for a conversation thread |
 | `call_search_calls` | Search calls by contact, type, minimum duration, date range |
+
+## Live Sync (continuous import)
+
+Beyond the manual wizard, the module can ingest backups continuously through two
+scheduled crons. **Both ship inactive by default** — they run against
+deployment-specific paths and credentials, so the operator must configure them
+first, then activate the crons under **Settings > Technical > Scheduled Actions**.
+
+### Nextcloud folder watcher (`ir_cron_sms_nc_watch`, every 15 min)
+
+Polls a Nextcloud folder over WebDAV for new `*.xml` / `*.zip` exports, imports
+them, then files each processed source into a `done/`, `failed/`, or
+`too_large/` subfolder. Files larger than 200 MB are stream-downloaded and
+auto-split into ~80 MB chunks before per-chunk import (resume-safe; hash dedup
+keeps it idempotent).
+
+Nextcloud credentials are read from the environment:
+`NC_SMS_WATCH_URL`, `NC_SMS_WATCH_USER`, `NC_SMS_WATCH_PASSWORD`, falling back to
+`NC_URL`, `NC_USER`, `NC_PASSWORD`.
+
+### Disk inbox import (`ir_cron_sms_disk_import`, every 10 min)
+
+Imports `*.xml` / `*.zip` files dropped into an on-host bind-mount inbox
+(set by `ir.config_parameter` `bf_sms_archive.disk_inbox_path`, default
+`/mnt/sms-inbox`, mapped via your `docker-compose` volume). This path
+bypasses the 1 GB form-upload limit — copy large exports in via `scp`. Processed
+files are moved to `done/` (success) or `failed/` (errors).
+
+### Configuration parameters
+
+| Key | Default | Role |
+|-----|---------|------|
+| `bf_sms_archive.nc_watch_path` | *(empty placeholder)* | Nextcloud folder to watch (e.g. `/Backups/SMS/Live`). **Must be set** before activating the watch cron; an empty value makes the cron a no-op. |
+| `bf_sms_archive.nc_watch_user_id` | `1` (placeholder) | Odoo user ID that will own messages imported by the watch cron. Set to the intended internal user. |
 
 ## Data Model
 
@@ -281,6 +316,28 @@ The import wizard normalizes phone numbers for consistent thread grouping:
 | `864674` | `+864674` (short codes preserved) |
 
 ## Changelog
+
+### Version 18.0.2.2.1
+
+- **CHANGE:** Live-sync crons (`ir_cron_sms_nc_watch`, `ir_cron_sms_disk_import`) now ship **inactive** — activate them after configuring paths and credentials
+- **CHANGE:** `nc_watch_path` and `nc_watch_user_id` reset to placeholder defaults; the operator must set them before use
+- **DOC:** Documented the live-sync crons, their configuration parameters, and the `requests` Python dependency; added a `LICENSE` file
+
+### Version 18.0.2.0.0
+
+- **NEW:** Nextcloud folder watcher ("live sync") -- `_cron_nc_watch_import` polls a configured Nextcloud folder over WebDAV and imports new XML/ZIP exports automatically, sorting processed sources into `done/`, `failed/`, and `too_large/`
+- **NEW:** Nextcloud credentials read from the environment (`NC_SMS_WATCH_URL/USER/PASSWORD`, falling back to `NC_URL/USER/PASSWORD`)
+- **NEW:** Config parameters `bf_sms_archive.nc_watch_path` and `bf_sms_archive.nc_watch_user_id`
+- **NEW:** `requests` added to `external_dependencies`
+
+### Version 18.0.1.5.0
+
+- **NEW:** Disk-import cron (`ir_cron_sms_disk_import`) -- polls an on-host bind-mount inbox (`/mnt/sms-inbox`) every 10 minutes and imports XML/ZIP dropped there via `scp`, bypassing the 1 GB form-upload limit; new import button in the wizard
+- **NEW:** Auto-split of oversized XML -- files larger than 200 MB are stream-downloaded and split into ~80 MB chunks (one complete `<smses>`/`<calls>` document each), imported chunk by chunk with per-chunk commit (resume-safe); hash dedup keeps it idempotent
+
+### Version 18.0.1.3.1
+
+- **CHANGE:** Threads ordered by `last_message_date desc nulls last, id desc` so threads with no recorded last-message date sort to the bottom of the list
 
 ### Version 18.0.1.3.0
 

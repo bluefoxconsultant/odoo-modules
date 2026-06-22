@@ -39,7 +39,7 @@ odoo -i audit_ti -d <database> --stop-after-init
 
 ## License
 
-MIT
+LGPL-3 — see the `LICENSE` file.
 
 ## Disclaimer
 

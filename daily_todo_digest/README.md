@@ -207,6 +207,7 @@ env.cr.commit()
 - `base`
 - `mail`
 - `project`
+- `bf_meeting`
 
 ### Librairies Python
 - `pytz` (inclus dans Odoo)

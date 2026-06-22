@@ -25,6 +25,13 @@ class SurveyQuestion(models.Model):
         string="Plusieurs fichiers autorisés",
         default=True,
     )
+    max_file_count = fields.Integer(
+        string="Nombre max de fichiers",
+        default=0,
+        help="0 = illimité. Nombre maximal de fichiers que le répondant peut "
+             "téléverser pour cette question (s'applique seulement lorsque "
+             "plusieurs fichiers sont autorisés).",
+    )
 
     @api.constrains("file_upload_max_size_mb")
     def _check_file_upload_max_size_mb(self):
@@ -32,6 +39,15 @@ class SurveyQuestion(models.Model):
             if q.question_type == "file_upload" and q.file_upload_max_size_mb <= 0:
                 raise ValidationError(
                     _("La taille maximale par fichier doit être supérieure à 0 Mo.")
+                )
+
+    @api.constrains("max_file_count")
+    def _check_max_file_count(self):
+        for q in self:
+            if q.question_type == "file_upload" and q.max_file_count < 0:
+                raise ValidationError(
+                    _("Le nombre maximal de fichiers ne peut pas être négatif "
+                      "(0 = illimité).")
                 )
 
     def _get_allowed_extensions_list(self):
@@ -57,6 +73,18 @@ class SurveyQuestion(models.Model):
             return {self.id: self.constr_error_msg or _("Cette question est obligatoire.")}
         if not self.file_upload_multiple and len(attachment_ids) > 1:
             return {self.id: _("Un seul fichier est autorisé pour cette question.")}
+        if (
+            self.file_upload_multiple
+            and self.max_file_count > 0
+            and len(attachment_ids) > self.max_file_count
+        ):
+            return {
+                self.id: _(
+                    "Vous pouvez téléverser au maximum %(n)s fichier(s) "
+                    "pour cette question.",
+                    n=self.max_file_count,
+                )
+            }
         return {}
 
     @staticmethod

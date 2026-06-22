@@ -11,6 +11,7 @@ to suggest a more relevant target chatter. On confirmation, updates the
 
 - `mail`
 - `bf_email_management`
+- `bf_onboarding_base`
 
 ## Security
 

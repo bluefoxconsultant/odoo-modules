@@ -241,6 +241,7 @@ Adds a section under **Settings > General Settings**:
 | `street`, `street2`, `city`, `state_id.name`, `zip`, `country_id.name` | `ADR;TYPE=WORK` | `;;street;city;state;zip;country` |
 | `website` | `URL` | Website |
 | `comment` | `NOTE` | Internal notes |
+| `image_1920` | `PHOTO;ENCODING=b;TYPE=JPEG\|PNG` | Embedded base64 photo, both directions. Folded per RFC 6350 §3.2 on export; import also accepts vCard 4.0 data URIs (`data:image/...;base64,...`). External URL references and images over 5 MB are skipped. |
 
 **Companies** use `FN` = company name, `N` = empty (`;;;;`), and `ORG` = company name. No `TITLE` is generated.
 
@@ -306,6 +307,14 @@ The module is designed to self-heal from interrupted operations:
 | Gateway timeout on large push | Normal for first sync; progress is committed every 10 contacts. Run push again to pick up remaining |
 | Cron not running | Check Settings > General Settings > Nextcloud Contacts Sync > cron toggle |
 | Encryption errors | `cryptography` library installed? Check `ir.config_parameter` for `contacts_nextcloud_sync.encryption_key` |
+
+## Changelog
+
+### 18.0.1.2.0
+- **Contact photo sync**: bidirectional `PHOTO` &harr; `image_1920` mapping. Export emits embedded base64 (`PHOTO;ENCODING=b;TYPE=JPEG|PNG`), folded per RFC 6350 §3.2; import accepts both vCard 3.0 inline base64 and vCard 4.0 data URIs. External URL references and images over 5 MB are skipped, and `image_1920` is now a sync-relevant field (a photo change triggers a push).
+
+### 18.0.1.1.x
+- CardDAV push/pull, anti-loop protection, encrypted credentials, cron sync.
 
 ## License
 

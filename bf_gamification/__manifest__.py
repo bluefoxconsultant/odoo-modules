@@ -5,7 +5,7 @@
     "category": "Human Resources",
     'website': 'https://bluefoxconsultant.com',
     "author": "Blue Fox Inc.",
-    'license': 'LGPL-3',  # MIT — see README.md
+    'license': 'LGPL-3',
     "application": True,
     "installable": True,
     "post_init_hook": "_post_init_backfill",

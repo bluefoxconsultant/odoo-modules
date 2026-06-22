@@ -42,6 +42,12 @@ bf_chatter_chronological/
 | Module | Role |
 |--------|------|
 | `mail` | base `mail.message` model + Owl `Thread` model being patched |
+| `project` | chatter-bearing records covered by the re-sort |
+| `crm` | chatter-bearing records covered by the re-sort |
+| `account` | chatter-bearing records covered by the re-sort |
+| `hr_expense` | chatter-bearing records covered by the re-sort |
+| `helpdesk_mgmt` | chatter-bearing records covered by the re-sort |
+| `bf_meeting` | chatter-bearing records covered by the re-sort |
 
 No external Python libraries (regex parsing of quoted Date headers uses `email.utils.parsedate_to_datetime` from the stdlib).
 

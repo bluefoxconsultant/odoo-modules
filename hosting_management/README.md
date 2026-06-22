@@ -171,6 +171,10 @@ When a service is activated:
 - `mail`
 - `contacts`
 - `contract` (OCA Contract module)
+- `project`
+- `account`
+- `project_knowledge_matrix`
+- `bluefox_branding`
 
 ### Installation Steps
 
@@ -652,6 +656,9 @@ Hosting
 ```
 
 ## Changelog
+
+### Version 18.0.2.46.0
+- Documentation and metadata sync (license/LICENSE; manifest license comment corrected to LGPL-3; README dependency list completed). See git history for intermediate changes.
 
 ### Version 18.0.2.29.0 (2026-05-04)
 - **Version-capture reliability — 4 bugs fixed**

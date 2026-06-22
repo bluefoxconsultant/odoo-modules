@@ -95,6 +95,7 @@ Add the module to Odoo's `addons_path` and install it from the Apps menu. On fir
 
 - `web`, `base`, `mail`, `project` (Odoo core)
 - `bf_email_management` (for the Inbox pane in the seeded desk)
+- `bf_onboarding_base` (onboarding wizard integration)
 
 ## Configuration
 

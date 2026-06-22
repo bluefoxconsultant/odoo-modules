@@ -9,7 +9,7 @@ _SYNC_FIELDS = {
     "name", "email", "phone", "mobile", "function",
     "parent_id", "company_name", "street", "street2",
     "city", "state_id", "zip", "country_id",
-    "website", "comment",
+    "website", "comment", "image_1920",
 }
 
 

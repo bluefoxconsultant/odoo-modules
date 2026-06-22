@@ -11,6 +11,8 @@
                     <group>
                         <field name="file_upload_max_size_mb"/>
                         <field name="file_upload_multiple"/>
+                        <field name="max_file_count"
+                               invisible="not file_upload_multiple"/>
                         <field name="file_upload_allowed_extensions"
                                placeholder="pdf,docx,doc,xlsx,jpg,jpeg,png"/>
                     </group>

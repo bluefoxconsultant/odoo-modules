@@ -1,7 +1,7 @@
 {
     "name": "Blue Fox — Loi 25 Suite",
     "summary": "One-click install of the Blue Fox Quebec Loi 25 compliance stack",
-    "version": "18.0.1.0.0",
+    "version": "18.0.1.1.0",
     "category": "Privacy/Compliance",
     "license": "LGPL-3",
     "author": "Blue Fox Inc.",
@@ -10,6 +10,7 @@
         "audit_ti",
         "privacy_consent",
         "project_knowledge_matrix",
+        "bf_sign",
     ],
     "data": [],
     "installable": True,

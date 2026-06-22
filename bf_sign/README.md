@@ -150,9 +150,13 @@ changement d'état).
 |---|---|---|
 | `bf_sign_sale` | `sale.order` (devis / commandes) | `sale.action_report_saleorder` |
 | `bf_sign_purchase` | `purchase.order` | `purchase.action_report_purchase_order` |
+| `bf_sign_account` | `account.move` (factures clients / fournisseurs) | `account.account_invoices` |
+| `bf_sign_privacy` | `privacy.consent` (consentements Loi 25) | `privacy_consent.action_report_consent_certificate` |
 
 Brancher un nouveau modèle se réduit à : `_inherit = ["<model>",
-"bf.sign.mixin"]`, surcharger `_sign_report_ref()`, et ajouter les boutons en vue.
+"bf.sign.mixin"]`, surcharger `_sign_report_ref()` (retourner l'xmlid du rapport
+PDF), et ajouter les boutons `action_send_for_signature` /
+`action_view_sign_requests` en vue.
 
 ---
 

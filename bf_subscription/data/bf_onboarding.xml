@@ -10,7 +10,7 @@
     </record>
     <record id="bf_onb_step_managed_for" model="onboarding.onboarding.step">
         <field name="title">Configurer la refacturation pour les clients</field>
-        <field name="description">[action:bf_subscription.action_subscription_subscription] Pour chaque abonnement géré au nom d'un client (Tencor, BSI…), cochez « Géré pour le client » et activez la refacturation.</field>
+        <field name="description">[action:bf_subscription.action_subscription_subscription] Pour chaque abonnement géré au nom d'un client, cochez « Géré pour le client » et activez la refacturation.</field>
         <field name="button_text">Voir les abonnements</field>
         <field name="done_text">Refacturation configurée</field>
         <field name="panel_step_open_action_name">bf_open_action</field>

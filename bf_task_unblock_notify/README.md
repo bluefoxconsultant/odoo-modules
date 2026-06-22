@@ -104,6 +104,9 @@ bf_task_unblock_notify/
 
 ## Changelog
 
+### 18.0.1.7.0
+- Documentation and metadata sync (license/LICENSE). See git history for the full detail.
+
 ### 18.0.1.6.0 (2026-02-14)
 - **Rich notification content**: Notifications now include who completed the blockers, when, the blocker state labels, project names, and client names
 - **Sign-off change**: "Bon travail !" replaced with "A vous de jouer !"

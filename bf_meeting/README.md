@@ -44,6 +44,7 @@ Permettre à une équipe de projet de planifier, tenir et documenter ses rencont
 | `project.project` (hérité) | Smart button « Comptes rendus » |
 | `calendar.event` (hérité) | Smart buttons « Comptes rendus » et « Ordre du jour », champs `meeting_agenda_ids/id/count`, `bf_skip_agenda` (opt-out), `bf_needs_agenda` (calculé), création d'un OdJ ou d'un compte rendu depuis l'événement |
 | `project.knowledge.item` (hérité) | Lien Many2many vers les comptes rendus qui référencent l'item |
+| `meeting.dashboard` / `meeting.dashboard.line` | Tableau de bord des rencontres (vue OWL agrégeant OdJ/comptes rendus à suivre) |
 
 ### Dépendances
 
@@ -53,6 +54,9 @@ Permettre à une équipe de projet de planifier, tenir et documenter ses rencont
 | `mail` | Chatter, activités, modèles de courriel |
 | `calendar` | Lien avec les événements calendrier Odoo |
 | `project_knowledge_matrix` | Matrices de connaissances alimentées par les décisions |
+| `bluefox_branding` | En-tête et palette de marque des rapports PDF |
+| `bf_onboarding_base` | Panneau d'accueil guidé (étape de configuration) |
+| `bf_timezone` | Affichage des dates/heures dans le fuseau du destinataire |
 
 ### Sécurité
 
@@ -66,6 +70,7 @@ Permettre à une équipe de projet de planifier, tenir et documenter ses rencont
 | Cron | Modèle | Fréquence | Rôle |
 |---|---|---|---|
 | `ir_cron_remind_unsent_agenda` | `meeting.agenda` | quotidien | Crée une activité « À faire » sur l'OdJ vers l'organisateur si la rencontre arrive dans 7 jours et que l'OdJ n'est pas envoyé |
+| `cron_meeting_dashboard_daily_digest` | `meeting.dashboard` | quotidien | Digest quotidien des rencontres (legacy, livré **désactivé** ; méthode `_cron_send_daily_digest()` conservée pour déclenchement ad hoc) |
 
 ### Rendu HTML sécurisé
 

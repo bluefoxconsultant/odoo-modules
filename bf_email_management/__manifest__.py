@@ -5,7 +5,7 @@
     "category": "Productivity",
     'website': 'https://bluefoxconsultant.com',
     "author": "Blue Fox Inc.",
-    'license': 'LGPL-3',  # MIT — see README.md for full license text
+    'license': 'LGPL-3',
     "application": True,
     "installable": True,
     "depends": [

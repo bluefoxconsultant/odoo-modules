@@ -251,6 +251,10 @@ Three approaches were evaluated:
 
 ## Changelog
 
+### 18.0.1.4.0
+
+- Documentation and metadata sync (license/LICENSE). See git history for the full detail.
+
 ### 18.0.1.3.0 (2026-02-16)
 
 - **Fix: search returning no results** — Config records created by `post_init_hook` were immediately deleted by Odoo's `_process_end()` cleanup because they were registered in `ir_model_data` with `noupdate=False` but not defined in any XML data file. Changed to `noupdate=True` and added migration script to recreate the 12 configs.

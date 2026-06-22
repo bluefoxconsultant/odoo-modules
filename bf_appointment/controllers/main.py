@@ -104,7 +104,7 @@ def _apply_locale_from_request():
     Accept-Language to choose en_CA vs fr_CA.
 
     Falls back to fr_CA if the resolved lang is not installed on this tenant
-    (e.g. mono-lingual PMEC ships fr_CA only - setting en_CA would 400).
+    (e.g. a mono-lingual fr_CA-only deployment - setting en_CA would 400).
     """
     # Public pages: the URL prefix is authoritative. Leave the context lang
     # exactly as the website middleware resolved it from the URL.

@@ -635,7 +635,7 @@ class ContactPersona(models.Model):
         except ValueError:
             type_id = Activity.search([], limit=1).id
         model_id = self.env["ir.model"]._get_id("contact.persona")
-        # Olivier is uid=2 on BF and PMEC.
+        # The admin/owner user is uid=2 in this deployment.
         olivier_user = self.env["res.users"].browse(2).exists() or self.env.user
         created = 0
         for persona in targets:

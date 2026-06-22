@@ -1,4 +1,4 @@
-# License MIT - see README.md for full license text.
+# License LGPL-3 - see LICENSE for full license text.
 {
     "name": "Gestion d'hébergement",
     "summary": "Gérer les services d'hébergement pour les clients avec suivi de versions et facturation",

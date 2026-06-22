@@ -11,6 +11,10 @@ de connaissances et la vie privée en une seule vue.
 - Extensible : d'autres modules peuvent ajouter leurs propres cartes
   (voir `bf_subscription_dashboard`).
 
+> Note : à l'installation, le `post_init_hook` `_set_home_action` redéfinit
+> l'action d'accueil des utilisateurs pour ouvrir ce tableau de bord au
+> démarrage de la session.
+
 ## Dépendances
 
 `base`, `account`, `project`, `mail`, `hosting_management`,
