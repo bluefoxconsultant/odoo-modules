@@ -57,7 +57,7 @@
                                 Confidentiel &#8212; <t t-esc="doc.name"/>
                             </td>
                             <td style="text-align: center; width: 34%;">
-                                <span style="color: #0693e3; font-weight: 600;">PME Conforme</span>
+                                <span t-if="data.get('brand_name')" t-att-style="'color: %s; font-weight: 600;' % data.get('brand_primary', '#0693e3')" t-esc="data['brand_name']"/>
                             </td>
                             <td style="text-align: right; width: 33%;">
                                 <span class="page"/> / <span class="topage"/>
@@ -73,8 +73,8 @@
                         <!-- ============ HEADER ============ -->
                         <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
                             <tr>
-                                <td style="width: 56px; vertical-align: top; padding-right: 16px;">
-                                    <img src="/audit_ti/static/img/pmec_logo.png" style="height: 44px; width: auto;"/>
+                                <td t-if="data.get('brand_logo')" style="width: 56px; vertical-align: top; padding-right: 16px;">
+                                    <img t-att-src="data['brand_logo']" style="height: 44px; width: auto;"/>
                                 </td>
                                 <td style="vertical-align: top;">
                                     <div style="font-size: 20px; font-weight: 700; color: #344054; letter-spacing: -0.4px; line-height: 1.2;">

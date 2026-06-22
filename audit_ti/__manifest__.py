@@ -4,7 +4,7 @@
     "version": "18.0.1.17.0",
     "category": "Services",
     'website': 'https://bluefoxconsultant.com',
-    "author": "PME Conforme / Blue Fox Inc.",
+    "author": "Blue Fox Inc.",
     'license': 'LGPL-3',
     "application": True,
     "installable": True,

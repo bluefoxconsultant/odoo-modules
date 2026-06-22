@@ -409,7 +409,24 @@ class AuditClient(models.Model):
         ))
         progress_pct = round(assessed / total_assessments * 100) if total_assessments else 0
 
+        # Branding: link to bluefox_branding's company brand when that module is
+        # installed; otherwise render no logo/name (keeps audit_ti standalone).
+        company = self.env.company
+        brand_logo = ""
+        brand_name = ""
+        brand_primary = "#344054"
+        if "report_brand_primary" in company._fields:
+            brand_name = company.name or ""
+            brand_primary = company.report_brand_primary or brand_primary
+            if company.logo:
+                logo_b64 = company.logo.decode() if isinstance(company.logo, bytes) else company.logo
+                mime = "image/png" if logo_b64.startswith("iVBOR") else "image/jpeg"
+                brand_logo = "data:%s;base64,%s" % (mime, logo_b64)
+
         return {
+            "brand_logo": brand_logo,
+            "brand_name": brand_name,
+            "brand_primary": brand_primary,
             "elements": element_status,
             "suppliers": suppliers,
             "supplier_roles": supplier_roles,
