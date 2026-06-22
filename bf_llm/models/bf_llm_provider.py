@@ -1,7 +1,9 @@
+import ipaddress
 import logging
+from urllib.parse import urlparse
 
 from odoo import _, api, fields, models
-from odoo.exceptions import UserError
+from odoo.exceptions import UserError, ValidationError
 
 from . import _fernet
 
@@ -49,6 +51,7 @@ class BfLlmProvider(models.Model):
         default="anthropic",
     )
     base_url = fields.Char(
+        groups="bf_llm.group_bf_llm_manager",
         help="API base URL. Blank uses the per-provider default "
         "(Anthropic: https://api.anthropic.com, OpenAI: https://api.openai.com/v1). "
         "Required for OpenAI-compatible/local (e.g. http://localhost:11434/v1).",
@@ -91,6 +94,37 @@ class BfLlmProvider(models.Model):
         default=False,
         help="At most one provider may be the default. Setting this unsets the others.",
     )
+
+    # ------------------------------------------------------------------
+    # Endpoint validation (anti-SSRF / no-cleartext-key)
+    # ------------------------------------------------------------------
+
+    @api.constrains("base_url", "provider")
+    def _check_base_url(self):
+        for rec in self:
+            if not rec.base_url:
+                continue
+            parsed = urlparse((rec.base_url or "").strip())
+            if parsed.scheme not in ("http", "https") or not parsed.hostname:
+                raise ValidationError(_("The base URL must be a valid http(s) URL."))
+            # Cloud providers (Anthropic/OpenAI) carry a real API key: force TLS
+            # and forbid internal/loopback targets so the key cannot be exfiltrated
+            # to an attacker-controlled or internal host (SSRF). Local/compatible
+            # providers (Ollama etc.) legitimately use http://localhost.
+            if rec.provider != "openai_compatible":
+                if parsed.scheme != "https":
+                    raise ValidationError(_(
+                        "Anthropic/OpenAI providers require an https:// base URL "
+                        "(the API key must never travel in cleartext)."))
+                try:
+                    addr = ipaddress.ip_address(parsed.hostname)
+                    if (addr.is_private or addr.is_loopback
+                            or addr.is_link_local or addr.is_reserved):
+                        raise ValidationError(_(
+                            "An internal/private address is not allowed for a "
+                            "cloud provider base URL."))
+                except ValueError:
+                    pass  # hostname (not a literal IP) — fine
 
     # ------------------------------------------------------------------
     # API key (Fernet-encrypted, per-provider ir.config_parameter)
