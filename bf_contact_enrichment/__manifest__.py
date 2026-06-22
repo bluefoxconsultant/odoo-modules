@@ -1,8 +1,8 @@
 {
     "name": "Enrichissement de contacts",
     "summary": "Cartes d'affaires (OCR), signatures courriel, import vCard, "
-               "détection de doublons et score de complétude — via Claude",
-    "version": "18.0.1.1.0",
+               "détection de doublons et score de complétude — via la passerelle bf_llm",
+    "version": "18.0.1.2.0",
     "category": "Contacts",
     "author": "Blue Fox Inc.",
     "website": "https://bluefoxconsultant.com",
@@ -12,6 +12,7 @@
         "contacts",
         "mail",
         "bf_email_management",
+        "bf_llm",
     ],
     "data": [
         "security/bf_contact_enrichment_security.xml",

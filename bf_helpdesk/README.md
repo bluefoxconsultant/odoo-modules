@@ -42,7 +42,7 @@ is set, to avoid double notifications.
 | 18.0.2.1.0 | Spam honeypot + email regex + attachment caps + extension blocklist |
 | 18.0.2.2.0 | Knowledge matrix link with scope alignment badge |
 | 18.0.2.3.0 | Convert ticket → meeting record |
-| 18.0.2.4.0 | Triage IA via Claude (one-shot Anthropic Messages API call) |
+| 18.0.2.4.0 | Triage IA (one-shot LLM call; now routed through the `bf_llm` gateway) |
 
 ## Phase 3 features (shipped)
 
@@ -61,28 +61,29 @@ is set, to avoid double notifications.
 
 ## Triage IA
 
-The "Triage IA" button on a ticket calls the Anthropic Messages API with
-the ticket subject, description, available stages, and team members,
-and asks for a categorization, suggested stage, suggested assignee, and
-a draft first response. The result is stored on `triage_suggestion_html`
-and shown in the "Triage IA" tab.
+The "Triage IA" button on a ticket sends the ticket subject, description,
+available stages, and team members to an LLM and asks for a categorization,
+suggested stage, suggested assignee, and a draft first response. The result is
+stored on `triage_suggestion_html` and shown in the "Triage IA" tab.
 
-The Triage IA feature is **optional**. It requires an Anthropic API key,
-resolved in this priority order:
-1. `ir.config_parameter` `bf_helpdesk.anthropic_api_key` (plain — handy for
-   tests / per-tenant override)
-2. The optional GenFox module (`bf_claude_chat`) encrypted key (Fernet). This
-   module is **not** a hard dependency; `bf_helpdesk` reads its config
-   parameters via `ir.config_parameter` only and never imports it. When it is
-   absent and no plain key is set, the "Triage IA" button simply reports that
-   triage is not configured — every other helpdesk feature works normally.
+The call is routed through the **`bf_llm`** gateway (a hard dependency):
+`bf_helpdesk` no longer holds an API URL, key, or HTTP transport. The provider
+(Anthropic, OpenAI, or an OpenAI-compatible/local server), the model, and the
+Fernet-encrypted key all live in *Settings › Technical › LLM Providers*. The
+triage model override is the provider's `model_triage` field. The GenFox
+module (`bf_claude_chat`) is **not** a dependency and is no longer read; bf_llm
+provides its own encrypted key store.
 
-Network failures persist a soft-error on the ticket (`triage_state=error`)
-without raising a popup; configuration errors (missing API key) raise a
-popup.
+Behaviour when something is off:
+- **No LLM provider configured** → the button degrades gracefully with a soft,
+  non-blocking notification; the ticket state is untouched. Every other
+  helpdesk feature keeps working.
+- **Transient/model error** → persisted as a soft error on the ticket
+  (`triage_state=error`) without raising a popup, so the user can retry.
 
 ## Changelog
 
 | Version | Change |
 |---|---|
+| 18.0.4.1.2 | AI triage migrated onto the new **`bf_llm`** gateway (added as a hard dependency). Removed the in-module direct Anthropic HTTP call (`_call_anthropic_network`) and the plaintext `bf_helpdesk.anthropic_api_key` / `bf_claude_chat` key resolution (`_bf_helpdesk_get_anthropic_api_key`). Keys are now Fernet-encrypted in `bf.llm.provider`. When no provider is configured the triage button degrades gracefully with a soft notification instead of a hard popup; transient errors still land as `triage_state=error`. |
 | 18.0.4.1.1 | `bf_claude_chat` (GenFox) downgraded from hard dependency to optional soft-dep — AI triage reads its config via `ir.config_parameter` and degrades gracefully when absent. README cleanup: removed the stale "Phase 3 (planned)" list (all items already shipped) and corrected the CSAT note (uses core `survey`, not `bf_survey_upload`). |

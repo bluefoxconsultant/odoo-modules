@@ -2,9 +2,11 @@
 
 Uses the established Blue Fox bridge pattern: a hand-rolled HTTP/1.1 request
 over an ``AF_UNIX`` stream socket, so we depend on nothing beyond the
-standard library inside the Odoo container. The bridge wraps ``claude -p`` and
-exposes the contact-enrichment endpoints (/ocr/business-card,
-/enrich/signature, /enrich/company).
+standard library inside the Odoo container. The bridge wraps ``claude -p``.
+
+As of 18.0.1.2.0 only the **company/domain** enrichment path uses this shim
+(``/enrich/company`` — agentic web research, out of scope for bf_llm v1). The
+business-card and signature paths now go through the ``bf.llm`` gateway.
 """
 import json
 import socket

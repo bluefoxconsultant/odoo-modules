@@ -4,7 +4,7 @@ from odoo import _, api, fields, models
 from odoo.exceptions import AccessError
 from odoo.tools import html2plaintext
 
-from ..tools import bridge
+from odoo.addons.bf_llm.models.bf_llm import SIGNATURE_PROMPT_HEADER
 
 _logger = logging.getLogger(__name__)
 
@@ -165,24 +165,29 @@ class ResPartner(models.Model):
         return "\n\n".join(blocks)[:12000]
 
     def _bf_enrich_from_signature(self, min_confidence=60):
-        """Fetch this partner's signature data from the bridge and blank-fill it.
+        """Resolve this partner's signature data via bf.llm and blank-fill it.
 
         Returns a status: enriched | nothing_new | no_email | low_confidence |
         error. Never clobbers populated fields; logs applied fields to chatter.
+        Runs in a batch/cron context, so it must NEVER raise — a missing or
+        misconfigured provider (for_feature/chat UserError) degrades to "error".
         """
         self.ensure_one()
         text = self._bf_signature_text()
         if not text.strip():
             return "no_email"
+        # Signature parsing is a TEXT call → chat(). Header is concatenated, not
+        # .format-ed (email bodies may contain braces).
+        prompt = SIGNATURE_PROMPT_HEADER + (text or "")[:12000] + "\n"
         try:
-            result = bridge.call_bridge(
-                self.env, "/enrich/signature", {"org": "bf", "text": text}, timeout=90)
+            res = self.env["bf.llm"].for_feature("chat").chat(
+                messages=[{"role": "user", "content": prompt}])
         except Exception:  # noqa: BLE001 — surface as a status, never raise in batch
-            _logger.exception("Signature enrichment bridge call failed for partner %s", self.id)
+            _logger.exception("Signature enrichment LLM call failed for partner %s", self.id)
             return "error"
-        if result.get("error"):
+        if res.get("error"):
             return "error"
-        data = result.get("data") or {}
+        data = self.env["bf.llm"]._parse_json(res.get("text") or "") or {}
         if (data.get("confidence") or 0) < min_confidence:
             return "low_confidence"
 
