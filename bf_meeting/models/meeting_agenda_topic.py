@@ -41,3 +41,41 @@ class MeetingAgendaTopic(models.Model):
              "dans le PDF de l'ordre du jour ; sera transféré dans le compte "
              "rendu à sa création.",
     )
+
+    # Provenance & moderation (public contributions)
+    source = fields.Selection(
+        [
+            ('staff', 'Interne'),
+            ('contributed', 'Proposé par un destinataire'),
+        ],
+        string='Origine',
+        default='staff',
+        required=True,
+        index=True,
+        help="« Proposé par un destinataire » : sujet soumis via le lien "
+             "public de contribution, en attente de modération.",
+    )
+    contributor_name = fields.Char(string='Proposé par')
+    contributor_email = fields.Char(string='Courriel du contributeur')
+    moderation_state = fields.Selection(
+        [
+            ('pending', 'À examiner'),
+            ('accepted', 'Accepté'),
+            ('rejected', 'Rejeté'),
+        ],
+        string='Modération',
+        default='accepted',
+        required=True,
+        help="Les sujets internes sont acceptés par défaut. Les sujets "
+             "proposés par un destinataire restent « À examiner » tant que "
+             "le gestionnaire ne les a pas acceptés : ils n'apparaissent ni "
+             "dans le PDF ni dans le courriel d'ordre du jour.",
+    )
+
+    def action_accept_contribution(self):
+        """Accepter un sujet proposé : il rejoint l'ordre du jour officiel."""
+        self.write({'moderation_state': 'accepted'})
+
+    def action_reject_contribution(self):
+        """Rejeter un sujet proposé : il reste consultable mais hors OdJ."""
+        self.write({'moderation_state': 'rejected'})

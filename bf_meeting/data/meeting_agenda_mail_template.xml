@@ -92,7 +92,7 @@
                                 <div style="margin:0 0 20px 0; white-space:pre-wrap; color:#374151; font-size:15px; line-height:24px;"><t t-out="object.objectives"/></div>
                                 </t>
 
-                                <t t-if="object.topic_ids">
+                                <t t-if="object.published_topic_ids">
                                 <h3 t-attf-style="color:{{ brand_dark }}; font-size:16px; font-weight:600; margin:24px 0 10px 0; padding-left:10px; border-left:4px solid {{ brand_primary }};">Sujets</h3>
                                 <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:100%; border-collapse:collapse; margin:8px 0; font-size:13px;">
                                     <thead>
@@ -104,7 +104,7 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <t t-foreach="object.topic_ids" t-as="topic">
+                                        <t t-foreach="object.published_topic_ids" t-as="topic">
                                             <tr style="border-bottom:1px solid #EAEEF2;">
                                                 <td style="padding:8px 10px; color:#8A9099;"><t t-out="topic_index + 1"/></td>
                                                 <td style="padding:8px 10px; color:#374151;"><strong t-attf-style="color:{{ brand_dark }};"><t t-out="topic.name"/></strong></td>
@@ -161,6 +161,19 @@
                                 <p style="font-size:14px; line-height:22px; color:#6B7280; margin:28px 0 0 0;">
                                     Merci de consulter l'ordre du jour et de préparer vos interventions.
                                 </p>
+
+                                <t t-if="object.allow_contributions and object.access_token and object.contributions_open">
+                                    <t t-set="base" t-value="object.get_base_url()"/>
+                                    <div style="margin:24px 0 0 0; padding:14px 16px; background:#F5F7FA; border-radius:6px;">
+                                        <p style="font-size:14px; color:#374151; margin:0 0 10px 0;">
+                                            Vous souhaitez ajouter un sujet ou laisser une note avant la rencontre ?
+                                        </p>
+                                        <a t-attf-href="{{ base }}/meeting/agenda/{{ object.access_token }}"
+                                           t-attf-style="display:inline-block; padding:10px 18px; background:{{ brand_primary }}; color:#FFFFFF; border-radius:6px; text-decoration:none; font-weight:600; font-size:14px;">
+                                            Proposer un sujet ou un commentaire
+                                        </a>
+                                    </div>
+                                </t>
 
                                 <p style="font-size:16px; line-height:26px; color:#374151; margin:24px 0 0 0;">
                                     Cordialement,<br/>

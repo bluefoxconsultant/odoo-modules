@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import secrets
 import socket
 import threading
 from datetime import timedelta
@@ -331,6 +332,121 @@ class MeetingAgenda(models.Model):
         for rec in self:
             recipients = rec.recipient_ids or rec.participant_ids
             rec.partner_to_ids = ','.join(str(pid) for pid in recipients.ids)
+
+    # Public contributions (after send, until confirmation)
+    allow_contributions = fields.Boolean(
+        string='Autoriser les contributions des destinataires',
+        default=True,
+        help="Si activé, le courriel d'ordre du jour inclut un lien permettant "
+             "aux destinataires de proposer des sujets et d'ajouter des notes "
+             "jusqu'à la confirmation de l'ordre du jour.",
+    )
+    access_token = fields.Char(
+        string="Jeton d'accès public",
+        copy=False,
+        index=True,
+        readonly=True,
+        groups='bf_meeting.group_meeting_user',
+        help="Jeton secret donnant accès à la page publique de contributions. "
+             "Frappé à l'envoi, jamais exposé en lecture portail/publique.",
+    )
+    contributions_open = fields.Boolean(
+        string='Contributions ouvertes',
+        compute='_compute_contributions_open',
+        store=True,
+        help="Vrai entre l'envoi et la confirmation de l'ordre du jour : "
+             "les destinataires peuvent alors proposer des sujets et des notes.",
+    )
+    contribution_url = fields.Char(
+        string='Lien de contribution',
+        compute='_compute_contribution_url',
+        groups='bf_meeting.group_meeting_user',
+    )
+
+    contribution_pending_count = fields.Integer(
+        string='Sujets proposés à examiner',
+        compute='_compute_contribution_pending_count',
+    )
+
+    @api.depends('sent_date', 'state', 'allow_contributions')
+    def _compute_contributions_open(self):
+        for rec in self:
+            rec.contributions_open = bool(
+                rec.allow_contributions and rec.sent_date and rec.state == 'draft'
+            )
+
+    @api.depends('topic_ids.moderation_state')
+    def _compute_contribution_pending_count(self):
+        for rec in self:
+            rec.contribution_pending_count = len(rec.topic_ids.filtered(
+                lambda t: t.moderation_state == 'pending'))
+
+    published_topic_ids = fields.One2many(
+        'meeting.agenda.topic',
+        compute='_compute_published_topic_ids',
+        string='Sujets publiés',
+        help="Sujets acceptés uniquement : ceux qui paraissent dans le "
+             "courriel et le PDF de l'ordre du jour (les propositions en "
+             "modération sont exclues).",
+    )
+
+    @api.depends('topic_ids.moderation_state', 'topic_ids.sequence')
+    def _compute_published_topic_ids(self):
+        for rec in self:
+            rec.published_topic_ids = rec.topic_ids.filtered(
+                lambda t: t.moderation_state == 'accepted').sorted('sequence')
+
+    def _compute_contribution_url(self):
+        base = self.env['ir.config_parameter'].sudo().get_param(
+            'web.base.url', '').rstrip('/')
+        for rec in self:
+            rec.contribution_url = (
+                "%s/meeting/agenda/%s" % (base, rec.access_token)
+                if base and rec.access_token else False
+            )
+
+    def _ensure_access_token(self):
+        """Mint a public access token lazily; idempotent.
+
+        Called at send time (not at create) so draft agendas never sent carry
+        no live public capability — a smaller exposure surface.
+        """
+        for rec in self:
+            if not rec.access_token:
+                rec.access_token = secrets.token_urlsafe(32)  # 256 bits
+
+    def _notify_contribution(self, kind, who, excerpt):
+        """Post a chatter note for a public contribution and nudge the organizer.
+
+        Called from the public controller under ``sudo()``. Followers (the
+        organizer is normally one) are notified by the note; an actionable
+        activity is scheduled once (idempotent via summary) so the organizer
+        gets a single « go triage » item rather than a flood.
+        """
+        self.ensure_one()
+        label = ("a proposé un sujet" if kind == 'topic'
+                 else "a laissé un commentaire")
+        body = Markup("<p>📥 <strong>%s</strong> %s : <em>%s</em></p>") % (
+            escape(who or 'Anonyme'), label, escape((excerpt or '')[:120]))
+        self.sudo().message_post(
+            body=body, message_type='comment', subtype_xmlid='mail.mt_note')
+        organizer = self.organizer_id
+        if organizer and not organizer.share and organizer.active:
+            summary = "Contributions reçues sur l'ordre du jour"
+            already = self.env['mail.activity'].sudo().search_count([
+                ('res_model', '=', 'meeting.agenda'),
+                ('res_id', '=', self.id),
+                ('summary', '=', summary),
+            ])
+            if not already:
+                self.sudo().activity_schedule(
+                    'mail.mail_activity_data_todo',
+                    summary=summary,
+                    note="Des destinataires ont proposé des sujets / "
+                         "commentaires. Réviser avant de confirmer l'ordre "
+                         "du jour.",
+                    user_id=organizer.id,
+                )
 
     # State
     state = fields.Selection([
@@ -773,6 +889,11 @@ class MeetingAgenda(models.Model):
             _logger.warning("No recipients for agenda %s", self.name)
             return
 
+        # Mint the public contribution token before rendering so the CTA link
+        # is available to the email body.
+        if self.allow_contributions:
+            self._ensure_access_token()
+
         template.send_mail(self.id, force_send=True)
         self.write({'sent_date': fields.Datetime.now()})
 
@@ -864,16 +985,19 @@ class MeetingAgenda(models.Model):
 
         # Pré-remplit per-topic live notes (idempotent : ne touche que les
         # boîtes vides pour ne jamais écraser ce que le notetaker a déjà saisi).
-        for topic in self.topic_ids:
+        # Seuls les sujets acceptés alimentent la rencontre : les propositions
+        # contribuées en attente de modération ne doivent pas y entrer.
+        for topic in self.topic_ids.filtered(lambda t: t.moderation_state == 'accepted'):
             if _html_is_blank(topic.live_notes_html) and not _html_is_blank(topic.description):
                 topic.live_notes_html = _wrap_agenda_original(topic.description)
 
         # Pré-remplit le scratchpad maître avec un dump de tous les sujets,
         # même ceux sans description (heading + paragraphe vide). Idempotent
         # de la même façon.
-        if _html_is_blank(self.live_notes_html) and self.topic_ids:
+        accepted_topics = self.topic_ids.filtered(lambda t: t.moderation_state == 'accepted')
+        if _html_is_blank(self.live_notes_html) and accepted_topics:
             parts = []
-            for topic in self.topic_ids.sorted('sequence'):
+            for topic in accepted_topics.sorted('sequence'):
                 parts.append(Markup('<h3>%s</h3>') % (topic.name or ''))
                 if not _html_is_blank(topic.description):
                     parts.append(_wrap_agenda_original(topic.description))
@@ -950,8 +1074,14 @@ class MeetingAgenda(models.Model):
     def _get_report_data(self):
         """Prepare data dict for the QWeb agenda report."""
         self.ensure_one()
+        # Only accepted topics enter the official PDF — recipient-proposed
+        # topics held in moderation (pending/rejected) never leak into the
+        # artifact until the organizer accepts them.
+        official_topics = self.topic_ids.filtered(
+            lambda t: t.moderation_state == 'accepted'
+        ).sorted('sequence')
         topics = []
-        for idx, t in enumerate(self.topic_ids.sorted('sequence'), 1):
+        for idx, t in enumerate(official_topics, 1):
             topics.append({
                 'index': idx,
                 'name': t.name,
@@ -1024,7 +1154,8 @@ class MeetingAgenda(models.Model):
         # into the record's points_html. Apply track-changes-style highlight
         # so user additions (typed outside the agenda blockquote) render
         # with a yellow background in the compte rendu.
-        for topic in self.topic_ids:
+        # Only accepted topics become record points (pending proposals excluded).
+        for topic in self.topic_ids.filtered(lambda t: t.moderation_state == 'accepted'):
             self.env['meeting.topic'].create({
                 'meeting_id': record.id,
                 'sequence': topic.sequence,

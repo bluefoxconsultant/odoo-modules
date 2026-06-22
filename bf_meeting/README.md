@@ -27,6 +27,7 @@ Permettre à une équipe de projet de planifier, tenir et documenter ses rencont
 - **Drapeau « Besoin d'un OdJ »** — sur `calendar.event`, champ calculé `bf_needs_agenda` (vrai si la rencontre est à venir, sans OdJ et non dispensée) ; bannière d'alerte sur le formulaire et filtre dédié dans la vue de recherche
 - **Opt-out par rencontre** — case à cocher `bf_skip_agenda` sur `calendar.event` pour les rencontres internes courtes ou récurrentes
 - **Rappel automatique avant rencontre** — cron quotidien `_cron_remind_unsent_agenda` qui crée une activité « À faire » due aujourd'hui sur l'organisateur (utilisateur interne uniquement) si la rencontre arrive dans les 7 prochains jours et que l'OdJ n'a pas encore été envoyé ; idempotent via le `summary` de l'activité
+- **Contributions publiques des destinataires** — après l'**envoi** d'un OdJ encore en brouillon et **jusqu'à sa confirmation**, le courriel inclut un lien public tokenisé (`/meeting/agenda/<token>`) permettant aux destinataires (même sans compte Odoo) de **proposer des sujets** et de **laisser des commentaires/notes**. La fenêtre s'ouvre et se ferme automatiquement (`contributions_open ≡ envoyé ET état brouillon`) ; la confirmation referme le lien. Les sujets proposés arrivent en **modération** (`source='contributed'`, `moderation_state='pending'`) et n'entrent ni dans le PDF ni dans le courriel tant que le gestionnaire ne les a pas acceptés ; les commentaires sont postés au chatter et l'organisateur reçoit une activité de relecture
 
 ## Architecture technique
 
@@ -75,6 +76,18 @@ Permettre à une équipe de projet de planifier, tenir et documenter ses rencont
 ### Rendu HTML sécurisé
 
 Les notes structurées JSON (titre de sujet, points, questions ouvertes) sont rendues en HTML via `markupsafe.escape()` avant concaténation, pour éviter toute injection lorsque le contenu provient d'une source externe (transcription IA, collage utilisateur).
+
+### Contributions publiques — sécurité
+
+Le contrôleur public (`controllers/main.py`, routes `type="http", auth="public", csrf=False`) suit le modèle de `bf_sign` :
+
+- **Jeton = capacité** — `secrets.token_urlsafe(32)` (256 bits), `copy=False`, `readonly`, `index=True`, restreint au groupe `group_meeting_user`, donc jamais sérialisé vers une lecture portail/publique. Frappé à l'**envoi**, pas à la création (surface d'exposition minimale).
+- **Aucun IDOR** — l'URL ne porte que le jeton (pas d'`id` d'enregistrement) ; la résolution se fait par jeton via `hmac.compare_digest` (temps constant). Un jeton forgé/expiré renvoie un `404` indiscernable.
+- **Fenêtre re-vérifiée côté serveur** — chaque GET et POST revalide `contributions_open` après résolution : un onglet resté ouvert ne peut pas écrire après la confirmation.
+- **Assainissement** — tout texte libre passe par `markupsafe.escape` avec plafonds stricts (titre ≤ 200, description/commentaire ≤ 4000, nom ≤ 120, courriel ≤ 254). Création de sujet par dictionnaire explicite (`source`/`moderation_state` non pilotables depuis le POST).
+- **Limitation de débit** — deux limiteurs par IP : échecs de jeton (10 / 300 s) et volume de POST (5 / 60 s), honorant `X-Real-IP` / `X-Forwarded-For`.
+- **Liste blanche de lecture** — la page publique ne reçoit que le titre, la date formatée, les objectifs (texte) et les **noms des sujets acceptés**. Aucun contexte, préparation, note, tâche, pièce jointe, participant, chatter ou proposition d'un autre contributeur.
+- **Écritures sous `sudo()`** — l'utilisateur public n'a aucun droit ORM ; toutes les écritures sont explicites avec des dictionnaires sûrs. Les notes sont postées avec `author_id=False` (l'identité du contributeur vit dans le corps, jamais forgée en `res.partner`).
 
 ## Installation
 

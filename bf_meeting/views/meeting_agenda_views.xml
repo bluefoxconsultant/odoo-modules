@@ -197,19 +197,50 @@
                                    options="{'no_create': True}"
                                    placeholder="Lier un événement calendrier..."/>
                             <field name="auto_send_on_confirm"/>
+                            <field name="allow_contributions"/>
                         </group>
                     </group>
+                    <field name="contributions_open" invisible="1"/>
+                    <div class="alert alert-success" role="alert"
+                         invisible="not contributions_open">
+                        <i class="fa fa-unlock"/> Les destinataires peuvent
+                        proposer des sujets et laisser des commentaires via le
+                        lien public jusqu'à la confirmation de l'ordre du jour.
+                        <field name="contribution_url" widget="CopyClipboardChar"
+                               readonly="1" nolabel="1"/>
+                    </div>
                     <group string="Participants">
                         <field name="participant_ids" widget="many2many_tags" nolabel="1"/>
                     </group>
                     <notebook>
                         <page string="Sujets" name="topics">
+                            <div class="alert alert-warning" role="alert"
+                                 invisible="contribution_pending_count == 0">
+                                <i class="fa fa-inbox"/> Des sujets proposés par
+                                des destinataires sont en attente d'examen
+                                (en jaune ci-dessous). Acceptez-les pour qu'ils
+                                rejoignent l'ordre du jour officiel, ou rejetez-les.
+                            </div>
+                            <field name="contribution_pending_count" invisible="1"/>
                             <field name="topic_ids">
-                                <list>
+                                <list decoration-warning="moderation_state == 'pending'"
+                                      decoration-muted="moderation_state == 'rejected'">
                                     <field name="sequence" widget="handle"/>
                                     <field name="name"/>
                                     <field name="duration_planned"/>
                                     <field name="presenter_id"/>
+                                    <field name="source" optional="show"/>
+                                    <field name="contributor_name" optional="hide"/>
+                                    <field name="moderation_state" widget="badge"
+                                           decoration-warning="moderation_state == 'pending'"
+                                           decoration-success="moderation_state == 'accepted'"
+                                           decoration-danger="moderation_state == 'rejected'"/>
+                                    <button name="action_accept_contribution" type="object"
+                                            string="Accepter" icon="fa-check"
+                                            invisible="moderation_state == 'accepted'"/>
+                                    <button name="action_reject_contribution" type="object"
+                                            string="Rejeter" icon="fa-times"
+                                            invisible="moderation_state == 'rejected'"/>
                                 </list>
                                 <form>
                                     <group>
@@ -221,6 +252,13 @@
                                             <field name="presenter_id"/>
                                             <field name="sequence"/>
                                         </group>
+                                    </group>
+                                    <group string="Provenance"
+                                           invisible="source == 'staff'">
+                                        <field name="source" readonly="1"/>
+                                        <field name="moderation_state"/>
+                                        <field name="contributor_name" readonly="1"/>
+                                        <field name="contributor_email" readonly="1"/>
                                     </group>
                                     <separator string="Notes / Contexte"/>
                                     <field name="description" nolabel="1"/>
@@ -323,6 +361,14 @@
                             <separator string="Destinataires"/>
                             <field name="recipient_ids" widget="many2many_tags"
                                    placeholder="Si vide, les participants recevront le courriel."/>
+                            <separator string="Contributions des destinataires"/>
+                            <group>
+                                <field name="allow_contributions"/>
+                                <field name="contributions_open" readonly="1"/>
+                                <field name="contribution_url" readonly="1"
+                                       widget="CopyClipboardChar"
+                                       invisible="not contribution_url"/>
+                            </group>
                         </page>
                     </notebook>
                 </sheet>
