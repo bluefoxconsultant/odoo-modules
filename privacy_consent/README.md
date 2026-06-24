@@ -80,18 +80,37 @@ Ce manuel couvre :
 - Portée par canal (email, SMS, téléphone, vidéo, présentiel)
 - Portée par contexte (projet, marketing, réunion, CRM)
 
-**Finalités incluses par défaut :**
-| Code | Finalité | Opt-in express | Validité |
-|------|----------|----------------|----------|
-| `marketing` | Communications marketing | Oui | 365 jours |
-| `recording` | Enregistrement vidéo | Oui | Illimité |
-| `recording_audio` | Enregistrement audio | Oui | Illimité |
-| `transcription` | Transcription | Oui | Illimité |
-| `reference` | Utilisation comme référence | Non | 730 jours |
-| `logo` | Utilisation du logo | Non | 730 jours |
-| `case_study` | Étude de cas | Oui | 730 jours |
-| `service` | Communications de service | Non requis | Illimité |
+**Finalités incluses par défaut (18) :**
+
+*Finalités générales (consultation, hébergement, marketing) :*
+
+| Code | Finalité | Opt-in express | Validité par défaut |
+|------|----------|----------------|---------------------|
+| `marketing` | Communications marketing et infolettres | Oui | 730 jours |
+| `recording` | Enregistrement ponctuel de rencontres | Oui | 365 jours |
+| `recording_audio` | Enregistrement audio | Oui | 365 jours |
+| `transcription` | Transcription des communications | Oui | 365 jours |
+| `training` | Formation interne | Oui | 365 jours |
+| `reference` | Utilisation comme référence client | Non | 1095 jours (3 ans) |
+| `logo` | Utilisation du logo | Non | 1095 jours (3 ans) |
+| `case_study` | Étude de cas | Oui | 1825 jours (5 ans) |
+| `service` | Communications de service | Consentement non requis | Illimité |
 | `third_party` | Partage avec des tiers | Non | 365 jours |
+| `agent` | Installation d'agent logiciel (LCAP/CASL) | Oui | Illimité (durée du mandat) |
+| `sensibles` | Traitements à risque élevé et données sensibles | Oui | 365 jours |
+
+*Finalités sectorielles — services de garde (CPE) :*
+
+| Code | Finalité | Opt-in express | Validité par défaut |
+|------|----------|----------------|---------------------|
+| `medicaments` | Administration de médicaments | Oui | 365 jours |
+| `sorties` | Sorties éducatives et excursions | Oui | 365 jours |
+| `baignades` | Baignades et activités aquatiques | Oui | 365 jours |
+| `transport` | Transport des enfants | Oui | 365 jours |
+| `depart` | Personnes autorisées à récupérer l'enfant | Non | 365 jours |
+| `surveillance` | Vidéosurveillance des locaux | Consentement non requis | Illimité (enregistrements conservés 30 j) |
+
+> Les finalités sont **extensibles** : chaque organisation peut en ajouter, en modifier ou en désactiver selon son secteur. Les six dernières sont des modèles sectoriels pour les services de garde (CPE).
 
 ### Gestion des avis (Notices)
 
@@ -163,7 +182,8 @@ Ce manuel couvre :
 
 - Registre de destruction conforme a l'article 3.2 LPRPSP
 - **Immutabilite totale** : aucune modification (sauf notes) ni suppression possible
-- Empreinte SHA-256 de verification anti-falsification
+- **Chaine SHA-256** : chaque entree integre l'empreinte de l'entree precedente (hash chaine) — toute alteration ou suppression d'un maillon rompt la chaine et devient detectable
+- **Cron de verification d'integrite** : parcourt le registre dans l'ordre et signale toute empreinte rompue (v18.0.3.1)
 - Numerotation automatique (REG-YYYY-NNNNN)
 - Lien avec les demandes de destruction et les campagnes
 - Double protection : Python (`write()`/`unlink()` overrides) + regles d'enregistrement ORM
@@ -536,9 +556,12 @@ privacy_consent/
 |-------|-----------|--------|
 | Verification des expirations | Quotidienne | Cree une activite 30 jours avant expiration |
 | Marquage des expires | Quotidienne | Passe le statut a « Expire » |
+| Expiration auto des demandes en attente | Quotidienne | Expire les consentements restes sans reponse |
+| Traitement des sequences de courriels | Quotidienne | Envoie les rappels et renouvellements programmes |
 | Creation des demandes de destruction | Quotidienne | Cree les demandes selon les politiques de retention |
 | Traitement des destructions planifiees | Quotidienne | Approuve et execute les demandes dues |
 | Verification des reevaluations | Quotidienne | Signale les evaluations d'anonymisation dues |
+| Verification de l'integrite du registre | Quotidienne | Recalcule la chaine SHA-256 et alerte en cas d'alteration |
 
 ### Templates email
 
@@ -567,7 +590,7 @@ privacy_consent/
 
 ## Licence
 
-Ce module est distribué sous licence **LGPL-3**.
+Ce module est distribué sous licence **GNU LGPL-3**.
 
 ```
 This module is licensed under the GNU Lesser General Public License v3.0 (LGPL-3). See [LICENSE](LICENSE) for the full text.
@@ -589,6 +612,7 @@ Pour signaler un problème ou suggérer une amélioration, veuillez contacter l'
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 18.0.3.1.0 | 2026-04 | Registre de destruction a chaine SHA-256 (chaque entree integre l'empreinte de la precedente) + cron de verification d'integrite (8e tache planifiee) |
 | 18.0.3.1.4 | 2026-06 | Synchronisation documentation et métadonnées (licence/LICENSE). Voir l'historique git pour le détail. |
 | 18.0.3.0.1 | 2026-04-11 | Correctifs QA : 17 methodes action_* sans retour XML-RPC, selection secure_wipe manquante, ACL registre (notes editable par Officer), certificat PDF redirige vers rapport QWeb, codes README corriges |
 | 18.0.3.0.0 | 2026-04 | Destruction et anonymisation documentaire : calendrier de conservation, classification documentaire, registre de destruction immuable, campagnes de destruction en lot, evaluations d'anonymisation (Regl. A-2.1), droit a l'effacement, audit de securite complet |
