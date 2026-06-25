@@ -5,6 +5,7 @@
         <t t-call="web.external_layout">
             <t t-set="lang" t-value="(o.partner_id.lang or o.env.company.partner_id.lang or 'fr_CA')"/>
             <t t-set="o" t-value="o.with_context(lang=lang)"/>
+            <t t-set="framework" t-value="o.get_framework()"/>
             <div class="page">
                 <!-- En-tête -->
                 <div class="text-center mb-4">
@@ -195,13 +196,11 @@
                             </p>
                             <p class="small mb-0">
                                 Ce certificat confirme que les données personnelles ont été traitées conformément
-                                à la politique de rétention et à la Loi 25 du Québec (Loi sur la protection des
-                                renseignements personnels dans le secteur privé).
+                                à la politique de rétention et à <t t-esc="framework.law_citation_fr"/>.
                             </p>
                             <p class="small mb-0 mt-2">
                                 This certificate confirms that personal data has been processed in accordance with
-                                the retention policy and Quebec Law 25 (Act respecting the protection of personal
-                                information in the private sector).
+                                the retention policy and <t t-esc="framework.law_citation_en"/>.
                             </p>
                         </div>
                     </div>

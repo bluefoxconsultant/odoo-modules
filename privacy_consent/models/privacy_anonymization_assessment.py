@@ -21,7 +21,7 @@ class PrivacyAnonymizationAssessment(models.Model):
 
     _name = "privacy.anonymization.assessment"
     _description = "Évaluation d'anonymisation"
-    _inherit = ["mail.thread", "mail.activity.mixin"]
+    _inherit = ["mail.thread", "mail.activity.mixin", "privacy.framework.mixin"]
     _order = "create_date desc, id desc"
 
     RISK_LEVELS = [
@@ -150,9 +150,10 @@ class PrivacyAnonymizationAssessment(models.Model):
     )
     approved_by_id = fields.Many2one(
         comodel_name="res.users",
-        string="Approuvé par (RPRP)",
+        string="Approuvé par (responsable)",
         tracking=True,
-        help="Le responsable de la protection des renseignements personnels",
+        help="Le responsable de la protection des renseignements personnels "
+        "(titre selon le cadre applicable : RPRP, DPO, Privacy Officer, etc.)",
     )
     approval_date = fields.Date(
         string="Date d'approbation",

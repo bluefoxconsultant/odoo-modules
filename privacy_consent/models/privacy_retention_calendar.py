@@ -14,7 +14,7 @@ class PrivacyRetentionCalendar(models.Model):
     _name = "privacy.retention.calendar"
     _description = "Calendrier de conservation"
     _order = "code, id"
-    _inherit = ["mail.thread"]
+    _inherit = ["mail.thread", "privacy.framework.mixin"]
 
     name = fields.Char(
         string="Nom de la règle",

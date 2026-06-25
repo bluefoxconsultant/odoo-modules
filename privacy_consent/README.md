@@ -5,6 +5,8 @@
 
 Module Odoo 18 CE pour la gestion de la vie privée conformément à la **Loi 25** du Québec sur la protection des renseignements personnels : consentements, destruction documentaire et anonymisation.
 
+Depuis la **v18.0.4.0.0**, le moteur est **multi-cadres** : la Loi 25 est intégrée par défaut, et des modules compagnons facultatifs ajoutent le **RGPD/GDPR (UE)**, le **UK GDPR**, la **LPRPDE/PIPEDA (Canada)** et le **Privacy Act 2020 (Nouvelle-Zélande)**.
+
 ---
 
 ## Table des matières
@@ -42,6 +44,8 @@ Ce module fournit :
 **Consentements** : un registre unifié reliant personne concernee, finalite, contexte et preuve, avec historique inviolable et automatisations.
 
 **Destruction et anonymisation** (v18.0.3.0.0) : calendrier de conservation par type de document, classification des renseignements personnels, registre de destruction immuable (Art. 3.2 LPRPSP), campagnes de destruction en lot, evaluations d'anonymisation selon les 3 criteres du Reglement A-2.1, r. 0.1, et droit a l'effacement (Art. 28.1 LPRPSP).
+
+**Cadres réglementaires multiples** (v18.0.4.0.0) : un enregistrement `privacy.framework` porte les faits statutaires (autorité de surveillance, titre du responsable, âge du consentement, délais de déclaration d'incident, droits des personnes concernées, citations légales). Chaque société choisit son cadre par défaut, surchargeable par enregistrement (consentement, avis, calendrier de conservation, évaluation). Les courriels et certificats s'adaptent automatiquement au cadre applicable. La **Loi 25** est intégrée ; le **GDPR**, le **UK GDPR**, la **LPRPDE/PIPEDA** et le **Privacy Act 2020 (NZ)** s'ajoutent via des modules compagnons `privacy_framework_*` (voir [Dépendances](#dépendances)).
 
 ---
 
@@ -586,6 +590,17 @@ privacy_consent/
 | `cryptography` | Chiffrement des mots de passe et cles API |
 | `dateutil` | Calcul des dates de reevaluation (relativedelta) |
 
+### Modules compagnons facultatifs — cadres réglementaires (v18.0.4.0.0)
+
+La Loi 25 (Québec) est intégrée au module principal ; **aucun module compagnon n'est requis** pour l'usage par défaut. Pour servir d'autres juridictions, installez le ou les modules data-only suivants (ils ne dépendent que de `privacy_consent`) :
+
+| Module | Cadre ajouté | Autorité |
+|--------|--------------|----------|
+| `privacy_framework_gdpr` | RGPD / GDPR (Union européenne) | autorité de contrôle nationale / EDPB |
+| `privacy_framework_uk` | UK GDPR / Data Protection Act 2018 | ICO |
+| `privacy_framework_pipeda` | LPRPDE / PIPEDA (Canada fédéral) | CPVP / OPC |
+| `privacy_framework_nz` | Privacy Act 2020 (Nouvelle-Zélande) | OPC NZ |
+
 ---
 
 ## Licence
@@ -612,6 +627,7 @@ Pour signaler un problème ou suggérer une amélioration, veuillez contacter l'
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 18.0.4.0.0 | 2026-06 | Moteur **multi-cadres réglementaires** : modèle `privacy.framework` (+ bases légales + droits des personnes), cadre par défaut par société surchargeable par enregistrement, courriels et certificats paramétrés. Loi 25 intégrée + modules compagnons GDPR / UK GDPR / PIPEDA / Privacy Act 2020 (NZ). La Loi 25 reste **inchangée** (rendu identique, chaîne d'intégrité du registre de destruction préservée) |
 | 18.0.3.1.0 | 2026-04 | Registre de destruction a chaine SHA-256 (chaque entree integre l'empreinte de la precedente) + cron de verification d'integrite (8e tache planifiee) |
 | 18.0.3.1.4 | 2026-06 | Synchronisation documentation et métadonnées (licence/LICENSE). Voir l'historique git pour le détail. |
 | 18.0.3.0.1 | 2026-04-11 | Correctifs QA : 17 methodes action_* sans retour XML-RPC, selection secure_wipe manquante, ACL registre (notes editable par Officer), certificat PDF redirige vers rapport QWeb, codes README corriges |

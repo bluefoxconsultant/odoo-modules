@@ -8,7 +8,7 @@ from odoo.exceptions import UserError
 class PrivacyConsent(models.Model):
     _name = "privacy.consent"
     _description = "Enregistrement de consentement"
-    _inherit = ["mail.thread", "mail.activity.mixin"]
+    _inherit = ["mail.thread", "mail.activity.mixin", "privacy.framework.mixin"]
     _order = "create_date desc"
     _rec_name = "display_name"
 

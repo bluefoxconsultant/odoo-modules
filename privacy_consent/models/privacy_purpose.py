@@ -4,6 +4,7 @@ from odoo import api, fields, models
 class PrivacyPurpose(models.Model):
     _name = "privacy.purpose"
     _description = "Objet de consentement"
+    _inherit = ["privacy.framework.mixin"]
     _order = "sequence, name"
 
     code = fields.Char(

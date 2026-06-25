@@ -18,6 +18,7 @@ class PrivacyDestructionRegister(models.Model):
 
     _name = "privacy.destruction.register"
     _description = "Registre de destruction"
+    _inherit = ["privacy.framework.mixin"]
     _order = "destruction_date desc, id desc"
     _rec_name = "register_number"
 
@@ -160,27 +161,37 @@ class PrivacyDestructionRegister(models.Model):
     # === Immutability enforcement ===
 
     def write(self, vals):
-        """Prevent modification of register entries (Art. 3.2 LPRPSP).
+        """Prevent modification of register entries (legal immutability).
 
         Only 'notes' can be updated after creation.
         Hash is computed in create() via direct super() call — no bypass flag needed.
         """
         allowed_fields = {"notes"}
         if set(vals.keys()) - allowed_fields:
+            citation = self._register_immutability_citation()
             raise UserError(
                 "Le registre de destruction est immuable conformément à "
-                "l'article 3.2 de la Loi sur la protection des renseignements "
-                "personnels dans le secteur privé (LPRPSP). "
-                "Seules les notes peuvent être modifiées."
+                f"{citation}. Seules les notes peuvent être modifiées."
             )
         return super().write(vals)
 
     def unlink(self):
-        """Prevent deletion of register entries (Art. 3.2 LPRPSP)."""
+        """Prevent deletion of register entries (legal immutability)."""
+        citation = self._register_immutability_citation()
         raise UserError(
-            "Les entrées du registre de destruction ne peuvent pas être supprimées. "
-            "Ceci est requis par l'article 3.2 de la LPRPSP."
+            "Les entrées du registre de destruction ne peuvent pas être "
+            f"supprimées. Ceci est requis par {citation}."
         )
+
+    def _register_immutability_citation(self):
+        """Citation backing the register's immutability, sourced from the
+        applicable framework (Loi 25 fallback keeps the historical wording)."""
+        loi25_default = (
+            "l'article 3.2 de la Loi sur la protection des renseignements "
+            "personnels dans le secteur privé (LPRPSP)"
+        )
+        framework = self[:1].get_framework() if self else False
+        return (framework and framework.register_immutability_citation) or loi25_default
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -300,6 +311,7 @@ class PrivacyDestructionRegister(models.Model):
         # Determine who approved (look for approval in tracking)
         approved_by = request.env.user
 
+        framework = self._resolve_framework_for_request(request)
         vals = {
             "destruction_request_id": request.id,
             "destruction_date": request.executed_at or fields.Datetime.now(),
@@ -310,6 +322,7 @@ class PrivacyDestructionRegister(models.Model):
             "legal_basis": self._build_legal_basis_from_request(request),
             "certificate_number": request.certificate_number,
             "company_id": request.company_id.id or request.env.company.id,
+            "framework_id": framework.id if framework else False,
         }
 
         # Add consent record info if present
@@ -356,11 +369,32 @@ class PrivacyDestructionRegister(models.Model):
             parts.append(f"Notes : {request.notes}")
         return "; ".join(parts) if parts else "Destruction de données personnelles"
 
+    def _resolve_framework_for_request(self, request):
+        """Resolve the framework backing a destruction request:
+        request.framework_id → consent's framework → company default → Loi 25."""
+        framework = getattr(request, "framework_id", False)
+        if not framework and request.consent_id:
+            framework = request.consent_id.framework_id
+        if not framework and request.company_id:
+            framework = request.company_id.default_privacy_framework_id
+        if not framework:
+            framework = self.env.ref(
+                "privacy_consent.framework_loi25", raise_if_not_found=False
+            )
+        return framework
+
     def _build_legal_basis_from_request(self, request):
-        """Build legal basis text from a destruction request."""
-        parts = ["Art. 23 LPRPSP (obligation de destruction)"]
+        """Build legal basis text from a destruction request, sourcing the
+        statutory citations from the applicable framework (Loi 25 fallback keeps
+        the historical wording, so existing-entry hashes are unaffected)."""
+        framework = self._resolve_framework_for_request(request)
+        base = (framework and framework.destruction_basis_template) \
+            or "Art. 23 LPRPSP (obligation de destruction)"
+        parts = [base]
         if hasattr(request, "request_type") and request.request_type == "erasure_right":
-            parts.append("Art. 28.1 LPRPSP (droit à l'effacement)")
+            erasure = (framework and framework.erasure_basis_citation) \
+                or "Art. 28.1 LPRPSP (droit à l'effacement)"
+            parts.append(erasure)
         if request.policy_id:
             parts.append(f"Politique : {request.policy_id.display_name}")
         if hasattr(request, "retention_calendar_id") and request.retention_calendar_id:

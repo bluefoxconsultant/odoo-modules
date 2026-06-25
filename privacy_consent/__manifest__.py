@@ -1,6 +1,6 @@
 {
     "name": "Suivi des consentements (Loi 25)",
-    "version": "18.0.3.1.4",
+    "version": "18.0.4.0.0",
     "category": "Privacy/Compliance",
     "summary": "Vie privée, consentements et destruction documentaire (Loi 25)",
     "description": """
@@ -43,6 +43,7 @@ Destruction et anonymisation documentaire :
         "security/privacy_security.xml",
         "security/ir.model.access.csv",
         # Données
+        "data/privacy_framework_loi25_data.xml",
         "data/privacy_retention_calendar_data.xml",
         "data/privacy_destruction_register_cron.xml",
         "data/privacy_purpose_data.xml",
@@ -73,6 +74,7 @@ Destruction et anonymisation documentaire :
         "views/res_partner_views.xml",
         "views/project_views.xml",
         "views/menu_views.xml",
+        "views/privacy_framework_views.xml",
         "views/portal_templates.xml",
         # Rapports
         "report/privacy_destruction_certificate.xml",
@@ -84,4 +86,5 @@ Destruction et anonymisation documentaire :
     "installable": True,
     "application": True,
     "auto_install": False,
+    "post_init_hook": "post_init_hook",
 }

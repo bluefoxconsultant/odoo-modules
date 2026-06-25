@@ -54,7 +54,7 @@
     <!-- Footer -->
     <div style="background-color:#f8f9fa; padding:15px 30px; border:1px solid #dee2e6; border-top:none; border-radius:0 0 8px 8px;">
         <p style="color:#999999; font-size:11px; margin:0; text-align:center;">
-            {{ object.consent_id.company_id.name or '' }} - Conformité Loi 25 / Law 25 Compliance
+            {{ object.consent_id.company_id.name or '' }} - Conformité {{ object.consent_id.get_framework().law_short_label }}
         </p>
     </div>
 </div>

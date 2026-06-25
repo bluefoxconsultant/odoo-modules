@@ -53,3 +53,14 @@ access_privacy_destruction_campaign_manager,privacy.destruction.campaign.manager
 access_privacy_destruction_campaign_line_user,privacy.destruction.campaign.line.user,model_privacy_destruction_campaign_line,group_privacy_user,1,0,0,0
 access_privacy_destruction_campaign_line_manager,privacy.destruction.campaign.line.manager,model_privacy_destruction_campaign_line,group_privacy_manager,1,1,1,0
 access_privacy_destruction_campaign_line_officer,privacy.destruction.campaign.line.officer,model_privacy_destruction_campaign_line,group_privacy_officer,1,1,1,1
+access_privacy_framework_user,privacy.framework.user,model_privacy_framework,group_privacy_user,1,0,0,0
+access_privacy_framework_manager,privacy.framework.manager,model_privacy_framework,group_privacy_manager,1,1,1,0
+access_privacy_framework_officer,privacy.framework.officer,model_privacy_framework,group_privacy_officer,1,1,1,1
+access_privacy_framework_portal,privacy.framework.portal,model_privacy_framework,base.group_portal,1,0,0,0
+access_privacy_lawful_basis_user,privacy.lawful.basis.user,model_privacy_lawful_basis,group_privacy_user,1,0,0,0
+access_privacy_lawful_basis_manager,privacy.lawful.basis.manager,model_privacy_lawful_basis,group_privacy_manager,1,1,1,0
+access_privacy_lawful_basis_officer,privacy.lawful.basis.officer,model_privacy_lawful_basis,group_privacy_officer,1,1,1,1
+access_privacy_right_user,privacy.right.user,model_privacy_right,group_privacy_user,1,0,0,0
+access_privacy_right_manager,privacy.right.manager,model_privacy_right,group_privacy_manager,1,1,1,0
+access_privacy_right_officer,privacy.right.officer,model_privacy_right,group_privacy_officer,1,1,1,1
+access_privacy_right_portal,privacy.right.portal,model_privacy_right,base.group_portal,1,0,0,0

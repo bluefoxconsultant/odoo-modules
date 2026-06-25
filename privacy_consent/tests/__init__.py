@@ -9,3 +9,4 @@ from . import test_privacy_destruction_register
 from . import test_privacy_destruction_campaign
 from . import test_privacy_anonymization_assessment
 from . import test_privacy_destruction_document_workflow
+from . import test_privacy_framework

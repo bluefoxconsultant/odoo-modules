@@ -47,10 +47,10 @@
                             <p style="font-family:'Lexend','Segoe UI',Arial,sans-serif; font-size:17px; font-weight:300; color:#374151; margin:0 0 16px 0; line-height:26px;">
                                 Bonjour <t t-out="object.subject_partner_id.name"/>,
                             </p>
+                            <t t-set="framework" t-value="object.get_framework()"/>
                             <p style="font-family:'Lexend','Segoe UI',Arial,sans-serif; font-size:14px; color:#374151; line-height:22px; margin:0 0 16px 0;">
                                 Nous vous contactons pour vous demander votre consentement concernant la finalité ci-dessous.
-                                Conformément à la Loi 25 sur la protection des renseignements personnels au Québec,
-                                nous avons besoin de votre consentement explicite.
+                                <t t-out="framework.consent_intro_fr"/>
                             </p>
 
                             <!-- Purpose Box -->
@@ -76,7 +76,7 @@
                                 <tr>
                                     <td style="padding:0 16px 16px 16px;">
                                         <span style="display:inline-block; font-family:'Lexend','Segoe UI',Arial,sans-serif; font-size:12px; text-transform:uppercase; letter-spacing:0.6px; padding:6px 10px; background-color:#f5f5f5; color:#000000; border:1px solid #cccccc; border-radius:999px;">
-                                            Loi 25
+                                            <t t-out="framework.law_short_label"/>
                                         </span>
                                     </td>
                                 </tr>
@@ -111,10 +111,10 @@
                                                     &#8226; Vous pouvez retirer votre consentement à tout moment en nous écrivant à
                                                     <a href="mailto:privacy@example.com" style="color:#32373c; text-decoration:underline;">privacy@example.com</a>
                                                     ou via votre portail de préférences.<br/>
-                                                    &#8226; Vous avez le droit d'accéder à vos renseignements personnels et de les rectifier.<br/>
-                                                    &#8226; Responsable de la protection des renseignements personnels (RPRP)&#160;:
+                                                    <t t-foreach="framework.right_ids" t-as="r">&#8226; <t t-out="r.label_fr"/><br/></t>
+                                                    &#8226; <t t-out="framework.officer_title_fr"/>&#160;:
                                                     <a href="mailto:privacy@example.com" style="color:#32373c; text-decoration:underline;">privacy@example.com</a><br/>
-                                                    &#8226; Loi applicable&#160;: Loi sur la protection des renseignements personnels dans le secteur privé (RLRQ, c.&#160;P-39.1), modifiée par la Loi&#160;25 (2021, c.&#160;25).
+                                                    &#8226; Loi applicable&#160;: <t t-out="framework.law_citation_fr"/>
                                                 </td>
                                             </tr>
                                             <tr>
@@ -125,7 +125,7 @@
                                                     &#8226; You may refuse without impact on your existing services.<br/>
                                                     &#8226; You may withdraw consent at any time:
                                                     <a href="mailto:privacy@example.com" style="color:#32373c; text-decoration:underline;">privacy@example.com</a><br/>
-                                                    &#8226; You have the right to access and rectify your personal information.
+                                                    <t t-foreach="framework.right_ids" t-as="r">&#8226; <t t-out="r.label_en"/><br/></t>
                                                 </td>
                                             </tr>
                                         </table>
@@ -153,8 +153,7 @@
                             </p>
                             <p style="font-family:'Lexend','Segoe UI',Arial,sans-serif; font-size:13px; color:#6B7280; line-height:20px; margin:0 0 8px 0; font-style:italic;">
                                 We are contacting you to request your consent for <strong><t t-out="object.purpose_id.name"/></strong>.
-                                In accordance with Quebec's Law 25 on the protection of personal information,
-                                we need your explicit consent for this purpose.
+                                <t t-out="framework.consent_intro_en"/>
                             </p>
                             <p style="font-family:'Lexend','Segoe UI',Arial,sans-serif; font-size:13px; color:#6B7280; line-height:20px; margin:0; font-style:italic;">
                                 Please click the button above to respond to this request.

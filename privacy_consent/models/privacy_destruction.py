@@ -20,7 +20,7 @@ class PrivacyDestructionRequest(models.Model):
 
     _name = "privacy.destruction.request"
     _description = "Demande de destruction de données"
-    _inherit = ["mail.thread", "mail.activity.mixin"]
+    _inherit = ["mail.thread", "mail.activity.mixin", "privacy.framework.mixin"]
     _order = "scheduled_date, id"
     _rec_name = "certificate_number"
 

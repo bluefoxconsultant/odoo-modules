@@ -483,7 +483,7 @@
                             </table>
 
                             <p style="font-family:'Lexend','Segoe UI',Arial,sans-serif; font-size:14px; color:#374151; line-height:22px; margin:0 0 16px 0;">
-                                Conformément à la Loi 25, vous pouvez retirer votre consentement à tout moment
+                                Conformément à la <t t-out="object.get_framework().law_short_label"/>, vous pouvez retirer votre consentement à tout moment
                                 via notre centre de préférences.
                             </p>
 
@@ -516,7 +516,7 @@
                                 <strong>Valid until:</strong> <t t-out="object.expires_at.strftime('%Y-%m-%d') if object.expires_at else 'No expiration'"/>
                             </p>
                             <p style="font-family:'Lexend','Segoe UI',Arial,sans-serif; font-size:13px; color:#6B7280; line-height:20px; margin:0; font-style:italic;">
-                                In accordance with Law 25, you may withdraw your consent at any time
+                                In accordance with <t t-out="object.get_framework().law_short_label"/>, you may withdraw your consent at any time
                                 through our preference center.
                             </p>
                         </td>

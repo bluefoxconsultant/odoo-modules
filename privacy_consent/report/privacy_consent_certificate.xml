@@ -4,6 +4,7 @@
     <template id="report_consent_certificate_document">
         <t t-call="web.html_container">
             <t t-foreach="docs" t-as="o">
+                <t t-set="framework" t-value="o.consent_id.get_framework()"/>
                 <div class="article" style="font-family: 'Segoe UI', Arial, sans-serif; color: #1a1a1a;">
                     <!-- En-t&#234;te brand&#233; -->
                     <div style="text-align: center; margin-bottom: 24px; border-bottom: 3px solid #32373c; padding-bottom: 16px;">
@@ -11,7 +12,7 @@
                             CONSENTEMENT.QUEBEC
                         </div>
                         <div style="font-size: 11px; color: #6B7280; margin-top: 4px; letter-spacing: 0.5px;">
-                            CERTIFICAT DE CONSENTEMENT &#8212; LOI 25
+                            CERTIFICAT DE CONSENTEMENT &#8212; <t t-esc="framework.law_short_label"/>
                         </div>
                     </div>
 
@@ -172,14 +173,12 @@
                         </p>
                         <p style="font-size: 9px; color: #374151; line-height: 14px; margin: 0 0 6px 0;">
                             Ce certificat constitue une preuve de l&#8217;action de consentement enregistr&#233;e
-                            conform&#233;ment &#224; la Loi sur la protection des renseignements personnels dans le
-                            secteur priv&#233; (RLRQ, c.&#160;P-39.1), modifi&#233;e par la Loi&#160;25 (2021, c.&#160;25).
+                            conform&#233;ment &#224; la <t t-esc="framework.law_citation_fr"/>.
                             L&#8217;empreinte SHA-256 garantit l&#8217;int&#233;grit&#233; du document.
                         </p>
                         <p style="font-size: 9px; color: #6B7280; line-height: 14px; margin: 0; font-style: italic;">
                             This certificate constitutes evidence of the consent action recorded in accordance
-                            with Quebec&#8217;s Act respecting the protection of personal information in the private
-                            sector, as amended by Law 25.
+                            with <t t-esc="framework.law_citation_en"/>.
                             The SHA-256 hash ensures the document&#8217;s integrity.
                         </p>
                     </div>

@@ -74,7 +74,11 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | `contacts_nextcloud_sync` | Contacts Nextcloud Sync | 18.0.1.2.0 | LGPL-3 | Sync Odoo contacts with a Nextcloud address book via CardDAV |
 | `daily_todo_digest` | Daily To-Do Digest | 18.0.2.0.0 | LGPL-3 | Daily email digest with activities, overdue tasks, and a week-ahead view |
 | `hosting_management` | Gestion d'hébergement | 18.0.2.46.0 | LGPL-3 | Manage hosting services, client computer parks (endpoints, BitLocker, Action1 sync) and software license pools |
-| `privacy_consent` | Suivi des consentements (Loi 25) | 18.0.3.1.4 | LGPL-3 | Privacy, consents, and document destruction (Quebec Loi 25) |
+| `privacy_consent` | Suivi des consentements (Loi 25) | 18.0.4.0.0 | LGPL-3 | Privacy, consents, and document destruction (Quebec Loi 25) |
+| `privacy_framework_gdpr` | Cadre de confidentialité — GDPR (UE) | 18.0.1.0.0 | LGPL-3 | Pack de cadre réglementaire GDPR (Union européenne) pour le module Vie privée |
+| `privacy_framework_nz` | Cadre de confidentialité — Privacy Act 2020 (Nouvelle-Zélande) | 18.0.1.0.0 | LGPL-3 | Pack de cadre réglementaire NZ Privacy Act 2020 pour le module Vie privée |
+| `privacy_framework_pipeda` | Cadre de confidentialité — LPRPDE / PIPEDA (Canada) | 18.0.1.0.0 | LGPL-3 | Pack de cadre réglementaire LPRPDE / PIPEDA (fédéral) pour le module Vie privée |
+| `privacy_framework_uk` | Cadre de confidentialité — UK GDPR (Royaume-Uni) | 18.0.1.0.0 | LGPL-3 | Pack de cadre réglementaire UK GDPR / DPA 2018 pour le module Vie privée |
 | `project_knowledge_matrix` | Project Knowledge Matrix | 18.0.9.12.3 | LGPL-3 | Project knowledge base, policies, and documentation |
 <!-- MODULES_TABLE:END -->
 <!-- MODULES_TABLE:END -->

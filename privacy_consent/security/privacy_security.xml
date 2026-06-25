@@ -159,5 +159,31 @@
             <field name="global" eval="True"/>
             <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
         </record>
+
+        <!-- === Cadres réglementaires — données de référence globales === -->
+
+        <!-- Cadre réglementaire : Règle de société (les cadres globaux company_id=False sont visibles par tous) -->
+        <record id="rule_framework_company" model="ir.rule">
+            <field name="name">Cadre réglementaire : Règle de société</field>
+            <field name="model_id" ref="model_privacy_framework"/>
+            <field name="global" eval="True"/>
+            <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+        </record>
+
+        <!-- Base légale : Règle de société -->
+        <record id="rule_lawful_basis_company" model="ir.rule">
+            <field name="name">Base légale : Règle de société</field>
+            <field name="model_id" ref="model_privacy_lawful_basis"/>
+            <field name="global" eval="True"/>
+            <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+        </record>
+
+        <!-- Droit de la personne concernée : Règle de société -->
+        <record id="rule_right_company" model="ir.rule">
+            <field name="name">Droit : Règle de société</field>
+            <field name="model_id" ref="model_privacy_right"/>
+            <field name="global" eval="True"/>
+            <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
+        </record>
     </data>
 </odoo>

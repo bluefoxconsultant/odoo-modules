@@ -4,6 +4,7 @@ from odoo import api, fields, models
 class PrivacyNotice(models.Model):
     _name = "privacy.notice"
     _description = "Modèle de consentement"
+    _inherit = ["privacy.framework.mixin"]
     _order = "name"
 
     name = fields.Char(
