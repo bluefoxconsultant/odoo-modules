@@ -1,24 +1,24 @@
-# Cadre de confidentialité — LPRPDE / PIPEDA (Canada)
+# Privacy Framework — PIPEDA (Canada)
 
 [![Odoo Version](https://img.shields.io/badge/Odoo-18.0-purple.svg)](https://www.odoo.com)
 [![License: LGPL-3](https://img.shields.io/badge/License-LGPL--3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0.html)
 
-Module **de données** (data-only) pour [`privacy_consent`](../privacy_consent). Ajoute le cadre fédéral canadien **LPRPDE / PIPEDA** (pour les clients canadiens hors Québec).
+A **data-only** module for [`privacy_consent`](../privacy_consent). It adds Canada's federal **PIPEDA** framework (for Canadian clients outside Quebec).
 
-## Ce que le pack ajoute
+## What this pack adds
 
-- Un enregistrement `privacy.framework` « PIPEDA » : **Commissariat à la protection de la vie privée du Canada (CPVP / OPC)**, responsable de la vie privée, notification d'incident en cas de **risque réel de préjudice grave** (*real risk of significant harm*).
-- Des **bases de traitement** fondées sur les 10 principes d'équité de l'information : consentement, exception légale (art. 7), transaction commerciale (art. 7.2).
-- Les **droits** : accès, contestation de l'exactitude / correction (principe 4.9), plainte auprès du CPVP.
+- A `privacy.framework` record "PIPEDA": **Office of the Privacy Commissioner of Canada (OPC)**, privacy officer, breach notification on a **real risk of significant harm**.
+- Processing bases grounded in the 10 fair-information principles: consent, legal exception (s. 7), business transaction (s. 7.2).
+- The **rights**: access, challenge accuracy / correction (Principle 4.9), complaint to the OPC.
 
-## Utilisation
+## Usage
 
-Après installation, définissez ce cadre comme défaut de la société (**Vie privée → Configuration → Cadres réglementaires**) ou par enregistrement.
+After installing, set this framework as the company default (**Privacy → Configuration → Regulatory frameworks**) or per record.
 
-## Dépendances
+## Dependencies
 
-`privacy_consent`. Module de données uniquement.
+`privacy_consent`. Data-only module.
 
-## Licence
+## License
 
 LGPL-3 — Blue Fox Inc.

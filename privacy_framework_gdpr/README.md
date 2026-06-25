@@ -1,24 +1,24 @@
-# Cadre de confidentialité — GDPR (UE)
+# Privacy Framework — GDPR (EU)
 
 [![Odoo Version](https://img.shields.io/badge/Odoo-18.0-purple.svg)](https://www.odoo.com)
 [![License: LGPL-3](https://img.shields.io/badge/License-LGPL--3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0.html)
 
-Module **de données** (data-only) pour [`privacy_consent`](../privacy_consent). Ajoute le cadre réglementaire **RGPD / GDPR** (Règlement (UE) 2016/679) afin que les consentements, courriels et certificats soient rendus selon le droit européen.
+A **data-only** module for [`privacy_consent`](../privacy_consent). It adds the **GDPR** regulatory framework (Regulation (EU) 2016/679) so consents, emails and certificates can render under EU law.
 
-## Ce que le pack ajoute
+## What this pack adds
 
-- Un enregistrement `privacy.framework` « GDPR » : autorité de contrôle nationale / EDPB, **délégué à la protection des données (DPO)**, âge du consentement **16 ans**, déclaration d'incident **72 h** (art. 33) + notification aux personnes en cas de risque élevé (art. 34), AIPD/DPIA (art. 35).
-- Les **6 bases légales** de l'art. 6(1) : consentement, contrat, obligation légale, intérêts vitaux, mission d'intérêt public, intérêt légitime.
-- Les **droits des personnes concernées** : accès, rectification, effacement, limitation, portabilité, opposition, réclamation.
+- A `privacy.framework` record "GDPR": national supervisory authority / EDPB, **Data Protection Officer (DPO)**, consent age **16**, breach notification within **72 h** (Art. 33) plus notification to data subjects on high risk (Art. 34), DPIA (Art. 35).
+- The **6 lawful bases** of Art. 6(1): consent, contract, legal obligation, vital interests, public task, legitimate interests.
+- The **data-subject rights**: access, rectification, erasure, restriction, portability, objection, complaint.
 
-## Utilisation
+## Usage
 
-Après installation, définissez ce cadre comme défaut de la société (**Vie privée → Configuration → Cadres réglementaires**) ou par enregistrement (consentement, avis, calendrier). Aucune autre configuration requise.
+After installing, set this framework as the company default (**Privacy → Configuration → Regulatory frameworks**) or per record (consent, notice, retention calendar). No further configuration required.
 
-## Dépendances
+## Dependencies
 
-`privacy_consent`. Module de données uniquement — aucun modèle, vue ou code ajouté.
+`privacy_consent`. Data-only module: no models, views or code added.
 
-## Licence
+## License
 
 LGPL-3 — Blue Fox Inc.

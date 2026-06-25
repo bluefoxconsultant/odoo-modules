@@ -1,24 +1,24 @@
-# Cadre de confidentialité — Privacy Act 2020 (Nouvelle-Zélande)
+# Privacy Framework — Privacy Act 2020 (New Zealand)
 
 [![Odoo Version](https://img.shields.io/badge/Odoo-18.0-purple.svg)](https://www.odoo.com)
 [![License: LGPL-3](https://img.shields.io/badge/License-LGPL--3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0.html)
 
-Module **de données** (data-only) pour [`privacy_consent`](../privacy_consent). Ajoute le cadre néo-zélandais **Privacy Act 2020**.
+A **data-only** module for [`privacy_consent`](../privacy_consent). It adds New Zealand's **Privacy Act 2020** framework.
 
-## Ce que le pack ajoute
+## What this pack adds
 
-- Un enregistrement `privacy.framework` « Privacy Act 2020 » : **Office of the Privacy Commissioner (OPC)**, **Privacy Officer**, notification d'incident « dès que possible » + schéma **NotifyUs** en cas de préjudice grave (*serious harm*).
-- Des **bases de traitement** fondées sur les Information Privacy Principles (IPP) : consentement/autorisation, finalité de collecte directement liée, autorisé par la loi.
-- Les **droits** : accès (IPP 6), correction (IPP 7), plainte auprès du Privacy Commissioner.
+- A `privacy.framework` record "Privacy Act 2020": **Office of the Privacy Commissioner (OPC)**, **Privacy Officer**, breach notification "as soon as practicable" plus the **NotifyUs** scheme when serious harm is likely.
+- Processing bases grounded in the Information Privacy Principles (IPPs): consent / authorisation, directly-related collection purpose, authorised by law.
+- The **rights**: access (IPP 6), correction (IPP 7), complaint to the Privacy Commissioner.
 
-## Utilisation
+## Usage
 
-Après installation, définissez ce cadre comme défaut de la société (**Vie privée → Configuration → Cadres réglementaires**) ou par enregistrement.
+After installing, set this framework as the company default (**Privacy → Configuration → Regulatory frameworks**) or per record.
 
-## Dépendances
+## Dependencies
 
-`privacy_consent`. Module de données uniquement.
+`privacy_consent`. Data-only module.
 
-## Licence
+## License
 
 LGPL-3 — Blue Fox Inc.

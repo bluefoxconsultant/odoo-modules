@@ -25,15 +25,15 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | `bf_calendar_nc_talk` | BF Calendar — Nextcloud Talk button | 18.0.1.0.0 | LGPL-3 | Adds a '+ Nextcloud Talk' button next to '+ Odoo meeting' on calendar events. Creates a public Talk conversation via the Spreed OCS API and writes the room URL into videocall_location. |
 | `bf_chatter_chronological` | BF Chatter Chronological View | 18.0.4.0.0 | LGPL-3 | Sort the chatter feed by the email's original Date header instead of insertion id (Python `_order` + `_message_fetch` + JS `Thread.fetch*` patch); cogwheel action to re-parse lost Date headers from quoted body content |
 | `bf_chatter_send_now_force` | BF Chatter — Force Send on Scheduled Send Now | 18.0.1.0.0 | LGPL-3 | The "Send Now" button on a scheduled chatter message sends immediately instead of waiting up to 5 min for the mail queue cron (restores parity with the daily auto-send cron) |
-| `bf_chatter_timesheet` | Blue Fox — Feuille de temps depuis le chatter | 18.0.1.1.0 | LGPL-3 | Case à cocher dans le composer du chatter pour journaliser une feuille de temps en même temps qu'une note interne. |
-| `bf_contact_enrichment` | Enrichissement de contacts | 18.0.1.2.0 | LGPL-3 | Cartes d'affaires (OCR), signatures courriel, import vCard, détection de doublons et score de complétude — via Claude |
+| `bf_chatter_timesheet` | Blue Fox — Feuille de temps depuis le chatter | 18.0.1.1.0 | LGPL-3 | Checkbox in the chatter composer to log a timesheet entry alongside an internal note. |
+| `bf_contact_enrichment` | Enrichissement de contacts | 18.0.1.2.0 | LGPL-3 | Business cards (OCR), email signatures, vCard import, duplicate detection and completeness scoring, powered by Claude |
 | `bf_dark_mode` | Blue Fox Dark Mode | 18.0.1.1.0 | LGPL-3 | Dark mode for Odoo using the Blue Fox palette |
-| `bf_dashboard` | Tableau de bord Blue Fox | 18.0.1.0.0 | LGPL-3 | Tableau de bord unifié agrégeant facturation, hébergement, connaissances et vie privée |
+| `bf_dashboard` | Tableau de bord Blue Fox | 18.0.1.0.0 | LGPL-3 | Unified dashboard aggregating billing, hosting, knowledge and privacy |
 | `bf_default_all_companies` | BF Default All Companies | 18.0.1.0.0 | LGPL-3 | Pre-selects every allowed company in the multi-company switcher on first login |
 | `bf_document_nextcloud_sync` | Document Nextcloud Sync | 18.0.1.3.0 | LGPL-3 | Document sync between Odoo and Nextcloud via WebDAV |
 | `bf_email_management` | Gestion des courriels | 18.0.5.3.0 | LGPL-3 | Unified IMAP inbox + Odoo chatter projection, two-pane OWL folder browser (Apple Mail / Thunderbird), bulk per-row target inference |
-| `bf_email_systray` | Boîte de réception bf.email — barre Odoo | 18.0.1.0.1 | LGPL-3 | Bouton systray ouvrant la Boîte de réception bf.email avec compteur (lus + non lus) |
-| `bf_follower_cleanup` | BF — Nettoyage des abonnés (followers internes uniquement) | 18.0.1.0.1 | LGPL-3 | Cron qui retire toute personne non-employée des abonnés des chatters |
+| `bf_email_systray` | Boîte de réception bf.email — barre Odoo | 18.0.1.0.1 | LGPL-3 | Systray button opening the bf.email inbox with a (read + unread) counter |
+| `bf_follower_cleanup` | BF — Nettoyage des abonnés (followers internes uniquement) | 18.0.1.0.1 | LGPL-3 | Cron that removes all non-employee followers from chatters |
 | `bf_gamification` | Fox Quest | 18.0.2.3.0 | LGPL-3 | Gamification system with XP, levels, badges, and rewards |
 | `bf_helpdesk` | Blue Fox — Helpdesk | 18.0.4.1.2 | LGPL-3 | Branded helpdesk extension: per-team public form, hour-bank ribbon, waiting states, ntfy critical hook, persona panel, knowledge-matrix link, ticket→meeting, IA triage via Claude, CSAT on close, branded portal, dashboard tile, IMAP gateway hardening, SLA + macros + auto-tag + auto-ack |
 | `bf_hour_bank` | Banque d'heures | 18.0.1.11.0 | LGPL-3 | Automated tracking of client hour banks with threshold-based proactive notifications (unbilled hours, % of allocated budget, balance floor) |
@@ -46,24 +46,24 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | `bf_mail_vigie` | BF Vigie courriels (re-router) | 18.0.2.2.0 | LGPL-3 | "Re-route" button on `bf.email` to move a misrouted email to the correct chatter |
 | `bf_mass_notes` | Blue Fox — Notes en lot | 18.0.1.0.0 | LGPL-3 | List-view Action to post a chatter note (or message) to many selected records at once; binds to all `mail.thread` models |
 | `bf_meeting` | Rencontres | 18.0.3.39.1 | LGPL-3 | Agendas, meeting records, and discussion items unified around `calendar.event` with automatic reminders |
-| `bf_meeting_call_archive` | Rencontres ↔ Archive d'appels | 18.0.1.0.0 | LGPL-3 | Lien optionnel entre un compte rendu et un appel archivé |
+| `bf_meeting_call_archive` | Rencontres ↔ Archive d'appels | 18.0.1.0.0 | LGPL-3 | Optional link between a meeting record and an archived call |
 | `bf_nextcloud_browser` | Nextcloud File Browser | 18.0.3.3.0 | LGPL-3 | Embedded + standalone Nextcloud WebDAV file browser on projects/tasks: folder tree, modal preview, drag-and-drop upload/move, configurable share presets, open-in-Nextcloud for office files, Knowledge Matrix linking, systray launcher |
 | `bf_onboarding_base` | Blue Fox Onboarding Foundation | 18.0.1.0.0 | LGPL-3 | Shared helpers for Blue Fox per-module onboarding panels. |
 | `bf_persona` | Persona des contacts | 18.0.2.1.0 | LGPL-3 | Active relationship intelligence: composer hint with auto-cc, monthly auto-seed from email signals, weekly degradation detector with optional ntfy alert, kanban dashboard |
-| `bf_project_merge` | Blue Fox — Regroupement de tâches | 18.0.1.0.0 | LGPL-3 | Regrouper des tâches en réattribuant leur contenu (conversation, activités, heures, dépendances) vers la tâche conservée, puis archiver le reste. |
+| `bf_project_merge` | Blue Fox — Regroupement de tâches | 18.0.1.0.0 | LGPL-3 | Merge tasks by reassigning their content (messages, activities, hours, dependencies) to the kept task, then archive the rest. |
 | `bf_security_awareness` | Security Awareness | 18.0.1.9.0 | LGPL-3 | KnowBe4/Terranova-style platform: phishing simulations (open/click/submit, QR, attachments), per-person risk profiles, eLearning remediation, OWL dashboards, a Phish Alert Button with sim-aware triage, and email clawback (PhishRIP-style) to pull a confirmed malicious email from every mailbox (M365 app-only XOAUTH2 or per-mailbox IMAP) into reversible quarantine — see `SECURITY.md` |
-| `bf_sign` | Blue Fox — Signature électronique | 18.0.3.8.3 | LGPL-3 | Signature électronique native (SES) : demande, signature par lien public, certificat de complétion et piste de vérification inaltérable |
-| `bf_sign_account` | Blue Fox — Signature pour la comptabilité | 18.0.1.0.0 | LGPL-3 | Envoyer une facture client / facture fournisseur pour signature électronique (bf_sign). |
-| `bf_sign_privacy` | Blue Fox — Signature des consentements (Loi 25) | 18.0.1.0.0 | LGPL-3 | Signer les consentements Loi 25 avec le moteur natif bf_sign (au lieu de DocuSeal / LibreSign externes). |
-| `bf_sign_purchase` | Blue Fox — Signature pour les achats | 18.0.1.0.0 | LGPL-3 | Envoyer un bon de commande fournisseur pour signature électronique (bf_sign). |
-| `bf_sign_sale` | Blue Fox — Signature pour les ventes | 18.0.1.0.0 | LGPL-3 | Envoyer un devis / bon de commande pour signature électronique (bf_sign). |
+| `bf_sign` | Blue Fox — Signature électronique | 18.0.3.8.3 | LGPL-3 | Native electronic signature (SES): request, sign via public link, completion certificate and tamper-evident audit trail |
+| `bf_sign_account` | Blue Fox — Signature pour la comptabilité | 18.0.1.0.0 | LGPL-3 | Send a customer invoice / vendor bill for electronic signature (bf_sign). |
+| `bf_sign_privacy` | Blue Fox — Signature des consentements (Loi 25) | 18.0.1.0.0 | LGPL-3 | Sign Loi 25 consents with the native bf_sign engine (instead of external DocuSeal / LibreSign). |
+| `bf_sign_purchase` | Blue Fox — Signature pour les achats | 18.0.1.0.0 | LGPL-3 | Send a purchase order for electronic signature (bf_sign). |
+| `bf_sign_sale` | Blue Fox — Signature pour les ventes | 18.0.1.0.0 | LGPL-3 | Send a quotation / sales order for electronic signature (bf_sign). |
 | `bf_sms_archive` | Archive SMS & Appels | 18.0.2.2.1 | LGPL-3 | Archive and search Android SMS and call logs |
 | `bf_studio_light` | Blue Fox — Studio Light | 18.0.6.1.0 | LGPL-3 | Field builder for Odoo Community: add custom fields (incl. polymorphic reference with model whitelist), smart buttons (count via JSON controller, no compute Python), and inject them in views without writing a module — survives `-u all` upgrades |
-| `bf_subscription` | Abonnements | 18.0.1.3.1 | LGPL-3 | Gestion des abonnements payants et corrélation avec la facturation fournisseur |
-| `bf_subscription_daily_digest` | Abonnements — section du digest quotidien | 18.0.1.0.0 | LGPL-3 | Ajoute une section « Renouvellements à venir » au digest quotidien |
+| `bf_subscription` | Abonnements | 18.0.1.3.1 | LGPL-3 | Paid subscription management with correlation to vendor bills |
+| `bf_subscription_daily_digest` | Abonnements — section du digest quotidien | 18.0.1.0.0 | LGPL-3 | Adds an 'Upcoming renewals' section to the daily digest |
 | `bf_subscription_dashboard` | Abonnements — carte du tableau de bord | 18.0.1.0.0 | LGPL-3 | Ajoute une carte Abonnements au tableau de bord Blue Fox |
-| `bf_subscription_hosting` | Hébergement — pont vers les abonnements | 18.0.1.0.0 | LGPL-3 | Créer un abonnement à partir d'un domaine d'hébergement (évite la double saisie des coûts récurrents). |
-| `bf_survey_upload` | BF Survey Upload | 18.0.1.2.0 | LGPL-3 | Type de question Téléversement de fichiers pour les sondages Odoo |
+| `bf_subscription_hosting` | Hébergement — pont vers les abonnements | 18.0.1.0.0 | LGPL-3 | Create a subscription from a hosting domain (avoids double-entering recurring costs). |
+| `bf_survey_upload` | BF Survey Upload | 18.0.1.2.0 | LGPL-3 | File-upload question type for Odoo surveys |
 | `bf_task_unblock_notify` | BF Notification de déblocage de tâche | 18.0.1.7.0 | LGPL-3 | Notifies assignees when their task becomes unblocked |
 | `bf_task_waiting_states` | Task Waiting States | 18.0.1.0.0 | LGPL-3 | Add Attente - Client / Attente - Externe task states |
 | `bf_time_of_day` | BF Time of Day | 18.0.1.3.1 | LGPL-3 | Time-of-day slots (Morning / Noon / End of day / Off hours) for tasks and activities, with per-user overrides |
@@ -74,11 +74,11 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | `contacts_nextcloud_sync` | Contacts Nextcloud Sync | 18.0.1.2.0 | LGPL-3 | Sync Odoo contacts with a Nextcloud address book via CardDAV |
 | `daily_todo_digest` | Daily To-Do Digest | 18.0.2.0.0 | LGPL-3 | Daily email digest with activities, overdue tasks, and a week-ahead view |
 | `hosting_management` | Gestion d'hébergement | 18.0.2.46.0 | LGPL-3 | Manage hosting services, client computer parks (endpoints, BitLocker, Action1 sync) and software license pools |
-| `privacy_consent` | Suivi des consentements (Loi 25) | 18.0.4.0.0 | LGPL-3 | Privacy, consents, and document destruction (Quebec Loi 25) |
-| `privacy_framework_gdpr` | Cadre de confidentialité — GDPR (UE) | 18.0.1.0.0 | LGPL-3 | Pack de cadre réglementaire GDPR (Union européenne) pour le module Vie privée |
-| `privacy_framework_nz` | Cadre de confidentialité — Privacy Act 2020 (Nouvelle-Zélande) | 18.0.1.0.0 | LGPL-3 | Pack de cadre réglementaire NZ Privacy Act 2020 pour le module Vie privée |
-| `privacy_framework_pipeda` | Cadre de confidentialité — LPRPDE / PIPEDA (Canada) | 18.0.1.0.0 | LGPL-3 | Pack de cadre réglementaire LPRPDE / PIPEDA (fédéral) pour le module Vie privée |
-| `privacy_framework_uk` | Cadre de confidentialité — UK GDPR (Royaume-Uni) | 18.0.1.0.0 | LGPL-3 | Pack de cadre réglementaire UK GDPR / DPA 2018 pour le module Vie privée |
+| `privacy_consent` | Suivi des consentements (Loi 25) | 18.0.4.0.0 | LGPL-3 | Privacy, consents, retention and immutable destruction register; multi-framework (Loi 25, GDPR, UK GDPR, PIPEDA, NZ) |
+| `privacy_framework_gdpr` | Cadre de confidentialité — GDPR (UE) | 18.0.1.0.0 | LGPL-3 | GDPR (EU) regulatory-framework pack for the Privacy module |
+| `privacy_framework_nz` | Cadre de confidentialité — Privacy Act 2020 (Nouvelle-Zélande) | 18.0.1.0.0 | LGPL-3 | New Zealand Privacy Act 2020 regulatory-framework pack for the Privacy module |
+| `privacy_framework_pipeda` | Cadre de confidentialité — LPRPDE / PIPEDA (Canada) | 18.0.1.0.0 | LGPL-3 | PIPEDA (Canada federal) regulatory-framework pack for the Privacy module |
+| `privacy_framework_uk` | Cadre de confidentialité — UK GDPR (Royaume-Uni) | 18.0.1.0.0 | LGPL-3 | UK GDPR / DPA 2018 regulatory-framework pack for the Privacy module |
 | `project_knowledge_matrix` | Project Knowledge Matrix | 18.0.9.12.3 | LGPL-3 | Project knowledge base, policies, and documentation |
 <!-- MODULES_TABLE:END -->
 <!-- MODULES_TABLE:END -->
