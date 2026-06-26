@@ -77,6 +77,7 @@ class BfSignController(Controller):
             "need_initials": signer.has_initials,
             "overlay_fields": overlay_fields, "field_numbers": field_numbers,
             "sig_nums": sig_nums, "ini_nums": ini_nums,
+            "default_initials": signer._default_initials(),
         }
         ctx.update(extra)
         return ctx

@@ -2,6 +2,30 @@
 
 Le versionnage suit la convention Odoo `18.0.MAJOR.MINOR.PATCH`.
 
+## 18.0.3.11.0 — Téléverser une image de signature/paraphe
+
+- **Troisième mode « Téléverser »** sur les pavés de signature et de paraphe, en
+  plus de « Dessiner » et « Saisir » : le signataire peut choisir un fichier
+  **PNG ou JPG** (p. ex. une signature numérisée). L'image est ajustée et centrée
+  dans la zone, puis traitée comme les autres modes.
+- **Aucun changement au pipeline ni au format de stockage** : l'image téléversée
+  est dessinée sur le canevas et réencodée en PNG (`canvas.toDataURL`), donc elle
+  passe par les mêmes validations (PNG, taille max), la même apposition et la même
+  piste de vérification. Un JPG est converti en PNG automatiquement, côté client.
+
+## 18.0.3.10.0 — Paraphe au clavier + valeurs tirées du signataire
+
+- **Paraphe saisissable au clavier.** Le pavé « Votre paraphe » offre maintenant
+  le même choix **Dessiner / Saisir** que la signature : on peut taper ses
+  initiales (avec un style manuscrit/cursif/élégant) au lieu de devoir les
+  dessiner, ce qui était malcommode au trackpad.
+- **Valeurs prédéterminées à partir du nom du signataire.** En mode « Saisir »,
+  le champ du paraphe est pré-rempli avec les initiales déduites du nom du
+  signataire (« Marie Tremblay » → « MT »), et le nom tapé de la signature
+  reste pré-rempli avec le nom complet. Les deux demeurent modifiables.
+- Aucun changement au pipeline d'apposition ni à la piste de vérification : un
+  paraphe tapé produit la même image PNG qu'un paraphe dessiné.
+
 ## 18.0.3.8.3 — Logo sur fond foncé dans les en-têtes
 
 - Les en-têtes foncés (courriels brandés + pages publiques de signature) utilisent

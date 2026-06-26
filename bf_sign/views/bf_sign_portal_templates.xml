@@ -87,6 +87,10 @@
                                      border-radius:8px; }
                     .bf-type-style { padding:11px; border:1px solid #cfd6dc; border-radius:8px;
                                      background:#fff; font-size:14px; }
+                    .bf-upload-row { margin-top:10px; }
+                    .bf-file-input { width:100%; padding:10px; border:1px solid #cfd6dc;
+                                     border-radius:8px; background:#fff; font:inherit; cursor:pointer; }
+                    .bf-upload-hint { font-size:12px; color:#8a939b; margin-top:6px; }
                     .bf-consent { display:flex; gap:10px; align-items:flex-start; font-size:14px; line-height:1.5; }
                     .bf-consent input { margin-top:3px; transform:scale(1.25); }
                     .bf-actions { display:flex; justify-content:space-between; align-items:center;
@@ -178,6 +182,7 @@
                             <div class="bf-sigmode">
                                 <button type="button" class="bf-mode-btn bf-mode-active" data-sigmode="draw">Dessiner</button>
                                 <button type="button" class="bf-mode-btn" data-sigmode="type">Saisir</button>
+                                <button type="button" class="bf-mode-btn" data-sigmode="upload">Téléverser</button>
                             </div>
                             <div class="bf-pad-wrap">
                                 <canvas class="bf-pad" id="bf_pad"></canvas>
@@ -192,6 +197,10 @@
                                     <option value="Georgia,'Times New Roman',serif">Élégant</option>
                                 </select>
                             </div>
+                            <div class="bf-upload-row" id="bf_up_row" style="display:none;">
+                                <input type="file" class="bf-file-input" id="bf_up_file" accept="image/png,image/jpeg"/>
+                                <div class="bf-upload-hint">PNG ou JPG — l'image sera ajustée à la zone de signature.</div>
+                            </div>
                             <div class="bf-actions">
                                 <button type="button" class="bf-btn bf-btn-ghost" data-clear="bf_pad">Effacer</button>
                             </div>
@@ -200,9 +209,27 @@
                         <t t-if="need_initials">
                             <div class="bf-card" id="bf_card_initials">
                                 <h2>Votre paraphe<t t-if="ini_nums"><span class="bf-href" t-esc="ini_nums"/></t></h2>
+                                <div class="bf-sigmode">
+                                    <button type="button" class="bf-mode-btn bf-mode-active" data-inimode="draw">Dessiner</button>
+                                    <button type="button" class="bf-mode-btn" data-inimode="type">Saisir</button>
+                                    <button type="button" class="bf-mode-btn" data-inimode="upload">Téléverser</button>
+                                </div>
                                 <div class="bf-pad-wrap">
                                     <canvas class="bf-pad" id="bf_pad_initials"></canvas>
-                                    <span class="bf-pad-hint">Paraphez ici</span>
+                                    <span class="bf-pad-hint" id="bf_pad_ini_hint">Paraphez ici</span>
+                                </div>
+                                <div class="bf-type-row" id="bf_ini_type_row" style="display:none;">
+                                    <input type="text" class="bf-type-input" id="bf_ini_type_name"
+                                           t-att-value="default_initials" placeholder="Vos initiales" maxlength="6"/>
+                                    <select class="bf-type-style" id="bf_ini_type_style">
+                                        <option value="'Brush Script MT','Segoe Script','Snell Roundhand',cursive">Manuscrit</option>
+                                        <option value="'Apple Chancery','URW Chancery L',cursive">Cursif</option>
+                                        <option value="Georgia,'Times New Roman',serif">Élégant</option>
+                                    </select>
+                                </div>
+                                <div class="bf-upload-row" id="bf_ini_up_row" style="display:none;">
+                                    <input type="file" class="bf-file-input" id="bf_ini_up_file" accept="image/png,image/jpeg"/>
+                                    <div class="bf-upload-hint">PNG ou JPG — l'image sera ajustée à la zone du paraphe.</div>
                                 </div>
                                 <div class="bf-actions">
                                     <button type="button" class="bf-btn bf-btn-ghost" data-clear="bf_pad_initials">Effacer</button>
@@ -292,30 +319,70 @@
                         }
                         setupPad('bf_pad');
                         setupPad('bf_pad_initials');
-                        Array.prototype.forEach.call(document.querySelectorAll('[data-clear]'), function (btn) {
-                            btn.addEventListener('click', function () {
-                                var id = btn.getAttribute('data-clear');
-                                var p = pads[id];
-                                if (p) { p.clear(); }
-                                var row = document.getElementById('bf_type_row');
-                                if (id === 'bf_pad' && row && row.style.display !== 'none') {
-                                    var ti = document.getElementById('bf_type_name');
-                                    if (ti) { ti.value = ''; }
-                                }
-                                mirror.pads();
-                            });
-                        });
-
-                        // ── Typed signature (alternative to drawing) ───────────────────────
-                        var sigMode = 'draw';
-                        function renderTyped() {
-                            var canvas = document.getElementById('bf_pad');
-                            var pad = pads['bf_pad'];
+                        // ── Typed entry (alternative to drawing) — drives both the ─────────
+                        //    signature and the initials pad through one config table.
+                        var TYPERS = {
+                            signature: { mode: 'draw', pad: 'bf_pad', canvas: 'bf_pad',
+                                         row: 'bf_type_row', hint: 'bf_pad_hint',
+                                         name: 'bf_type_name', style: 'bf_type_style',
+                                         uploadRow: 'bf_up_row', file: 'bf_up_file',
+                                         uploaded: false, attr: 'data-sigmode' },
+                            initials:  { mode: 'draw', pad: 'bf_pad_initials', canvas: 'bf_pad_initials',
+                                         row: 'bf_ini_type_row', hint: 'bf_pad_ini_hint',
+                                         name: 'bf_ini_type_name', style: 'bf_ini_type_style',
+                                         uploadRow: 'bf_ini_up_row', file: 'bf_ini_up_file',
+                                         uploaded: false, attr: 'data-inimode' },
+                        };
+                        function typedValue(key) {
+                            var el = document.getElementById(TYPERS[key].name);
+                            return el ? (el.value || '').trim() : '';
+                        }
+                        // Content present on a pad, by mode: drawn strokes, typed text, or
+                        // an uploaded image (the latter two are painted onto the canvas).
+                        function hasContent(key) {
+                            var t = TYPERS[key];
+                            if (t.mode === 'type') { return typedValue(key) !== ''; }
+                            if (t.mode === 'upload') { return !!t.uploaded; }
+                            var pad = pads[t.pad];
+                            return !!(pad && !pad.isEmpty());
+                        }
+                        // Draw an uploaded JPG/PNG onto the pad canvas (fit, centered) so it
+                        // flows through the same canvas → PNG path as drawing and typing.
+                        function loadImage(key, file) {
+                            var t = TYPERS[key];
+                            var canvas = document.getElementById(t.canvas);
+                            if (!canvas || !file) { return; }
+                            var reader = new FileReader();
+                            reader.onload = function () {
+                                var img = new Image();
+                                img.onload = function () {
+                                    var pad = pads[t.pad];
+                                    if (pad) { pad.clear(); }
+                                    var ctx = canvas.getContext('2d');
+                                    var w = canvas.offsetWidth, h = canvas.offsetHeight;
+                                    var scale = Math.min(w / img.width, h / img.height);
+                                    var dw = img.width * scale, dh = img.height * scale;
+                                    ctx.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
+                                    t.uploaded = true;
+                                    mirror.pads();
+                                };
+                                img.onerror = function () {
+                                    t.uploaded = false;
+                                    alert('Image illisible. Choisissez un fichier PNG ou JPG.');
+                                };
+                                img.src = reader.result;
+                            };
+                            reader.readAsDataURL(file);
+                        }
+                        function renderTyped(key) {
+                            var t = TYPERS[key];
+                            var canvas = document.getElementById(t.canvas);
+                            var pad = pads[t.pad];
                             if (!canvas) { return; }
                             if (pad) { pad.clear(); }
-                            var name = (document.getElementById('bf_type_name').value || '').trim();
+                            var name = typedValue(key);
                             if (name) {
-                                var style = document.getElementById('bf_type_style').value;
+                                var style = document.getElementById(t.style).value;
                                 var ctx = canvas.getContext('2d');
                                 var w = canvas.offsetWidth, h = canvas.offsetHeight;
                                 var size = Math.min(64, Math.floor(h * 0.5));
@@ -330,31 +397,67 @@
                             }
                             mirror.pads();
                         }
-                        function setSigMode(mode) {
-                            sigMode = mode;
-                            var pad = pads['bf_pad'];
-                            var row = document.getElementById('bf_type_row');
-                            var hint = document.getElementById('bf_pad_hint');
+                        function setMode(key, mode) {
+                            var t = TYPERS[key];
+                            t.mode = mode;
+                            t.uploaded = false;
+                            var pad = pads[t.pad];
+                            var row = document.getElementById(t.row);
+                            var upRow = document.getElementById(t.uploadRow);
+                            var fileEl = document.getElementById(t.file);
+                            var hint = document.getElementById(t.hint);
                             if (row) { row.style.display = (mode === 'type') ? 'flex' : 'none'; }
+                            if (upRow) { upRow.style.display = (mode === 'upload') ? 'block' : 'none'; }
+                            if (fileEl) { fileEl.value = ''; }
                             if (hint) { hint.style.display = (mode === 'draw') ? '' : 'none'; }
-                            Array.prototype.forEach.call(document.querySelectorAll('[data-sigmode]'), function (b) {
-                                b.classList.toggle('bf-mode-active', b.getAttribute('data-sigmode') === mode);
+                            Array.prototype.forEach.call(
+                                document.querySelectorAll('[' + t.attr + ']'), function (b) {
+                                b.classList.toggle('bf-mode-active', b.getAttribute(t.attr) === mode);
                             });
                             if (pad) {
                                 pad.clear();
-                                if (mode === 'type') { pad.off(); } else { pad.on(); }
+                                if (mode === 'draw') { pad.on(); } else { pad.off(); }
                             }
-                            if (mode === 'type') { renderTyped(); } else { mirror.pads(); }
+                            if (mode === 'type') { renderTyped(key); } else { mirror.pads(); }
                         }
-                        Array.prototype.forEach.call(document.querySelectorAll('[data-sigmode]'), function (b) {
-                            b.addEventListener('click', function () { setSigMode(b.getAttribute('data-sigmode')); });
+                        Object.keys(TYPERS).forEach(function (key) {
+                            var t = TYPERS[key];
+                            Array.prototype.forEach.call(
+                                document.querySelectorAll('[' + t.attr + ']'), function (b) {
+                                b.addEventListener('click', function () {
+                                    setMode(key, b.getAttribute(t.attr));
+                                });
+                            });
+                            var ti = document.getElementById(t.name);
+                            var ts = document.getElementById(t.style);
+                            var fi = document.getElementById(t.file);
+                            if (ti) { ti.addEventListener('input', function () {
+                                if (t.mode === 'type') { renderTyped(key); } }); }
+                            if (ts) { ts.addEventListener('change', function () {
+                                if (t.mode === 'type') { renderTyped(key); } }); }
+                            if (fi) { fi.addEventListener('change', function () {
+                                loadImage(key, fi.files && fi.files[0]); }); }
                         });
-                        (function () {
-                            var ti = document.getElementById('bf_type_name');
-                            var ts = document.getElementById('bf_type_style');
-                            if (ti) { ti.addEventListener('input', function () { if (sigMode === 'type') { renderTyped(); } }); }
-                            if (ts) { ts.addEventListener('change', function () { if (sigMode === 'type') { renderTyped(); } }); }
-                        })();
+
+                        Array.prototype.forEach.call(document.querySelectorAll('[data-clear]'), function (btn) {
+                            btn.addEventListener('click', function () {
+                                var id = btn.getAttribute('data-clear');
+                                var p = pads[id];
+                                if (p) { p.clear(); }
+                                Object.keys(TYPERS).forEach(function (key) {
+                                    var t = TYPERS[key];
+                                    if (t.canvas !== id) { return; }
+                                    t.uploaded = false;
+                                    if (t.mode === 'type') {
+                                        var ti = document.getElementById(t.name);
+                                        if (ti) { ti.value = ''; }
+                                    }
+                                    var fe = document.getElementById(t.file);
+                                    if (fe) { fe.value = ''; }
+                                });
+                                mirror.pads();
+                            });
+                        });
 
                         // ── Render the document (PDF.js) + numbered placement markers ──────
                         (function renderDoc() {
@@ -404,26 +507,19 @@
                                     return m.getAttribute('data-type') === 'signature'; });
                                 var iniM = markers.filter(function (m) {
                                     return m.getAttribute('data-type') === 'initials'; });
-                                function paint(ms, pad) {
-                                    var u = (pad && !pad.isEmpty()) ? pad.toDataURL('image/png') : '';
+                                function apply(ms, u) {
                                     ms.forEach(function (m) {
                                         m.style.backgroundImage = u ? ('url(' + u + ')') : '';
                                         m.classList.toggle('bf-marker-filled', !!u);
                                     });
                                 }
+                                function paintPad(key, ms) {
+                                    var c = document.getElementById(TYPERS[key].canvas);
+                                    apply(ms, (c && hasContent(key)) ? c.toDataURL('image/png') : '');
+                                }
                                 mirror.pads = function () {
-                                    if (sigMode === 'type') {
-                                        var c = document.getElementById('bf_pad');
-                                        var nm = (document.getElementById('bf_type_name').value || '').trim();
-                                        var u = (nm && c) ? c.toDataURL('image/png') : '';
-                                        sigM.forEach(function (m) {
-                                            m.style.backgroundImage = u ? ('url(' + u + ')') : '';
-                                            m.classList.toggle('bf-marker-filled', !!u);
-                                        });
-                                    } else {
-                                        paint(sigM, pads['bf_pad']);
-                                    }
-                                    paint(iniM, pads['bf_pad_initials']);
+                                    paintPad('signature', sigM);
+                                    paintPad('initials', iniM);
                                 };
                                 ['bf_pad', 'bf_pad_initials'].forEach(function (id) {
                                     var c = document.getElementById(id);
@@ -497,27 +593,34 @@
                         })();
 
                         document.getElementById('bf_form').addEventListener('submit', function (e) {
-                            var sig = pads['bf_pad'];
-                            if (sigMode === 'type') {
-                                var nm = (document.getElementById('bf_type_name').value || '').trim();
-                                if (!nm) {
-                                    e.preventDefault(); alert('Veuillez saisir votre nom.'); return false;
-                                }
-                                renderTyped();
-                            } else if (!sig || sig.isEmpty()) {
-                                e.preventDefault(); alert('Veuillez apposer votre signature.'); return false;
+                            // Ensure typed text is rendered onto the canvas before reading it.
+                            function ready(key) {
+                                if (TYPERS[key].mode === 'type') { renderTyped(key); }
+                                return hasContent(key);
                             }
-                            var ini = pads['bf_pad_initials'];
-                            if (ini) {
-                                if (ini.isEmpty()) {
-                                    e.preventDefault(); alert('Veuillez apposer votre paraphe.'); return false;
+                            function missingMsg(key, label) {
+                                var m = TYPERS[key].mode;
+                                if (m === 'type') {
+                                    return key === 'initials'
+                                        ? 'Veuillez saisir votre paraphe.' : 'Veuillez saisir votre nom.';
                                 }
-                                document.getElementById('bf_ini_data').value = ini.toDataURL('image/png');
+                                return (m === 'upload' ? 'Veuillez téléverser ' : 'Veuillez apposer ') + label + '.';
+                            }
+                            if (!ready('signature')) {
+                                e.preventDefault(); alert(missingMsg('signature', 'votre signature')); return false;
+                            }
+                            if (pads['bf_pad_initials']) {
+                                if (!ready('initials')) {
+                                    e.preventDefault(); alert(missingMsg('initials', 'votre paraphe')); return false;
+                                }
+                                // The canvas holds the paraphe in all modes (drawn, typed or uploaded).
+                                document.getElementById('bf_ini_data').value =
+                                    document.getElementById('bf_pad_initials').toDataURL('image/png');
                             }
                             if (!document.getElementById('bf_consent').checked) {
                                 e.preventDefault(); alert('Veuillez cocher la case de consentement.'); return false;
                             }
-                            // The canvas holds the signature in both modes (drawn strokes or typed text).
+                            // The canvas holds the signature in all modes (drawn, typed or uploaded).
                             document.getElementById('bf_sign_data').value =
                                 document.getElementById('bf_pad').toDataURL('image/png');
                             document.getElementById('bf_submit').disabled = true;

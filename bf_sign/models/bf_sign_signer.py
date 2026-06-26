@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import re
 import secrets
 import uuid
 
@@ -169,6 +170,15 @@ class BfSignSigner(models.Model):
         self.ensure_one()
         return self.field_ids.sorted(
             key=lambda f: (f.page, round(f.pos_y, 4), round(f.pos_x, 4), f.id))
+
+    def _default_initials(self):
+        """Initials derived from the signer's name, used to pre-fill the typed
+        « paraphe » input on the signing page (the signer can still edit them or
+        switch back to drawing). « Marie Tremblay » → « MT »."""
+        self.ensure_one()
+        parts = re.split(r"[\s\-]+", (self.name or "").strip())
+        letters = [p[0] for p in parts if p and p[0].isalpha()]
+        return "".join(letters[:4]).upper()
 
     # ── Email OTP (identity check at signing time) ───────────────────────────
     def _identity_method(self):
