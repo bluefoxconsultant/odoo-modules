@@ -87,6 +87,14 @@
                                      border-radius:8px; }
                     .bf-type-style { padding:11px; border:1px solid #cfd6dc; border-radius:8px;
                                      background:#fff; font-size:14px; }
+                    /* Bundled signature fonts (SIL OFL) — self-hosted so the typed
+                       styles render identically on every device. */
+                    @font-face { font-family:'Caveat'; font-style:normal; font-display:swap;
+                                 src:url('/bf_sign/static/fonts/Caveat.woff2') format('woff2'); }
+                    @font-face { font-family:'Dancing Script'; font-style:normal; font-display:swap;
+                                 src:url('/bf_sign/static/fonts/DancingScript.woff2') format('woff2'); }
+                    @font-face { font-family:'Great Vibes'; font-style:normal; font-display:swap;
+                                 src:url('/bf_sign/static/fonts/GreatVibes.woff2') format('woff2'); }
                     .bf-upload-row { margin-top:10px; }
                     .bf-file-input { width:100%; padding:10px; border:1px solid #cfd6dc;
                                      border-radius:8px; background:#fff; font:inherit; cursor:pointer; }
@@ -121,6 +129,9 @@
 
                     <div class="bf-card">
                         <h2>Document à signer</h2>
+                        <t t-if="req.title">
+                            <div class="bf-meta"><strong>Document :</strong> <t t-esc="req.title"/></div>
+                        </t>
                         <div class="bf-meta"><strong>Référence :</strong> <t t-esc="req.name"/></div>
                         <div class="bf-meta"><strong>Signataire :</strong> <t t-esc="signer.name"/></div>
                         <t t-if="overlay_fields">
@@ -192,9 +203,9 @@
                                 <input type="text" class="bf-type-input" id="bf_type_name"
                                        t-att-value="signer.name or ''" placeholder="Tapez votre nom"/>
                                 <select class="bf-type-style" id="bf_type_style">
-                                    <option value="'Brush Script MT','Segoe Script','Snell Roundhand',cursive">Manuscrit</option>
-                                    <option value="'Apple Chancery','URW Chancery L',cursive">Cursif</option>
-                                    <option value="Georgia,'Times New Roman',serif">Élégant</option>
+                                    <option value="'Caveat', cursive">Manuscrit</option>
+                                    <option value="'Dancing Script', cursive">Cursif</option>
+                                    <option value="'Great Vibes', cursive">Élégant</option>
                                 </select>
                             </div>
                             <div class="bf-upload-row" id="bf_up_row" style="display:none;">
@@ -222,9 +233,9 @@
                                     <input type="text" class="bf-type-input" id="bf_ini_type_name"
                                            t-att-value="default_initials" placeholder="Vos initiales" maxlength="6"/>
                                     <select class="bf-type-style" id="bf_ini_type_style">
-                                        <option value="'Brush Script MT','Segoe Script','Snell Roundhand',cursive">Manuscrit</option>
-                                        <option value="'Apple Chancery','URW Chancery L',cursive">Cursif</option>
-                                        <option value="Georgia,'Times New Roman',serif">Élégant</option>
+                                        <option value="'Caveat', cursive">Manuscrit</option>
+                                        <option value="'Dancing Script', cursive">Cursif</option>
+                                        <option value="'Great Vibes', cursive">Élégant</option>
                                     </select>
                                 </div>
                                 <div class="bf-upload-row" id="bf_ini_up_row" style="display:none;">
@@ -319,6 +330,13 @@
                         }
                         setupPad('bf_pad');
                         setupPad('bf_pad_initials');
+                        // Warm up the bundled signature fonts so the first typed render
+                        // doesn't flash a system fallback.
+                        if (document.fonts && document.fonts.load) {
+                            ['Caveat', 'Dancing Script', 'Great Vibes'].forEach(function (f) {
+                                document.fonts.load("48px '" + f + "'");
+                            });
+                        }
                         // ── Typed entry (alternative to drawing) — drives both the ─────────
                         //    signature and the initials pad through one config table.
                         var TYPERS = {
@@ -379,23 +397,33 @@
                             var canvas = document.getElementById(t.canvas);
                             var pad = pads[t.pad];
                             if (!canvas) { return; }
-                            if (pad) { pad.clear(); }
+                            var style = document.getElementById(t.style).value;
                             var name = typedValue(key);
-                            if (name) {
-                                var style = document.getElementById(t.style).value;
-                                var ctx = canvas.getContext('2d');
-                                var w = canvas.offsetWidth, h = canvas.offsetHeight;
-                                var size = Math.min(64, Math.floor(h * 0.5));
-                                ctx.fillStyle = '#11181f';
-                                ctx.textAlign = 'center';
-                                ctx.textBaseline = 'middle';
-                                ctx.font = 'italic ' + size + 'px ' + style;
-                                while (size > 16 && ctx.measureText(name).width > w * 0.9) {
-                                    size -= 2; ctx.font = 'italic ' + size + 'px ' + style;
+                            function draw() {
+                                if (pad) { pad.clear(); }
+                                if (name) {
+                                    var ctx = canvas.getContext('2d');
+                                    var w = canvas.offsetWidth, h = canvas.offsetHeight;
+                                    var size = Math.min(64, Math.floor(h * 0.5));
+                                    ctx.fillStyle = '#11181f';
+                                    ctx.textAlign = 'center';
+                                    ctx.textBaseline = 'middle';
+                                    ctx.font = size + 'px ' + style;
+                                    while (size > 16 && ctx.measureText(name).width > w * 0.9) {
+                                        size -= 2; ctx.font = size + 'px ' + style;
+                                    }
+                                    ctx.fillText(name, w / 2, h / 2);
                                 }
-                                ctx.fillText(name, w / 2, h / 2);
+                                mirror.pads();
                             }
-                            mirror.pads();
+                            // Draw now (so submit always reads a populated canvas), then
+                            // redraw once the bundled webfont is ready in case the first
+                            // paint fell back to a system font.
+                            draw();
+                            var fam = (style.match(/'([^']+)'/) || [])[1];
+                            if (name && fam && document.fonts && document.fonts.load) {
+                                document.fonts.load("48px '" + fam + "'").then(draw, function () {});
+                            }
                         }
                         function setMode(key, mode) {
                             var t = TYPERS[key];

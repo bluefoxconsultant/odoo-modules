@@ -37,6 +37,19 @@ class BfSignRequest(models.Model):
         string="Référence", required=True, copy=False, readonly=True,
         default=lambda self: _("Nouvelle"), index=True,
     )
+    title = fields.Char(
+        string="Titre", copy=False, tracking=True,
+        help="Nom convivial pour repérer le document dans la liste. "
+             "La référence unique (séquence) reste inchangée.",
+    )
+
+    @api.depends("name", "title")
+    def _compute_display_name(self):
+        for rec in self:
+            rec.display_name = (
+                "%s (%s)" % (rec.title, rec.name) if rec.title else (rec.name or "")
+            )
+
     state = fields.Selection(
         selection=[
             ("draft", "Brouillon"),

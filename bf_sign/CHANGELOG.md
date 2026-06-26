@@ -2,6 +2,20 @@
 
 Le versionnage suit la convention Odoo `18.0.MAJOR.MINOR.PATCH`.
 
+## 18.0.3.12.0 — Titre convivial + polices de signature embarquées
+
+- **Champ « Titre »** sur la demande : un nom convivial pour repérer un document
+  dans la liste (la référence `SIGN-AAAA-NNNN` reste la clé unique). Affiché en
+  colonne de liste, en en-tête de fiche, en kanban, cherchable, et repris dans le
+  `display_name` (« Titre (SIGN-2026-0001) ») et sur la page de signature.
+- **Polices de signature embarquées (SIL OFL)** : les styles « Manuscrit /
+  Cursif / Élégant » pointaient vers des polices système absentes de la plupart
+  des appareils, donc se ressemblaient tous. Trois vraies polices sont maintenant
+  **auto-hébergées** dans le module — *Caveat*, *Dancing Script*, *Great Vibes* —
+  et appliquées au nom tapé comme aux initiales tapées, avec rendu identique sur
+  tous les appareils. Le canevas attend le chargement de la police avant de
+  dessiner. Licences OFL incluses dans `static/fonts/`.
+
 ## 18.0.3.11.0 — Téléverser une image de signature/paraphe
 
 - **Troisième mode « Téléverser »** sur les pavés de signature et de paraphe, en

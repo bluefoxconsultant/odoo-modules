@@ -28,6 +28,7 @@
                 <sheet>
                     <div class="oe_title">
                         <h1><field name="name" readonly="1"/></h1>
+                        <h2><field name="title" placeholder="Titre du document (optionnel)"/></h2>
                     </div>
                     <field name="progress" widget="progressbar" invisible="state == 'draft'"/>
                     <group>
@@ -124,6 +125,7 @@
         <field name="arch" type="xml">
             <list decoration-success="state == 'signed'" decoration-muted="state in ('cancelled','expired')">
                 <field name="name"/>
+                <field name="title" string="Titre" optional="show"/>
                 <field name="signer_count" string="Signataires"/>
                 <field name="signed_count" string="Signés"/>
                 <field name="state" widget="badge"
@@ -145,7 +147,8 @@
                 <templates>
                     <t t-name="card">
                         <div class="oe_kanban_global_click">
-                            <div class="o_kanban_record_title"><strong><field name="name"/></strong></div>
+                            <div class="o_kanban_record_title"><strong><field name="title"/></strong></div>
+                            <div class="text-muted"><field name="name"/></div>
                             <div><field name="signed_count"/> / <field name="signer_count"/> signataire(s)</div>
                             <div class="text-muted"><field name="signed_on"/></div>
                         </div>
@@ -161,7 +164,9 @@
         <field name="model">bf.sign.request</field>
         <field name="arch" type="xml">
             <search>
-                <field name="name"/>
+                <field name="name" string="Document"
+                       filter_domain="['|', ('name','ilike',self), ('title','ilike',self)]"/>
+                <field name="title"/>
                 <field name="signer_ids" string="Signataire"/>
                 <filter name="f_draft" string="Brouillon" domain="[('state','=','draft')]"/>
                 <filter name="f_pending" string="En cours" domain="[('state','in',('sent','in_progress'))]"/>
