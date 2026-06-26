@@ -246,7 +246,7 @@ class BFHelpdeskPublicForm(http.Controller):
                 try:
                     ack_template.sudo().send_mail(
                         ticket.id, force_send=False,
-                        email_layout_xmlid="bluefox_branding.bf_mail_layout",
+                        email_layout_xmlid="mail.mail_notification_light",
                     )
                 except Exception:
                     _logger.exception(

@@ -1,6 +1,6 @@
 {
     'name': 'Rencontres',
-    'version': '18.0.3.39.1',
+    'version': '18.0.3.40.0',
     'category': 'Services/Meetings',
     'summary': 'Gestion des rencontres, ordres du jour et comptes rendus',
     'description': """
@@ -53,7 +53,7 @@ compte rendu.
     'author': 'Blue Fox Inc.',
     'website': 'https://bluefoxconsultant.com',
     'license': 'LGPL-3',
-    'depends': ['project', 'mail', 'calendar', 'project_knowledge_matrix', 'bluefox_branding', 'bf_onboarding_base', 'bf_timezone'],
+    'depends': ['project', 'mail', 'calendar', 'project_knowledge_matrix', 'bf_onboarding_base', 'bf_timezone'],
     'data': [
         'security/meeting_security.xml',
         'security/ir.model.access.csv',

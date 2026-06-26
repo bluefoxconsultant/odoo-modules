@@ -1,6 +1,6 @@
 {
     'name': 'Banque d\'heures',
-    'version': '18.0.1.11.0',
+    'version': '18.0.1.13.0',
     'category': 'Services/Project',
     'summary': 'Suivi automatisé des banques d\'heures client',
     'description': """
@@ -20,7 +20,7 @@ Fonctionnalités:
     'author': 'Blue Fox Inc.',
     'website': 'https://bluefoxconsultant.com',
     'license': 'LGPL-3',
-    'depends': ['project', 'account', 'hr_timesheet', 'mail', 'portal', 'bluefox_branding', 'bf_onboarding_base'],
+    'depends': ['project', 'account', 'hr_timesheet', 'mail', 'portal', 'bf_onboarding_base'],
     'external_dependencies': {
         'python': ['openpyxl'],
     },

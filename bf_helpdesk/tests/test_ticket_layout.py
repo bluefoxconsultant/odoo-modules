@@ -3,7 +3,8 @@ from odoo.tests import TransactionCase, tagged
 
 @tagged("bf_helpdesk", "bf_helpdesk_layout")
 class TestTicketLayout(TransactionCase):
-    """_track_template must swap mail.mail_notification_light → bluefox_branding.bf_mail_layout."""
+    """Decoupled from bluefox_branding: _track_template keeps Odoo's default
+    mail.mail_notification_light layout (no branded-layout swap)."""
 
     @classmethod
     def setUpClass(cls):
@@ -26,7 +27,7 @@ class TestTicketLayout(TransactionCase):
             "mail_template_id": cls.template.id,
         })
 
-    def test_track_template_uses_bf_layout(self):
+    def test_track_template_uses_default_layout(self):
         ticket = self.Ticket.create({
             "name": "layout test",
             "description": "<p>x</p>",
@@ -39,6 +40,6 @@ class TestTicketLayout(TransactionCase):
         _template, ctx = res["stage_id"]
         self.assertEqual(
             ctx.get("email_layout_xmlid"),
-            "bluefox_branding.bf_mail_layout",
-            "BF helpdesk must override the OCA mail.mail_notification_light layout",
+            "mail.mail_notification_light",
+            "Decoupled bf_helpdesk must keep Odoo's default notification layout",
         )

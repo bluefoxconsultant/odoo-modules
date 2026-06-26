@@ -262,7 +262,7 @@ class HelpdeskTicket(models.Model):
         if template:
             template.sudo().send_mail(
                 user_input.id, force_send=False,
-                email_layout_xmlid="bluefox_branding.bf_mail_layout",
+                email_layout_xmlid="mail.mail_notification_light",
             )
         return user_input
 
@@ -513,19 +513,10 @@ class HelpdeskTicket(models.Model):
         for ticket in self:
             ticket.hour_bank_id = ticket.team_id.hour_bank_id or False
 
-    def _track_template(self, tracking):
-        """Force helpdesk tracking emails to use the Blue Fox branded layout
-        instead of mail.mail_notification_light (generic Odoo).
-
-        The bluefox_branding module overrides the 3 helpdesk_mgmt mail.template
-        records to strip the legacy purple shell, then bf_mail_layout wraps them
-        in the BF header/accent/footer canon.
-        """
-        res = super()._track_template(tracking)
-        for key, (_template, ctx) in list(res.items()):
-            if isinstance(ctx, dict) and ctx.get("email_layout_xmlid") == "mail.mail_notification_light":
-                ctx["email_layout_xmlid"] = "bluefox_branding.bf_mail_layout"
-        return res
+    # Decoupled from bluefox_branding: helpdesk tracking emails keep Odoo's
+    # default notification layout (mail.mail_notification_light). The previous
+    # override swapped in the branded bf_mail_layout; that override has been
+    # removed so this module renders without the optional white-label module.
 
     @api.depends("hour_bank_id", "hour_bank_id.current_balance",
                  "team_id.hour_bank_alert_threshold_hours")

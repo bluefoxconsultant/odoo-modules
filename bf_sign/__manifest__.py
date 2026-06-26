@@ -1,6 +1,6 @@
 {
     'name': 'Blue Fox — Signature électronique',
-    'version': '18.0.3.8.3',
+    'version': '18.0.3.9.0',
     'category': 'Productivity/Sign',
     'summary': "Signature électronique native (SES) : demande, signature par lien public, "
                "certificat de complétion et piste de vérification inaltérable",
@@ -59,7 +59,6 @@ LibreSign) sans modifier la structure.
     'depends': [
         'mail',
         'portal',
-        'bluefox_branding',
         'bf_lexend',
         'bf_onboarding_base',
     ],

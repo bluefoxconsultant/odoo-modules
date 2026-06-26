@@ -1,6 +1,6 @@
 {
     "name": "Blue Fox Branding",
-    "version": "18.0.3.1.0",
+    "version": "18.0.3.2.0",
     "category": "Tools",
     "summary": "White-label branding panel + branded email templates",
     "description": """
