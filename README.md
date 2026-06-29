@@ -54,6 +54,7 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | `bf_security_awareness` | Security Awareness | 18.0.1.9.0 | LGPL-3 | KnowBe4/Terranova-style platform: phishing simulations (open/click/submit, QR, attachments), per-person risk profiles, eLearning remediation, OWL dashboards, a Phish Alert Button with sim-aware triage, and email clawback (PhishRIP-style) to pull a confirmed malicious email from every mailbox (M365 app-only XOAUTH2 or per-mailbox IMAP) into reversible quarantine — see `SECURITY.md` |
 | `bf_sign` | Blue Fox — Signature électronique | 18.0.3.12.0 | LGPL-3 | Native electronic signature (SES): request, sign via public link, completion certificate and tamper-evident audit trail |
 | `bf_sign_account` | Blue Fox — Signature pour la comptabilité | 18.0.1.0.0 | LGPL-3 | Send a customer invoice / vendor bill for electronic signature (bf_sign). |
+| `bf_sign_corporate` | Blue Fox — Signature des résolutions corporatives | 18.0.1.1.0 | LGPL-3 | Send a corporate resolution for electronic signature (bf_sign). |
 | `bf_sign_privacy` | Blue Fox — Signature des consentements (Loi 25) | 18.0.1.0.0 | LGPL-3 | Sign Loi 25 consents with the native bf_sign engine (instead of external DocuSeal / LibreSign). |
 | `bf_sign_purchase` | Blue Fox — Signature pour les achats | 18.0.1.0.0 | LGPL-3 | Send a purchase order for electronic signature (bf_sign). |
 | `bf_sign_sale` | Blue Fox — Signature pour les ventes | 18.0.1.0.0 | LGPL-3 | Send a quotation / sales order for electronic signature (bf_sign). |
