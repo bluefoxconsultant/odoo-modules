@@ -34,7 +34,7 @@
                 <img t-if="data.get('company_logo')" t-att-src="data['company_logo']" alt="Logo"/>
             </div>
             <div class="sms-banner-content">
-                <div class="doc-type">Archive SMS</div>
+                <div class="doc-type">SMS &amp; Calls</div>
                 <h1><t t-esc="group['contact']"/></h1>
                 <div class="doc-subtitle">
                     <t t-esc="group['phone']"/> —

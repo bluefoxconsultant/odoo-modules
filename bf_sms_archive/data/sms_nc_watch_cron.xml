@@ -3,7 +3,7 @@
     <data noupdate="1">
 
         <record id="ir_cron_sms_nc_watch" model="ir.cron">
-            <field name="name">Archive SMS &amp; Appels : surveillance dossier Nextcloud</field>
+            <field name="name">SMS &amp; Calls : surveillance dossier Nextcloud</field>
             <field name="model_id" ref="model_sms_archive_import_wizard"/>
             <field name="state">code</field>
             <field name="code">model._cron_nc_watch_import()</field>
@@ -14,7 +14,7 @@
         </record>
 
         <record id="ir_cron_sms_disk_import" model="ir.cron">
-            <field name="name">Archive SMS &amp; Appels : import depuis /mnt/sms-inbox</field>
+            <field name="name">SMS &amp; Calls : import depuis /mnt/sms-inbox</field>
             <field name="model_id" ref="model_sms_archive_import_wizard"/>
             <field name="state">code</field>
             <field name="code">model._cron_disk_import()</field>
@@ -26,14 +26,16 @@
 
     </data>
 
-    <!-- Config parameters: use function to avoid UniqueViolation on upgrade -->
+    <!-- Config parameters: use function to avoid UniqueViolation on upgrade.
+         Shipped empty/placeholder — set them under Settings > Technical >
+         System Parameters before activating the watch cron. -->
     <function model="ir.config_parameter" name="set_param">
         <value>bf_sms_archive.nc_watch_path</value>
-        <value>/Backups/SMS/Live XML</value>
+        <value></value>
     </function>
     <function model="ir.config_parameter" name="set_param">
         <value>bf_sms_archive.nc_watch_user_id</value>
-        <value>2</value>
+        <value>1</value>
     </function>
 
 </odoo>

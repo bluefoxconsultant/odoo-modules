@@ -767,7 +767,7 @@ class SmsArchiveImportWizard(models.TransientModel):
         """Poll a Nextcloud folder for new XML/ZIP files and import them.
 
         Config via ir.config_parameter:
-          - bf_sms_archive.nc_watch_path : folder to watch (e.g. /Backups/SMS/Live XML)
+          - bf_sms_archive.nc_watch_path : folder to watch (e.g. /Backups/SMS/Live)
           - bf_sms_archive.nc_watch_user_id : Odoo user ID to own imported messages
         NC credentials from environment: NC_SMS_WATCH_URL, NC_SMS_WATCH_USER, NC_SMS_WATCH_PASSWORD
         Falls back to NC_URL / NC_USER / NC_PASSWORD if specific vars not set.
