@@ -360,8 +360,12 @@ class AppointmentController(Controller):
             return request.redirect(
                 f"/appointment/{slug}?error={quote_plus('Adresse courriel invalide.')}"
             )
-        # Validate timezone
-        if tz and tz not in pytz.all_timezones_set:
+        # Validate timezone. Reject "UTC" alongside invalid zones: the browser
+        # tz field can fall back to "UTC" when detection fails, and persisting
+        # it on the contact below makes every later render show the raw UTC
+        # instant instead of the booker's local time. A Québec-facing booker is
+        # never truly UTC, so blank it and let the display calendar drive.
+        if tz and (tz == "UTC" or tz not in pytz.all_timezones_set):
             tz = ""
         # Validate required intake fields. We re-run _validate_intake_value so
         # a tampered select/email/phone (non-empty but invalid) is treated as

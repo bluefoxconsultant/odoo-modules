@@ -183,9 +183,15 @@ class ResourceBooking(models.Model):
                 rec.start_date_local = ""
                 rec.start_time_local = ""
                 continue
+            # A booker partner.tz of "UTC" is a spurious browser-detection
+            # fallback (see _get_booker_display_tz); it would render the raw
+            # UTC instant, so drop it and fall through to the display calendar.
+            booker_tz = rec.partner_id.tz if rec.partner_id else None
+            if booker_tz == "UTC":
+                booker_tz = None
             tz_name = tz_helper.resolve([
                 ctx_tz,
-                rec.partner_id.tz if rec.partner_id else None,
+                booker_tz,
                 rec.type_id.resource_calendar_id.tz if rec.type_id else None,
             ])
             try:
@@ -591,8 +597,18 @@ class ResourceBooking(models.Model):
         self.ensure_one()
         cal_type = self.type_id.resource_calendar_id
         cal_company = self.env.company.resource_calendar_id
+        # A booker partner.tz of "UTC" is almost always a stale browser-tz
+        # detection fallback from the public widget, not a real location.
+        # Bookings are stored naive-UTC, so honouring it renders the raw UTC
+        # instant to the booker -- a 13:00 Montréal slot shows as 17:00, the
+        # +4h offset reported on RDV #357. No client of a Québec-based practice
+        # is legitimately in UTC, so treat it as unset and fall through to the
+        # type's Montréal display calendar.
+        booker_tz = self.partner_id.tz if self.partner_id else None
+        if booker_tz == "UTC":
+            booker_tz = None
         return self.env["bf.timezone"].resolve([
-            self.partner_id.tz if self.partner_id else None,
+            booker_tz,
             cal_type.tz if cal_type else None,
             cal_company.tz if cal_company else None,
         ], validate=True)
