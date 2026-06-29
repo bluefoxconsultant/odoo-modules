@@ -4,17 +4,17 @@
     <!-- Root Menu (app tile) -->
     <menuitem
         id="sms_archive_menu_root"
-        name="Archive SMS &amp; Appels"
+        name="SMS &amp; Calls"
         web_icon="bf_sms_archive,static/description/icon.png"
         sequence="55"/>
 
-    <!-- Dashboard (landing page) -->
+    <!-- Dashboard -->
     <menuitem
         id="sms_archive_menu_dashboard"
         name="Tableau de bord"
         parent="sms_archive_menu_root"
         action="sms_dashboard_client_action"
-        sequence="1"/>
+        sequence="2"/>
 
     <!-- Conversations -->
     <menuitem

@@ -1,7 +1,7 @@
 {
-    "name": "Archive SMS & Appels",
-    "summary": "Archivage et recherche de SMS et journaux d'appels Android (SMS Backup & Restore + live sync)",
-    "version": "18.0.2.2.1",
+    "name": "SMS & Calls",
+    "summary": "Messagerie SMS/MMS live via VOIP.ms + archivage de SMS et journaux d'appels Android",
+    "version": "18.0.3.6.1",
     "category": "Tools",
     'author': 'Blue Fox Inc.',
     'website': 'https://bluefoxconsultant.com',
@@ -30,14 +30,24 @@
         "views/sms_dashboard_views.xml",
         "views/menu_views.xml",
         "views/sms_device_views.xml",
+        "views/sms_line_views.xml",
+        "views/res_config_settings_views.xml",
+        "views/sms_messenger_views.xml",
         # Data
         "data/sms_nc_watch_cron.xml",
+        "data/voipms_poll_cron.xml",
         "data/bf_onboarding.xml",
     ],
     "assets": {
         "web.assets_backend": [
             "bf_sms_archive/static/src/js/sms_dashboard.js",
             "bf_sms_archive/static/src/xml/sms_dashboard.xml",
+            "bf_sms_archive/static/src/messenger/messenger.js",
+            "bf_sms_archive/static/src/messenger/messenger.xml",
+            "bf_sms_archive/static/src/messenger/messenger.scss",
+            "bf_sms_archive/static/src/systray/sms_systray.js",
+            "bf_sms_archive/static/src/systray/sms_systray.xml",
+            "bf_sms_archive/static/src/systray/sms_systray.scss",
         ],
     },
 }

@@ -1,6 +1,6 @@
-# Archive SMS & Appels for Odoo 18
+# SMS & Calls for Odoo 18
 
-A personal SMS and call log archiving module for Odoo 18. Import Android SMS/MMS backups and call history from [SMS Backup & Restore](https://www.synctech.com.au/sms-backup-restore/), search conversations, browse call logs, link records to project tasks, export branded PDF reports, and manage confidential threads.
+A two-way SMS/MMS messaging and archiving module for Odoo 18. Send and receive live SMS/MMS through VOIP.ms from a built-in chat workspace, and import Android SMS/MMS backups and call history from [SMS Backup & Restore](https://www.synctech.com.au/sms-backup-restore/). Search conversations, browse call logs, link records to project tasks, export branded PDF reports, and manage confidential threads.
 
 ## Features
 
@@ -65,9 +65,8 @@ A personal SMS and call log archiving module for Odoo 18. Import Android SMS/MMS
 
 - Odoo 18 Community or Enterprise
 - Python: `defusedxml` (required for safe XML parsing)
-- Python: `requests` (required for the Nextcloud folder watcher / live sync)
 - Python: `pillow-heif` (optional, for HEIC image conversion in MMS)
-- Odoo modules: `base`, `mail`, `project`, `bf_onboarding_base`
+- Odoo modules: `base`, `mail`, `project`
 - Optional: `bf_lexend` -- Provides Lexend font and brand colour settings. Without it, reports use system-ui font and default Odoo colours.
 
 ### Install via CLI
@@ -152,40 +151,6 @@ When `HAS_SMS_ARCHIVE=true` is set in the org `.env`, 9 tools are available:
 | `call_list_calls` | List call log entries with phone, type, and date filters |
 | `call_get_calls_for_thread` | View call history for a conversation thread |
 | `call_search_calls` | Search calls by contact, type, minimum duration, date range |
-
-## Live Sync (continuous import)
-
-Beyond the manual wizard, the module can ingest backups continuously through two
-scheduled crons. **Both ship inactive by default** — they run against
-deployment-specific paths and credentials, so the operator must configure them
-first, then activate the crons under **Settings > Technical > Scheduled Actions**.
-
-### Nextcloud folder watcher (`ir_cron_sms_nc_watch`, every 15 min)
-
-Polls a Nextcloud folder over WebDAV for new `*.xml` / `*.zip` exports, imports
-them, then files each processed source into a `done/`, `failed/`, or
-`too_large/` subfolder. Files larger than 200 MB are stream-downloaded and
-auto-split into ~80 MB chunks before per-chunk import (resume-safe; hash dedup
-keeps it idempotent).
-
-Nextcloud credentials are read from the environment:
-`NC_SMS_WATCH_URL`, `NC_SMS_WATCH_USER`, `NC_SMS_WATCH_PASSWORD`, falling back to
-`NC_URL`, `NC_USER`, `NC_PASSWORD`.
-
-### Disk inbox import (`ir_cron_sms_disk_import`, every 10 min)
-
-Imports `*.xml` / `*.zip` files dropped into an on-host bind-mount inbox
-(set by `ir.config_parameter` `bf_sms_archive.disk_inbox_path`, default
-`/mnt/sms-inbox`, mapped via your `docker-compose` volume). This path
-bypasses the 1 GB form-upload limit — copy large exports in via `scp`. Processed
-files are moved to `done/` (success) or `failed/` (errors).
-
-### Configuration parameters
-
-| Key | Default | Role |
-|-----|---------|------|
-| `bf_sms_archive.nc_watch_path` | *(empty placeholder)* | Nextcloud folder to watch (e.g. `/Backups/SMS/Live`). **Must be set** before activating the watch cron; an empty value makes the cron a no-op. |
-| `bf_sms_archive.nc_watch_user_id` | `1` (placeholder) | Odoo user ID that will own messages imported by the watch cron. Set to the intended internal user. |
 
 ## Data Model
 
@@ -289,9 +254,31 @@ All models (threads, messages, MMS parts, calls) use `owner_id = user.id` filter
 - All data is scoped per-user via `owner_id` -- no cross-user visibility
 - Phone numbers are PII -- acceptable risk for self-hosted personal instance
 - No SMS or call content is written to Odoo logs (only IDs and counts)
-- No external network calls during import
-- No public HTTP controllers
+- VOIP.ms API credentials are read from `ir.config_parameter` (never hardcoded) and
+  redacted from any error message; the method whitelist blocks anything outside
+  read + messaging + callback-config calls
 - Data is included in standard Odoo backups (DB + filestore)
+
+### Public HTTP endpoints
+
+This module exposes two `auth="public"` controllers. Both are unauthenticated at the
+Odoo session level and rely on a per-request secret:
+
+| Endpoint | Auth | Purpose |
+|----------|------|---------|
+| `POST /bf_sms_archive/api/ingest` | `Authorization: Bearer <device token>` | Live push from the Android companion app (`sms.archive.device`) |
+| `GET/POST /bf_sms_archive/api/voipms/sms` | `?token=<per-line webhook token>` | VOIP.ms SMS/MMS URL Callback (inbound messages) |
+
+The webhook callback URL embeds the line's secret token (VOIP.ms offers no signature),
+so the URL must be treated as a secret and kept out of access logs. Inbound MMS media
+URLs are fetched only when they resolve to **public** hosts (private/loopback/link-local
+and cloud-metadata addresses are blocked — anti-SSRF), with no redirects and a streamed
+size cap. Outbound calls go only to `https://voip.ms/api/v1/rest.php`.
+
+### Outbound network calls
+
+- VOIP.ms REST API (`sendSMS`/`sendMMS`/`getSMS`/`getDIDsInfo`/`setSMS`) for live messaging
+- Inbound MMS media downloads from public hosts only (SSRF-guarded)
 
 ## Menu Structure
 
@@ -315,7 +302,151 @@ The import wizard normalizes phone numbers for consistent thread grouping:
 | `15555555555` | `+15555555555` (11-digit starting with 1) |
 | `864674` | `+864674` (short codes preserved) |
 
+## Live Sync (continuous import)
+
+Beyond the manual wizard, the module can ingest backups continuously through two
+scheduled crons. **Both ship inactive by default** — they run against
+deployment-specific paths and credentials, so the operator must configure them
+first, then activate the crons under **Settings > Technical > Scheduled Actions**.
+
+### Nextcloud folder watcher (`ir_cron_sms_nc_watch`, every 15 min)
+
+Polls a Nextcloud folder over WebDAV for new `*.xml` / `*.zip` exports, imports
+them, then files each processed source into a `done/`, `failed/`, or
+`too_large/` subfolder. Files larger than 200 MB are stream-downloaded and
+auto-split into ~80 MB chunks before per-chunk import (resume-safe; hash dedup
+keeps it idempotent).
+
+Nextcloud credentials are read from the environment:
+`NC_SMS_WATCH_URL`, `NC_SMS_WATCH_USER`, `NC_SMS_WATCH_PASSWORD`, falling back to
+`NC_URL`, `NC_USER`, `NC_PASSWORD`.
+
+### Disk inbox import (`ir_cron_sms_disk_import`, every 10 min)
+
+Imports `*.xml` / `*.zip` files dropped into an on-host bind-mount inbox
+(set by `ir.config_parameter` `bf_sms_archive.disk_inbox_path`, default
+`/mnt/sms-inbox`, mapped via your `docker-compose` volume). This path
+bypasses the 1 GB form-upload limit — copy large exports in via `scp`. Processed
+files are moved to `done/` (success) or `failed/` (errors).
+
+### Configuration parameters
+
+| Key | Default | Role |
+|-----|---------|------|
+| `bf_sms_archive.nc_watch_path` | *(empty placeholder)* | Nextcloud folder to watch (e.g. `/Backups/SMS/Live`). **Must be set** before activating the watch cron; an empty value makes the cron a no-op. |
+| `bf_sms_archive.nc_watch_user_id` | `1` (placeholder) | Odoo user ID that will own messages imported by the watch cron. Set to the intended internal user. |
+
+## Live Android sync (v18.0.2.0.0+)
+
+The companion app **bf-sms-relay** (separate repo) pushes SMS, MMS, and call log entries to this module continuously, replacing manual XML import.
+
+### Endpoint
+
+```
+POST <odoo_base_url>/bf_sms_archive/api/ingest
+Authorization: Bearer <device_token>
+Content-Type: application/json
+```
+
+Limits: `entries: <= 1000`, payload `<= 50 MB`.
+
+### Authentication
+
+Each Android device is represented by a `sms.archive.device` record (manager-only). The record carries:
+
+- `name` — human label (e.g. "Pixel 8")
+- `owner_id` — the `res.users` to whom received entries are imputed
+- `api_token` — opaque 32-byte urlsafe secret; regenerated via the "Régénérer le token" button (immediately invalidates the previous one)
+- `last_sync_at`, `last_sync_count`, `total_received` — server-side stats
+
+The token is stored on a field with `groups="bf_sms_archive.group_sms_manager"` so only managers can read it.
+
+### Payload format
+
+```json
+{
+  "device_id": "pixel-8",
+  "entries": [
+    {
+      "kind": "sms",
+      "phone": "+15145551234",
+      "direction": "in",
+      "body": "Hello",
+      "date_ms": "1731234567890",
+      "contact_name": "Marc Lemay",
+      "is_mms": false
+    },
+    {
+      "kind": "sms",
+      "phone": "+15145551234",
+      "direction": "out",
+      "body": "Photo!",
+      "date_ms": "1731234600000",
+      "is_mms": true,
+      "parts": [
+        {"content_type": "image/jpeg", "filename": "IMG_001.jpg", "data_b64": "/9j/4AAQ..."},
+        {"content_type": "text/plain", "text": "Photo!"}
+      ]
+    },
+    {
+      "kind": "call",
+      "phone": "+15145551234",
+      "call_type": "outgoing",
+      "duration": 125,
+      "date_ms": "1731234999000",
+      "presentation": "allowed"
+    }
+  ]
+}
+```
+
+`kind` accepts `sms` or `call`. SMS `direction` is `in`/`out`/`draft`. Call `call_type` is one of `incoming`, `outgoing`, `missed`, `voicemail`, `rejected`, `blocked`.
+
+### Response
+
+```json
+{
+  "created": 7,
+  "duplicates": 2,
+  "errors": 0,
+  "error_details": []
+}
+```
+
+Status codes: `200` on success (even if some entries failed — see `errors`), `400` on malformed payload, `401` on bad token, `413` on oversize payload.
+
+### Dedup
+
+The same SHA-256 hashing used by the XML import is applied — re-posting the same entry is safe and counts as a duplicate. The hash key is:
+
+- SMS: `phone_normalized | date_ms | body`
+- Call: `phone_normalized | date_ms | duration | call_type`
+
+### Smoke test
+
+```bash
+TOKEN=...
+curl -X POST https://erp.bluefoxconsultant.com/bf_sms_archive/api/ingest \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"entries":[{"kind":"sms","phone":"+15145551234","direction":"in","body":"smoke test","date_ms":"1731234567890"}]}'
+```
+
+### Companion Android app
+
+`bf-sms-relay` (LGPL-3, F-Droid-friendly): foreground service when charging (30s tick), WorkManager when on battery (15 min tick), BroadcastReceiver for incoming SMS (real-time). Distribution: signed APK direct, not Play Store (READ_SMS / READ_CALL_LOG are blocked by Play policy).
+
 ## Changelog
+
+### Version 18.0.3.6.1
+
+- **NEW (3.0+):** Live two-way SMS/MMS messaging over VOIP.ms — a built-in OWL "Messagerie" chat workspace (thread list + conversation), a systray unread badge, an autonomous VOIP.ms transport (`sms.archive.voipms`), a per-line inbound webhook (`/bf_sms_archive/api/voipms/sms?token=`), and a safety-net poll cron.
+- **NEW:** Per-line DID inventory (`sms.archive.line`) with owner mapping, SMS/MMS capability flags and a regenerable webhook token; outbound send with MMS attachments, character/segment counter and per-thread draft persistence.
+- **NEW:** Simple/Advanced display toggle in the messenger — a decluttered default (overflow `⋯` menus) or the full legacy toolbars.
+- **NEW:** Settings field for the VOIP.ms account timezone (`bf_sms_archive.voipms_tz`, US/Eastern by default).
+- **FIX:** Inbound/outbound timestamps now interpret VOIP.ms times in the account timezone (DST-aware) instead of UTC, so message times are correct in every viewer's timezone.
+- **FIX:** Opening a conversation scrolls to the latest message; the systray badge clears in real time when messages are read.
+- **CHANGE:** App renamed from "Archive SMS & Appels" to "SMS & Calls".
 
 ### Version 18.0.2.2.1
 
@@ -325,6 +456,10 @@ The import wizard normalizes phone numbers for consistent thread grouping:
 
 ### Version 18.0.2.0.0
 
+- **NEW:** Public REST endpoint `/bf_sms_archive/api/ingest` for live SMS/MMS/call ingestion from the companion Android app `bf-sms-relay`
+- **NEW:** `sms.archive.device` model with per-device Bearer tokens (manager-only field, regenerable)
+- **NEW:** `sms.archive.thread._get_or_create()`, `sms.archive.message._ingest_one()`, `sms.archive.mms.part._ingest_parts()`, `call.archive.call._ingest_one()` helper methods reusable by future ingestion sources
+- **NEW:** Configuration > Appareils Android menu (manager group only)
 - **NEW:** Nextcloud folder watcher ("live sync") -- `_cron_nc_watch_import` polls a configured Nextcloud folder over WebDAV and imports new XML/ZIP exports automatically, sorting processed sources into `done/`, `failed/`, and `too_large/`
 - **NEW:** Nextcloud credentials read from the environment (`NC_SMS_WATCH_URL/USER/PASSWORD`, falling back to `NC_URL/USER/PASSWORD`)
 - **NEW:** Config parameters `bf_sms_archive.nc_watch_path` and `bf_sms_archive.nc_watch_user_id`

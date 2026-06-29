@@ -7,7 +7,7 @@ msgstr ""
 "Project-Id-Version: Odoo Server 18.0\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-03-19 00:00+0000\n"
-"PO-Revision-Date: 2026-03-19 00:00+0000\n"
+"PO-Revision-Date: 2026-06-29 00:00+0000\n"
 "Last-Translator: \n"
 "Language-Team: \n"
 "MIME-Version: 1.0\n"
@@ -17,6 +17,10 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
 #. module: bf_sms_archive
+#: model:ir.module.category,name:bf_sms_archive.module_category_sms_archive
 #: model:ir.module.module,shortdesc:bf_sms_archive.module_bf_sms_archive
-msgid "SMS Archive"
-msgstr "Archive SMS"
+#: model:ir.ui.menu,name:bf_sms_archive.sms_archive_menu_root
+#: model_terms:ir.ui.view,arch_db:bf_sms_archive.res_config_settings_view_form
+#: code:addons/bf_sms_archive/static/src/xml/sms_dashboard.xml:0
+msgid "SMS & Calls"
+msgstr "SMS et appels"

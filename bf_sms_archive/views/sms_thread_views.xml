@@ -6,10 +6,12 @@
         <field name="name">sms.archive.thread.tree</field>
         <field name="model">sms.archive.thread</field>
         <field name="arch" type="xml">
-            <list decoration-muted="is_hidden">
+            <list decoration-muted="is_hidden" decoration-bf="unread_count &gt; 0">
+                <field name="active" column_invisible="1"/>
                 <field name="contact_name" string="Contact"/>
                 <field name="phone_normalized" string="Téléphone"/>
                 <field name="partner_id" string="Contact Odoo"/>
+                <field name="unread_count" string="Non lus" optional="show"/>
                 <field name="message_count" string="Messages"/>
                 <field name="call_count" string="Appels" optional="hide"/>
                 <field name="last_message_date" string="Dernier message"/>
@@ -31,6 +33,12 @@
                     <button name="action_match_partner" string="Lier au contact Odoo"
                             type="object" class="btn-secondary"
                             invisible="partner_id"/>
+                    <button name="action_archive_thread" string="Archiver"
+                            type="object" class="btn-secondary" icon="fa-archive"
+                            invisible="not active"/>
+                    <button name="action_unarchive_thread" string="Désarchiver"
+                            type="object" class="btn-secondary" icon="fa-inbox"
+                            invisible="active"/>
                     <button name="action_export_csv" string="Export CSV"
                             type="object" class="btn-secondary" icon="fa-file-text-o"/>
                     <button name="action_export_xml" string="Export XML"
@@ -39,6 +47,9 @@
                             type="object" class="btn-secondary" icon="fa-file-pdf-o"/>
                 </header>
                 <sheet>
+                    <field name="active" invisible="1"/>
+                    <widget name="web_ribbon" title="Archivé"
+                            bg_color="text-bg-secondary" invisible="active"/>
                     <widget name="web_ribbon" title="Confidentiel"
                             bg_color="text-bg-danger" invisible="not is_hidden"/>
                     <div class="oe_button_box" name="button_box">
@@ -136,6 +147,11 @@
                         domain="[('is_hidden', '=', True)]"/>
                 <filter name="filter_unmatched" string="Sans contact Odoo"
                         domain="[('partner_id', '=', False)]"/>
+                <separator/>
+                <filter name="filter_unread" string="Non lus"
+                        domain="[('unread_count', '&gt;', 0)]"/>
+                <filter name="filter_archived" string="Archivés"
+                        domain="[('active', '=', False)]"/>
                 <separator/>
                 <group expand="0" string="Regrouper par">
                     <filter name="group_partner" string="Contact Odoo"

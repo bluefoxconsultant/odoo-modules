@@ -11,3 +11,6 @@ access_call_archive_user,call.archive.call.user,model_call_archive_call,group_sm
 access_call_archive_manager,call.archive.call.manager,model_call_archive_call,group_sms_manager,1,1,1,1
 access_sms_dashboard_user,sms.archive.dashboard.user,model_sms_archive_dashboard,group_sms_user,1,0,0,0
 access_sms_dashboard_manager,sms.archive.dashboard.manager,model_sms_archive_dashboard,group_sms_manager,1,0,0,0
+access_sms_device_manager,sms.archive.device.manager,model_sms_archive_device,group_sms_manager,1,1,1,1
+access_sms_line_user,sms.archive.line.user,model_sms_archive_line,group_sms_user,1,0,0,0
+access_sms_line_manager,sms.archive.line.manager,model_sms_archive_line,group_sms_manager,1,1,1,1

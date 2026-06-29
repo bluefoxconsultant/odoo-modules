@@ -3,9 +3,11 @@ import csv
 import io
 import logging
 import re
+from datetime import timezone
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 from odoo import api, fields, models
+from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
 
@@ -49,6 +51,11 @@ class SmsArchiveThread(models.Model):
         string="Confidentiel",
         default=False,
         help="Masquer ce fil des recherches et listes MCP",
+    )
+    is_pinned = fields.Boolean(
+        string="Épinglé",
+        default=False,
+        help="Garder ce fil en haut de la liste de la Messagerie.",
     )
     message_ids = fields.One2many(
         comodel_name="sms.archive.message",
@@ -94,6 +101,11 @@ class SmsArchiveThread(models.Model):
         compute="_compute_call_stats",
         store=True,
     )
+    unread_count = fields.Integer(
+        string="Non lus",
+        compute="_compute_unread_count",
+        store=True,
+    )
 
     display_name = fields.Char(
         compute="_compute_display_name",
@@ -126,6 +138,13 @@ class SmsArchiveThread(models.Model):
             calls = thread.call_ids.sorted("date", reverse=True)
             thread.call_count = len(calls)
             thread.last_call_date = calls[0].date if calls else False
+
+    @api.depends("message_ids.is_read", "message_ids.direction")
+    def _compute_unread_count(self):
+        for thread in self:
+            thread.unread_count = len(thread.message_ids.filtered(
+                lambda m: m.direction == "in" and not m.is_read
+            ))
 
     @api.depends("contact_name", "partner_id", "phone_normalized")
     def _compute_display_name(self):
@@ -474,7 +493,6 @@ class SmsArchiveThread(models.Model):
         """Prepare data for the per-thread PDF report (binding_model: sms.archive.thread)."""
         data = self._build_shared_report_data()
         data["groups"] = [self._build_thread_group(self, self.message_ids)]
-        # Back-compat for the existing template referencing top-level keys
         group = data["groups"][0]
         data.update({
             "thread": self,
@@ -581,3 +599,298 @@ class SmsArchiveThread(models.Model):
         if len(digits) == 11 and digits.startswith("1"):
             return f"+{digits}"
         return f"+{digits}" if digits else ""
+
+    @api.model
+    def _get_or_create(self, phone_normalized, owner_id, phone_raw=None, contact_name=None):
+        """Idempotent thread upsert by (phone_normalized, owner_id)."""
+        # active_test=False : retrouver aussi les fils archivés (sinon la contrainte
+        # d'unicité (phone, owner) bloquerait la recréation).
+        thread = self.sudo().with_context(active_test=False).search([
+            ("phone_normalized", "=", phone_normalized),
+            ("owner_id", "=", owner_id),
+        ], limit=1)
+        if thread:
+            vals = {}
+            if contact_name and not thread.contact_name:
+                vals["contact_name"] = contact_name
+            if not thread.active:
+                vals["active"] = True  # un nouveau message désarchive le fil
+            if vals:
+                thread.sudo().write(vals)
+            return thread
+        thread = self.sudo().create({
+            "phone_normalized": phone_normalized,
+            "phone_raw": phone_raw or phone_normalized,
+            "contact_name": contact_name or "",
+            "owner_id": owner_id,
+        })
+        # Best-effort: auto-match an Odoo contact by phone so names/avatars populate.
+        if not thread.partner_id and phone_normalized:
+            try:
+                tail = phone_normalized[-10:]
+                partner = self.env["res.partner"].sudo().search(
+                    ["|", ("phone", "ilike", tail), ("mobile", "ilike", tail)], limit=1,
+                )
+                if partner:
+                    thread.partner_id = partner.id
+            except Exception:  # noqa: BLE001 — un échec de matching ne doit pas bloquer l'ingestion
+                _logger.debug("auto-match partner échoué pour %s", phone_normalized, exc_info=True)
+        return thread
+
+    # ── Archivage (boutons formulaire) ─────────────────────────────
+
+    def action_archive_thread(self):
+        self.write({"active": False})
+        return True
+
+    def action_unarchive_thread(self):
+        self.write({"active": True})
+        return True
+
+    # ── API « Messagerie » (SPA OWL) ───────────────────────────────
+
+    @staticmethod
+    def _dt_to_ms(dt):
+        if not dt:
+            return 0
+        return int(dt.replace(tzinfo=timezone.utc).timestamp() * 1000)
+
+    def _check_messenger_access(self):
+        """Limite l'accès aux fils du propriétaire courant (sauf gestionnaire)."""
+        is_manager = self.env.user.has_group("bf_sms_archive.group_sms_manager")
+        for thread in self:
+            if not is_manager and thread.owner_id.id != self.env.uid:
+                raise UserError("Accès refusé à cette conversation.")
+
+    def _ping_unread(self, users):
+        """Ping temps réel « lu » (sans bip) → rafraîchit le compteur systray et
+        les badges de la liste dans tous les onglets/appareils du propriétaire."""
+        Bus = self.env["bus.bus"]
+        for usr in users:
+            if usr and usr.partner_id:
+                Bus._sendone(usr.partner_id, "sms.archive/read", {"kind": "read"})
+
+    def _messenger_thread_dict(self, line_label=None):
+        self.ensure_one()
+        if line_label is None:
+            last = self.env["sms.archive.message"].search(
+                [("thread_id", "=", self.id), ("line_id", "!=", False)],
+                order="id desc", limit=1,
+            )
+            line_label = last.line_id.label if last else ""
+        return {
+            "id": self.id,
+            "contact_name": self.contact_name or "",
+            "phone": self.phone_normalized or "",
+            "phone_raw": self.phone_raw or "",
+            "partner_id": self.partner_id.id or False,
+            "partner_name": self.partner_id.name or "",
+            "last_message_date": self._dt_to_ms(self.last_message_date),
+            "last_preview": self.last_message_preview or "",
+            "unread_count": self.unread_count,
+            "active": self.active,
+            "is_hidden": self.is_hidden,
+            "is_pinned": self.is_pinned,
+            "line_label": line_label or "",
+        }
+
+    @api.model
+    def get_messenger_config(self):
+        """Préférences d'affichage de la SPA. ``tz`` = fuseau de l'utilisateur
+        (via bf_timezone si présent), sinon False → l'horloge du navigateur."""
+        tz = False
+        if "bf.timezone" in self.env:
+            tz = self.env["bf.timezone"].sudo().resolve([self.env.user.tz]) \
+                or self.env.user.tz or False
+        return {"tz": tz or False}
+
+    @api.model
+    def get_lines(self):
+        """Lignes (DID) disponibles pour l'utilisateur courant."""
+        Line = self.env["sms.archive.line"]
+        lines = Line.search([("owner_id", "=", self.env.uid)])
+        if not lines and self.env.user.has_group("bf_sms_archive.group_sms_manager"):
+            lines = Line.search([])
+        return [{
+            "id": line.id,
+            "label": line.label,
+            "did": line.did_normalized or line.did,
+            "sms_enabled": line.sms_enabled,
+            "mms_enabled": line.mms_enabled,
+            "is_default": line.is_default,
+        } for line in lines]
+
+    @api.model
+    def get_messenger_threads(self, archived=False, search=None, line_id=None, limit=200):
+        """Liste des fils (volet gauche) : épinglés d'abord, puis par dernier message."""
+        domain = [("owner_id", "=", self.env.uid), ("active", "=", not archived)]
+        if search:
+            term = search.strip()
+            domain += [
+                "|", "|",
+                ("contact_name", "ilike", term),
+                ("phone_normalized", "ilike", term),
+                ("partner_id.name", "ilike", term),
+            ]
+        if line_id:
+            domain.append(("message_ids.line_id", "=", int(line_id)))
+        threads = self.with_context(active_test=False).search(
+            domain, limit=limit,
+            order="is_pinned desc, last_message_date desc nulls last, id desc",
+        )
+        # Étiquette de ligne par fil (dernier message portant une ligne) — une requête.
+        label_map = {}
+        if threads.ids:
+            rows = self.env["sms.archive.message"].search_read(
+                [("thread_id", "in", threads.ids), ("line_id", "!=", False)],
+                ["thread_id", "line_id"], order="id desc",
+            )
+            for r in rows:
+                tid = r["thread_id"][0]
+                if tid not in label_map:
+                    label_map[tid] = r["line_id"][1]
+        return [t._messenger_thread_dict(line_label=label_map.get(t.id, "")) for t in threads]
+
+    @api.model
+    def get_conversation(self, thread_id, before_id=None, limit=50):
+        """Messages d'un fil (volet droit), pagination par ``before_id`` (défilement infini)."""
+        thread = self.with_context(active_test=False).browse(int(thread_id))
+        if not thread.exists():
+            raise UserError("Conversation introuvable.")
+        thread._check_messenger_access()
+        Msg = self.env["sms.archive.message"]
+        domain = [("thread_id", "=", thread.id)]
+        if before_id:
+            domain.append(("id", "<", int(before_id)))
+        found = Msg.search(domain, order="id desc", limit=limit)
+        messages = [m._messenger_dict() for m in found.sorted("id")]
+        # Marque les entrants comme lus à l'ouverture
+        unread = found.filtered(lambda m: m.direction == "in" and not m.is_read)
+        if unread:
+            unread.write({"is_read": True})
+            self._ping_unread(thread.owner_id)
+        return {
+            "thread": thread._messenger_thread_dict(),
+            "messages": messages,
+            "has_more": len(found) == limit,
+        }
+
+    @api.model
+    def mark_thread_read(self, thread_id):
+        thread = self.with_context(active_test=False).browse(int(thread_id))
+        thread._check_messenger_access()
+        thread.message_ids.filtered(
+            lambda m: m.direction == "in" and not m.is_read
+        ).write({"is_read": True})
+        self._ping_unread(thread.owner_id)
+        return self.get_unread_summary()
+
+    @api.model
+    def messenger_set_archived(self, thread_id, archived):
+        thread = self.with_context(active_test=False).browse(int(thread_id))
+        thread._check_messenger_access()
+        thread.write({"active": not archived})
+        return True
+
+    @api.model
+    def messenger_bulk_archive(self, thread_ids, archived):
+        """Archive/désarchive plusieurs fils d'un coup (sélection multiple)."""
+        threads = self.with_context(active_test=False).browse(
+            [int(t) for t in thread_ids]
+        ).exists()
+        threads._check_messenger_access()
+        threads.write({"active": not archived})
+        return True
+
+    @api.model
+    def messenger_link_partner(self, thread_id, partner_id):
+        """Rattache un fil (numéro inconnu) à un contact Odoo existant."""
+        thread = self.with_context(active_test=False).browse(int(thread_id))
+        thread._check_messenger_access()
+        thread.write({"partner_id": int(partner_id)})  # write() reporte le nom du contact
+        return thread._messenger_thread_dict()
+
+    @api.model
+    def messenger_create_partner(self, thread_id, name=None):
+        """Crée un nouveau contact Odoo depuis un numéro inconnu et l'y rattache."""
+        thread = self.with_context(active_test=False).browse(int(thread_id))
+        thread._check_messenger_access()
+        partner = self.env["res.partner"].create({
+            "name": (name or "").strip() or thread.contact_name or thread.phone_normalized,
+            "phone": thread.phone_normalized,
+        })
+        thread.write({"partner_id": partner.id})
+        return thread._messenger_thread_dict()
+
+    @api.model
+    def messenger_toggle_pin(self, thread_id):
+        thread = self.with_context(active_test=False).browse(int(thread_id))
+        thread._check_messenger_access()
+        thread.is_pinned = not thread.is_pinned
+        return thread.is_pinned
+
+    @api.model
+    def mark_all_read(self):
+        """Marque tous les SMS entrants non lus de l'utilisateur comme lus."""
+        self.env["sms.archive.message"].sudo().search([
+            ("owner_id", "=", self.env.uid),
+            ("direction", "=", "in"),
+            ("is_read", "=", False),
+        ]).write({"is_read": True})
+        self._ping_unread(self.env.user)
+        return self.get_unread_summary()
+
+    @api.model
+    def messenger_set_thread_read(self, thread_id, read):
+        """Bascule l'état lu/non-lu d'un fil (pour « marquer non lu »)."""
+        thread = self.with_context(active_test=False).browse(int(thread_id))
+        thread._check_messenger_access()
+        if read:
+            thread.message_ids.filtered(
+                lambda m: m.direction == "in" and not m.is_read
+            ).write({"is_read": True})
+        else:
+            inbound = thread.message_ids.filtered(lambda m: m.direction == "in").sorted("id")
+            if inbound:
+                inbound[-1].is_read = False
+        self._ping_unread(thread.owner_id)
+        return self.get_unread_summary()
+
+    @api.model
+    def start_conversation(self, line_id, phone, contact_name=None):
+        """Ouvre (ou crée) un fil pour composer un nouveau message."""
+        line = self.env["sms.archive.line"].browse(int(line_id))
+        is_manager = self.env.user.has_group("bf_sms_archive.group_sms_manager")
+        if line.exists() and line.owner_id.id != self.env.uid and not is_manager:
+            raise UserError("Cette ligne ne vous appartient pas.")
+        owner = line.owner_id.id if line.exists() else self.env.uid
+        phone_norm = self.normalize_phone(phone)
+        if not phone_norm:
+            raise UserError("Numéro invalide.")
+        thread = self._get_or_create(phone_norm, owner, phone, contact_name)
+        return thread.id
+
+    @api.model
+    def get_unread_summary(self):
+        """Total + ventilation par fil des entrants non lus (compteur systray)."""
+        Msg = self.env["sms.archive.message"]
+        domain = [
+            ("owner_id", "=", self.env.uid),
+            ("direction", "=", "in"),
+            ("is_read", "=", False),
+        ]
+        total = Msg.search_count(domain)
+        groups = Msg.read_group(domain, ["thread_id"], ["thread_id"], limit=20)
+        threads = []
+        for g in groups:
+            if not g.get("thread_id"):
+                continue
+            tid = g["thread_id"][0]
+            thread = self.browse(tid)
+            threads.append({
+                "id": tid,
+                "contact": thread.contact_name or thread.phone_normalized or "",
+                "count": g.get("__count") or g.get("thread_id_count") or 0,
+                "preview": thread.last_message_preview or "",
+            })
+        return {"total": total, "threads": threads}

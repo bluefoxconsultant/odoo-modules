@@ -1,8 +1,16 @@
+import hashlib
 import logging
+from datetime import datetime, timezone
 
 from odoo import api, fields, models
 
 _logger = logging.getLogger(__name__)
+
+
+def _ms_to_naive_utc(date_ms):
+    """Convert millisecond epoch (int/str) to naive UTC datetime."""
+    ms = int(date_ms)
+    return datetime.fromtimestamp(ms / 1000, tz=timezone.utc).replace(tzinfo=None)
 
 # SMS Backup & Restore call type mapping
 _CALL_TYPE_MAP = {
@@ -144,3 +152,32 @@ class CallArchiveCall(models.Model):
             )
             dt = str(call.date)[:16] if call.date else ""
             call.display_name = f"{arrow} {contact} — {dt} — {call.duration_display}"
+
+    @api.model
+    def _ingest_one(self, *, phone_raw, owner_id, call_type, date_ms,
+                    duration=0, contact_name=None, presentation=None, batch_id=None):
+        """Single-call ingestion with dedup. Returns (record, created: bool)."""
+        Thread = self.env["sms.archive.thread"].sudo()
+        phone_norm = Thread.normalize_phone(phone_raw)
+        duration_int = int(duration or 0)
+        call_hash = hashlib.sha256(
+            f"{phone_norm}|{date_ms}|{duration_int}|{call_type}".encode("utf-8")
+        ).hexdigest()
+
+        existing = self.sudo().search([("call_hash", "=", call_hash)], limit=1)
+        if existing:
+            return existing, False
+
+        thread = Thread._get_or_create(phone_norm, owner_id, phone_raw, contact_name)
+        rec = self.sudo().create({
+            "thread_id": thread.id,
+            "call_hash": call_hash,
+            "call_type": call_type,
+            "date": _ms_to_naive_utc(date_ms),
+            "date_ms": str(date_ms),
+            "duration": duration_int,
+            "contact_name": contact_name or "",
+            "presentation": presentation or "allowed",
+            "import_batch_id": batch_id or "android-live",
+        })
+        return rec, True
