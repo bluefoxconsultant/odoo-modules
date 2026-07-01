@@ -61,7 +61,8 @@ class SmsArchiveVoipms(models.AbstractModel):
     def _voipms_config(self):
         ICP = self.env["ir.config_parameter"].sudo()
         return {
-            "enabled": ICP.get_param("bf_sms_archive.voipms_enabled", "0") == "1",
+            "enabled": (ICP.get_param("bf_sms_archive.voipms_enabled", "0") or "").strip().lower()
+            in ("1", "true", "yes", "on", "t"),
             "username": (ICP.get_param("bf_sms_archive.voipms_api_username", "") or "").strip(),
             "password": (ICP.get_param("bf_sms_archive.voipms_api_password", "") or "").strip(),
             "public_base_url": (

@@ -438,6 +438,10 @@ curl -X POST https://erp.bluefoxconsultant.com/bf_sms_archive/api/ingest \
 
 ## Changelog
 
+### Version 18.0.3.6.3
+
+- **FIX:** The VOIP.ms transport enable flag (`bf_sms_archive.voipms_enabled`) is now read tolerantly (`1`/`true`/`yes`/`on`). A Boolean settings toggle is stored by Odoo as `"True"`/`"False"`, so the previous strict `== "1"` check silently disabled the transport whenever the Settings form was saved.
+
 ### Version 18.0.3.6.1
 
 - **NEW (3.0+):** Live two-way SMS/MMS messaging over VOIP.ms — a built-in OWL "Messagerie" chat workspace (thread list + conversation), a systray unread badge, an autonomous VOIP.ms transport (`sms.archive.voipms`), a per-line inbound webhook (`/bf_sms_archive/api/voipms/sms?token=`), and a safety-net poll cron.
