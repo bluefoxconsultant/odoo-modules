@@ -1,7 +1,7 @@
 {
     "name": "Blue Fox — Feuille de temps depuis le chatter",
-    "summary": "Case à cocher dans le composer du chatter pour journaliser une feuille de temps en même temps qu'une note interne.",
-    "version": "18.0.1.1.0",
+    "summary": "Case à cocher dans le composer du chatter pour journaliser une feuille de temps en même temps qu'une note interne (tâches + tickets helpdesk).",
+    "version": "18.0.1.2.0",
     "category": "Services/Timesheets",
     "author": "Blue Fox Inc.",
     "website": "https://bluefoxconsultant.com",
