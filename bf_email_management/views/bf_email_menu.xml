@@ -118,10 +118,14 @@
               action="action_bf_email_rule"
               sequence="7"/>
 
+    <!-- Group-gated: the wizard sudo-reads every mail.message in the DB
+         (subjects + record names across record rules) to build the import.
+         Reserved to the email-admin zone; the RPC method re-checks. -->
     <menuitem id="menu_bf_email_initial_sync"
               name="Import initial"
               parent="menu_bf_email_config"
               action="action_bf_email_initial_sync"
+              groups="group_email_admin,base.group_system"
               sequence="10"/>
 
     <menuitem id="menu_bf_email_imap_backfill"

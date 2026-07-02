@@ -1,6 +1,7 @@
 import logging
 
-from odoo import api, fields, models
+from odoo import _, api, fields, models
+from odoo.exceptions import AccessError
 
 _logger = logging.getLogger(__name__)
 
@@ -47,6 +48,18 @@ class BfEmailInitialSync(models.TransientModel):
 
     def action_run(self):
         self.ensure_one()
+        # The import sudo-reads every mail.message (subjects + linked record
+        # names across record rules) and copies that metadata into rows the
+        # runner owns. Menu gating alone doesn't protect the RPC endpoint.
+        if not (
+            self.env.user.has_group("bf_email_management.group_email_admin")
+            or self.env.user.has_group("base.group_system")
+        ):
+            raise AccessError(_(
+                "L'import initial parcourt l'ensemble des messages de la "
+                "base ; il est réservé au groupe « Administrateur — tous "
+                "les courriels »."
+            ))
         BfEmail = self.env["bf.email"]
 
         domain = [

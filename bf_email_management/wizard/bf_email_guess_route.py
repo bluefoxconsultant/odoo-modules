@@ -114,6 +114,13 @@ class BfEmailGuessRoute(models.TransientModel):
                 skipped += 1
                 continue
             try:
+                # The reroute proxy is sudo, so message_post on the target
+                # bypasses ACLs — verify the *user* may write to the chosen
+                # target before posting email content into its chatter
+                # (guessed_target is a user-editable Reference field). The
+                # AccessError surfaces through the except below as a failure.
+                target.check_access_rights("write")
+                target.check_access_rule("write")
                 reroute_proxy._reroute_one(
                     line.bf_email_id, target._name, target.id,
                 )

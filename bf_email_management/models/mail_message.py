@@ -3,11 +3,30 @@ import logging
 
 from odoo import _, models
 
+from .subject_utils import dedup_subject_prefix
+
 _logger = logging.getLogger(__name__)
 
 
 class MailMessage(models.Model):
     _inherit = "mail.message"
+
+    def reply_message(self):
+        """Collapse stacked Re: on the standard chatter quoted-reply button.
+
+        ``mail_quoted_reply.reply_message`` sets ``default_subject`` to
+        ``f"Re: {subject}"`` unconditionally, so replying to an already-"Re:"
+        thread yields "Re: Re: …". Normalize it the same way bf.email's own
+        reply flow does.
+        """
+        action = super().reply_message()
+        ctx = action.get("context") or {}
+        if ctx.get("default_subject"):
+            ctx["default_subject"] = dedup_subject_prefix(
+                ctx["default_subject"], force="Re:"
+            )
+            action["context"] = ctx
+        return action
 
     def action_download_eml(self):
         """Stream this chatter message as an .eml download.
@@ -58,6 +77,120 @@ class MailMessage(models.Model):
             "url": f"/web/content/{attachment.id}?download=true",
             "target": "self",
         }
+
+    # ------------------------------------------------------------------
+    # Chatter actions: manage the current user's bf.email mirror in place
+    # (see static/src/js/bf_email_chatter_action.js)
+    # ------------------------------------------------------------------
+    def _bf_resolve_mirror(self, create_if_missing=True):
+        """Return the CURRENT user's bf.email row for this chatter message.
+
+        Same resolution as action_download_eml: match on Message-ID scoped
+        to ``env.uid`` (no stored inverse field exists). When no row exists
+        yet and the message qualifies for projection (a real email, or a
+        chatter comment that produced email notifications), ingest it on
+        the spot — mirror of imap_browser_mark_handled's ingest-then-act.
+        Returns an empty recordset when nothing can be resolved.
+        """
+        self.ensure_one()
+        self.check_access_rule("read")
+        BfEmail = self.env["bf.email"]
+
+        if self.message_id:
+            mirror_id = BfEmail.sudo().search([
+                ("message_id_header", "=", self.message_id),
+                ("user_id", "=", self.env.uid),
+            ], limit=1).id
+            if mirror_id:
+                # Re-enter the user's env: the row is theirs, no sudo needed
+                # for the state change (and rules stay authoritative).
+                return BfEmail.browse(mirror_id)
+
+        if not create_if_missing:
+            return BfEmail
+
+        qualifies = self.message_type == "email" or (
+            self.message_type == "comment"
+            and any(
+                n.notification_type == "email"
+                for n in self.sudo().notification_ids
+            )
+        )
+        if not qualifies:
+            return BfEmail
+
+        vals = BfEmail._prepare_email_vals(self.sudo())
+        if not vals:
+            return BfEmail
+        try:
+            with self.env.cr.savepoint():
+                return BfEmail.with_context(
+                    mail_create_nosubscribe=True,
+                    tracking_disable=True,
+                ).create(vals)
+        except Exception:
+            _logger.warning(
+                "mail.message %s: bf.email mirror ingest failed",
+                self.id, exc_info=True,
+            )
+            return BfEmail
+
+    @staticmethod
+    def _bf_chatter_notification(title, message, ntype="success"):
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": title,
+                "message": message,
+                "type": ntype,
+                "sticky": False,
+            },
+        }
+
+    def action_bf_mark_handled(self):
+        """Chatter button « Traité » — archive the mirror without leaving
+        the record (is_handled + IMAP writeback + reminder activities)."""
+        mirror = self._bf_resolve_mirror()
+        if not mirror:
+            return self._bf_chatter_notification(
+                _("Aucun courriel lié"),
+                _("Ce message n'a pas de courriel dans votre boîte."),
+                "warning",
+            )
+        mirror.action_archive()
+        return self._bf_chatter_notification(
+            _("Traité"),
+            _("« %(subject)s » est sorti de votre boîte de réception.",
+              subject=mirror.subject or mirror.display_name),
+        )
+
+    def action_bf_snooze(self):
+        """Chatter button « Reporter » — open the snooze wizard."""
+        mirror = self._bf_resolve_mirror()
+        if not mirror:
+            return self._bf_chatter_notification(
+                _("Aucun courriel lié"),
+                _("Ce message n'a pas de courriel dans votre boîte."),
+                "warning",
+            )
+        return mirror.action_snooze()
+
+    def action_bf_unhandle(self):
+        """Chatter button « Remettre en boîte » — undo Traité/snooze."""
+        mirror = self._bf_resolve_mirror(create_if_missing=False)
+        if not mirror:
+            return self._bf_chatter_notification(
+                _("Aucun courriel lié"),
+                _("Ce message n'a pas de courriel dans votre boîte."),
+                "warning",
+            )
+        mirror.action_unhandle()
+        return self._bf_chatter_notification(
+            _("Remis en boîte"),
+            _("« %(subject)s » est de retour dans votre boîte de réception.",
+              subject=mirror.subject or mirror.display_name),
+        )
 
     def _eml_filename_from_message(self):
         """Filename for direct mail.message downloads (no bf.email mirror)."""

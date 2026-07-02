@@ -13,12 +13,14 @@ class ResPartner(models.Model):
         if not self.ids:
             self.bf_email_count = 0
             return
+        # Raw SQL bypasses record rules: scope to the current user so the
+        # smart button matches what the drill-through action will show.
         self.env.cr.execute("""
             SELECT partner_id, COUNT(*) AS cnt
             FROM bf_email
-            WHERE partner_id IN %s AND active = TRUE
+            WHERE partner_id IN %s AND active = TRUE AND user_id = %s
             GROUP BY partner_id
-        """, [tuple(self.ids)])
+        """, [tuple(self.ids), self.env.uid])
         counts = dict(self.env.cr.fetchall())
         for rec in self:
             rec.bf_email_count = counts.get(rec.id, 0)

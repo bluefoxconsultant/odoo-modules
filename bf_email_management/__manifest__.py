@@ -1,7 +1,7 @@
 {
     "name": "Gestion des courriels",
     "summary": "Inbox unifiée IMAP + chatters Odoo, avec re-routage UI",
-    "version": "18.0.5.3.0",
+    "version": "18.0.6.0.0",
     "category": "Productivity",
     'website': 'https://bluefoxconsultant.com',
     "author": "Blue Fox Inc.",
@@ -24,6 +24,7 @@
         "data/email_sync_cron.xml",
         "data/email_sync_imap_cron.xml",
         "data/imap_mirror_cron.xml",
+        "data/imap_reconcile_cron.xml",
         "data/expected_reply_minutes_cron.xml",
         "data/auto_link_orphans_cron.xml",
         "data/bf_email_rule_default.xml",

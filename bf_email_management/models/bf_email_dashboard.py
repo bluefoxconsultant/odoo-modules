@@ -45,7 +45,7 @@ class BfEmailDashboard(models.Model):
             "name": "Courriels non lus",
             "res_model": "bf.email",
             "views": [[False, "list"], [False, "form"]],
-            "domain": [("status", "=", "new")],
+            "domain": [("user_id", "=", self.env.uid), ("status", "=", "new")],
         }
 
     # ------------------------------------------------------------------
@@ -59,6 +59,7 @@ class BfEmailDashboard(models.Model):
             "res_model": "bf.email",
             "views": [[False, "list"], [False, "kanban"], [False, "form"]],
             "domain": [
+                ("user_id", "=", self.env.uid),
                 ("is_handled", "=", False),
                 "|", ("imap_in_inbox", "=", True), ("source", "in", ("chatter", "gateway")),
             ],
@@ -72,6 +73,7 @@ class BfEmailDashboard(models.Model):
             "res_model": "bf.email",
             "views": [[False, "list"], [False, "form"]],
             "domain": [
+                ("user_id", "=", self.env.uid),
                 ("direction", "=", "in"),
                 ("status", "in", ("new", "read")),
                 ("is_handled", "=", False),
@@ -87,6 +89,7 @@ class BfEmailDashboard(models.Model):
             "res_model": "bf.email",
             "views": [[False, "list"], [False, "form"]],
             "domain": [
+                ("user_id", "=", self.env.uid),
                 ("source", "=", "imap"),
                 ("res_model", "=", False),
                 ("is_handled", "=", False),
@@ -101,6 +104,7 @@ class BfEmailDashboard(models.Model):
             "res_model": "bf.email",
             "views": [[False, "list"], [False, "form"]],
             "domain": [
+                ("user_id", "=", self.env.uid),
                 ("direction", "=", "in"),
                 ("is_handled", "=", False),
                 ("priority", "in", ("2", "3")),
@@ -109,7 +113,7 @@ class BfEmailDashboard(models.Model):
 
     @api.model
     def action_view_received(self, date_from=False, date_to=False):
-        domain = [("direction", "=", "in")]
+        domain = [("user_id", "=", self.env.uid), ("direction", "=", "in")]
         if date_from:
             domain.append(("date", ">=", date_from))
         if date_to:
@@ -124,7 +128,7 @@ class BfEmailDashboard(models.Model):
 
     @api.model
     def action_view_sent(self, date_from=False, date_to=False):
-        domain = [("direction", "=", "out")]
+        domain = [("user_id", "=", self.env.uid), ("direction", "=", "out")]
         if date_from:
             domain.append(("date", ">=", date_from))
         if date_to:
@@ -147,10 +151,11 @@ class BfEmailDashboard(models.Model):
             "marketing": "Marketing",
             "uncategorized": "Non cat\u00e9goris\u00e9s",
         }
+        domain = [("user_id", "=", self.env.uid)]
         if category == "uncategorized":
-            domain = [("category", "=", False)]
+            domain.append(("category", "=", False))
         else:
-            domain = [("category", "=", category)]
+            domain.append(("category", "=", category))
         if date_from:
             domain.append(("date", ">=", date_from))
         if date_to:
@@ -169,8 +174,14 @@ class BfEmailDashboard(models.Model):
 
     @api.model
     def _date_domain(self, date_from, date_to):
-        """Build ORM domain clauses for a date range."""
-        domain = []
+        """Build ORM domain clauses for a date range.
+
+        Always carries a ``user_id`` leaf so ORM-based KPIs stay pinned to
+        the current user even for group_email_admin members (whose read-all
+        ir.rule would otherwise blend everyone into the dashboard, while
+        the raw-SQL KPIs stay per-user — inconsistent numbers).
+        """
+        domain = [("user_id", "=", self.env.uid)]
         if date_from:
             domain.append(("date", ">=", date_from))
         if date_to:

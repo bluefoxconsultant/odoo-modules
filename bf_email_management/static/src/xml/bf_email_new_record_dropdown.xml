@@ -8,6 +8,8 @@
             </button>
             <t t-set-slot="content">
                 <DropdownItem onSelected="() => this.createRecord('action_create_task')">Tâche</DropdownItem>
+                <DropdownItem t-if="props.record.data.has_crm"
+                              onSelected="() => this.createRecord('action_create_crm_lead')">Piste</DropdownItem>
                 <DropdownItem t-if="props.record.data.has_helpdesk"
                               onSelected="() => this.createRecord('action_create_helpdesk_ticket')">Ticket</DropdownItem>
                 <DropdownItem t-if="props.record.data.has_expense"

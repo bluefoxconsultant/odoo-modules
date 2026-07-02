@@ -7,7 +7,7 @@ Until 3.3.0 ``_apply_rules`` wrote ``is_handled=True`` directly via
 ``rec.write(vals)`` and never triggered ``_imap_writeback_archive``.
 Rules like "List-Unsubscribe → Marketing + Traité" and
 "Expéditeurs noreply → Notification + Traité" therefore left every
-matching message in Migadu INBOX while marking it Traité in Odoo.
+matching message in the IMAP INBOX while marking it Traité in Odoo.
 
 The 18.0.2.4.0 backfill caught the gateway/chatter race-condition
 cohort but not this one — it was never the same root cause.

@@ -68,7 +68,7 @@ class BfEmailAccount(models.Model):
         help="Adresses additionnelles considérées comme « moi » pour le calcul "
              "de is_to_me / is_cc_to_me (catchall, alias, ancienne adresse). "
              "Séparées par virgule ou point-virgule. Ex. : "
-             "bonjour@bluefoxconsultant.com, info@bluefoxconsultant.com",
+             "hello@example.com, info@example.com",
     )
     password = fields.Char(
         string="Mot de passe IMAP",
@@ -134,6 +134,18 @@ class BfEmailAccount(models.Model):
             "Ce compte IMAP existe déjà pour cet utilisateur.",
         ),
     ]
+
+    # ------------------------------------------------------------------
+    # ORM
+    # ------------------------------------------------------------------
+    @api.model_create_multi
+    def create(self, vals_list):
+        accounts = super().create(vals_list)
+        # First account for a user → seed the stock categorization rules
+        # (the XML defaults only belong to the module's installing user).
+        for user in accounts.user_id:
+            self.env["bf.email.rule"]._seed_defaults_for_user(user)
+        return accounts
 
     # ------------------------------------------------------------------
     # Actions

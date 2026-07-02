@@ -6,14 +6,11 @@ the original Message-ID (so the RFC 2822 thread stays intact and the
 existing bf.email row from ``source='imap'`` orphan to a chatter row.
 """
 
-import base64
 import logging
 import re
 from urllib.parse import urlparse
 
 from odoo import _, api, exceptions, fields, models
-
-from ..models import bf_email_imap
 
 _logger = logging.getLogger(__name__)
 
@@ -389,68 +386,20 @@ class BfEmailReroute(models.TransientModel):
                 "Impossible de le re-poster sur le chatter.", bf.id,
             ))
 
-        raw_bytes = base64.b64decode(bf.raw_rfc822)
-        msg = bf_email_imap.parse_rfc822(raw_bytes)
-
-        body_html, body_plain = bf_email_imap.extract_body(msg)
-        body = body_html or (f"<pre>{body_plain}</pre>" if body_plain else "")
-
-        # Attachments: re-create as ir.attachment owned by the target record.
-        att_ids = []
-        for filename, content in bf_email_imap.extract_attachments(msg):
-            att = self.env["ir.attachment"].create({
-                "name": filename,
-                "datas": bf_email_imap.attachment_to_b64(content),
-                "res_model": target_model,
-                "res_id": target_id,
-            })
-            att_ids.append(att.id)
-
-        post_kwargs = {
-            "body": body,
-            "subject": bf.subject or str(msg.get("Subject", "")),
-            "message_type": "email",
-            "subtype_xmlid": "mail.mt_comment",
-            "email_from": bf.email_from or str(msg.get("From", "")),
-            "author_id": bf.author_id.id if bf.author_id else False,
-            "body_is_html": True,
-        }
-        if bf.message_id_header:
-            post_kwargs["message_id"] = bf.message_id_header
-        if bf.date:
-            post_kwargs["date"] = fields.Datetime.to_string(bf.date)
-        if att_ids:
-            post_kwargs["attachment_ids"] = att_ids
-
+        # Single source of truth for "import an email into a chatter":
+        # bf.email._import_into_chatter posts the body + original attachments
+        # + the full .eml and files the (orphan) row under the target.
+        # force_file=True keeps reroute's contract of always re-homing the row.
         target = self.env[target_model].browse(target_id)
-        target_with_ctx = target.with_context(
-            mail_create_nosubscribe=True,
-            mail_create_nolog=True,
-            mail_notify_force_send=False,
-            mail_auto_subscribe_no_notify=True,
-            tracking_disable=True,
-        )
-        new_msg = target_with_ctx.message_post(**post_kwargs)
+        new_msg = bf._import_into_chatter(target, force_file=True)
 
-        # Fix double-encoded HTML if present.
-        if new_msg and new_msg.body:
-            fixed = bf_email_imap.unwrap_double_encoded_html(new_msg.body)
-            if fixed != new_msg.body:
-                new_msg.write({"body": fixed})
-
-        # Promote the bf.email row.
-        promote_vals = {
-            "mail_message_id": new_msg.id if new_msg else False,
-            "res_model": target_model,
-            "res_id": target_id,
-            "record_name": (target.display_name or "")[:200],
-            "source": "gateway",
-        }
+        # Reroute-specific bookkeeping layered on top of the shared import.
+        extra_vals = {}
         if self.mark_replied and bf.direction == "in" and bf.status in ("new", "read"):
-            promote_vals["status"] = "replied"
-        bf.write(promote_vals)
-
+            extra_vals["status"] = "replied"
         if self.archive_after:
-            bf.write({"active": False, "status": "archived"})
+            extra_vals.update({"active": False, "status": "archived"})
+        if extra_vals:
+            bf.write(extra_vals)
 
         return new_msg.id if new_msg else False

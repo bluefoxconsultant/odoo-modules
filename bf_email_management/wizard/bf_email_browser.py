@@ -100,7 +100,9 @@ class BfEmailBrowser(models.TransientModel):
     preview_body_html = fields.Html(
         string="Corps",
         readonly=True,
-        sanitize=False,
+        sanitize=True,
+        help="Aperçu assaini du corps du courriel (le HTML brut entrant "
+             "n'est jamais rendu tel quel — défense anti-XSS).",
     )
     preview_already_ingested = fields.Boolean(
         string="Déjà ingéré dans bf.email",

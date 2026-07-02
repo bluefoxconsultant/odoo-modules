@@ -14,6 +14,7 @@ from odoo import _, api, fields, models, tools
 from odoo.exceptions import UserError
 
 from . import bf_email_imap
+from .subject_utils import dedup_subject_prefix
 
 _logger = logging.getLogger(__name__)
 
@@ -81,6 +82,16 @@ class BfEmail(models.Model):
         help="Corps HTML du courriel. Pour une rangée chatter/gateway, "
              "synchronisé depuis mail.message.body. Pour une rangée IMAP "
              "orpheline, parsé depuis raw_rfc822.",
+    )
+    body_html_display = fields.Html(
+        string="Corps (affichage)",
+        compute="_compute_body_html_display",
+        sanitize=False,
+        readonly=True,
+        help="Version assainie de body_html, rendue dans le formulaire. Le "
+             "HTML brut d'un courriel entrant n'est jamais affiché tel quel "
+             "(défense anti-XSS) ; body_html reste brut pour les "
+             "constructeurs de réponse/transfert, qui assainissent au besoin.",
     )
     direction = fields.Selection(
         selection=[
@@ -286,6 +297,10 @@ class BfEmail(models.Model):
         string="Notes de frais installées",
         compute="_compute_optional_apps",
     )
+    has_crm = fields.Boolean(
+        string="CRM installé",
+        compute="_compute_optional_apps",
+    )
 
     # ------------------------------------------------------------------
     # Inbox-Zero workflow (decoupled from status)
@@ -444,9 +459,11 @@ class BfEmail(models.Model):
     def _compute_optional_apps(self):
         has_h = "helpdesk.ticket" in self.env
         has_e = "hr.expense" in self.env
+        has_c = "crm.lead" in self.env
         for rec in self:
             rec.has_helpdesk = has_h
             rec.has_expense = has_e
+            rec.has_crm = has_c
 
     @staticmethod
     def _scrub_body(text):
@@ -489,6 +506,19 @@ class BfEmail(models.Model):
                     rec.body_html = ""
             else:
                 rec.body_html = ""
+
+    @api.depends("body_html")
+    def _compute_body_html_display(self):
+        """Sanitized view of ``body_html`` for safe rendering in the form.
+
+        Inbound email HTML is stored raw (only NUL-stripped); rendering it
+        verbatim in a readonly Html widget would execute attacker-controlled
+        markup (e.g. ``<img onerror=…>``) in the owner's Odoo session. We
+        sanitize on display while keeping ``body_html`` raw for the reply/
+        forward builders (which sanitize at their own use sites).
+        """
+        for rec in self:
+            rec.body_html_display = tools.html_sanitize(rec.body_html or "")
 
     @api.depends("body_html")
     def _compute_body_preview(self):
@@ -868,7 +898,7 @@ class BfEmail(models.Model):
         # Group records by owner so each user's rule set is fetched once.
         by_user = {}
         for rec in self:
-            by_user.setdefault(rec.user_id.id, self.env["bf.email"]).__iadd__(rec)
+            by_user[rec.user_id.id] = by_user.get(rec.user_id.id, self.env["bf.email"]) | rec
         auto_handled = self.browse()
         for uid, records in by_user.items():
             rules = Rule.search([("user_id", "=", uid)])
@@ -950,6 +980,20 @@ class BfEmail(models.Model):
                 _logger.warning(
                     "bf.email IMAP writeback archive failed", exc_info=True,
                 )
+        # Close the row's own open reminder activities — a treated email
+        # shouldn't keep nagging. Only activities carried by the bf.email
+        # row itself; task/ticket activities are never touched.
+        open_activities = self.activity_ids
+        if open_activities:
+            try:
+                open_activities.action_feedback(
+                    feedback=_("Courriel marqué « Traité »."),
+                )
+            except Exception:
+                _logger.warning(
+                    "bf.email: closing activities on archive failed",
+                    exc_info=True,
+                )
         # Only re-open the form (with undo context flag) when explicitly
         # asked by the form-header caller. List inline / bulk callers
         # don't pass the flag, so they get None back and the list simply
@@ -1022,8 +1066,9 @@ class BfEmail(models.Model):
                     else:
                         try:
                             status, data = conn.uid(
-                                "SEARCH", None, "HEADER",
-                                "Message-ID", rec.message_id_header,
+                                "SEARCH", None, "HEADER", "Message-ID",
+                                bf_email_imap.imap_reject_crlf(
+                                    rec.message_id_header, "Message-ID"),
                             )
                             if status == "OK" and data and data[0]:
                                 raw = data[0]
@@ -1042,8 +1087,10 @@ class BfEmail(models.Model):
                     year = (rec.date or fields.Datetime.now()).strftime("%Y")
                     target = tpl.replace("{YYYY}", year)
                     try:
-                        conn.uid("COPY", uid, f'"{target}"')
-                        conn.uid("STORE", uid, "+FLAGS", "(\\Deleted)")
+                        uid_tok = bf_email_imap.imap_uid_token(uid)
+                        conn.uid("COPY", uid_tok,
+                                 bf_email_imap.imap_quote_mailbox(target))
+                        conn.uid("STORE", uid_tok, "+FLAGS", "(\\Deleted)")
                         rec.write({
                             "imap_uid": str(uid),
                             "imap_folder": target,
@@ -1131,9 +1178,11 @@ class BfEmail(models.Model):
             cc_partner_ids = []
 
         prefix = "Fwd:" if is_forward else "Re:"
-        subject = (self.subject or "").strip()
-        if not subject.lower().startswith(prefix.lower()):
-            subject = f"{prefix} {subject}".strip()
+        # Collapse any stacked Re:/Fwd:/TR: the original subject already
+        # carried into a single canonical prefix, instead of only guarding
+        # against an exact "Re:" head (which let "Re: Re:" and French
+        # "Re : " through).
+        subject = dedup_subject_prefix(self.subject, force=prefix)
 
         if is_forward:
             quote_body = self._build_forward_body()
@@ -1331,7 +1380,12 @@ class BfEmail(models.Model):
                 return self.mail_message_id._prep_quoted_reply_body() or ""
             except Exception:
                 pass
-        body = self.body_html or ""
+        # Orphan IMAP rows hold raw email HTML (only NUL-scrubbed, never
+        # sanitized): full documents, <style> blocks, Outlook/mso cruft and
+        # unclosed tags. Dropped straight into the OWL editor this corrupts
+        # the DOM, swallowing the editable line + signature above and trapping
+        # the cursor in the quote. Sanitize like the chatter path does.
+        body = tools.html_sanitize(self.body_html or "")
         date = fields.Datetime.to_string(self.date) if self.date else ""
         sender = self.email_from or ""
         return (
@@ -1350,7 +1404,9 @@ class BfEmail(models.Model):
         """Build the standard 'Forwarded message' wrapper for the composer."""
         self.ensure_one()
         date = fields.Datetime.to_string(self.date) if self.date else ""
-        body = self.body_html or ""
+        # Sanitize raw IMAP HTML before it reaches the OWL editor (see
+        # _build_reply_quote_body for why).
+        body = tools.html_sanitize(self.body_html or "")
         cc_line = (
             f'<br/><strong>CC&nbsp;:</strong> {self.email_cc}'
             if self.email_cc else ''
@@ -1623,13 +1679,19 @@ class BfEmail(models.Model):
 
     # ------------------------------------------------------------------
     # "Nouveau ▾" — create a record (task / ticket / expense / invoice)
-    # pre-filled from the email. Create-only: the form opens with default_*
-    # context; the email is NOT attached to the chatter nor marked handled
-    # (use "Lier à un dossier" for that). Triggered by the header OWL widget.
+    # FROM the email. The record is created immediately and the *email
+    # itself* is imported into its chatter (rendered body + original
+    # attachments + the full .eml), exactly like "Lier à un dossier" — rather
+    # than dumping the body into a description/narration text field. The
+    # bf.email row is then filed under the new record. Triggered by the header
+    # OWL widget. If the server-side create or the chatter import raises, we
+    # fall back to the legacy create-only blank form so the button is never
+    # left non-functional on a live record.
     # ------------------------------------------------------------------
     def _open_create_form(self, model, name, ctx):
         """Return an act_window opening a new (res_id=False) form of ``model``
-        pre-filled via the ``default_*`` keys in ``ctx``."""
+        pre-filled via the ``default_*`` keys in ``ctx``. Legacy fallback for
+        ``_spawn_from_email`` when an immediate create is not possible."""
         self.ensure_one()
         return {
             "type": "ir.actions.act_window",
@@ -1641,64 +1703,291 @@ class BfEmail(models.Model):
             "context": ctx,
         }
 
-    def action_create_task(self):
-        """Open a new project.task pre-filled from this email."""
+    @api.model
+    def _import_param_bool(self, key, default=True):
+        """Read an ``ir.config_parameter`` boolean (off = 0/false/no/off).
+
+        ``get_param`` returns ``False`` (not ``None``) for a missing key, so
+        guard the unset case before calling string methods.
+        """
+        val = self.env["ir.config_parameter"].sudo().get_param(key)
+        if not val:
+            return default
+        return str(val).strip().lower() not in ("0", "false", "no", "off")
+
+    def _materialize_email_attachments(self, res_model, res_id):
+        """Return ir.attachment ids — the email's original attachments plus
+        the full reconstructed .eml — bound to ``(res_model, res_id)`` so they
+        can ride along in a chatter post.
+
+        Originals come from ``raw_rfc822`` (IMAP rows) when present, else from
+        the linked ``mail.message``. The .eml preserves the complete source
+        (headers included) and stays forwardable. Either part can be turned
+        off via the system parameters ``bf_email.import_attach_originals`` /
+        ``bf_email.import_attach_eml`` (both default on) — the .eml already
+        re-contains the originals, so storage-sensitive tenants can keep one.
+        """
         self.ensure_one()
-        ctx = {
-            "default_name": self.subject or _("(Sans objet)"),
-            "default_partner_id": self.partner_id.id or False,
+        Attachment = self.env["ir.attachment"].sudo()
+        ids = []
+        if self._import_param_bool("bf_email.import_attach_originals", True):
+            if self.raw_rfc822:
+                try:
+                    parsed = bf_email_imap.parse_rfc822(base64.b64decode(self.raw_rfc822))
+                    for filename, content in bf_email_imap.extract_attachments(parsed):
+                        att = Attachment.create({
+                            "name": filename,
+                            "datas": bf_email_imap.attachment_to_b64(content),
+                            "res_model": res_model,
+                            "res_id": res_id,
+                        })
+                        ids.append(att.id)
+                except Exception:
+                    _logger.warning(
+                        "bf.email #%s: attachment extraction from raw_rfc822 failed",
+                        self.id, exc_info=True,
+                    )
+            elif self.mail_message_id:
+                for att in self.mail_message_id.attachment_ids:
+                    try:
+                        ids.append(att.copy({"res_model": res_model, "res_id": res_id}).id)
+                    except Exception:
+                        continue
+        if self._import_param_bool("bf_email.import_attach_eml", True):
+            try:
+                eml = Attachment.create({
+                    "name": self._eml_filename(),
+                    "datas": base64.b64encode(self._build_eml_bytes()).decode("ascii"),
+                    "mimetype": "message/rfc822",
+                    "res_model": res_model,
+                    "res_id": res_id,
+                })
+                ids.append(eml.id)
+            except Exception:
+                _logger.warning(
+                    "bf.email #%s: .eml reconstruction failed for chatter import",
+                    self.id, exc_info=True,
+                )
+        return ids
+
+    def _import_into_chatter(self, target, force_file=False):
+        """Post this email into ``target``'s chatter as an email-type message
+        (rendered body + original attachments + the full .eml) and file the
+        bf.email row under ``target``.
+
+        Single source of truth for "import an email into a chatter": used by
+        both "Nouveau ▾" (``_spawn_from_email``) and "Lier à un dossier"
+        (``bf.email.reroute._reroute_one``). Returns the posted ``mail.message``
+        (or ``False``).
+
+        Filing rule: orphan rows (no linked ``mail.message``, no ``res_id``)
+        are always promoted; ``force_file=True`` (reroute) promotes regardless.
+        A row already linked to a chatter is never re-filed — we only post a
+        copy. The Message-ID is preserved whenever the row is not yet a chatter
+        message, so a later reply threads onto the target; re-using it on an
+        already-linked row would duplicate the identifier across two chatters.
+        """
+        self.ensure_one()
+        target.ensure_one()
+        target_model = target._name
+        target_id = target.id
+        preserve_mid = not self.mail_message_id
+        should_file = force_file or (not self.mail_message_id and not self.res_id)
+
+        attachment_ids = self._materialize_email_attachments(target_model, target_id)
+
+        post_kwargs = {
+            "body": self.body_html or "",
+            "subject": self.subject or "",
+            "message_type": "email",
+            "subtype_xmlid": "mail.mt_comment",
+            "email_from": self.email_from or "",
+            "author_id": self.author_id.id if self.author_id else False,
+            "body_is_html": True,
+        }
+        if preserve_mid and self.message_id_header:
+            post_kwargs["message_id"] = self.message_id_header
+        if self.date:
+            post_kwargs["date"] = fields.Datetime.to_string(self.date)
+        if attachment_ids:
+            post_kwargs["attachment_ids"] = attachment_ids
+
+        new_msg = target.with_context(
+            mail_create_nosubscribe=True,
+            mail_create_nolog=True,
+            mail_notify_force_send=False,
+            mail_auto_subscribe_no_notify=True,
+            tracking_disable=True,
+        ).message_post(**post_kwargs)
+
+        if new_msg and new_msg.body:
+            fixed = bf_email_imap.unwrap_double_encoded_html(new_msg.body)
+            if fixed != new_msg.body:
+                new_msg.write({"body": fixed})
+
+        if should_file:
+            self.write({
+                "mail_message_id": new_msg.id if new_msg else False,
+                "res_model": target_model,
+                "res_id": target_id,
+                "record_name": (target.display_name or "")[:200],
+                "source": "gateway" if self.source == "imap" else self.source,
+            })
+        return new_msg
+
+    def _spawn_from_email(self, model, create_vals, name, legacy_ctx):
+        """Create ``model`` from this email, import the email into the new
+        record's chatter, and open the saved record.
+
+        Falls back to the legacy create-only blank form (``legacy_ctx``) when
+        the model is unavailable or the create/import raises — so the "Nouveau"
+        button always does something sensible on a live record.
+        """
+        self.ensure_one()
+        if model not in self.env:
+            return self._open_create_form(model, name, legacy_ctx)
+        try:
+            with self.env.cr.savepoint():
+                record = self.env[model].create(create_vals)
+                self._import_into_chatter(record)
+                # Turning the email into a record handles it: drop it out of
+                # the inbox (independent of read/replied status). Reversible
+                # via « Remettre en boîte ».
+                if not self.is_handled:
+                    self.is_handled = True
+        except Exception:
+            _logger.warning(
+                "bf.email #%s: immediate %s create + chatter import failed; "
+                "falling back to the blank form", self.id, model, exc_info=True,
+            )
+            return self._open_create_form(model, name, legacy_ctx)
+        return {
+            "type": "ir.actions.act_window",
+            "name": name,
+            "res_model": model,
+            "res_id": record.id,
+            "view_mode": "form",
+            "views": [[False, "form"]],
+            "target": "current",
+        }
+
+    def action_create_task(self):
+        """Create a project.task from this email and import the email into its
+        chatter (no longer dumped into the task description)."""
+        self.ensure_one()
+        name = self.subject or _("(Sans objet)")
+        create_vals = {"name": name, "partner_id": self.partner_id.id}
+        legacy_ctx = {
+            "default_name": name,
+            "default_partner_id": self.partner_id.id,
             "default_description": self.body_html or self.body_preview or "",
         }
-        return self._open_create_form("project.task", _("Nouvelle tâche"), ctx)
+        return self._spawn_from_email(
+            "project.task", create_vals, _("Nouvelle tâche"), legacy_ctx,
+        )
 
     def action_create_helpdesk_ticket(self):
-        """Open a new helpdesk.ticket pre-filled from this email."""
+        """Create a helpdesk.ticket from this email and import the email into
+        its chatter. ``helpdesk.ticket.description`` is required, so it is
+        seeded with a pointer to the chatter rather than the raw body."""
         self.ensure_one()
         if "helpdesk.ticket" not in self.env:
             raise UserError(_("Le module Centre d'assistance n'est pas installé."))
-        ctx = {
-            "default_name": self.subject or _("(Sans objet)"),
-            "default_partner_id": self.partner_id.id or False,
+        name = self.subject or _("(Sans objet)")
+        create_vals = {
+            "name": name,
+            "partner_id": self.partner_id.id,
+            "partner_email": self.email_from or "",
+            "description": _(
+                "<p>Courriel d'origine importé dans le fil de discussion "
+                "ci-dessous.</p>"
+            ),
+        }
+        legacy_ctx = {
+            "default_name": name,
+            "default_partner_id": self.partner_id.id,
             "default_partner_email": self.email_from or "",
             "default_description": self.body_html or self.body_preview or "",
         }
-        return self._open_create_form("helpdesk.ticket", _("Nouveau ticket"), ctx)
+        return self._spawn_from_email(
+            "helpdesk.ticket", create_vals, _("Nouveau ticket"), legacy_ctx,
+        )
 
     def action_create_expense(self):
-        """Open a new hr.expense pre-filled from this email."""
+        """Create an hr.expense from this email and import the email into its
+        chatter."""
         self.ensure_one()
         if "hr.expense" not in self.env:
             raise UserError(_("Le module Notes de frais n'est pas installé."))
-        ctx = {
-            "default_name": self.subject or _("(Sans objet)"),
-            "default_employee_id": self.env.user.employee_id.id or False,
+        name = self.subject or _("(Sans objet)")
+        create_vals = {"name": name, "employee_id": self.env.user.employee_id.id}
+        legacy_ctx = {
+            "default_name": name,
+            "default_employee_id": self.env.user.employee_id.id,
         }
-        return self._open_create_form("hr.expense", _("Nouvelle dépense"), ctx)
+        return self._spawn_from_email(
+            "hr.expense", create_vals, _("Nouvelle dépense"), legacy_ctx,
+        )
 
     def action_create_vendor_bill(self):
-        """Open a new vendor bill (account.move) pre-filled from this email."""
+        """Create a vendor bill (account.move) from this email and import the
+        email into its chatter (no longer dumped into the narration)."""
         self.ensure_one()
-        ctx = {
+        create_vals = {
+            "move_type": "in_invoice",
+            "partner_id": self.partner_id.id,
+            "ref": self.subject or "",
+        }
+        legacy_ctx = {
             "default_move_type": "in_invoice",
-            "default_partner_id": self.partner_id.id or False,
+            "default_partner_id": self.partner_id.id,
             "default_ref": self.subject or "",
             "default_narration": self.body_html or self.body_preview or "",
         }
-        return self._open_create_form(
-            "account.move", _("Nouvelle facture fournisseur"), ctx,
+        return self._spawn_from_email(
+            "account.move", create_vals, _("Nouvelle facture fournisseur"), legacy_ctx,
         )
 
     def action_create_customer_invoice(self):
-        """Open a new customer invoice (account.move) pre-filled from this email."""
+        """Create a customer invoice (account.move) from this email and import
+        the email into its chatter (no longer dumped into the narration)."""
         self.ensure_one()
-        ctx = {
+        create_vals = {
+            "move_type": "out_invoice",
+            "partner_id": self.partner_id.id,
+            "invoice_origin": self.subject or "",
+        }
+        legacy_ctx = {
             "default_move_type": "out_invoice",
-            "default_partner_id": self.partner_id.id or False,
+            "default_partner_id": self.partner_id.id,
             "default_invoice_origin": self.subject or "",
             "default_narration": self.body_html or self.body_preview or "",
         }
-        return self._open_create_form(
-            "account.move", _("Nouvelle facture client"), ctx,
+        return self._spawn_from_email(
+            "account.move", create_vals, _("Nouvelle facture client"), legacy_ctx,
+        )
+
+    def action_create_crm_lead(self):
+        """Create a crm.lead from this email and import the email into its
+        chatter. ``crm.lead.type`` defaults itself (lead/opportunity per the
+        leads feature), so a minimal create is enough."""
+        self.ensure_one()
+        if "crm.lead" not in self.env:
+            raise UserError(_("Le module CRM n'est pas installé."))
+        name = self.subject or _("(Sans objet)")
+        create_vals = {
+            "name": name,
+            "partner_id": self.partner_id.id,
+            "email_from": self.email_from or "",
+        }
+        legacy_ctx = {
+            "default_name": name,
+            "default_partner_id": self.partner_id.id,
+            "default_email_from": self.email_from or "",
+            "default_description": self.body_html or self.body_preview or "",
+        }
+        return self._spawn_from_email(
+            "crm.lead", create_vals, _("Nouvelle piste"), legacy_ctx,
         )
 
     # ------------------------------------------------------------------
@@ -1712,14 +2001,27 @@ class BfEmail(models.Model):
         (sender's send time). Backdated imports (manual IMAP imports,
         forwarded emails with original send dates) would otherwise fall
         below the watermark and never get picked up.
+
+        Per-recipient fan-out (18.0.6.0.0): each message is projected once
+        per involved internal user (author + notified recipients), each row
+        owned by that user, so every user's unified inbox sees the chatter/
+        gateway traffic that concerns them. Messages involving no internal
+        user fall back to the cron user (nothing is lost).
         """
         ICP = self.env["ir.config_parameter"].sudo()
         last_sync = ICP.get_param("bf_email.last_sync_date", "2000-01-01 00:00:00")
         batch_size = int(ICP.get_param("bf_email.sync_batch_size", "200"))
 
+        # ``>=`` (not ``>``): create_date is not unique. A bulk import can
+        # insert a whole thread at one identical timestamp; with strict ``>``,
+        # once the watermark lands on that exact second every sibling message
+        # is skipped *permanently* (never retried) — the cause of the missing
+        # task #6557 cluster. ``>=`` re-scans the boundary timestamp each run;
+        # _should_sync dedups by (message_id, user) so no duplicate is created,
+        # and the cluster size is always far below batch_size in practice.
         messages = self.env["mail.message"].sudo().search(
             [
-                ("create_date", ">", last_sync),
+                ("create_date", ">=", last_sync),
                 "|",
                     ("message_type", "=", "email"),
                     "&",
@@ -1742,27 +2044,36 @@ class BfEmail(models.Model):
             if msg_date_str > latest_date:
                 latest_date = msg_date_str
 
-            if not self._should_sync(msg):
-                skipped += 1
-                continue
-
-            vals = self._prepare_email_vals(msg)
-            if not vals:
-                skipped += 1
-                continue
-
-            try:
-                with self.env.cr.savepoint():
-                    self.with_context(
-                        mail_create_nosubscribe=True,
-                        tracking_disable=True,
-                    ).create(vals)
-                created += 1
-            except Exception:
-                _logger.warning(
-                    "Failed to sync mail.message %s", msg.id, exc_info=True
+            for target in self._route_target_users(msg):
+                # Run dedup + vals + create in the target's environment so
+                # user_id/company_id defaults, direction (env.user-relative)
+                # and rule application all belong to the row owner — same
+                # pattern as _sync_account for IMAP rows.
+                BfTarget = self.with_user(target).with_company(
+                    target.company_id
                 )
-                skipped += 1
+                if not BfTarget._should_sync(msg):
+                    skipped += 1
+                    continue
+
+                vals = BfTarget._prepare_email_vals(msg)
+                if not vals:
+                    skipped += 1
+                    continue
+
+                try:
+                    with self.env.cr.savepoint():
+                        BfTarget.with_context(
+                            mail_create_nosubscribe=True,
+                            tracking_disable=True,
+                        ).create(vals)
+                    created += 1
+                except Exception:
+                    _logger.warning(
+                        "Failed to sync mail.message %s for user %s",
+                        msg.id, target.id, exc_info=True,
+                    )
+                    skipped += 1
 
         ICP.set_param("bf_email.last_sync_date", latest_date)
         _logger.info(
@@ -1771,6 +2082,36 @@ class BfEmail(models.Model):
             skipped,
             len(messages),
         )
+
+    @api.model
+    def _route_target_users(self, msg):
+        """Internal users who should own a bf.email projection of ``msg``.
+
+        = the internal user behind the author (their outbound copy) plus
+        every internal user notified on the message (their inbound copy).
+        Excludes portal/share users, inactive users, OdooBot and the uids
+        listed in ICP ``bf_email.route_exclude_user_ids`` (comma-separated
+        — service accounts like the meeting-processor API user shouldn't
+        accumulate inbox rows nobody reads; same knob name as the PMEC
+        copy of this module). Falls back to the current (cron) user when
+        no internal user remains so unmatched traffic still lands
+        somewhere visible. Unlike the PMEC variant, rows are created
+        ``with_user(target)`` so direction/dedup/rules are per-owner and
+        orphan outbound is kept (fallback), not dropped.
+        """
+        raw = self.env["ir.config_parameter"].sudo().get_param(
+            "bf_email.route_exclude_user_ids", ""
+        )
+        excluded = {
+            int(tok) for tok in raw.replace(";", ",").split(",")
+            if tok.strip().isdigit()
+        }
+        excluded.add(1)  # OdooBot / superuser
+        partners = msg.author_id | msg.notification_ids.res_partner_id
+        users = partners.user_ids.filtered(
+            lambda u: u.active and not u.share and u.id not in excluded
+        )
+        return users or self.env.user
 
     @api.model
     def _should_sync(self, msg):
@@ -1917,8 +2258,14 @@ class BfEmail(models.Model):
 
     @api.model
     def _detect_direction(self, msg):
-        """Detect if a message is inbound or outbound."""
-        if msg.author_id and msg.author_id.user_ids:
+        """Detect if a message is inbound or outbound.
+
+        Relative to ``env.user`` (the row owner being projected): a message
+        is outbound only when *I* authored it. A colleague's message is
+        inbound for me even though its author is an internal user —
+        required for the per-recipient fan-out of ``_cron_sync_emails``.
+        """
+        if msg.author_id and self.env.user in msg.author_id.user_ids:
             return "out"
         return "in"
 
@@ -1984,6 +2331,109 @@ class BfEmail(models.Model):
                 conn.logout()
             except Exception:
                 pass
+
+    @api.model
+    def _cron_imap_reconcile(self, days=None, folders=None):
+        """Watermark-independent gap-filler for IMAP capture.
+
+        The live paths advance forward-only watermarks (``last_uid_sent`` /
+        ``last_uid_inbox`` by UID, ``bf_email.last_sync_date`` by create_date)
+        and move *past* anything they skip, fail on, or boundary-collide with
+        — so a single missed message becomes a permanent hole that is never
+        retried. This pass re-scans the last ``days`` of the live folders and
+        ingests any message whose Message-ID has no ``bf.email`` row for the
+        owner, regardless of watermark.
+
+        Capture-side only: read-only IMAP (EXAMINE), no COPY/EXPUNGE/writeback.
+        Idempotent — dedup on (message_id_header, user_id) means a second run
+        finds nothing to do. ``days`` / ``folders`` override the defaults for
+        a one-shot recovery (e.g. ``_cron_imap_reconcile(days=60)``).
+        """
+        ICP = self.env["ir.config_parameter"].sudo()
+        lookback = days if days is not None else int(
+            ICP.get_param("bf_email.reconcile_days", "30")
+        )
+        target_folders = folders or list(bf_email_imap.DEFAULT_LIVE_FOLDERS)
+        since = (fields.Datetime.now() - timedelta(days=lookback)).date()
+
+        Account = self.env["bf.email.account"].sudo()
+        accounts = Account.search([("active", "=", True)])
+        total = 0
+        for account in accounts:
+            if not (account.host and account.login and account.password):
+                continue
+            try:
+                conn = bf_email_imap.open_connection(
+                    account.host, account.port, account.login, account.password,
+                )
+            except bf_email_imap.ImapConnectionError as exc:
+                _logger.warning(
+                    "bf.email reconcile (%s): %s", account.display_name, exc,
+                )
+                continue
+
+            # Owner environment so any new row inherits user_id / company_id.
+            owner_env = self.with_user(account.user_id).with_company(
+                account.user_id.company_id
+            ).env
+            BfEmail = owner_env["bf.email"]
+
+            recovered = 0
+            try:
+                for folder in target_folders:
+                    if not bf_email_imap.select_folder(conn, folder, readonly=True):
+                        continue
+                    uids = bf_email_imap.search_uids_in_range(conn, date_from=since)
+                    if not uids:
+                        continue
+                    for i in range(0, len(uids), 200):
+                        chunk = uids[i:i + 200]
+                        headers = bf_email_imap.fetch_headers_bulk(conn, chunk)
+                        for uid, (msg, _seen) in headers.items():
+                            message_id = str(msg.get("Message-ID", "")).strip()
+                            if not message_id:
+                                continue
+                            existing = BfEmail.with_context(
+                                active_test=False
+                            ).search([
+                                ("message_id_header", "=", message_id),
+                                ("user_id", "=", account.user_id.id),
+                            ], limit=1)
+                            if existing:
+                                continue
+                            raw = bf_email_imap.fetch_rfc822(conn, uid)
+                            if not raw:
+                                continue
+                            try:
+                                with self.env.cr.savepoint():
+                                    if BfEmail._ingest_rfc822(
+                                        raw, uid, folder, account
+                                    ):
+                                        recovered += 1
+                            except Exception:
+                                _logger.warning(
+                                    "bf.email reconcile: ingest failed "
+                                    "UID %s in %r", uid, folder, exc_info=True,
+                                )
+            finally:
+                try:
+                    conn.logout()
+                except Exception:
+                    pass
+
+            if recovered:
+                _logger.info(
+                    "bf.email reconcile (%s): recovered %d missing message(s) "
+                    "over last %d day(s)",
+                    account.display_name, recovered, lookback,
+                )
+            total += recovered
+
+        if total:
+            _logger.info(
+                "bf.email reconcile: recovered %d missing message(s) total", total
+            )
+        return total
 
     @api.model
     def _cron_imap_mirror(self):
@@ -2495,7 +2945,8 @@ class BfEmail(models.Model):
                     continue
                 try:
                     s_status, s_data = conn.status(
-                        f'"{f["name"]}"', "(MESSAGES UNSEEN)"
+                        bf_email_imap.imap_quote_mailbox(f["name"]),
+                        "(MESSAGES UNSEEN)",
                     )
                     if s_status != "OK" or not s_data:
                         continue
@@ -2889,10 +3340,13 @@ class BfEmail(models.Model):
         try:
             if not bf_email_imap.select_folder(conn, folder, readonly=False):
                 raise UserError(_("Dossier source introuvable : %s", folder))
-            uid_str = str(uid)
+            try:
+                uid_str = bf_email_imap.imap_uid_token(uid)
+            except ValueError as exc:
+                raise UserError(_("UID invalide : %s", uid)) from exc
             try:
                 copy_status, _data = conn.uid(
-                    "COPY", uid_str, f'"{dst_folder}"',
+                    "COPY", uid_str, bf_email_imap.imap_quote_mailbox(dst_folder),
                 )
                 if copy_status != "OK":
                     raise UserError(_(
@@ -2941,7 +3395,10 @@ class BfEmail(models.Model):
         try:
             if not bf_email_imap.select_folder(conn, folder, readonly=False):
                 raise UserError(_("Dossier introuvable : %s", folder))
-            uid_str = str(uid)
+            try:
+                uid_str = bf_email_imap.imap_uid_token(uid)
+            except ValueError as exc:
+                raise UserError(_("UID invalide : %s", uid)) from exc
             try:
                 conn.uid("COPY", uid_str, '"Trash"')
                 conn.uid("STORE", uid_str, "+FLAGS", "(\\Deleted)")

@@ -16,6 +16,53 @@ from odoo.tools.safe_eval import safe_eval
 
 _logger = logging.getLogger(__name__)
 
+# Stock rules every user starts with. Mirrors data/bf_email_rule_default.xml
+# (which only covers the user installing the module): seeded for any other
+# user the first time they create a bf.email.account, if they have no rules.
+DEFAULT_RULE_SPECS = [
+    {
+        "name": "Expéditeurs noreply → Notification + Traité",
+        "sequence": 10,
+        "condition_type": "regex_from",
+        "condition_value": (
+            r"^(noreply|no-reply|notification|mailer-daemon|postmaster"
+            r"|bounce|do-not-reply)@"
+        ),
+        "set_category": "notification",
+        "set_handled": True,
+        "description": "Sortie immédiate de la boîte. Les notifications "
+                       "automatiques ne demandent pas d'action.",
+    },
+    {
+        "name": "List-Unsubscribe présent → Marketing + Traité",
+        "sequence": 20,
+        "condition_type": "header_present",
+        "condition_value": "List-Unsubscribe",
+        "set_category": "marketing",
+        "set_handled": True,
+        "description": "Grbovic et al. 2014 — l'en-tête List-Unsubscribe "
+                       "est le signal le plus fort pour le bulk marketing.",
+    },
+    {
+        "name": "Partenaire client_rank > 0 → Client (priorité Élevée)",
+        "sequence": 40,
+        "condition_type": "partner_tag",
+        "condition_value": "(p.customer_rank or 0) > 0",
+        "set_category": "client",
+        "set_priority": "2",
+        "description": "Tout courriel d'un client connu (customer_rank) "
+                       "passe en priorité Élevée.",
+    },
+    {
+        "name": "Partenaire supplier_rank > 0 → Fournisseur",
+        "sequence": 50,
+        "condition_type": "partner_tag",
+        "condition_value": "(p.supplier_rank or 0) > 0",
+        "set_category": "vendor",
+        "description": "Fournisseurs connus.",
+    },
+]
+
 
 class BfEmailRule(models.Model):
     _name = "bf.email.rule"
@@ -150,6 +197,30 @@ class BfEmailRule(models.Model):
             )
             return False
         return False
+
+    # ------------------------------------------------------------------
+    # Per-user seeding
+    # ------------------------------------------------------------------
+    @api.model
+    def _seed_defaults_for_user(self, user):
+        """Give ``user`` the stock rules if they own none yet.
+
+        Called when a user creates their first bf.email.account. sudo:
+        an admin creating an account for someone else couldn't otherwise
+        create rules owned by that user (owner ir.rule).
+        """
+        if not user or user.share:
+            return
+        Rule = self.sudo().with_context(active_test=False)
+        if Rule.search_count([("user_id", "=", user.id)]):
+            return
+        Rule.create([
+            dict(spec, user_id=user.id) for spec in DEFAULT_RULE_SPECS
+        ])
+        _logger.info(
+            "bf.email.rule: seeded %d default rules for user %s",
+            len(DEFAULT_RULE_SPECS), user.id,
+        )
 
     # ------------------------------------------------------------------
     # Mass action: replay rules over existing rows

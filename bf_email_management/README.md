@@ -8,7 +8,7 @@ A centralized email management module for Odoo 18 that provides a single, dedupl
 - **Two ingestion sources, one row per Message-ID**:
   - **IMAP direct** — polls `INBOX` and `Sent` every 5 minutes via IMAP4_SSL, stores raw RFC 2822 for later re-use.
   - **Chatter / mail gateway** — projects `mail.message` rows that originated from Odoo chatter or were routed by the mail gateway.
-- **Deduplication by Message-ID** — `UNIQUE(message_id_header, company_id)` constraint plus active promotion: when a chatter `mail.message` arrives for an IMAP-orphan row, the row is upgraded in place (`source` switches from `imap` to `gateway`/`chatter`, `res_model`/`res_id` populated). Internal Odoo always wins.
+- **Deduplication by Message-ID** — `UNIQUE(message_id_header, company_id, user_id)` constraint (per-owner since the 4.0 per-user pivot) plus active promotion: when a chatter `mail.message` arrives for an IMAP-orphan row, the row is upgraded in place (`source` switches from `imap` to `gateway`/`chatter`, `res_model`/`res_id` populated). Internal Odoo always wins.
 - **Re-routing wizard** — single button on every IMAP-orphan row opens a wizard that posts the email to any model with `mail.thread` (project task, helpdesk ticket, contact, lead, calendar event, invoice, sale order, etc.). Preserves the original Message-ID and date so the RFC 2822 thread stays intact. Bulk action available from the list view.
 - **Archives backfill wizard** — one-shot scan of any IMAP folder (e.g. `Archives/2025`) with optional date filters. Idempotent — re-running it never creates duplicates.
 
@@ -43,7 +43,9 @@ A centralized email management module for Odoo 18 that provides a single, dedupl
 - **Auto mark-as-read** — opening an email in the form automatically transitions the row. Reading the underlying `mail.message` in any chatter also flips status (via `mail.notification` override).
 - **Auto mark-as-replied** — when an outbound row is created with `in_reply_to` matching an inbound row's Message-ID, the inbound is flipped to `replied` automatically (no manual click).
 - **Bulk actions** — Mark read, Mark replied, Traiter, Remettre en boîte, Reporter, Re-router — all available as server actions on the list view.
-- **« Nouveau ▾ » — create a record from the email (5.3+)**. Header dropdown (OWL widget `bf_email_new_record_dropdown`) opens a pre-filled create form for a **Tâche** (`project.task`), **Ticket** (`helpdesk.ticket`), **Dépense** (`hr.expense`), **Facture fournisseur** or **Facture client** (`account.move`). Defaults map subject → name/ref, partner → partner, body → description. Create-only: the email is not attached to the chatter nor marked handled (use *Lier à un dossier* for that). The Ticket/Dépense items appear only when `helpdesk_mgmt` / `hr_expense` are installed (`has_helpdesk` / `has_expense`) — no hard manifest dependency.
+- **Chatter buttons (6.0+)** — « Traité », « Reporter » and « Remettre en boîte » directly on each chatter message (hover/kebab actions, `mail.message/actions` registry, next to « Télécharger en .eml »). Resolve the *current user's* `bf.email` mirror by Message-ID; if none exists yet and the message is projectable, it is ingested on the spot then acted on — no round-trip to the Email app.
+- **Per-recipient fan-out (6.0+)** — the chatter/gateway projection cron creates one `bf.email` row per involved internal user (author + notified recipients, `direction` relative to each owner), so every user's unified inbox carries the Odoo-internal traffic that concerns them. Service accounts are excluded via ICP `bf_email.route_exclude_user_ids`; messages with no internal user fall back to the cron user.
+- **« Nouveau ▾ » — create a record from the email (5.3+; chatter import 5.5+)**. Header dropdown (OWL widget `bf_email_new_record_dropdown`) creates a **Tâche** (`project.task`), **Piste** (`crm.lead`), **Ticket** (`helpdesk.ticket`), **Dépense** (`hr.expense`), **Facture fournisseur** or **Facture client** (`account.move`) from the email. The record is created immediately and **the email itself is imported into its chatter** — rendered body + original attachments + the full reconstructed `.eml`, exactly like *Lier à un dossier* — instead of dumping the body into a `description` / `narration` text field. The source `bf.email` row is then filed under the new record and marked handled (`is_handled=True`). If a server-side create fails (e.g. a required field, or no employee for an expense), it falls back to the legacy pre-filled blank form so the button is never dead. The Piste / Ticket / Dépense items appear only when `crm` / `helpdesk_mgmt` / `hr_expense` are installed (`has_crm` / `has_helpdesk` / `has_expense`) — no hard manifest dependency. The attachments carried into the chatter are governed by `bf_email.import_attach_originals` / `bf_email.import_attach_eml` (both default on; the `.eml` already re-contains the originals, so storage-sensitive tenants can keep just one).
 
 ### Interactive Dashboard (OWL)
 - Date range filters: 7d / 30d / 90d / year / all / custom — **all charts including daily volume now respect the selection** (preset "Tout" derives the range from the actual data).
@@ -97,7 +99,7 @@ The 8 heuristic signals are based on empirical email-overload research:
 
 ### Views
 - **List** — inbox-style; rows without a linked Odoo record are highlighted in warning color with an inline "Import to chatter" button.
-- **Form** — full email detail with rendered HTML body (parsed from raw RFC 2822 for IMAP-orphan rows), technical headers, smart buttons (Reply, Open chatter, Open record, Conversation thread).
+- **Form** — full email detail with a **sanitized** rendered HTML body (`body_html_display`, parsed from raw RFC 2822 for IMAP-orphan rows), technical headers, smart buttons (Reply, Open chatter, Open record, Conversation thread).
 - **Kanban** — grouped by status for visual workflow.
 - **Search** — filters: To-reply / Stale > 7 days / Last 24-48h / Today / Week / Month / IMAP-only / With record / Without record / Archived. Group-by: direction, category, source, status, partner, model, thread, date.
 - **Graph & Pivot** — volume analysis and cross-tabulation.
@@ -129,6 +131,7 @@ The 8 heuristic signals are based on empirical email-overload research:
 - **Chatter projection cron** advances a `create_date` watermark on `mail.message` (not the sender's `Date:` header) so back-dated imports — manual scripts, forwarded threads — never fall below the watermark.
 - **IMAP cron** advances a per-folder UID watermark stored on each `bf.email.account` row (`last_uid_inbox`, `last_uid_sent`). IMAP UIDs are monotonic per folder.
 - **Backfill wizard** does NOT touch the live UID watermarks, so re-running it on an archive folder is safe.
+- **IMAP reconciliation pass (5.7+)** — `_cron_imap_reconcile` runs every 6 h, independent of the watermarks: it re-scans the last `bf_email.reconcile_days` days (default 30) of the live folders (`INBOX` + `Sent`) **read-only (EXAMINE)** and ingests any Message-ID with no `bf.email` row, closing the permanent-gap class left by forward-only watermarks. Idempotent — dedup by `message_id_header` + `user_id`. Call `_cron_imap_reconcile(days=60)` for a deeper one-shot recovery.
 
 ### Deduplication Order of Operations
 - IMAP cron creates an `imap` row IF no `mail.message` with the same Message-ID exists. Otherwise it creates a `gateway`/`chatter` row directly linked to the existing `mail.message` (annotated with the IMAP UID for traceability).
@@ -157,7 +160,9 @@ The OWL client action calls these `@api.model` methods on `bf.email`. Each opens
 - **Per-user model (4.0+)**: each internal user manages their own `bf.email.account` rows and only sees their own `bf.email` / `bf.email.rule` records. No admin bypass — even a superuser browsing through the UI honours the per-owner `ir.rule` (raw SQL queries in the dashboard also include an explicit `user_id` predicate).
 - **Account credentials** (host / login / password) live on the `bf.email.account` row. The `ir.rule` `[('user_id', '=', user.id)]` makes them readable only by the owner.
 - **Menu badge** for unread count.
-- Re-routing wizard validates `check_access_rights("write")` and `check_access_rule("write")` on the target record before posting.
+- Re-routing wizard **and** the *Guess & import* bulk wizard validate `check_access_rights("write")` and `check_access_rule("write")` on the target record before posting into its chatter (the bulk path posts through a `sudo` proxy, so the user-level check is explicit — 5.7+).
+- **IMAP command hardening (5.7+)** — `imaplib` does not validate its arguments, so every folder name, UID and header value interpolated into an IMAP command is escaped/validated through `bf_email_imap.imap_quote_mailbox` / `imap_uid_token` / `imap_reject_crlf`. CR/LF are rejected outright, so a crafted Message-ID, folder name or UID cannot inject a second command into the authenticated session.
+- **No raw email HTML rendered with active content (5.7+)** — inbound HTML is stored raw (`body_html`, only NUL-stripped) but the form Body tab renders a sanitized projection (`body_html_display` = `html_sanitize(body_html)`) and the IMAP-browser preview field is `sanitize=True`. `body_html` is kept raw only for the reply/forward builders, which `html_sanitize` at their own use sites. The OWL browser preview additionally renders inside a scriptless sandboxed `<iframe>`.
 - All SQL uses parameterized placeholders.
 - `sudo()` calls are scoped to cross-model display-name lookups, partner resolution by email, and the IMAP cron loop (which fetches each active account in admin context, then runs `_ingest_rfc822` via `with_user(account.user_id)` so created rows inherit the account owner's `user_id`).
 - IMAP body preview in the OWL browser renders inside `<iframe sandbox="allow-same-origin">` — no `allow-scripts`, so JS embedded in inbound mail is neutralised.
@@ -166,6 +171,7 @@ The OWL client action calls these `@api.model` methods on `bf.email`. Each opens
 ## License
 
 This module is licensed under the GNU Lesser General Public License v3.0 (LGPL-3). See [LICENSE](LICENSE) for the full text.
+
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md).

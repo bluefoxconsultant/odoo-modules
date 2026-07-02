@@ -31,6 +31,48 @@ class ImapConnectionError(Exception):
     """Raised when the IMAP connection or auth fails."""
 
 
+class ImapInjectionError(ValueError):
+    """Raised when an IMAP command argument carries illegal control chars.
+
+    ``imaplib`` does not validate its arguments, so a CR/LF embedded in a
+    mailbox name, UID or header value can inject a second command into the
+    authenticated session. We reject such values instead of sending them.
+    """
+
+
+def imap_quote_mailbox(name):
+    """Quote a mailbox name as an IMAP quoted-string, safely.
+
+    IMAP quoted-strings cannot carry CR/LF (RFC 3501), so we reject them
+    outright; backslash and double-quote are escaped. Use this for every
+    folder name interpolated into a command (SELECT, COPY, …).
+    """
+    text = "" if name is None else str(name)
+    if "\r" in text or "\n" in text:
+        raise ImapInjectionError("CR/LF not allowed in IMAP mailbox name")
+    return '"%s"' % text.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def imap_reject_crlf(value, label="argument"):
+    """Return ``str(value)`` after rejecting embedded CR/LF (IMAP injection)."""
+    text = "" if value is None else str(value)
+    if "\r" in text or "\n" in text:
+        raise ImapInjectionError("CR/LF not allowed in IMAP %s" % label)
+    return text
+
+
+def imap_uid_token(uid):
+    """Validate a UID (or UID set/range) and return it as a safe IMAP token.
+
+    Accepts only digits plus set/range punctuation (``, : *``) so the value
+    cannot smuggle spaces or CR/LF into a UID command.
+    """
+    text = "" if uid is None else str(uid).strip()
+    if not re.fullmatch(r"[0-9][0-9,:*]*", text):
+        raise ImapInjectionError("Invalid IMAP UID token: %r" % (uid,))
+    return text
+
+
 def open_connection(host, port, user, password, timeout=30):
     """Open an authenticated IMAP4_SSL connection.
 
@@ -48,11 +90,15 @@ def open_connection(host, port, user, password, timeout=30):
 
 
 def select_folder(conn, folder, readonly=True):
-    """SELECT (or EXAMINE) a folder. Returns True if it exists and is selectable."""
+    """SELECT (or EXAMINE) a folder. Returns True if it exists and is selectable.
+
+    The mailbox name is quoted/validated via ``imap_quote_mailbox`` so a
+    crafted folder string cannot inject IMAP commands.
+    """
     try:
-        status, _data = conn.select(f'"{folder}"', readonly=readonly)
+        status, _data = conn.select(imap_quote_mailbox(folder), readonly=readonly)
         return status == "OK"
-    except imaplib.IMAP4.error:
+    except (imaplib.IMAP4.error, ImapInjectionError):
         return False
 
 

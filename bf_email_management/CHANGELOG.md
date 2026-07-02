@@ -4,6 +4,85 @@ All notable changes to `bf_email_management` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This module follows Odoo's `MAJOR.MINOR.PATCH` convention prefixed with the Odoo series (`18.0.X.Y.Z`).
 
+## [18.0.6.0.0] — 2026-07-01
+
+### Added
+
+- **Boutons chatter « Traité » / « Reporter » / « Remettre en boîte ».** Trois nouvelles actions au survol de chaque message de chatter (registre `mail.message/actions`, même mécanisme que « Télécharger en .eml ») : plus besoin de retourner dans l'app Courriels pour sortir un courriel de sa boîte une fois le dossier réglé. Résolution du miroir `bf.email` par Message-ID + `user_id` courant (`mail.message.action_bf_mark_handled` / `action_bf_snooze` / `action_bf_unhandle`) ; si aucun miroir n'existe encore et que le message est projetable (courriel entrant, ou commentaire ayant notifié par courriel), il est ingéré à la volée puis traité — même contrat que `imap_browser_mark_handled`. Boutons visibles sur les messages de type `email` et les commentaires non-notes, usagers internes seulement.
+- **« Traité » ferme les rappels du courriel.** `action_archive` marque désormais « fait » (avec feedback) les activités ouvertes portées par la ligne `bf.email` elle-même — un courriel traité ne relance plus. Les activités des tâches/tickets liés ne sont jamais touchées.
+- **Règles par défaut pour chaque nouvel usager.** Les 4 règles de tri d'usine (noreply, List-Unsubscribe, client_rank, supplier_rank) n'existaient que pour l'usager ayant installé le module (records XML). Elles sont maintenant semées automatiquement (via `bf.email.rule._seed_defaults_for_user`) à la création du premier `bf.email.account` d'un usager qui n'a encore aucune règle.
+
+### Changed
+
+- **Projection chatter/gateway multi-usager (fan-out par destinataire).** `_cron_sync_emails` attribuait chaque courriel Odoo (chatter + passerelle) à l'usager du cron (`base.user_admin`) — un 2ᵉ usager ne voyait jamais les courriels internes à Odoo, seulement son IMAP. Le cron projette désormais chaque message **une fois par usager interne impliqué** (auteur + destinataires notifiés, via `_route_target_users`), chaque ligne créée dans l'environnement de son propriétaire (`with_user`, même patron que `_sync_account`) : dédup, direction et règles s'appliquent par propriétaire. Repli sur l'usager du cron quand aucun usager interne n'est impliqué (rien n'est perdu). Les comptes de service sont exclus via l'ICP `bf_email.route_exclude_user_ids` (même nom de paramètre que la variante PMEC ; sur BF : meeting-api + Client.e). La contrainte UNIQUE `(message_id_header, company_id, user_id)` porte déjà le fan-out.
+- **`_detect_direction` relative à l'usager.** « Sortant » = *j'en suis l'auteur* (`env.user`), plus « l'auteur est un usager interne quelconque ». Nécessaire au fan-out : le courriel d'un collègue est entrant pour moi. Aucun changement pour les données existantes mono-usager.
+- **Tableau de bord cohérent pour le groupe admin.** Les KPI ORM (`_date_domain`) et toutes les actions de navigation portent maintenant une borne `user_id = uid` explicite, alignées sur les KPI SQL : un membre de `group_email_admin` voit son propre tableau de bord, pas un mélange global.
+- **Compteur « Courriels » des fiches contact borné par usager.** `res.partner.bf_email_count` (SQL brut, qui contourne les règles d'enregistrement) compte désormais seulement les lignes de l'usager courant — cohérent avec le drill-through.
+
+### Security
+
+- **Le groupe admin ne voit plus les comptes IMAP des autres (mots de passe en clair).** La règle `bf_email_account_rule_admin_all` (lecture globale) exposait le champ `password` de tous les usagers via RPC/export — `password="True"` dans la vue ne masque que le widget. Règle supprimée : les membres de `group_email_admin` voient tous les courriels et toutes les règles, jamais les comptes des autres.
+- **« Import initial » réservé au groupe admin.** Le wizard lisait TOUS les `mail.message` de la base en `sudo` (sujets + noms d'enregistrements au-delà des règles d'accès) et copiait ces métadonnées dans des lignes appartenant à l'exécutant — accessible à tout usager interne. Menu restreint à `group_email_admin`/`base.group_system` + vérification `has_group` explicite dans `action_run` (le gating de menu ne protège pas l'endpoint RPC).
+- **Cohérence anti-injection IMAP.** `imap_browser_get_folders` citait le nom de dossier du `STATUS` à la main (`f'"{name}"'`) au lieu de `imap_quote_mailbox` — aligné sur le reste du module (défense en profondeur ; la valeur vient du `LIST` du serveur, pas de l'utilisateur).
+
+### Notes
+
+- Résidu mono-usager connu et assumé : `_cron_recompute_expected_reply` agrège les médianes de temps de réponse par partenaire sur l'ensemble des usagers (analytique, aucune fuite de visibilité). Le relais ntfy des rappels calendrier reste un point de terminaison global (`bf_email.ntfy_reminder_url`).
+- Les lignes chatter/gateway historiques restent la propriété de l'usager admin ; le fan-out s'applique aux messages postérieurs au déploiement.
+
+## [18.0.5.8.0] — 2026-06-25
+
+*(entrée reconstituée a posteriori le 2026-07-01 — la version avait été déployée sans note de changelog)*
+
+### Fixed
+
+- **Badge du menu, action « Boîte de réception » et filtre `filter_inbox` scopés `('user_id', '=', uid)`.** Avant, un membre du groupe « tous les courriels » voyait la boîte de réception de TOUS les usagers (et le badge comptait tout). Déployé conjointement avec `bf_email_systray` v18.0.1.1.0 (compteur systray scoped par usager).
+
+## [18.0.5.7.0] — 2026-06-17
+
+### Security
+
+- **Durcissement contre l'injection de commandes IMAP (CRLF).** `imaplib` ne valide pas ses arguments : une valeur contrôlée par l'expéditeur ou l'utilisateur (Message-ID, nom de dossier, UID) contenant un `CR`/`LF` pouvait injecter une 2ᵉ commande dans la session authentifiée. Nouveaux garde-fous centralisés dans `bf_email_imap` — `imap_quote_mailbox` (échappe `\`/`"`, refuse `CR`/`LF`), `imap_reject_crlf`, `imap_uid_token` (chiffres + `, : *` seulement) — appliqués à : `select_folder` (couvre tous les `SELECT`, y compris les assistants navigateur/backfill qui contournaient la validation OWL), le `SEARCH HEADER Message-ID` et le `COPY` cible de `_imap_writeback_archive`, et les `COPY`/`STORE` de `imap_browser_move` / `imap_browser_move_to_trash` (UID auparavant en `str(uid)` brut).
+- **XSS stocké — le HTML brut d'un courriel entrant n'est plus rendu tel quel.** Le champ `body_html` est volontairement non assaini (préservation de la source + assainissement au moment de la réponse). Il était toutefois affiché brut dans le formulaire et dans l'aperçu de l'assistant navigateur, exécutant un `<img onerror=…>` dans la session de l'utilisateur. Nouveau champ calculé non stocké `body_html_display` (= `html_sanitize(body_html)`) rendu dans le formulaire ; `bf.email.browser.preview_body_html` passe en `sanitize=True`. `body_html` reste brut pour les constructeurs de réponse/transfert. (L'aperçu du navigateur OWL était déjà sûr — `iframe sandbox` sans `allow-scripts`.)
+- **Contrôle d'accès — assistant « deviner la destination ».** `bf.email.guess.route.action_confirm` postait le courriel dans le chatter de la cible via un proxy `sudo`, sans vérifier les droits de l'utilisateur sur cette cible (champ `Reference` librement éditable). Ajout de `check_access_rights('write')` + `check_access_rule('write')` par cible avant publication, aligné sur l'assistant de re-routage.
+
+### Fixed
+
+- **Trou de capture permanent dans le dossier `Sent`.** Les chemins de capture IMAP avancent des filigranes (« watermarks ») **unidirectionnels** : `_cron_sync_imap` par UID (`last_uid_inbox` / `last_uid_sent`). Tout message sauté ou en échec transitoire lors d'un cycle est dépassé **définitivement** — jamais re-tenté — car le filigrane progresse au-delà. Réconciliation du dossier `Sent` vivant d'Olivier contre les lignes `bf.email` : **492 des 493 messages déjà captés ; 1 manquant** — un courriel envoyé depuis un client de messagerie (UID 7426, « RE: FW: Compte rendu — Johanne Picard », 2026-05-04), jamais importé dans Odoo, que la passe IMAP aurait dû transformer en orphelin mais que `last_uid_sent` avait déjà dépassé sans créer de ligne. Récupéré via la nouvelle passe de réconciliation. *(Note : 3 autres messages d'un fil filé dans une tâche apparaissaient « manquants » à une requête `active=True` — ils étaient en fait captés puis archivés par le classement; aucun bug.)*
+  - **Passe de réconciliation IMAP** (`_cron_imap_reconcile`, cron toutes les 6 h, `data/imap_reconcile_cron.xml`). Indépendante des filigranes : re-balaie les N derniers jours (ICP `bf_email.reconcile_days`, défaut 30) des dossiers vivants (`INBOX` + `Sent`) et ingère tout `Message-ID` sans ligne `bf.email` pour le propriétaire. **Côté capture uniquement — IMAP en lecture seule (EXAMINE), aucun COPY/EXPUNGE/écriture.** Idempotente (dédup par `message_id_header` + `user_id`). `_cron_imap_reconcile(days=60)` ou `folders=['Sent']` pour un rattrapage ponctuel ciblé.
+
+### Changed
+
+- **Borne du cron de projection chatter durcie (latent).** `_cron_sync_emails` filtrait par `create_date > last_sync` **strict**. `create_date` n'étant pas unique (un import en lot insère un fil entier au même horodatage à la seconde près), si le filigrane atterrit pile sur cette seconde, les messages partageant cet instant peuvent être sautés sans retour. Passé à `create_date >= last_sync` ; `_should_sync` dédoublonne déjà par `(message_id, user_id)`, donc aucun doublon n'est créé. *Durcissement préventif — aucun incident observé attribué à cette borne, mais le risque était réel pour les courriels envoyés via Odoo (SMTP) absents des dossiers IMAP, que la réconciliation ne couvre pas.*
+
+## [18.0.5.6.0] — 2026-06-16
+
+### Added
+
+- **« Nouveau ▾ › Piste » (crm.lead).** Nouvelle entrée du menu qui crée une piste/opportunité CRM depuis le courriel, avec le courriel importé dans son chatter. Champ calculé non stocké `has_crm` (via `_compute_optional_apps`) : l'entrée n'apparaît que si le module `crm` est installé (aucune nouvelle dépendance dure). `crm.lead.type` se défaute seul (piste/opportunité selon la fonctionnalité « pistes »).
+- **Paramètres anti-duplication des pièces jointes.** `bf_email.import_attach_originals` et `bf_email.import_attach_eml` (les deux par défaut activés) permettent de désactiver soit les pièces jointes en clair, soit le `.eml` (qui les recontient déjà) lors de l'import dans un chatter — pour les locataires sensibles au stockage.
+
+### Changed
+
+- **Mutualisation reroute ↔ « Nouveau ▾ ».** `bf.email.reroute._reroute_one` délègue désormais à `bf.email._import_into_chatter(target, force_file=True)` : une seule implémentation de « importer un courriel dans un chatter » (corps + pièces jointes + `.eml`), au lieu de deux copies divergentes. Effet de bord bénéfique : « Lier à un dossier » attache maintenant aussi le `.eml`. Imports `base64` / `bf_email_imap` devenus inutiles retirés du wizard.
+- **« Nouveau ▾ » marque le courriel « Traité ».** Après création réussie d'un dossier, `is_handled=True` est posé sur la ligne `bf.email` (drapeau « Traité » déjà utilisé par le filtre Boîte de réception, indépendant du statut read/replied, réversible via « Remettre en boîte ») : le courriel quitte la file de tri une fois transformé en tâche/piste/facture.
+
+## [18.0.5.5.0] — 2026-06-16
+
+### Changed
+
+- **« Nouveau ▾ » importe le courriel dans le chatter, plus dans la description.** Les cinq actions (`action_create_task` / `action_create_helpdesk_ticket` / `action_create_expense` / `action_create_vendor_bill` / `action_create_customer_invoice`) créaient l'enregistrement via un formulaire vierge pré-rempli où **le corps du courriel était versé dans `description` / `narration`** — un champ texte libre qui n'a pas vocation à recevoir un courriel. Désormais l'enregistrement est créé immédiatement et **le courriel est importé dans son chatter** (corps rendu + pièces jointes d'origine + le `.eml` complet, reconstruit au besoin), puis la ligne `bf.email` est classée sous le nouvel enregistrement (orphelins IMAP promus, Message-ID préservé pour le ré-attachement futur des réponses). C'est exactement l'artefact que produit déjà « Lier à un dossier ». Les champs `description` / `narration` restent vides.
+  - `helpdesk.ticket.description` étant `required`, il reçoit un court pointeur vers le fil de discussion (le courriel complet vit dans le chatter).
+  - Nouveaux helpers `bf.email._import_into_chatter` (même logique que `bf.email.reroute._reroute_one`), `_materialize_email_attachments` et `_spawn_from_email`.
+  - **Filet de sécurité :** create + import s'exécutent dans un `savepoint` ; toute exception (champ requis manquant — p. ex. employé absent pour une dépense — ou échec d'import) déclenche un repli sur l'ancien formulaire vierge `default_*`, donc le bouton n'est jamais bloqué sur un enregistrement de production.
+
+## [18.0.5.4.0] — 2026-05-25
+
+### Fixed
+
+- **Réponse aux courriels orphelins : éditeur corrompu (curseur coincé dans la citation, signature avalée).** Le corps cité des lignes IMAP sans chatter injectait le HTML brut du courriel d'origine (`body_html` n'est que dé-NUL-isé, jamais assaini) : documents complets, blocs `<style>`, résidus Outlook/`mso`, balises non fermées. Chargé tel quel dans l'éditeur OWL, ce HTML réorganisait le DOM et avalait la ligne éditable + la signature placées au-dessus de la citation. `_build_reply_quote_body` (branche orpheline) et `_build_forward_body` passent désormais `tools.html_sanitize` sur le corps, comme le fait déjà la branche chatter via `_prep_quoted_reply_body`.
+- **« Re: » en double sur le sujet.** Le bouton de réponse standard du chatter (`mail_quoted_reply.reply_message`) préfixait `Re:` sans condition → « Re: Re: … ». Côté `bf.email`, `_open_composer` ne vérifiait qu'un en-tête `Re:` exact et laissait passer « Re: Re: » et le « Re : » français (espace avant les deux-points). Nouveau helper `subject_utils.dedup_subject_prefix` qui réduit toute pile de préfixes (`Re`/`Ré`/`Rép`/`Fwd`/`Fw`/`Tr`, avec ou sans espace) à un seul préfixe canonique ; appliqué dans `_open_composer` **et** dans une surcharge `mail.message.reply_message`. Dépendance `mail_quoted_reply` désormais déclarée explicitement au manifeste (ordre de MRO déterministe).
+
 ## [18.0.5.3.0] — 2026-05-20
 
 ### Added
@@ -122,7 +201,7 @@ The 18.0.4.0.0 migration:
 
 ### Changed
 - **Navigateur IMAP : aperçu en iframe + actions complètes** — le corps des courriels est désormais rendu dans une `<iframe sandbox="allow-same-origin" srcdoc="…">` avec un mini HTML conteneur (Lexend / system fallback, marges 12 px, `img { max-width: 100% }`, `pre { white-space: pre-wrap }`, citations gris-bleu). Plus de fuite de CSS entre l'email et l'interface Odoo, plus de débordement horizontal sur les courriels avec tableaux 800 px de large.
-- **Barre d'actions sous le sujet** : *Répondre* (auto-ingestion + composer pointé sur la ligne bf.email), *Transférer* (idem mode forward), *Traité* (auto-ingestion + `action_archive` qui COPY+EXPUNGE vers `Archives/{YYYY}`), *Router* (uniquement si pas encore ingéré), et *Supprimer* à droite (déplace vers `Trash` côté Migadu via COPY+EXPUNGE, sans toucher à bf.email). Après *Traité* ou *Supprimer*, le message est retiré de la liste en mémoire.
+- **Barre d'actions sous le sujet** : *Répondre* (auto-ingestion + composer pointé sur la ligne bf.email), *Transférer* (idem mode forward), *Traité* (auto-ingestion + `action_archive` qui COPY+EXPUNGE vers `Archives/{YYYY}`), *Router* (uniquement si pas encore ingéré), et *Supprimer* à droite (déplace vers `Trash` côté serveur IMAP via COPY+EXPUNGE, sans toucher à bf.email). Après *Traité* ou *Supprimer*, le message est retiré de la liste en mémoire.
 
 ### Added
 - 4 nouvelles méthodes RPC sur `bf.email` consommées par le client OWL :
@@ -132,7 +211,7 @@ The 18.0.4.0.0 migration:
   - `imap_browser_move_to_trash(folder, uid)` — IMAP `COPY uid Trash` + `EXPUNGE` dans le dossier source
 
 ### Notes
-- *Supprimer* refuse explicitement si le dossier source est déjà `Trash/*` — pas de suppression définitive depuis ce navigateur, passer par Migadu webmail.
+- *Supprimer* refuse explicitement si le dossier source est déjà `Trash/*` — pas de suppression définitive depuis ce navigateur, passer par le webmail IMAP.
 - L'iframe a `allow-same-origin` mais aucun `allow-scripts` : les scripts dans les emails sont neutralisés.
 
 ## [18.0.3.5.0] — 2026-05-10
@@ -153,14 +232,14 @@ The 18.0.4.0.0 migration:
 - **« Deviner et importer »** — server action de masse sur la liste `bf.email` (Action → Deviner et importer). Pour chaque ligne IMAP-orpheline sélectionnée, exécute `bf.email.reroute._suggest_target_reference` *par ligne* (et non globalement) afin de pré-remplir une cible distincte par courriel quand le contact a exactement une tâche / un ticket ouvert. Affiche une liste éditable avec badge de confiance (élevée / aucune) que l'utilisateur peut corriger avant de confirmer. Une seule confirmation route N lignes vers N cibles indépendantes via `bf.email.reroute._reroute_one`, en propageant les flags `mark_replied` / `archive_after`.
 
 ### Notes
-- Le navigateur IMAP n'écrit jamais côté Migadu (toutes les sélections sont `readonly=True`). Aucun risque d'ingestion accidentelle de Trash / Junk : il faut un clic explicite par message.
+- Le navigateur n'écrit jamais côté serveur IMAP (toutes les sélections sont `readonly=True`). Aucun risque d'ingestion accidentelle de Trash / Junk : il faut un clic explicite par message.
 - « Deviner et importer » et le wizard Reroute existant cohabitent : le Reroute classique reste utile quand toutes les lignes sélectionnées vont à la *même* cible. Le nouveau wizard est pour N→N indépendant.
 - Aucune migration nécessaire — les deux nouveaux modèles sont des `TransientModel`. Les tables sont créées automatiquement à l'install / upgrade.
 
 ## [18.0.3.3.0] — 2026-05-10
 
 ### Fixed
-- **Rule-driven auto-handle never archived on IMAP** — `_apply_rules` wrote `is_handled=True` directly via `rec.write(vals)` and never invoked `_imap_writeback_archive`. Rules like *"List-Unsubscribe → Marketing + Traité"* and *"Expéditeurs noreply → Notification + Traité"* therefore left every matching message in Migadu INBOX while marking it Traité in Odoo. The 18.0.2.4.0 backfill caught the chatter/gateway race cohort but not this one — they were two distinct root causes. `_apply_rules` now collects records that transitioned to handled and calls `_imap_writeback_archive` on the batch (gated on the same ICP `bf_email.imap_writeback_archive`, exception caught + warned).
+- **Rule-driven auto-handle never archived on IMAP** — `_apply_rules` wrote `is_handled=True` directly via `rec.write(vals)` and never invoked `_imap_writeback_archive`. Rules like *"List-Unsubscribe → Marketing + Traité"* and *"Expéditeurs noreply → Notification + Traité"* therefore left every matching message in the IMAP INBOX while marking it Traité in Odoo. The 18.0.2.4.0 backfill caught the chatter/gateway race cohort but not this one — they were two distinct root causes. `_apply_rules` now collects records that transitioned to handled and calls `_imap_writeback_archive` on the batch (gated on the same ICP `bf_email.imap_writeback_archive`, exception caught + warned).
 
 ### Migration
 - `migrations/18.0.3.3.0/post-migrate.py` — same 180-day handled-but-still-in-inbox replay as 18.0.2.4.0, in 50-row IMAP chunks. Catches up rows accumulated between the 2.4.0 deployment and the 3.3.0 fix.
