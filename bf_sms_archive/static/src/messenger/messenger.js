@@ -9,6 +9,18 @@ const MODEL = "sms.archive.thread";
 const PAGE = 50;
 const MAX_MEDIA = 3;
 
+// Alphabet GSM 7 bits (miroir de sms.archive.message côté serveur) : sert au
+// compteur du composeur. Hors de ces tables → UCS-2 (enveloppe de 70 car.).
+const GSM7_BASIC = new Set(
+    "@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞ\x1bÆæßÉ !\"#¤%&'()*+,-./" +
+    "0123456789:;<=>?¡" +
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿" +
+    "abcdefghijklmnopqrstuvwxyzäöñüà"
+);
+const GSM7_EXT = new Set("^{}\\[~]|€");
+const SMS_GSM7_LEN = 160;
+const SMS_UCS2_LEN = 70;
+
 class SmsMessenger extends Component {
     static template = "bf_sms_archive.Messenger";
     static components = { Dropdown, DropdownItem };
@@ -509,8 +521,44 @@ class SmsMessenger extends Component {
         this.state.attachments.splice(idx, 1);
     }
 
+    get isUnicodeBody() {
+        // Un seul caractère hors GSM-7 (œ, ç, ’, …, À/È, emoji) bascule tout
+        // le message en UCS-2 → enveloppe de 70 caractères par SMS.
+        const body = this.state.composeBody || "";
+        for (const c of body) {
+            if (!GSM7_BASIC.has(c) && !GSM7_EXT.has(c)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     get segmentCount() {
-        return Math.max(1, Math.ceil((this.state.composeBody || "").length / 160));
+        const body = this.state.composeBody || "";
+        if (!body) {
+            return 1;
+        }
+        if (this.isUnicodeBody) {
+            return Math.max(1, Math.ceil([...body].length / SMS_UCS2_LEN));
+        }
+        let septets = 0;
+        for (const c of body) {
+            septets += GSM7_EXT.has(c) ? 2 : 1;
+        }
+        return Math.max(1, Math.ceil(septets / SMS_GSM7_LEN));
+    }
+
+    get willSendAsMms() {
+        // Miroir de l'escalade serveur : un texte multi-segments part en un
+        // seul MMS si la ligne le permet et qu'aucune pièce jointe n'est déjà
+        // présente (auquel cas c'est déjà un MMS).
+        if (this.state.attachments.length) {
+            return false;
+        }
+        const line = this.state.lines.find(
+            (l) => l.id === this.state.selectedLineId
+        );
+        return this.segmentCount >= 2 && !!(line && line.mms_enabled);
     }
 
     get canSend() {

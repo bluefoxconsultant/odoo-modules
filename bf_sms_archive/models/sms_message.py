@@ -266,15 +266,76 @@ class SmsArchiveMessage(models.Model):
 
     # ── Envoi live (SMS/MMS via VOIP.ms) ───────────────────────────
 
-    _SMS_SEGMENT_LEN = 160
+    # Enveloppe d'un SMS unique côté VOIP.ms : 160 septets en GSM-7,
+    # 70 caractères dès qu'on bascule en UCS-2 (au-delà → « sms_toolong »).
+    _SMS_GSM7_LEN = 160
+    _SMS_UCS2_LEN = 70
 
-    @staticmethod
-    def _split_segments(text, size=160):
-        """Découpe un corps en segments ≤ ``size`` (limite VOIP.ms)."""
+    # Alphabet GSM 7 bits (3GPP TS 23.038) : caractères tenant dans un SMS
+    # « standard ». Tout caractère absent des deux tables force l'UCS-2.
+    _GSM7_BASIC = frozenset(
+        "@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞ\x1bÆæßÉ !\"#¤%&'()*+,-./"
+        "0123456789:;<=>?¡"
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿"
+        "abcdefghijklmnopqrstuvwxyzäöñüà"
+    )
+    # Table d'extension : chacun coûte 2 septets (ESC + caractère).
+    _GSM7_EXT = frozenset("^{}\\[~]|€")
+
+    @classmethod
+    def _is_gsm7(cls, text):
+        """True si ``text`` s'encode intégralement en GSM 7 bits."""
+        return all(
+            (c in cls._GSM7_BASIC or c in cls._GSM7_EXT) for c in (text or "")
+        )
+
+    @classmethod
+    def _split_segments(cls, text):
+        """Segmente ``text`` selon l'encodage réel du message.
+
+        - GSM-7 (ASCII + accents de base) : 160 septets/segment, les
+          caractères d'extension ``^{}\\[~]|€`` comptant double.
+        - UCS-2 (dès qu'un caractère hors GSM-7 apparaît : ``œ``, ``’``,
+          ``…``, ``À``/``È``, emoji…) : 70 caractères/segment.
+
+        Chaque segment tient donc dans un SMS unique → plus de
+        ``sms_toolong`` sur les messages accentués.
+        """
         text = text or ""
         if not text:
             return [""]
-        return [text[i:i + size] for i in range(0, len(text), size)]
+        if not cls._is_gsm7(text):
+            size = cls._SMS_UCS2_LEN
+            return [text[i:i + size] for i in range(0, len(text), size)]
+        # GSM-7 : empaquetage septet par septet (un caractère n'est jamais
+        # scindé, donc une paire d'extension reste dans le même segment).
+        segments, current, cost = [], [], 0
+        for ch in text:
+            ch_cost = 2 if ch in cls._GSM7_EXT else 1
+            if cost + ch_cost > cls._SMS_GSM7_LEN:
+                segments.append("".join(current))
+                current, cost = [], 0
+            current.append(ch)
+            cost += ch_cost
+        if current:
+            segments.append("".join(current))
+        return segments
+
+    @api.model
+    def _mms_escalation_min_segments(self):
+        """Seuil (nombre de segments SMS) à partir duquel on bascule en MMS.
+
+        Réglable via l'ICP ``bf_sms_archive.mms_escalation_min_segments``
+        (défaut 2 → tout message qui ne tient pas dans un seul SMS part en
+        MMS). Une valeur < 2 désactive l'escalade (envoi SMS segmenté).
+        """
+        raw = self.env["ir.config_parameter"].sudo().get_param(
+            "bf_sms_archive.mms_escalation_min_segments", "2")
+        try:
+            threshold = int(raw)
+        except (TypeError, ValueError):
+            threshold = 2
+        return threshold if threshold >= 2 else 10 ** 9
 
     @staticmethod
     def _to_voipms_dst(e164):
@@ -318,6 +379,17 @@ class SmsArchiveMessage(models.Model):
         did = Line._voipms_did_value(line.did)
         dst_api = self._to_voipms_dst(dst_norm)
         is_mms = bool(media)
+        segments = self._split_segments(body or "")
+
+        # Escalade « intelligente » : un texte qui ne tient pas dans un seul
+        # SMS (long, ou riche en Unicode → enveloppe UCS-2 de 70 caractères)
+        # part en un unique MMS plutôt qu'en plusieurs SMS fragmentés. Repli
+        # automatique sur le découpage SMS si l'escalade échoue.
+        want_mms_escalation = (
+            not is_mms
+            and line.mms_enabled
+            and len(segments) >= self._mms_escalation_min_segments()
+        )
 
         delivery_state = "sent"
         error = False
@@ -331,10 +403,24 @@ class SmsArchiveMessage(models.Model):
             else:
                 if not line.sms_enabled:
                     raise UserError("Ligne non activée pour les SMS.")
-                ids = []
-                for seg in self._split_segments(body or ""):
-                    ids.append(Voipms._voipms_send_sms(did, dst_api, seg))
-                voipms_id = ",".join(x for x in ids if x)
+                sent_via_mms = False
+                if want_mms_escalation:
+                    try:
+                        voipms_id = Voipms._voipms_send_mms(
+                            did, dst_api, body or "", [])
+                        is_mms = True
+                        sent_via_mms = True
+                    except Exception as e:  # noqa: BLE001 — repli SMS segmenté
+                        _logger.info(
+                            "Escalade MMS refusée (ligne=%s) → repli SMS "
+                            "segmenté : %s",
+                            line.id, Voipms._voipms_redact(str(e)),
+                        )
+                if not sent_via_mms:
+                    ids = []
+                    for seg in segments:
+                        ids.append(Voipms._voipms_send_sms(did, dst_api, seg))
+                    voipms_id = ",".join(x for x in ids if x)
         except Exception as e:  # noqa: BLE001 — on journalise l'état, on ne casse pas l'UI
             delivery_state = "failed"
             error = Voipms._voipms_redact(str(e))

@@ -283,3 +283,107 @@
         }
     }
 }
+
+// =============================================================================
+// Mode sombre — aligné sur bf_dark_mode (body.bf_dark_mode). La SPA utilise des
+// classes propres avec des couleurs claires en dur que la feuille générique de
+// bf_dark_mode n'atteint pas : on les redéfinit ici avec la palette BF sombre.
+// =============================================================================
+$sms-dk-bg:          #1a1d1e;   // fond global / canevas de conversation
+$sms-dk-surface:     #2E3132;   // barres latérales, entêtes, composeur
+$sms-dk-surface-alt: #363b3c;   // survol / éléments alternés
+$sms-dk-raised:      #3d4344;   // bulles entrantes, puces, résultats
+$sms-dk-border:      #4a5153;   // bordures & séparateurs
+$sms-dk-text:        #d1d5d8;   // texte principal
+$sms-dk-text-bright: #e8eaec;   // texte accentué
+$sms-dk-text-muted:  #8e9496;   // texte secondaire
+$sms-dk-hover:       #414849;   // survols
+$sms-dk-accent:      #29ABE1;   // bleu Blue Fox (bulle sortante, avatar)
+$sms-dk-accent-dim:  rgba(41, 171, 226, 0.16);
+
+body.bf_dark_mode .o_sms_messenger {
+    background: $sms-dk-bg;
+    color: $sms-dk-text;
+
+    .o_sms_sidebar {
+        background: $sms-dk-surface;
+        border-right-color: $sms-dk-border;
+
+        .o_sms_sidebar_head { border-bottom-color: $sms-dk-border; }
+    }
+
+    .o_sms_thread_item {
+        border-bottom-color: $sms-dk-border;
+
+        &:hover { background: $sms-dk-hover; }
+        &.o_active { background: $sms-dk-accent-dim; }
+        &.o_selected { background: $sms-dk-accent-dim; }
+    }
+
+    .o_sms_avatar_img,
+    .o_sms_avatar_sm { background: $sms-dk-raised; }
+
+    .o_sms_line_badge {
+        background: $sms-dk-raised;
+        color: $sms-dk-text-muted;
+    }
+
+    .o_sms_convsearch,
+    .o_sms_link_box {
+        background: $sms-dk-surface;
+        border-bottom-color: $sms-dk-border;
+    }
+
+    .o_sms_link_box .o_sms_link_results,
+    .o_sms_newconv_results {
+        background: $sms-dk-raised;
+        border-color: $sms-dk-border;
+    }
+    .o_sms_link_box .o_sms_link_item,
+    .o_sms_newconv_item {
+        &:hover { background: $sms-dk-hover; }
+        & + .o_sms_link_item,
+        & + .o_sms_newconv_item { border-top-color: $sms-dk-border; }
+    }
+
+    .o_sms_conv_head {
+        background: $sms-dk-surface;
+        border-bottom-color: $sms-dk-border;
+    }
+
+    .o_sms_messages { background: $sms-dk-bg; }
+
+    .o_sms_daysep span {
+        background: $sms-dk-raised;
+        color: $sms-dk-text-muted;
+    }
+
+    .o_sms_bubble {
+        &.o_in {
+            background: $sms-dk-raised;
+            color: $sms-dk-text;
+            border-color: $sms-dk-border;
+        }
+        &.o_out {
+            background: $sms-dk-accent;
+            color: #ffffff;
+        }
+        &.o_failed {
+            background: #3d1921;
+            color: $sms-dk-text-bright;
+            border-color: #dc3545;
+        }
+        &.o_in .o_sms_meta { color: $sms-dk-text-muted; }
+    }
+
+    .o_sms_composer {
+        background: $sms-dk-surface;
+        border-top-color: $sms-dk-border;
+    }
+
+    .o_sms_chip {
+        background: $sms-dk-raised;
+        border-color: $sms-dk-border;
+        color: $sms-dk-text;
+    }
+}

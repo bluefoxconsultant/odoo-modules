@@ -376,10 +376,10 @@
                                 <i t-if="state.sending" class="fa fa-spin fa-circle-o-notch"/>
                             </button>
                         </div>
-                        <div t-if="state.advanced or state.composeBody.length > 140" class="o_sms_counter text-muted">
-                            <t t-esc="state.composeBody.length"/> car.
-                            <t t-if="state.composeBody.length > 160">
-                                · <t t-esc="segmentCount"/> segments
+                        <div t-if="state.advanced or segmentCount > 1 or state.composeBody.length > 120" class="o_sms_counter text-muted">
+                            <t t-esc="state.composeBody.length"/> car.<t t-if="isUnicodeBody"> · Unicode (70/SMS)</t>
+                            <t t-if="segmentCount > 1">
+                                · <t t-if="willSendAsMms">→ 1 MMS</t><t t-else=""><t t-esc="segmentCount"/> SMS</t>
                             </t>
                         </div>
                     </div>
