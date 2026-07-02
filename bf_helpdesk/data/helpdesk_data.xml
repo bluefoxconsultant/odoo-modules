@@ -48,6 +48,33 @@
       </field>
     </record>
 
+    <!-- Manual "client update" template — opened in the composer via the
+         "Envoyer une mise à jour" button, editable, never auto-sent.
+         Content-only body: the notification layout (branded by
+         bluefox_branding when installed) provides the shell, so this module
+         keeps no hard dependency on the white-label module. -->
+    <record id="mail_template_client_update" model="mail.template">
+      <field name="name">Helpdesk : Mise à jour au client</field>
+      <field name="model_id" ref="helpdesk_mgmt.model_helpdesk_ticket"/>
+      <field name="subject">Mise à jour — {{ object.number }} : {{ object.name }}</field>
+      <field name="email_from">{{ (object.team_id.alias_id.display_name or object.company_id.email or user.email_formatted or '') }}</field>
+      <field name="email_to">{{ object.partner_email or (object.partner_id.email or '') }}</field>
+      <field name="lang">{{ object.partner_id.lang or 'fr_CA' }}</field>
+      <field name="body_html" type="html">
+        <div style="margin:0;padding:0;">
+          <p style="margin:0 0 16px 0;font-size:15px;">Bonjour <t t-out="object.partner_name or (object.partner_id.name or 'à vous')"/>,</p>
+          <p style="margin:0 0 16px 0;font-size:15px;">
+            Voici une mise à jour concernant votre demande
+            <strong>#<t t-out="object.number"/></strong> — <span t-out="object.name"/>.
+          </p>
+          <p style="margin:0 0 16px 0;font-size:15px;">
+            [Décrivez ici l'avancement, la prochaine étape ou la question au client.]
+          </p>
+          <p style="margin:0;font-size:15px;">Au plaisir,</p>
+        </div>
+      </field>
+    </record>
+
     <!-- Daily SLA breach cron -->
     <record id="ir_cron_sla_breach" model="ir.cron">
       <field name="name">BF Helpdesk: SLA breach activity</field>

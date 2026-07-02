@@ -58,6 +58,7 @@ is set, to avoid double notifications.
 | Version | Feature |
 |---|---|
 | 18.0.4.0.0 | SLA per-team (response + resolve hours), breach ribbons on ticket, daily cron drops follow-up activities. **Macros**: reusable canned responses with team scoping, applied via wizard from the ticket header. **Auto-acknowledgement**: branded immediate confirmation email when a ticket is created via `/support/<slug>`. **Auto-tag rules**: per-team regex → tag mapping applied at ticket creation. |
+| 18.0.4.3.0 | **Timesheets on tickets** (BF-native, no OCA `helpdesk_mgmt_timesheet` timer stack): `timesheet_ids` + `total_hours` on the ticket, a "Feuilles de temps" tab, and a `ticket_id` link on `account.analytic.line`. Lines land on the ticket's project so they deduct from the team hour bank. One-click time logging from the ticket chatter reuses `bf_chatter_timesheet` (its Composer patch now dispatches by model). New deps: `helpdesk_mgmt_project` (ticket `project_id`/`task_id`) + `hr_timesheet`. **Branded client update**: "Envoyer une mise à jour" header button opens the composer preloaded with the `mail_template_client_update` template (branded via `bluefox_branding`'s composer swap when installed, stock layout otherwise), editable, never auto-sent. **Portal visibility**: ticket surfaces `/my/ticket/<id>` URL + a "client has portal access" indicator, and an "Abonner le client" button subscribes the partner as follower (no invite email sent). |
 
 ## Triage IA
 

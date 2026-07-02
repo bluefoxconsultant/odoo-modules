@@ -3,13 +3,17 @@ import logging
 import urllib.request
 from datetime import timedelta
 
-from odoo import api, fields, models
-from odoo.exceptions import UserError
+from odoo import _, api, fields, models
+from odoo.exceptions import UserError, ValidationError
+from odoo.tools import html2plaintext
 
 _logger = logging.getLogger(__name__)
 
 NTFY_RELAY_PARAM = "bf_helpdesk.ntfy_webhook_url"
 NTFY_TIMEOUT_PARAM = "bf_helpdesk.ntfy_webhook_timeout"
+
+# Cap the timesheet description lifted from a chatter note.
+_TIMESHEET_DESC_MAX_LEN = 500
 
 
 class HelpdeskTicket(models.Model):
@@ -42,6 +46,187 @@ class HelpdeskTicket(models.Model):
         string="Solde bas",
         compute="_compute_hour_bank_balance",
     )
+
+    # ------------------------------------------------------------------
+    # Timesheets — direct time entry on the ticket (BF-native; no OCA
+    # helpdesk_mgmt_timesheet timer stack). Lines land on the ticket's
+    # project so they feed the team hour bank (aggregated by project).
+    # ------------------------------------------------------------------
+    timesheet_ids = fields.One2many(
+        comodel_name="account.analytic.line",
+        inverse_name="ticket_id",
+        string="Feuilles de temps",
+    )
+    total_hours = fields.Float(
+        string="Temps total (h)",
+        compute="_compute_total_hours",
+        store=True,
+        help="Somme des heures saisies sur ce ticket.",
+    )
+
+    @api.depends("timesheet_ids.unit_amount")
+    def _compute_total_hours(self):
+        for ticket in self:
+            ticket.total_hours = sum(ticket.timesheet_ids.mapped("unit_amount"))
+
+    @api.onchange("team_id")
+    def _onchange_team_id_default_project(self):
+        """Default the ticket project to the team's project / hour-bank project
+        so timesheet lines feed the hour bank. Only fills when empty."""
+        for ticket in self.filtered(lambda t: not t.project_id and t.team_id):
+            project = (
+                ticket.team_id.default_project_id
+                or ticket.team_id.hour_bank_id.project_ids[:1]
+            )
+            if project:
+                ticket.project_id = project.id
+
+    @api.model
+    def _bf_resolve_timesheet_employee(self):
+        """Return the hr.employee for the connected user, or raise."""
+        employee = self.env.user.employee_id or self.env["hr.employee"].search(
+            [
+                ("user_id", "=", self.env.uid),
+                ("company_id", "in", self.env.companies.ids),
+            ],
+            limit=1,
+        )
+        if not employee:
+            raise UserError(_("Aucun employé n'est associé à votre compte utilisateur."))
+        return employee
+
+    def action_bf_create_chatter_timesheet(self, duration_hours, body_html=""):
+        """Create a timesheet line tied to this ticket from a chatter note.
+
+        Named identically to bf_chatter_timesheet's ``project.task`` method so
+        the shared OWL Composer patch can log time from a ticket's chatter with
+        the same UX. Lines carry the ticket's project so they deduct from the
+        team hour bank. Also callable directly (e.g. from the MCP bridge).
+        """
+        self.ensure_one()
+        try:
+            duration_hours = float(duration_hours or 0)
+        except (TypeError, ValueError):
+            raise ValidationError(_("Durée invalide."))
+        if duration_hours <= 0:
+            raise ValidationError(_("La durée doit être supérieure à 0."))
+
+        project = self.project_id or self.team_id.hour_bank_id.project_ids[:1]
+        if not project:
+            raise UserError(_(
+                "Ce ticket n'a pas de projet. Associez un projet au ticket "
+                "(ou à l'équipe / la banque d'heures) avant de saisir du temps."
+            ))
+        if not project.allow_timesheets:
+            raise UserError(_(
+                "Les feuilles de temps ne sont pas activées sur le projet « %s ».",
+                project.display_name,
+            ))
+        employee = self._bf_resolve_timesheet_employee()
+
+        description = (html2plaintext(body_html or "") or "").strip() or self.name
+        if len(description) > _TIMESHEET_DESC_MAX_LEN:
+            description = description[: _TIMESHEET_DESC_MAX_LEN - 1].rstrip() + "…"
+
+        line = self.env["account.analytic.line"].create({
+            "name": description,
+            "date": fields.Date.context_today(self),
+            "unit_amount": duration_hours,
+            "ticket_id": self.id,
+            "project_id": project.id,
+            "task_id": self.task_id.id if self.task_id else False,
+            "employee_id": employee.id,
+        })
+        return {
+            "id": line.id,
+            "name": line.name,
+            "unit_amount": line.unit_amount,
+        }
+
+    # ------------------------------------------------------------------
+    # Branded client update — open the composer preloaded with a branded
+    # template, editable, never auto-sent. When bluefox_branding is
+    # installed its composer swaps mail.mail_notification_layout for the
+    # branded shell; otherwise the stock layout is used (no hard dep).
+    # ------------------------------------------------------------------
+    def action_send_client_update(self):
+        self.ensure_one()
+        template = self.env.ref(
+            "bf_helpdesk.mail_template_client_update", raise_if_not_found=False,
+        )
+        ctx = {
+            "default_model": "helpdesk.ticket",
+            "default_res_ids": self.ids,
+            "default_composition_mode": "comment",
+            "default_email_layout_xmlid": "mail.mail_notification_layout",
+            "default_partner_ids": self.partner_id.ids,
+        }
+        if template:
+            ctx["default_template_id"] = template.id
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Mise à jour au client"),
+            "res_model": "mail.compose.message",
+            "view_mode": "form",
+            "views": [(False, "form")],
+            "target": "new",
+            "context": ctx,
+        }
+
+    # ------------------------------------------------------------------
+    # Client portal access — surface the /my/ticket URL and whether the
+    # client can actually see it. Subscribing the client as follower makes
+    # the OCA portal list the ticket and routes stage-change emails to them.
+    # No portal invite email is sent from here (outbound stays manual).
+    # ------------------------------------------------------------------
+    portal_ticket_url = fields.Char(
+        string="Lien portail client",
+        compute="_compute_portal_ticket_url",
+    )
+    partner_has_portal_access = fields.Boolean(
+        string="Client a un accès portail",
+        compute="_compute_partner_has_portal_access",
+    )
+
+    def _compute_portal_ticket_url(self):
+        base = self.env["ir.config_parameter"].sudo().get_param("web.base.url", "")
+        for ticket in self:
+            ticket.portal_ticket_url = (
+                f"{base}/my/ticket/{ticket.id}" if ticket.id and base else False
+            )
+
+    @api.depends("partner_id")
+    def _compute_partner_has_portal_access(self):
+        portal_group = self.env.ref("base.group_portal", raise_if_not_found=False)
+        internal_group = self.env.ref("base.group_user", raise_if_not_found=False)
+        for ticket in self:
+            granted = False
+            for user in ticket.partner_id.user_ids:
+                groups = user.groups_id
+                if (portal_group and portal_group in groups) or (
+                    internal_group and internal_group in groups
+                ):
+                    granted = True
+                    break
+            ticket.partner_has_portal_access = granted
+
+    def action_subscribe_partner_follower(self):
+        """Add the ticket's client as a follower (no portal invite email)."""
+        self.ensure_one()
+        if not self.partner_id:
+            raise UserError(_("Ce ticket n'a pas de client à abonner."))
+        self.message_subscribe(partner_ids=self.partner_id.ids)
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("Client abonné"),
+                "message": _("%s suivra désormais ce ticket.")
+                % self.partner_id.display_name,
+                "type": "success",
+                "sticky": False,
+            },
+        }
 
     # ------------------------------------------------------------------
     # Persona panel — read-only mirror of contact.persona for quick
