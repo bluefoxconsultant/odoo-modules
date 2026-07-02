@@ -3,13 +3,21 @@
 import { Component, onMounted, onWillDestroy, useState } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
+import { user } from "@web/core/user";
 
-const INBOX_DOMAIN = [
-    ["is_handled", "=", false],
-    "|",
-    ["imap_in_inbox", "=", true],
-    ["source", "in", ["chatter", "gateway"]],
-];
+// Personal inbox: scoped to the current user's OWN emails (user_id). Without
+// this leaf, accounts in the "tous les courriels" admin group (record rule
+// (1=1)) would have their badge count every user's unhandled inbox, not their
+// own. Kept in sync with the bf_email_action domain and the filter_inbox filter.
+function inboxDomain() {
+    return [
+        ["user_id", "=", user.userId],
+        ["is_handled", "=", false],
+        "|",
+        ["imap_in_inbox", "=", true],
+        ["source", "in", ["chatter", "gateway"]],
+    ];
+}
 
 export class BfEmailSystray extends Component {
     static template = "bf_email_systray.Systray";
@@ -39,7 +47,7 @@ export class BfEmailSystray extends Component {
 
     async _refresh() {
         try {
-            const count = await this.orm.searchCount("bf.email", INBOX_DOMAIN);
+            const count = await this.orm.searchCount("bf.email", inboxDomain());
             this.state.count = count || 0;
         } catch (e) {
             console.error("bf_email_systray: count failed", e);
