@@ -4,6 +4,12 @@ All notable changes to `bf_email_management` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This module follows Odoo's `MAJOR.MINOR.PATCH` convention prefixed with the Odoo series (`18.0.X.Y.Z`).
 
+## [18.0.6.4.1] — 2026-07-02
+
+### Fixed
+
+- **Les réponses aux courriels orphelins ne polluent plus la fiche contact de l'usager.** `_composer_target` repliait les orphelins (aucun dossier lié) sur le `res.partner` de l'usager : chaque réponse était postée dans le chatter de sa propre fiche, et les réponses des correspondants y revenaient par threading (`References`). Le repli est désormais la ligne `bf.email` elle-même (elle hérite de `mail.thread` depuis 4.0) : la conversation reste attachée au courriel qu'elle prolonge. Les fils historiques accumulés sur la fiche ont été réassignés à leurs dossiers (ou à leur ligne bf.email) en base.
+
 ## [18.0.6.4.0] — 2026-07-02
 
 ### Added

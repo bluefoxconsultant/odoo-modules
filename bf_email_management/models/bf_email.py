@@ -1305,16 +1305,17 @@ class BfEmail(models.Model):
     def _composer_target(self):
         """Resolve (model, res_id) for the composer.
 
-        If row has a chatter source record, post there. Otherwise post on
-        the configured user's own res.partner (orphan IMAP fallback). If
-        no IMAP user partner is found, post on the bf.email row itself.
+        If the row has a chatter source record, post there. Otherwise post
+        on the bf.email row itself (it inherits mail.thread): the reply
+        stays with the email it answers and future responses thread back
+        here. The historical fallback — the user's own res.partner — is
+        gone on purpose: it silently piled every orphan conversation onto
+        the user's own contact card (and correspondents' replies followed
+        by References), polluting the card's chatter.
         """
         self.ensure_one()
         if self.res_model and self.res_id:
             return self.res_model, self.res_id
-        own = self._resolve_user_partner()
-        if own:
-            return "res.partner", own.id
         return "bf.email", self.id
 
     def _build_reply_recipients(self):
