@@ -45,7 +45,7 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | `bf_mail_subject_clean` | BF Nettoyage des sujets de courriel | 18.0.1.1.0 | LGPL-3 | Prevents "Re: Re: Re:" stacking on subjects sent through the chatter |
 | `bf_mail_vigie` | BF Vigie courriels (re-router) | 18.0.2.2.0 | LGPL-3 | "Re-route" button on `bf.email` to move a misrouted email to the correct chatter |
 | `bf_mass_notes` | Blue Fox — Notes en lot | 18.0.1.0.0 | LGPL-3 | List-view Action to post a chatter note (or message) to many selected records at once; binds to all `mail.thread` models |
-| `bf_meeting` | Rencontres | 18.0.3.40.0 | LGPL-3 | Agendas, meeting records, and discussion items unified around `calendar.event` with automatic reminders |
+| `bf_meeting` | Rencontres | 18.0.3.41.0 | LGPL-3 | Agendas, meeting records, and discussion items unified around `calendar.event` with automatic reminders |
 | `bf_meeting_call_archive` | Rencontres ↔ Archive d'appels | 18.0.1.0.0 | LGPL-3 | Optional link between a meeting record and an archived call |
 | `bf_nextcloud_browser` | Nextcloud File Browser | 18.0.3.3.0 | LGPL-3 | Embedded + standalone Nextcloud WebDAV file browser on projects/tasks: folder tree, modal preview, drag-and-drop upload/move, configurable share presets, open-in-Nextcloud for office files, Knowledge Matrix linking, systray launcher |
 | `bf_onboarding_base` | Blue Fox Onboarding Foundation | 18.0.2.0.0 | LGPL-3 | Shared helpers for Blue Fox per-module onboarding panels. |
@@ -72,7 +72,7 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | `bf_timesheet_timer` | BF Timer - Feuilles de temps | 18.0.1.8.1 | LGPL-3 | Global timesheet timer with multi-timer support and an OWL UI |
 | `bf_timezone` | Blue Fox Timezone Utilities | 18.0.1.0.0 | LGPL-3 | Shared timezone helpers and a configurable default timezone for Blue Fox modules |
 | `bf_universal_search` | BF Recherche universelle | 18.0.1.4.0 | LGPL-3 | Cross-module search through the command palette |
-| `bluefox_branding` | Blue Fox Branding | 18.0.3.2.0 | LGPL-3 | Per-company brand color + email layout overrides driven by `bf_lexend` company fields (CSS variables injected via QWeb layout — no SCSS recompile) |
+| `bluefox_branding` | Blue Fox Branding | 18.0.3.4.0 | LGPL-3 | Per-company brand color + email layout overrides driven by `bf_lexend` company fields (CSS variables injected via QWeb layout — no SCSS recompile) |
 | `contacts_nextcloud_sync` | Contacts Nextcloud Sync | 18.0.1.2.0 | LGPL-3 | Sync Odoo contacts with a Nextcloud address book via CardDAV |
 | `daily_todo_digest` | Daily To-Do Digest | 18.0.2.0.0 | LGPL-3 | Daily email digest with activities, overdue tasks, and a week-ahead view |
 | `hosting_management` | Gestion d'hébergement | 18.0.2.46.0 | LGPL-3 | Manage hosting services, client computer parks (endpoints, BitLocker, Action1 sync) and software license pools |

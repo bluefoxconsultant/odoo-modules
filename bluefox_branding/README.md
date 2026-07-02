@@ -73,6 +73,17 @@ run a small regex sweep replacing Odoo's legacy `#875A7B` plum (and its
 `rgb()` / `#714B67` variants) with the active company's brand primary. Shared
 logic lives in `models/brand_color_mixin.py`.
 
+### Branded PWA manifest
+
+The web app manifests (`/web/manifest.webmanifest` and the scoped per-app
+variants) ship Odoo purple hardcoded. `controllers/webmanifest.py` overrides
+them so the install splash screen background uses the primary company's
+`report_brand_dark` and the status bar (`theme_color`) its
+`report_brand_primary`. The primary company is resolved through
+`base.main_company` (not sequence order, which archived companies can shadow).
+Already-installed PWAs pick the new colors up on the browser's next manifest
+refresh; iOS ignores `background_color` for splash screens.
+
 ## Dependencies
 
 | Module | Why |
