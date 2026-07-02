@@ -20,7 +20,8 @@
         <field name="name">bf.email.tree</field>
         <field name="model">bf.email</field>
         <field name="arch" type="xml">
-            <list decoration-bf="status == 'new' and not is_handled"
+            <list js_class="bf_email_preview_list"
+                  decoration-bf="status == 'new' and not is_handled"
                   decoration-muted="is_handled"
                   decoration-warning="not res_model and not is_handled"
                   decoration-success="is_to_me and not is_handled"

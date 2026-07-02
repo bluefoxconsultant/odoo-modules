@@ -31,7 +31,7 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | `bf_dashboard` | Tableau de bord Blue Fox | 18.0.1.0.0 | LGPL-3 | Unified dashboard aggregating billing, hosting, knowledge and privacy |
 | `bf_default_all_companies` | BF Default All Companies | 18.0.1.0.0 | LGPL-3 | Pre-selects every allowed company in the multi-company switcher on first login |
 | `bf_document_nextcloud_sync` | Document Nextcloud Sync | 18.0.1.3.0 | LGPL-3 | Document sync between Odoo and Nextcloud via WebDAV |
-| `bf_email_management` | Gestion des courriels | 18.0.6.0.0 | LGPL-3 | Unified IMAP inbox + Odoo chatter projection, two-pane OWL folder browser (Apple Mail / Thunderbird), bulk per-row target inference |
+| `bf_email_management` | Gestion des courriels | 18.0.6.4.0 | LGPL-3 | Unified IMAP inbox + Odoo chatter projection, two-pane OWL folder browser (Apple Mail / Thunderbird), bulk per-row target inference |
 | `bf_email_systray` | Boîte de réception bf.email — barre Odoo | 18.0.1.1.0 | LGPL-3 | Systray button opening the bf.email inbox with a (read + unread) counter |
 | `bf_follower_cleanup` | BF — Nettoyage des abonnés (followers internes uniquement) | 18.0.1.0.1 | LGPL-3 | Cron that removes all non-employee followers from chatters |
 | `bf_gamification` | Fox Quest | 18.0.2.3.0 | LGPL-3 | Gamification system with XP, levels, badges, and rewards |

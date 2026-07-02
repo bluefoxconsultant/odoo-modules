@@ -4,6 +4,30 @@ All notable changes to `bf_email_management` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This module follows Odoo's `MAJOR.MINOR.PATCH` convention prefixed with the Odoo series (`18.0.X.Y.Z`).
 
+## [18.0.6.4.0] — 2026-07-02
+
+### Added
+
+- **Panneau de lecture : lot de 6 raffinements.** (1) **Auto-avance façon Gmail** : « Traité » et « Reporter » chargent le courriel suivant de la liste (ordre capturé avant l'action, repli sur le précédent puis sur la même position) au lieu de fermer le volet. (2) **Ligne active surlignée** dans la liste (`table-info`) — le renderer s'abonne à l'état du volet via le sub-env (`useSubEnv` + re-`useState` côté renderer pour la réactivité inter-composants). (3) **Navigation clavier** : `J`/`K` = suivant/précédent, `E` = Traité, même vocabulaire que le Navigateur IMAP (`useHotkey`, champs éditables ignorés; les flèches restent à la navigation native de la liste). (4) **Pièces jointes cliquables** : badges nommés avec téléchargement direct (`/web/content`), via la nouvelle méthode `get_preview_attachments` (attachements bf.email pour l'IMAP, `mail.message.attachment_ids` pour chatter/gateway, sans sudo). (5) Boutons **Transférer** et **Télécharger .eml** dans la rangée d'actions. (6) **Échap ferme le volet.**
+
+## [18.0.6.3.0] — 2026-07-02
+
+### Changed
+
+- **Panneau de lecture : plus d'espace + séparateur redimensionnable + en-tête défilant.** Défauts élargis (droite 44 % → 50 %, bas 45 % → 55 %, plafond de largeur retiré) et **poignée de redimensionnement à la souris** entre la liste et le volet (bornes 25–75 %, taille mémorisée par orientation dans `localStorage` `bf_email.preview_size.right|bottom`; `pointer-events: none` sur l'iframe pendant le glisser pour ne pas perdre la souris). L'en-tête (objet, De/À/Cc, boutons d'action) **défile désormais avec le corps** : l'iframe est auto-dimensionnée à son contenu (`contentDocument.scrollHeight` + `ResizeObserver` pour les images tardives, possible grâce à `allow-same-origin`) et le conteneur externe devient l'unique contexte de défilement — toute la hauteur du volet va au message.
+
+## [18.0.6.2.0] — 2026-07-02
+
+### Changed
+
+- **Panneau de lecture : position au choix — droite ou bas (façon Outlook).** Le bouton unique devient un groupe de deux boutons dans le panneau de contrôle (colonnes = volet à droite, colonnes pivotées = volet en bas) ; cliquer la position active masque le volet. Mode `bottom` : split vertical (`flex-column`, volet 45 % de hauteur, `border-top`) ; mode `right` : inchangé (44 % de largeur). Préférence `localStorage` étendue (`right`/`bottom`/`0`, migration de l'ancien `1` → `right`).
+
+## [18.0.6.1.0] — 2026-07-02
+
+### Added
+
+- **Panneau de lecture optionnel dans la vue liste (façon Gmail/Outlook).** Nouveau `js_class="bf_email_preview_list"` sur la vue liste `bf.email` : un bouton (icône colonnes) dans le panneau de contrôle active un volet de droite (~44 %, masqué < lg). Activé : un clic sur une ligne charge le courriel dans le volet — en-têtes (De/À/Cc/date/pièces jointes/dossier lié), corps **assaini** (`body_html_display`) rendu dans une `iframe sandbox` sans scripts (même patron que le navigateur IMAP, liens ouvrables via `allow-popups`), boutons Répondre / Traité / Remettre / Reporter / Ouvrir — et marque le courriel « Lu » (décoration de ligne rafraîchie). Désactivé : comportement de liste standard intact. Préférence persistée en `localStorage` (`bf_email.preview_pane`). Héritage de template OWL `web.ListView` (mode primary, remplacement du Renderer avec `$0` — le littéral doit être le contenu texte EXACT du nœud, `template_inheritance.js` matche `text()='$0'` strictement).
+
 ## [18.0.6.0.0] — 2026-07-01
 
 ### Added

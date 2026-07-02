@@ -2767,6 +2767,29 @@ class BfEmail(models.Model):
             },
         }
 
+    def get_preview_attachments(self):
+        """Attachments for the list reading pane, as [{id, name, size}].
+
+        IMAP rows carry their own ir.attachment (res_model='bf.email');
+        chatter/gateway rows reuse the mail.message's attachments. Plain
+        env (no sudo): whatever the user can't read is simply omitted.
+        """
+        self.ensure_one()
+        atts = self.env["ir.attachment"].search([
+            ("res_model", "=", self._name),
+            ("res_id", "=", self.id),
+        ])
+        if not atts and self.mail_message_id:
+            try:
+                atts = self.mail_message_id.attachment_ids
+                atts.check_access_rule("read")
+            except Exception:
+                return []
+        return [
+            {"id": a.id, "name": a.name, "size": a.file_size}
+            for a in atts
+        ]
+
     # ------------------------------------------------------------------
     # Reminder / Activity
     # ------------------------------------------------------------------
