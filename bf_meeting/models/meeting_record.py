@@ -616,9 +616,14 @@ class MeetingRecord(models.Model):
         )
         allowed_ids = set(self.env.context.get('allowed_company_ids') or [self.env.company.id])
         allowed_ids.add(target_company.id)
+        # force_send=False: the SMTP roundtrip took 13-22s per send and, with a
+        # small worker pool, stalled every other request. The mail is queued
+        # (state « outgoing ») and the scheduler cron is triggered so it leaves
+        # within seconds without holding an HTTP worker.
         template.with_company(target_company).with_context(
             allowed_company_ids=list(allowed_ids),
-        ).send_mail(self.id, force_send=True)
+        ).send_mail(self.id, force_send=False)
+        self.env.ref('mail.ir_cron_mail_scheduler_action')._trigger()
         self.write({
             'report_state': 'sent',
             'report_sent_date': fields.Datetime.now(),
