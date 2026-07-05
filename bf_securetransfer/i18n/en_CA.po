@@ -1,0 +1,1502 @@
+# Translation of Odoo Server.
+# This file contains the translation of the following modules:
+#	* bf_securetransfer
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 18.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-07-03 12:00+0000\n"
+"PO-Revision-Date: 2026-07-03 12:00+0000\n"
+"Last-Translator: Blue Fox Inc. <info@bluefoxconsultant.com>\n"
+"Language-Team: \n"
+"Language: en_CA\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#. module: bf_securetransfer
+#: model:ir.model,name:bf_securetransfer.model_secure_transfer
+msgid "Transfert sécurisé"
+msgstr "Secure transfer"
+
+#. module: bf_securetransfer
+#: model:ir.model,name:bf_securetransfer.model_secure_transfer_brand
+msgid "Transfert sécurisé — Marque"
+msgstr "Secure transfer — Brand"
+
+#. module: bf_securetransfer
+#: model:ir.model,name:bf_securetransfer.model_secure_transfer_file
+msgid "Transfert sécurisé — Fichier"
+msgstr "Secure transfer — File"
+
+#. module: bf_securetransfer
+#: model:ir.model,name:bf_securetransfer.model_secure_transfer_access_log
+msgid "Transfert sécurisé — Journal d'accès (immuable)"
+msgstr "Secure transfer — Access log (immutable)"
+
+#. module: bf_securetransfer
+#: model:ir.model,name:bf_securetransfer.model_secure_transfer_reveal_wizard
+msgid "Révéler le lien de partage (journalisé)"
+msgstr "Reveal the share link (journaled)"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer__name
+msgid "Référence"
+msgstr "Reference"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer__token
+msgid "Jeton de partage"
+msgstr "Share token"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer__upload_token
+msgid "Jeton de téléversement"
+msgstr "Upload token"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer__s3_prefix
+msgid "Préfixe S3"
+msgstr "S3 prefix"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer__state
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_file__state
+msgid "État"
+msgstr "Status"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer__brand_id
+msgid "Marque"
+msgstr "Brand"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer__company_id
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_brand__company_id
+msgid "Société"
+msgstr "Company"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer__sender_name
+msgid "Nom de l'expéditeur"
+msgstr "Sender name"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer__sender_email
+msgid "Courriel de l'expéditeur"
+msgstr "Sender email"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer__recipient_emails
+msgid "Destinataires"
+msgstr "Recipients"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer__message
+msgid "Message"
+msgstr "Message"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer__locale
+msgid "Langue"
+msgstr "Language"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer__retention_days
+msgid "Rétention (jours)"
+msgstr "Retention (days)"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer__expiry_date
+msgid "Expire le"
+msgstr "Expires on"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer__password_hash
+msgid "Empreinte du mot de passe"
+msgstr "Password hash"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer__has_password
+msgid "Protégé par mot de passe"
+msgstr "Password protected"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer__max_downloads
+msgid "Téléchargements max."
+msgstr "Max. downloads"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer__download_count
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_file__download_count
+msgid "Téléchargements"
+msgstr "Downloads"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer__total_size
+msgid "Taille totale (octets)"
+msgstr "Total size (bytes)"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer__file_ids
+msgid "Fichiers"
+msgstr "Files"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer__access_log_ids
+msgid "Journal d'accès"
+msgstr "Access log"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer__ip_created
+msgid "IP de création"
+msgstr "Creation IP"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer__ua_created
+msgid "Agent utilisateur (création)"
+msgstr "User agent (creation)"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer__finalized_at
+msgid "Finalisé le"
+msgstr "Finalized on"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer__purged_at
+msgid "Purgé le"
+msgstr "Purged on"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer__purge_error_count
+msgid "Échecs de purge"
+msgstr "Purge failures"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields.selection,name:bf_securetransfer.selection__secure_transfer__state__draft
+msgid "Brouillon"
+msgstr "Draft"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields.selection,name:bf_securetransfer.selection__secure_transfer__state__active
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_brand__active
+msgid "Actif"
+msgstr "Active"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields.selection,name:bf_securetransfer.selection__secure_transfer__state__expired
+msgid "Expiré"
+msgstr "Expired"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields.selection,name:bf_securetransfer.selection__secure_transfer__state__deleted
+msgid "Supprimé"
+msgstr "Deleted"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields.selection,name:bf_securetransfer.selection__secure_transfer__state__cancelled
+msgid "Annulé"
+msgstr "Cancelled"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields.selection,name:bf_securetransfer.selection__secure_transfer__state__suspended
+msgid "Suspendu"
+msgstr "Suspended"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields.selection,name:bf_securetransfer.selection__secure_transfer__locale__fr_ca
+msgid "Français (Canada)"
+msgstr "French (Canada)"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields.selection,name:bf_securetransfer.selection__secure_transfer__locale__en_ca
+msgid "English (Canada)"
+msgstr "English (Canada)"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_file__transfer_id
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_access_log__transfer_id
+msgid "Transfert"
+msgstr "Transfer"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_file__filename
+msgid "Nom de fichier"
+msgstr "File name"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_file__extension
+msgid "Extension"
+msgstr "Extension"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_file__size
+msgid "Taille déclarée (octets)"
+msgstr "Declared size (bytes)"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_file__size_confirmed
+msgid "Taille confirmée (octets)"
+msgstr "Confirmed size (bytes)"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_file__mimetype
+msgid "Type MIME"
+msgstr "MIME type"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_file__s3_key
+msgid "Clé S3"
+msgstr "S3 key"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_file__etag
+msgid "ETag épinglé"
+msgstr "Pinned ETag"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_file__checksum
+msgid "Somme de contrôle"
+msgstr "Checksum"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_file__scanned
+msgid "Analyse antivirus"
+msgstr "Antivirus scan"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_file__upload_mode
+msgid "Mode de téléversement"
+msgstr "Upload mode"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_file__s3_upload_id
+msgid "UploadId S3"
+msgstr "S3 UploadId"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_file__part_size
+msgid "Taille de partie (octets)"
+msgstr "Part size (bytes)"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_file__parts_total
+msgid "Nombre de parties"
+msgstr "Number of parts"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_file__parts_manifest
+msgid "Manifeste des parties"
+msgstr "Parts manifest"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields.selection,name:bf_securetransfer.selection__secure_transfer_file__state__pending
+msgid "En attente"
+msgstr "Pending"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields.selection,name:bf_securetransfer.selection__secure_transfer_file__state__uploading
+msgid "Téléversement en cours"
+msgstr "Uploading"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields.selection,name:bf_securetransfer.selection__secure_transfer_file__state__uploaded
+msgid "Téléversé"
+msgstr "Uploaded"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields.selection,name:bf_securetransfer.selection__secure_transfer_file__state__verified
+msgid "Vérifié"
+msgstr "Verified"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields.selection,name:bf_securetransfer.selection__secure_transfer_file__state__error
+msgid "Erreur"
+msgstr "Error"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields.selection,name:bf_securetransfer.selection__secure_transfer_file__state__purged
+msgid "Purgé"
+msgstr "Purged"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields.selection,name:bf_securetransfer.selection__secure_transfer_file__scanned__none
+msgid "Non analysé"
+msgstr "Not scanned"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields.selection,name:bf_securetransfer.selection__secure_transfer_file__scanned__pending
+msgid "Analyse en cours"
+msgstr "Scan in progress"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields.selection,name:bf_securetransfer.selection__secure_transfer_file__scanned__clean
+msgid "Sain"
+msgstr "Clean"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields.selection,name:bf_securetransfer.selection__secure_transfer_file__scanned__infected
+msgid "Infecté"
+msgstr "Infected"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields.selection,name:bf_securetransfer.selection__secure_transfer_file__upload_mode__simple
+msgid "PUT simple"
+msgstr "Simple PUT"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields.selection,name:bf_securetransfer.selection__secure_transfer_file__upload_mode__multipart
+msgid "Multipart"
+msgstr "Multipart"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_access_log__file_id
+msgid "Fichier"
+msgstr "File"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_access_log__action
+msgid "Action"
+msgstr "Action"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_access_log__timestamp_utc
+msgid "Horodatage (UTC, ISO 8601)"
+msgstr "Timestamp (UTC, ISO 8601)"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_access_log__ip
+msgid "Adresse IP"
+msgstr "IP address"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_access_log__user_agent
+msgid "Agent utilisateur"
+msgstr "User agent"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_access_log__actor
+msgid "Acteur"
+msgstr "Actor"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_access_log__note
+msgid "Note"
+msgstr "Note"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_access_log__prev_entry_hash
+msgid "Empreinte précédente"
+msgstr "Previous hash"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_access_log__entry_hash
+msgid "Empreinte de l'entrée"
+msgstr "Entry hash"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields.selection,name:bf_securetransfer.selection__secure_transfer_access_log__action__created
+msgid "Transfert créé"
+msgstr "Transfer created"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields.selection,name:bf_securetransfer.selection__secure_transfer_access_log__action__finalized
+msgid "Transfert finalisé"
+msgstr "Transfer finalized"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields.selection,name:bf_securetransfer.selection__secure_transfer_access_log__action__emailed
+msgid "Courriels envoyés"
+msgstr "Emails sent"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields.selection,name:bf_securetransfer.selection__secure_transfer_access_log__action__view
+msgid "Page consultée"
+msgstr "Page viewed"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields.selection,name:bf_securetransfer.selection__secure_transfer_access_log__action__password_ok
+msgid "Mot de passe validé"
+msgstr "Password accepted"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields.selection,name:bf_securetransfer.selection__secure_transfer_access_log__action__password_fail
+msgid "Mot de passe refusé"
+msgstr "Password rejected"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields.selection,name:bf_securetransfer.selection__secure_transfer_access_log__action__download
+msgid "Téléchargement initié"
+msgstr "Download started"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields.selection,name:bf_securetransfer.selection__secure_transfer_access_log__action__expired_hit
+msgid "Accès à un transfert expiré"
+msgstr "Access to an expired transfer"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields.selection,name:bf_securetransfer.selection__secure_transfer_access_log__action__integrity_mismatch
+msgid "Intégrité compromise (ETag)"
+msgstr "Integrity compromised (ETag)"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields.selection,name:bf_securetransfer.selection__secure_transfer_access_log__action__abuse_report
+msgid "Signalement d'abus"
+msgstr "Abuse report"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields.selection,name:bf_securetransfer.selection__secure_transfer_access_log__action__link_revealed
+msgid "Lien révélé (gestionnaire)"
+msgstr "Link revealed (manager)"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields.selection,name:bf_securetransfer.selection__secure_transfer_access_log__action__purged
+msgid "Objets purgés du stockage"
+msgstr "Objects purged from storage"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_brand__name
+msgid "Nom"
+msgstr "Name"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_brand__sequence
+msgid "Séquence"
+msgstr "Sequence"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_brand__is_default
+msgid "Marque par défaut"
+msgstr "Default brand"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_brand__domain
+msgid "Domaine"
+msgstr "Domain"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_brand__partner_id
+msgid "Client"
+msgstr "Customer"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_brand__tier
+msgid "Palier"
+msgstr "Tier"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields.selection,name:bf_securetransfer.selection__secure_transfer_brand__tier__free
+msgid "Gratuit"
+msgstr "Free"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields.selection,name:bf_securetransfer.selection__secure_transfer_brand__tier__paid
+msgid "Payant"
+msgstr "Paid"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_brand__logo
+msgid "Logo"
+msgstr "Logo"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_brand__favicon
+msgid "Favicon"
+msgstr "Favicon"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_brand__color_primary
+msgid "Couleur principale"
+msgstr "Primary colour"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_brand__color_dark
+msgid "Couleur foncée"
+msgstr "Dark colour"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_brand__powered_by
+msgid "Afficher « Propulsé par »"
+msgstr "Show “Powered by”"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_brand__email_from
+msgid "Expéditeur des courriels"
+msgstr "Email sender"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_brand__max_transfer_mb
+msgid "Taille max. d'un transfert (Mo)"
+msgstr "Max. transfer size (MB)"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_brand__max_files
+msgid "Nombre max. de fichiers"
+msgstr "Max. number of files"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_brand__max_retention_days
+msgid "Rétention max. (jours)"
+msgstr "Max. retention (days)"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_brand__allow_password
+msgid "Mot de passe autorisé"
+msgstr "Password allowed"
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_reveal_wizard__url
+#: code:addons/bf_securetransfer/wizards/reveal_link_wizard.py:0
+msgid "Lien de partage"
+msgstr "Share link"
+
+#. module: bf_securetransfer
+#: model:ir.model.constraint,message:bf_securetransfer.constraint_secure_transfer_token_uniq
+msgid "Ce jeton de partage existe déjà."
+msgstr "This share token already exists."
+
+#. module: bf_securetransfer
+#: model:ir.model.constraint,message:bf_securetransfer.constraint_secure_transfer_upload_token_uniq
+msgid "Ce jeton de téléversement existe déjà."
+msgstr "This upload token already exists."
+
+#. module: bf_securetransfer
+#: model:ir.model.constraint,message:bf_securetransfer.constraint_secure_transfer_brand_domain_uniq
+msgid "Ce domaine est déjà associé à une autre marque."
+msgstr "This domain is already associated with another brand."
+
+#. module: bf_securetransfer
+#: model:ir.model.constraint,message:bf_securetransfer.constraint_secure_transfer_file_s3_key_uniq
+msgid "Cette clé S3 est déjà utilisée."
+msgstr "This S3 key is already in use."
+
+#. module: bf_securetransfer
+#: model:ir.ui.menu,name:bf_securetransfer.menu_securetransfer_root
+msgid "Transferts sécurisés"
+msgstr "Secure transfers"
+
+#. module: bf_securetransfer
+#: model:ir.ui.menu,name:bf_securetransfer.menu_transfers
+msgid "Transferts"
+msgstr "Transfers"
+
+#. module: bf_securetransfer
+#: model:ir.ui.menu,name:bf_securetransfer.menu_config
+msgid "Configuration"
+msgstr "Settings"
+
+#. module: bf_securetransfer
+#: model:ir.ui.menu,name:bf_securetransfer.menu_config_brands
+msgid "Marques"
+msgstr "Brands"
+
+#. module: bf_securetransfer
+#: model:ir.ui.menu,name:bf_securetransfer.menu_config_settings
+msgid "Paramètres"
+msgstr "Settings"
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid "Nouveau"
+msgstr "New"
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid "Les transferts ne se suppriment pas : le journal d'accès doit être conservé. Utilisez « Expirer » ou « Purger »."
+msgstr "Transfers cannot be deleted: the access log must be kept. Use “Expire” or “Purge” instead."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid "Une adresse courriel d'expéditeur valide est requise."
+msgstr "A valid sender email address is required."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+#, python-format
+msgid "Le message est limité à %s caractères."
+msgstr "The message is limited to %s characters."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid "Durée de rétention non offerte pour ce service."
+msgstr "Retention period not offered for this service."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid "Limite quotidienne de transferts atteinte pour votre connexion. Réessayez demain."
+msgstr "Daily transfer limit reached for your connection. Try again tomorrow."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid "Limite quotidienne de transferts atteinte pour cette adresse d'expéditeur. Réessayez demain."
+msgstr "Daily transfer limit reached for this sender address. Try again tomorrow."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+#, python-format
+msgid "Expéditeur %s, %s destinataire(s), rétention %s jour(s)"
+msgstr "Sender %s, %s recipient(s), retention %s day(s)"
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid "Adresse de destinataire invalide."
+msgstr "Invalid recipient address."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+#, python-format
+msgid "Maximum %s destinataires par transfert."
+msgstr "Maximum %s recipients per transfer."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid "Ce transfert n'accepte plus de fichiers."
+msgstr "This transfer no longer accepts files."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid "Le fichier doit avoir une extension."
+msgstr "The file must have an extension."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+#, python-format
+msgid "Le format « .%s » n'est pas autorisé pour des raisons de sécurité."
+msgstr "The “.%s” format is not allowed for security reasons."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid "Taille de fichier invalide."
+msgstr "Invalid file size."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+#, python-format
+msgid "Maximum %s fichiers par transfert."
+msgstr "Maximum %s files per transfer."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+#, python-format
+msgid "La taille totale dépasse la limite de %s Mo de ce service."
+msgstr "The total size exceeds this service's limit of %s MB."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid "Limite quotidienne de volume atteinte pour votre connexion. Réessayez demain."
+msgstr "Daily volume limit reached for your connection. Try again tomorrow."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid "Ce transfert ne peut plus être finalisé."
+msgstr "This transfer can no longer be finalized."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid "Aucun fichier à transférer."
+msgstr "No file to transfer."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+#, python-format
+msgid "Le téléversement de « %s » n'est pas terminé."
+msgstr "The upload of “%s” is not finished."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+#, python-format
+msgid "Le fichier « %s » n'a pas été téléversé correctement. Retirez-le ou téléversez-le de nouveau."
+msgstr "The file “%s” was not uploaded correctly. Remove it or upload it again."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid "Le mot de passe n'est pas offert pour ce service."
+msgstr "Password protection is not offered for this service."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+#, python-format
+msgid "%s fichier(s), %.0f octet(s), expiration le %s"
+msgstr "%s file(s), %.0f byte(s), expires on %s"
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid "Ce transfert n'est plus disponible."
+msgstr "This transfer is no longer available."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid "Budget de téléchargements épuisé"
+msgstr "Download budget exhausted"
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+#, python-format
+msgid "Lien envoyé à : %s ; accusé à : %s"
+msgstr "Link sent to: %s; receipt to: %s"
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid "(aucun — mode lien seul)"
+msgstr "(none — link-only mode)"
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid "Seul un transfert actif peut être expiré."
+msgstr "Only an active transfer can be expired."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid "Expiration manuelle"
+msgstr "Manual expiry"
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid "Seul un transfert actif ou expiré peut être suspendu."
+msgstr "Only an active or expired transfer can be suspended."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid "Suspension manuelle (abus)"
+msgstr "Manual suspension (abuse)"
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid "Action réservée aux gestionnaires du transfert sécurisé."
+msgstr "Action restricted to secure transfer managers."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid "Expiration manuelle (purge immédiate)"
+msgstr "Manual expiry (immediate purge)"
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid "Révéler le lien de partage"
+msgstr "Reveal the share link"
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid "Les courriels ne peuvent être renvoyés que pour un transfert actif."
+msgstr "Emails can only be resent for an active transfer."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+#, python-format
+msgid "Purge S3 en échec répété — %s"
+msgstr "S3 purge repeatedly failing — %s"
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+#, python-format
+msgid "5 tentatives de purge ont échoué pour ce transfert. Vérifier le bucket et les clés restantes : %s"
+msgstr "5 purge attempts have failed for this transfer. Check the bucket and the remaining keys: %s"
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+#, python-format
+msgid "Brouillon abandonné — %s objet(s) supprimé(s) du stockage"
+msgstr "Abandoned draft — %s object(s) deleted from storage"
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+#, python-format
+msgid "%s objet(s) supprimé(s) du stockage — métadonnées et journal conservés"
+msgstr "%s object(s) deleted from storage — metadata and log kept"
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid "Date d'expiration atteinte"
+msgstr "Expiry date reached"
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer_access_log.py:0
+msgid "Les entrées du journal d'accès sont immuables et ne peuvent être modifiées."
+msgstr "Access log entries are immutable and cannot be modified."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer_access_log.py:0
+msgid "Le journal d'accès est append-only : les entrées ne peuvent être supprimées."
+msgstr "The access log is append-only: entries cannot be deleted."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer_access_log.py:0
+msgid "Vérification du journal"
+msgstr "Log verification"
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer_access_log.py:0
+#, python-format
+msgid "Chaîne d'intégrité intacte pour %s."
+msgstr "Integrity chain intact for %s."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer_access_log.py:0
+#, python-format
+msgid "ALERTE : la chaîne d'intégrité de %s est BRISÉE."
+msgstr "ALERT: the integrity chain of %s is BROKEN."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer_brand.py:0
+msgid "Une seule marque active peut être la marque par défaut."
+msgstr "Only one active brand can be the default brand."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer_file.py:0
+msgid "Ce transfert n'accepte plus de téléversements."
+msgstr "This transfer no longer accepts uploads."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer_file.py:0
+msgid "Ce fichier requiert un téléversement multipart."
+msgstr "This file requires a multipart upload."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer_file.py:0
+msgid "Ce fichier se téléverse en un seul PUT."
+msgstr "This file uploads in a single PUT."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer_file.py:0
+msgid "Le téléversement multipart n'est pas initialisé."
+msgstr "The multipart upload is not initialized."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer_file.py:0
+msgid "Numéros de partie invalides."
+msgstr "Invalid part numbers."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer_file.py:0
+msgid "Aucun numéro de partie valide."
+msgstr "No valid part number."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer_file.py:0
+#, python-format
+msgid "Le téléversement de « %s » est incomplet ou incohérent — il a été annulé, veuillez recommencer."
+msgstr "The upload of “%s” is incomplete or inconsistent — it was aborted, please start again."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/secure_transfer_file.py:0
+#, python-format
+msgid "La vérification de « %s » après assemblage a échoué."
+msgstr "The verification of “%s” after assembly failed."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/s3.py:0
+msgid "La bibliothèque Python « boto3 » n'est pas installée sur cette instance. L'image Docker du tenant doit être reconstruite avec la couche pip boto3/botocore avant d'utiliser le transfert sécurisé."
+msgstr "The Python library “boto3” is not installed on this instance. The tenant's Docker image must be rebuilt with the boto3/botocore pip layer before using the secure transfer."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/s3.py:0
+msgid "Le stockage S3 n'est pas configuré : renseignez l'endpoint et le bucket dans Configuration → Transfert sécurisé."
+msgstr "S3 storage is not configured: set the endpoint and the bucket in Settings → Secure Transfer."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/s3.py:0
+msgid "Les clés d'accès S3 sont absentes. Déclarez bf_securetransfer_s3_access_key / bf_securetransfer_s3_secret_key dans odoo.conf (ou l'environnement) — jamais en base de données."
+msgstr "The S3 access keys are missing. Declare bf_securetransfer_s3_access_key / bf_securetransfer_s3_secret_key in odoo.conf (or the environment) — never in the database."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/s3.py:0
+msgid "Aucune partie téléversée pour ce fichier."
+msgstr "No part uploaded for this file."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/res_config_settings.py:0
+msgid "Configurées (odoo.conf / environnement)"
+msgstr "Configured (odoo.conf / environment)"
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/res_config_settings.py:0
+msgid "Absentes — à déclarer dans odoo.conf, jamais en base"
+msgstr "Missing — declare them in odoo.conf, never in the database"
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/res_config_settings.py:0
+#, python-format
+msgid "%(ok)s/%(total)s sondes réussies. En échec : %(detail)s (rapport complet dans le journal serveur)."
+msgstr "%(ok)s/%(total)s probes passed. Failed: %(detail)s (full report in the server log)."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/res_config_settings.py:0
+#, python-format
+msgid "Les %(total)s sondes ont réussi : CORS appliqué, bucket prêt pour le transfert sécurisé."
+msgstr "All %(total)s probes passed: CORS applied, bucket ready for the secure transfer."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/models/res_config_settings.py:0
+msgid "Configuration du bucket S3"
+msgstr "S3 bucket setup"
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/wizards/reveal_link_wizard.py:0
+msgid "Aucun transfert sélectionné."
+msgstr "No transfer selected."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/wizards/reveal_link_wizard.py:0
+msgid "Lien de partage révélé depuis le backend."
+msgstr "Share link revealed from the backend."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/controllers/upload_api.py:0
+msgid "Une erreur est survenue. Veuillez réessayer plus tard."
+msgstr "An error occurred. Please try again later."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/controllers/upload_api.py:0
+msgid "Liste de destinataires invalide."
+msgstr "Invalid recipient list."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/controllers/upload_api.py:0
+#, python-format
+msgid "Maximum %s destinataires."
+msgstr "Maximum %s recipients."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/controllers/upload_api.py:0
+#, python-format
+msgid "Adresse de destinataire invalide : %s"
+msgstr "Invalid recipient address: %s"
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/controllers/upload_api.py:0
+#, python-format
+msgid "Le message dépasse %s caractères."
+msgstr "The message exceeds %s characters."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/controllers/upload_api.py:0
+msgid "Trop de requêtes. Réessayez dans une minute."
+msgstr "Too many requests. Try again in a minute."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/controllers/upload_api.py:0
+msgid "Lien de téléversement invalide ou expiré."
+msgstr "Invalid or expired upload link."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/controllers/upload_api.py:0
+msgid "Ce transfert n'est plus modifiable."
+msgstr "This transfer can no longer be modified."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/controllers/upload_api.py:0
+msgid "Fichier introuvable."
+msgstr "File not found."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/controllers/upload_api.py:0
+msgid "Le service de transfert est temporairement indisponible."
+msgstr "The transfer service is temporarily unavailable."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/controllers/upload_api.py:0
+msgid "Trop de transferts créés récemment. Réessayez plus tard."
+msgstr "Too many transfers created recently. Try again later."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/controllers/upload_api.py:0
+msgid "Adresse courriel de l'expéditeur invalide."
+msgstr "Invalid sender email address."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/controllers/upload_api.py:0
+msgid "Numéros de parties invalides."
+msgstr "Invalid part numbers."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/controllers/upload_api.py:0
+msgid "Trop de requêtes. Réessayez plus tard."
+msgstr "Too many requests. Try again later."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/controllers/upload_api.py:0
+msgid "La protection par mot de passe n'est pas offerte ici."
+msgstr "Password protection is not offered here."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/controllers/main.py:0
+#, python-format
+msgid "Signalement d'abus reçu pour le transfert %(name)s (IP : %(ip)s)."
+msgstr "Abuse report received for transfer %(name)s (IP: %(ip)s)."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/controllers/main.py:0
+msgid "Motif :"
+msgstr "Reason:"
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/controllers/main.py:0
+#, python-format
+msgid "Signalement d'abus — %s"
+msgstr "Abuse report — %s"
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/controllers/main.py:0
+msgid "Le téléchargement est temporairement indisponible. Réessayez plus tard."
+msgstr "The download is temporarily unavailable. Try again later."
+
+#. module: bf_securetransfer
+#: code:addons/bf_securetransfer/controllers/main.py:0
+msgid "Ce fichier n'est plus disponible : son intégrité n'a pas pu être vérifiée."
+msgstr "This file is no longer available: its integrity could not be verified."
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.secure_transfer_view_form
+msgid "Révéler le lien"
+msgstr "Reveal link"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.secure_transfer_view_form
+msgid "Renvoyer les courriels"
+msgstr "Resend emails"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.secure_transfer_view_form
+msgid "Expirer maintenant"
+msgstr "Expire now"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.secure_transfer_view_form
+msgid "Suspendre (abus)"
+msgstr "Suspend (abuse)"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.secure_transfer_view_form
+msgid "Purger les fichiers"
+msgstr "Purge files"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.secure_transfer_view_form
+msgid "Expéditeur"
+msgstr "Sender"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.secure_transfer_view_form
+msgid "Journal"
+msgstr "Log"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.secure_transfer_view_form
+msgid "Technique"
+msgstr "Technical"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.secure_transfer_view_form
+msgid "Cycle de vie"
+msgstr "Lifecycle"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.secure_transfer_view_form
+msgid "Origine"
+msgstr "Origin"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.secure_transfer_view_tree
+msgid "Taille (octets)"
+msgstr "Size (bytes)"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.secure_transfer_view_tree
+msgid "Protégé"
+msgstr "Protected"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.secure_transfer_view_search
+msgid "Brouillons"
+msgstr "Drafts"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.secure_transfer_view_search
+msgid "Actifs"
+msgstr "Active"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.secure_transfer_view_search
+msgid "Expirés"
+msgstr "Expired"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.secure_transfer_view_search
+msgid "Purgés"
+msgstr "Purged"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.secure_transfer_view_search
+msgid "Suspendus"
+msgstr "Suspended"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.secure_transfer_view_search
+msgid "Expire bientôt"
+msgstr "Expiring soon"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.secure_transfer_view_search
+msgid "Date de création"
+msgstr "Creation date"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.access_log_view_search
+msgid "Consultations"
+msgstr "Views"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.access_log_view_search
+msgid "Mots de passe erronés"
+msgstr "Wrong passwords"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.access_log_view_search
+msgid "Intégrité compromise"
+msgstr "Integrity compromised"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.access_log_view_search
+msgid "Signalements d'abus"
+msgstr "Abuse reports"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.access_log_view_search
+msgid "Liens révélés"
+msgstr "Revealed links"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.access_log_view_search
+msgid "Purges"
+msgstr "Purges"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.access_log_view_search
+msgid "Jour"
+msgstr "Day"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.brand_view_tree
+msgid "Défaut"
+msgstr "Default"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.brand_view_tree
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_upload
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_download
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_unavailable
+msgid "Propulsé par"
+msgstr "Powered by"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.brand_view_form
+msgid "Identité"
+msgstr "Identity"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.brand_view_form
+msgid "Visuels"
+msgstr "Visuals"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.brand_view_form
+msgid "Limites (0 = valeur par défaut de la configuration)"
+msgstr "Limits (0 = configuration default)"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.brand_view_form
+msgid "Options"
+msgstr "Options"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.brand_view_form
+msgid "Taille max. par transfert (Mo)"
+msgstr "Max. size per transfer (MB)"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.reveal_link_wizard_view_form
+msgid "Annuler"
+msgstr "Cancel"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.reveal_link_wizard_view_form
+msgid "Fermer"
+msgstr "Close"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_upload
+msgid "Envoyer des fichiers"
+msgstr "Send files"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_upload
+msgid "Lien à durée limitée, chiffrement en transit, suppression automatique à l'échéance."
+msgstr "Time-limited link, encryption in transit, automatic deletion at expiry."
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_upload
+msgid "JavaScript est requis pour téléverser des fichiers sur cette page."
+msgstr "JavaScript is required to upload files on this page."
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_upload
+msgid "Déposer des fichiers"
+msgstr "Drop files"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_upload
+msgid "Glissez vos fichiers ici ou cliquez pour parcourir"
+msgstr "Drag your files here or click to browse"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_upload
+msgid "Votre courriel *"
+msgstr "Your email *"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_upload
+msgid "Requis — vous recevrez un accusé d'envoi."
+msgstr "Required — you will receive a delivery receipt."
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_upload
+msgid "Votre nom"
+msgstr "Your name"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_upload
+msgid "Courriels des destinataires"
+msgstr "Recipient emails"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_upload
+msgid "Jusqu'à 10 adresses, séparées par des virgules. Laissez vide pour obtenir seulement le lien."
+msgstr "Up to 10 addresses, comma-separated. Leave empty to only get the link."
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_upload
+msgid "Durée de disponibilité"
+msgstr "Availability period"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_upload
+msgid "Mot de passe (optionnel)"
+msgstr "Password (optional)"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_upload
+msgid "Communiquez-le par un autre canal — il ne figure jamais dans les courriels."
+msgstr "Share it through another channel — it never appears in the emails."
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_upload
+msgid "Obtenir le lien"
+msgstr "Get the link"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_upload
+msgid "Transfert prêt"
+msgstr "Transfer ready"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_upload
+msgid "Voici votre lien de partage :"
+msgstr "Here is your share link:"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_upload
+msgid "Copier le lien"
+msgstr "Copy link"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_download
+msgid "Fichiers partagés"
+msgstr "Shared files"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_download
+msgid "Merci — votre signalement a été transmis à l'équipe."
+msgstr "Thank you — your report was forwarded to the team."
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_download
+msgid "Transfert protégé"
+msgstr "Protected transfer"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_download
+msgid "Ce transfert est protégé par un mot de passe. L'expéditeur vous l'a communiqué séparément."
+msgstr "This transfer is password-protected. The sender shared the password with you separately."
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_download
+msgid "Trop de tentatives. Réessayez dans quelques minutes."
+msgstr "Too many attempts. Try again in a few minutes."
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_download
+msgid "Mot de passe incorrect."
+msgstr "Incorrect password."
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_download
+msgid "Mot de passe"
+msgstr "Password"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_download
+msgid "Déverrouiller"
+msgstr "Unlock"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_download
+msgid "De la part de"
+msgstr "From"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_download
+msgid "Télécharger"
+msgstr "Download"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_download
+msgid "Disponible jusqu'au"
+msgstr "Available until"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_download
+msgid "Les fichiers seront ensuite supprimés définitivement."
+msgstr "The files will then be permanently deleted."
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_download
+msgid "Signaler ce transfert comme abusif ?"
+msgstr "Report this transfer as abusive?"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_download
+msgid "Signaler un abus"
+msgstr "Report abuse"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_unavailable
+msgid "Ce transfert n'est plus disponible"
+msgstr "This transfer is no longer available"
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_unavailable
+msgid "Le lien est peut-être expiré, ou l'adresse saisie est inexacte. Au besoin, demandez à l'expéditeur de créer un nouveau transfert."
+msgstr "The link may have expired, or the address entered is incorrect. If needed, ask the sender to create a new transfer."
+
+#. module: bf_securetransfer
+#: model:mail.template,name:bf_securetransfer.mail_template_transfer_link
+msgid "Transfert sécurisé — lien de téléchargement"
+msgstr "Secure transfer — download link"
+
+#. module: bf_securetransfer
+#: model:mail.template,subject:bf_securetransfer.mail_template_transfer_link
+msgid "{{ object.sender_name or object.sender_email }} vous a transmis des fichiers — {{ object.name }}"
+msgstr "{{ object.sender_name or object.sender_email }} sent you files — {{ object.name }}"
+
+#. module: bf_securetransfer
+#: model:mail.template,name:bf_securetransfer.mail_template_transfer_receipt
+msgid "Transfert sécurisé — accusé d'envoi"
+msgstr "Secure transfer — delivery receipt"
+
+#. module: bf_securetransfer
+#: model:mail.template,subject:bf_securetransfer.mail_template_transfer_receipt
+msgid "Votre transfert est en ligne — {{ object.name }}"
+msgstr "Your transfer is online — {{ object.name }}"
+
+#. module: bf_securetransfer
+#: model_terms:mail.template,body_html:bf_securetransfer.mail_template_transfer_link
+#: model_terms:mail.template,body_html:bf_securetransfer.mail_template_transfer_receipt
+msgid "Bonjour,"
+msgstr "Hello,"
+
+#. module: bf_securetransfer
+#: model_terms:mail.template,body_html:bf_securetransfer.mail_template_transfer_link
+msgid "De la part de :"
+msgstr "From:"
+
+#. module: bf_securetransfer
+#: model_terms:mail.template,body_html:bf_securetransfer.mail_template_transfer_link
+msgid "Télécharger les fichiers"
+msgstr "Download the files"
+
+#. module: bf_securetransfer
+#: model_terms:mail.template,body_html:bf_securetransfer.mail_template_transfer_link
+msgid "protégé par un mot de passe"
+msgstr "password-protected"
+
+#. module: bf_securetransfer
+#: model_terms:mail.template,body_html:bf_securetransfer.mail_template_transfer_link
+msgid "L'expéditeur vous le communiquera séparément (il ne figure jamais dans ce courriel)."
+msgstr "The sender will share it with you separately (it never appears in this email)."
+
+#. module: bf_securetransfer
+#: model_terms:mail.template,body_html:bf_securetransfer.mail_template_transfer_link
+msgid "après quoi les fichiers seront supprimés définitivement."
+msgstr "after which the files will be permanently deleted."
+
+#. module: bf_securetransfer
+#: model_terms:mail.template,body_html:bf_securetransfer.mail_template_transfer_link
+msgid "Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :"
+msgstr "If the button does not work, copy this link into your browser:"
+
+#. module: bf_securetransfer
+#: model_terms:mail.template,body_html:bf_securetransfer.mail_template_transfer_link
+msgid "Vous ne connaissez pas cet expéditeur ? N'ouvrez pas les fichiers et supprimez ce courriel."
+msgstr "You do not know this sender? Do not open the files and delete this email."
+
+#. module: bf_securetransfer
+#: model_terms:mail.template,body_html:bf_securetransfer.mail_template_transfer_receipt
+msgid "Transfert envoyé"
+msgstr "Transfer sent"
+
+#. module: bf_securetransfer
+#: model_terms:mail.template,body_html:bf_securetransfer.mail_template_transfer_receipt
+msgid "est en ligne."
+msgstr "is online."
+
+#. module: bf_securetransfer
+#: model_terms:mail.template,body_html:bf_securetransfer.mail_template_transfer_receipt
+msgid "Le lien de téléchargement a été envoyé à :"
+msgstr "The download link was sent to:"
+
+#. module: bf_securetransfer
+#: model_terms:mail.template,body_html:bf_securetransfer.mail_template_transfer_receipt
+msgid "Consulter le transfert"
+msgstr "View the transfer"
+
+#. module: bf_securetransfer
+#: model_terms:mail.template,body_html:bf_securetransfer.mail_template_transfer_receipt
+msgid "Rappel : ce transfert est protégé par un mot de passe."
+msgstr "Reminder: this transfer is password-protected."
+
+#. module: bf_securetransfer
+#: model_terms:mail.template,body_html:bf_securetransfer.mail_template_transfer_receipt
+msgid "Communiquez-le aux destinataires par un autre canal (téléphone, texto…), jamais par courriel."
+msgstr "Share it with the recipients through another channel (phone, text…), never by email."
+
+#. module: bf_securetransfer
+#: model_terms:mail.template,body_html:bf_securetransfer.mail_template_transfer_receipt
+msgid "les fichiers seront ensuite supprimés automatiquement et définitivement."
+msgstr "the files will then be deleted automatically and permanently."
+
+msgid "Bonjour %s, confirmez votre envoi avec ce code :"
+msgstr "Hello %s, confirm your transfer with this code:"
+
+msgid "Un expéditeur vous a partagé des fichiers via %s. Saisissez ce code pour y accéder :"
+msgstr "A sender shared files with you via %s. Enter this code to access them:"
+
+msgid "Ce code expire dans 15 minutes. Si vous n'êtes pas à l'origine de cette demande, ignorez ce courriel."
+msgstr "This code expires in 15 minutes. If you did not request it, please ignore this email."
+
+msgid "Votre code de confirmation — %s"
+msgstr "Your confirmation code — %s"
+
+msgid "Code de confirmation"
+msgstr "Confirmation code"

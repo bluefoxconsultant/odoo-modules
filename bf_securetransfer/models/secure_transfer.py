@@ -1,0 +1,1276 @@
+"""A secure transfer: a batch of files shared through a tokenized link.
+
+Lifecycle: draft (upload phase, capability = upload_token) → active (link
+live, capability = token) → expired (date, download budget, or operator)
+→ deleted (S3 purged, metadata + access trail KEPT) → hard GC after the log
+retention period (the only path that ever unlinks). Abandoned drafts are
+harvested to cancelled. suspended is the abuse kill-switch.
+
+All public entry points are called in sudo() by the controllers behind
+token checks — the public user has NO direct ACL on these models.
+"""
+import base64
+import csv
+import hashlib
+import hmac
+import io
+import logging
+import secrets
+import uuid
+from datetime import timedelta
+
+from passlib.context import CryptContext
+from werkzeug.utils import secure_filename
+
+from odoo import _, api, fields, models
+from odoo.exceptions import UserError
+from odoo.tools import email_normalize, email_split, html_escape
+
+from . import s3
+from .secure_transfer_file import DENY_EXTENSIONS
+
+_logger = logging.getLogger(__name__)
+
+# Same scheme res.users relies on — zero new dependency.
+_pwd_ctx = CryptContext(schemes=["pbkdf2_sha512"])
+
+MAX_RECIPIENTS = 10
+MAX_MESSAGE_LEN = 2000
+MAX_NAME_LEN = 128
+# Bucket sweep grace: an MPU younger than this may belong to a live upload.
+MPU_SWEEP_GRACE_HOURS = 48
+
+
+class SecureTransfer(models.Model):
+    _name = "secure.transfer"
+    _description = "Transfert sécurisé"
+    _inherit = ["mail.thread", "mail.activity.mixin"]
+    _order = "id desc"
+
+    name = fields.Char(
+        string="Référence", required=True, readonly=True, copy=False,
+        default=lambda self: _("Nouveau"),
+    )
+    # Two distinct capabilities (defense in depth): upload_token drives the
+    # draft/upload API and is rotated (killed) at finalize; token drives the
+    # /s/ share page and is inert until activation. Stored in clear
+    # (hash-at-rest would break link resend) but manager-only, with the
+    # logged reveal wizard as the only backend exposure path.
+    token = fields.Char(
+        string="Jeton de partage",
+        required=True,
+        index=True,
+        copy=False,
+        groups="bf_securetransfer.group_securetransfer_manager",
+        default=lambda self: uuid.uuid4().hex,
+    )
+    upload_token = fields.Char(
+        string="Jeton de téléversement",
+        required=True,
+        index=True,
+        copy=False,
+        groups="bf_securetransfer.group_securetransfer_manager",
+        default=lambda self: uuid.uuid4().hex,
+    )
+    # Opaque S3 prefix for this transfer's objects — never the tokens (a
+    # capability must not leak into bucket listings or presigned URLs).
+    s3_prefix = fields.Char(
+        string="Préfixe S3",
+        required=True,
+        readonly=True,
+        copy=False,
+        default=lambda self: uuid.uuid4().hex,
+    )
+    state = fields.Selection(
+        selection=[
+            ("draft", "Brouillon"),
+            ("active", "Actif"),
+            ("expired", "Expiré"),
+            ("deleted", "Supprimé"),
+            ("cancelled", "Annulé"),
+            ("suspended", "Suspendu"),
+        ],
+        string="État",
+        default="draft",
+        required=True,
+        copy=False,
+        tracking=True,
+        index=True,
+    )
+    brand_id = fields.Many2one(
+        "secure.transfer.brand",
+        string="Marque",
+        required=True,
+        ondelete="restrict",
+        index=True,
+    )
+    company_id = fields.Many2one(
+        related="brand_id.company_id", store=True, string="Société",
+    )
+    sender_name = fields.Char(string="Nom de l'expéditeur")
+    sender_email = fields.Char(
+        # Optional at draft creation (a file can be dropped first); required at
+        # finalize — enforced in action_finalize, not by a NOT NULL constraint.
+        string="Courriel de l'expéditeur", index=True,
+    )
+    recipient_emails = fields.Char(
+        string="Destinataires",
+        help="Adresses des destinataires, séparées par des virgules "
+             "(maximum %s)." % MAX_RECIPIENTS,
+    )
+    message = fields.Text(
+        string="Message",
+        help="Message de l'expéditeur (texte brut, rendu échappé — jamais "
+             "interprété comme HTML).",
+    )
+    locale = fields.Selection(
+        selection=[("fr_CA", "Français (Canada)"), ("en_CA", "English (Canada)")],
+        string="Langue",
+        default="fr_CA",
+        required=True,
+    )
+    retention_days = fields.Integer(string="Rétention (jours)", default=7)
+    expiry_date = fields.Datetime(string="Expire le", copy=False)
+    password_hash = fields.Char(
+        string="Empreinte du mot de passe",
+        copy=False,
+        groups="base.group_system",
+    )
+    has_password = fields.Boolean(
+        string="Protégé par mot de passe",
+        compute="_compute_has_password",
+        store=True,  # stored so the search filter « Protégé » can query it
+    )
+    max_downloads = fields.Integer(
+        string="Téléchargements max.",
+        default=0,
+        help="0 = illimité. Appliqué dès maintenant, non exposé au "
+             "formulaire public au MVP.",
+    )
+    download_count = fields.Integer(
+        string="Téléchargements", default=0, copy=False,
+    )
+    # Phase 2 placeholders — schema ready, hooks land at the _log choke-point.
+    burn_after_download = fields.Boolean(
+        string="Destruction après lecture (Phase 2)", default=False,
+    )
+    notify_on_download = fields.Boolean(
+        string="Notifier au téléchargement", default=False,
+    )
+    # Sender OTP (confirmation of send): when the tenant requires it, finalize
+    # emails a code to the sender and only activates once it is confirmed —
+    # proves the sender controls the From address (anti-spoof/piggyback).
+    sender_confirmed = fields.Boolean(default=False, copy=False)
+    sender_otp_hash = fields.Char(copy=False, groups="base.group_system")
+    sender_otp_expiry = fields.Datetime(copy=False)
+    sender_otp_fails = fields.Integer(default=0, copy=False)
+    # Float on purpose: Integer maps to int4 and overflows at 2.1 GB.
+    total_size = fields.Float(
+        string="Taille totale (octets)",
+        compute="_compute_total_size",
+        store=True,
+    )
+    file_ids = fields.One2many(
+        "secure.transfer.file", "transfer_id", string="Fichiers",
+    )
+    file_count = fields.Integer(compute="_compute_file_count", string="Fichiers (nb)")
+    access_log_ids = fields.One2many(
+        "secure.transfer.access.log", "transfer_id", string="Journal d'accès",
+    )
+    ip_created = fields.Char(string="IP de création", readonly=True, index=True)
+    ua_created = fields.Char(string="Agent utilisateur (création)", readonly=True)
+    finalized_at = fields.Datetime(string="Finalisé le", readonly=True, copy=False)
+    purged_at = fields.Datetime(string="Purgé le", readonly=True, copy=False)
+    purge_error_count = fields.Integer(
+        string="Échecs de purge", default=0, copy=False,
+    )
+
+    _sql_constraints = [
+        ("token_uniq", "unique(token)", "Ce jeton de partage existe déjà."),
+        ("upload_token_uniq", "unique(upload_token)",
+         "Ce jeton de téléversement existe déjà."),
+    ]
+
+    # ------------------------------------------------------------------ computes / CRUD
+    @api.depends("file_ids.size")
+    def _compute_total_size(self):
+        for rec in self:
+            rec.total_size = sum(rec.file_ids.mapped("size"))
+
+    @api.depends("file_ids")
+    def _compute_file_count(self):
+        for rec in self:
+            rec.file_count = len(rec.file_ids)
+
+    @api.depends("password_hash")
+    def _compute_has_password(self):
+        for rec in self:
+            # sudo: password_hash is group-restricted; only its presence leaks.
+            rec.has_password = bool(rec.sudo().password_hash)
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if not vals.get("name") or vals["name"] == _("Nouveau"):
+                vals["name"] = (
+                    self.env["ir.sequence"].next_by_code("secure.transfer")
+                    or _("Nouveau")
+                )
+        return super().create(vals_list)
+
+    def unlink(self):
+        # Metadata + access trail survive the S3 purge by design (Loi 25).
+        # The only legal deletion path is the hard GC after the retention
+        # period, which sets the st_gc context.
+        if not self.env.context.get("st_gc"):
+            raise UserError(_(
+                "Les transferts ne se suppriment pas : le journal d'accès "
+                "doit être conservé. Utilisez « Expirer » ou « Purger »."
+            ))
+        return super().unlink()
+
+    # ------------------------------------------------------------------ journal choke-point
+    def _log(self, action, file=None, ip=None, ua=None, actor=None, note=None):
+        """EVERY event goes through here (single choke-point — the Phase 2
+        burn/notify hooks plug into this seam). Delegates to the append-only
+        chained log in sudo."""
+        self.ensure_one()
+        return self.env["secure.transfer.access.log"].sudo()._append(
+            self, action, file=file, ip=ip, user_agent=ua, actor=actor, note=note,
+        )
+
+    # ------------------------------------------------------------------ locking / quotas
+    def _lock_row(self):
+        """Row lock (SELECT ... FOR UPDATE) serializing quota checks,
+        finalize and download accounting across workers. flush+invalidate so
+        the ORM re-reads the row as the lock winner left it."""
+        self.ensure_one()
+        self.env.flush_all()  # pending ORM writes must hit the DB first
+        self.env.cr.execute(
+            "SELECT id FROM secure_transfer WHERE id = %s FOR UPDATE",
+            (self.id,),
+        )
+        self.invalidate_recordset()
+
+    @api.model
+    def _day_start(self):
+        """Start of the current UTC day (create_date is naive UTC)."""
+        return fields.Datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
+    @api.model
+    def _daily_usage(self, domain):
+        """(count, declared_bytes) of today's transfers matching ``domain``.
+        DB counters (not in-memory dicts): per-worker dicts reset and lie
+        about daily quotas."""
+        rows = self.sudo()._read_group(
+            [("create_date", ">=", self._day_start())] + domain,
+            groupby=[],
+            aggregates=["__count", "total_size:sum"],
+        )
+        count, declared = rows[0] if rows else (0, 0.0)
+        return int(count or 0), float(declared or 0.0)
+
+    @api.model
+    def _check_sender_quota(self, sender_email):
+        """Per-sender daily transfer quota, under an advisory lock (TOCTOU).
+        Raises UserError when exceeded. Called at create (if the e-mail is
+        known then) and at finalize."""
+        self.env.cr.execute("SELECT pg_advisory_xact_lock(hashtext(%s))",
+                            ("bf_st_create_sender:" + (sender_email or ""),))
+        quota = s3._int_param(self.env, "quota_daily_transfers_per_sender", 5)
+        count, _b = self._daily_usage([("sender_email", "=", sender_email)])
+        if count >= quota:
+            raise UserError(_(
+                "Limite quotidienne de transferts atteinte pour cette "
+                "adresse d'expéditeur. Réessayez demain."))
+
+    # ------------------------------------------------------------------ public API — create
+    @api.model
+    def api_create(self, brand, vals, ip, ua, locale):
+        """Create a draft transfer for the public upload page. Validates
+        everything server-side and enforces the daily DB quotas (IP +
+        sender email). Raises UserError with a safe message on any refusal.
+        """
+        limits = brand._effective_limits()
+
+        # Email is OPTIONAL at draft creation (the browser creates the draft as
+        # soon as the user starts, before filling the form), and REQUIRED at
+        # finalize. This is what lets a file be dropped before the e-mail is
+        # typed without an error. When present, it is validated here too.
+        sender_email = email_normalize(vals.get("sender_email") or "")
+        if sender_email and not brand._sender_allowed(sender_email):
+            raise UserError(_(
+                "Cette adresse courriel n'est pas autorisée à envoyer depuis "
+                "ce service. Contactez l'administrateur de cette instance."
+            ))
+        sender_name = self._clean_line(vals.get("sender_name"), MAX_NAME_LEN)
+
+        # Drop page ("Dropbox"-style): the recipient is FORCED to the brand's
+        # single fixed address, whatever the client submitted — the page can
+        # only ever send to its owner (no piggyback, no redirection).
+        if brand.fixed_recipient:
+            recipients = [brand._drop_recipient()]
+        else:
+            recipients = self._clean_recipients(vals.get("recipient_emails"))
+            # Anti-piggyback (destination side): a locked instance may only send
+            # to its own domain(s). Reject the transfer if any recipient is off.
+            bad = [r for r in recipients if not brand._recipient_allowed(r)]
+            if bad:
+                raise UserError(_(
+                    "Ce service n'autorise l'envoi qu'à certaines adresses. "
+                    "Destinataire(s) non autorisé(s) : %s", ", ".join(bad)))
+
+        message = (vals.get("message") or "").strip()
+        if len(message) > MAX_MESSAGE_LEN:
+            raise UserError(_(
+                "Le message est limité à %s caractères.", MAX_MESSAGE_LEN,
+            ))
+
+        try:
+            retention = int(vals.get("retention_days") or 0)
+        except (TypeError, ValueError):
+            retention = 0
+        if not retention:
+            choices = limits["expiry_choices"]
+            retention = 7 if 7 in choices else choices[-1]
+        if retention not in limits["expiry_choices"]:
+            raise UserError(_("Durée de rétention non offerte pour ce service."))
+
+        try:
+            max_downloads = max(0, int(vals.get("max_downloads") or 0))
+        except (TypeError, ValueError):
+            max_downloads = 0
+
+        # -- daily quotas (counted on creation regardless of final state:
+        #    an abandoned draft still consumed the quota — anti-abuse).
+        #    Serialize the count-then-create per IP and per sender with
+        #    transaction-scoped advisory locks: without them, concurrent
+        #    requests all read the same pre-commit count and every quota is
+        #    bypassed by a burst (TOCTOU). The locks release at commit/rollback.
+        cr = self.env.cr
+        cr.execute("SELECT pg_advisory_xact_lock(hashtext(%s))",
+                   ("bf_st_create_ip:" + (ip or ""),))
+        quota_ip = s3._int_param(self.env, "quota_daily_transfers_per_ip", 25)
+        count_ip, _bytes_ip = self._daily_usage([("ip_created", "=", ip or "")])
+        if count_ip >= quota_ip:
+            raise UserError(_(
+                "Limite quotidienne de transferts atteinte pour votre "
+                "connexion. Réessayez demain."
+            ))
+        # The per-sender quota needs the e-mail; enforced at finalize (see
+        # _check_sender_quota) since the e-mail may be blank at draft creation.
+        if sender_email:
+            self._check_sender_quota(sender_email)
+
+        rec = self.create({
+            "brand_id": brand.id,
+            "sender_name": sender_name,
+            "sender_email": sender_email,
+            "recipient_emails": ", ".join(recipients),
+            "message": message,
+            "retention_days": retention,
+            "max_downloads": max_downloads,
+            # Inherit the brand's download-notification policy at creation.
+            "notify_on_download": brand.notify_on_download,
+            "locale": locale if locale in ("fr_CA", "en_CA") else "fr_CA",
+            "ip_created": ip or "",
+            "ua_created": (ua or "")[:512],
+            "state": "draft",
+        })
+        rec._log(
+            "created", ip=ip, ua=ua,
+            note=_("Expéditeur %s, %s destinataire(s), rétention %s jour(s)")
+            % (sender_email, len(recipients), retention),
+        )
+        return rec
+
+    @staticmethod
+    def _clean_line(value, maxlen):
+        """One display line: control chars / CR-LF stripped (anti-spoofing,
+        anti log-injection), length capped."""
+        raw = (value or "").strip()
+        return "".join(
+            c for c in raw if c.isprintable() and c not in "\r\n"
+        )[:maxlen]
+
+    @api.model
+    def _clean_recipients(self, raw):
+        """Normalize, validate and dedupe the recipient list (≤10). An empty
+        list is allowed: link-only mode — the sender receives the link in the
+        receipt and shares it themselves."""
+        if isinstance(raw, (list, tuple)):
+            raw = ",".join(str(r) for r in raw)
+        recipients = []
+        for addr in email_split(raw or ""):
+            normalized = email_normalize(addr)
+            if not normalized:
+                raise UserError(_("Adresse de destinataire invalide."))
+            if normalized not in recipients:
+                recipients.append(normalized)
+        if len(recipients) > MAX_RECIPIENTS:
+            raise UserError(_(
+                "Maximum %s destinataires par transfert.", MAX_RECIPIENTS,
+            ))
+        return recipients
+
+    # ------------------------------------------------------------------ public API — files
+    def _register_file(self, filename, size):
+        """Register one file on a draft transfer under the row lock: name
+        sanitation, deny-list, per-transfer and daily-IP quotas, server-side
+        key/mimetype, upload mode decision. Returns the file record."""
+        self.ensure_one()
+        self._lock_row()
+        if self.state != "draft":
+            raise UserError(_("Ce transfert n'accepte plus de fichiers."))
+        limits = self.brand_id._effective_limits()
+
+        # -- name sanitation (bf_survey_upload pattern): secure_filename
+        # strips Unicode so it only derives a safe extension; the stored
+        # display name keeps Unicode but drops path components, control
+        # chars and CR-LF, capped at 255.
+        stripped = secure_filename(filename or "") or ""
+        ext = stripped.rsplit(".", 1)[-1].lower() if "." in stripped else ""
+        if not ext:
+            raise UserError(_("Le fichier doit avoir une extension."))
+        if ext in DENY_EXTENSIONS:
+            raise UserError(_(
+                "Le format « .%s » n'est pas autorisé pour des raisons de "
+                "sécurité.", ext,
+            ))
+        raw_name = (filename or "").replace("\\", "/").rsplit("/", 1)[-1]
+        display_name = "".join(
+            c for c in raw_name if c.isprintable() and c not in "\r\n"
+        )[:255] or stripped or "fichier"
+
+        try:
+            size = float(size)
+        except (TypeError, ValueError):
+            raise UserError(_("Taille de fichier invalide."))
+        if size <= 0:
+            raise UserError(_("Taille de fichier invalide."))
+
+        # -- per-transfer limits
+        if len(self.file_ids) >= limits["max_files"]:
+            raise UserError(_(
+                "Maximum %s fichiers par transfert.", limits["max_files"],
+            ))
+        declared = sum(self.file_ids.mapped("size"))
+        if declared + size > limits["max_bytes"]:
+            raise UserError(_(
+                "La taille totale dépasse la limite de %s Mo de ce service.",
+                limits["max_bytes"] // (1024 * 1024),
+            ))
+
+        # -- daily declared-bytes quota per IP (this transfer's already
+        #    registered files are included via the stored total_size)
+        quota_mb = s3._int_param(self.env, "quota_daily_bytes_per_ip_mb", 10240)
+        _count, day_bytes = self._daily_usage(
+            [("ip_created", "=", self.ip_created or "")],
+        )
+        if day_bytes + size > quota_mb * 1024 * 1024:
+            raise UserError(_(
+                "Limite quotidienne de volume atteinte pour votre connexion. "
+                "Réessayez demain."
+            ))
+
+        threshold = s3._int_param(self.env, "multipart_threshold_mb", 64) * 1024 * 1024
+        FileModel = self.env["secure.transfer.file"]
+        return FileModel.create({
+            "transfer_id": self.id,
+            "filename": display_name,
+            "extension": ext,
+            "size": size,
+            # Server-derived, never client-provided; informative only.
+            "mimetype": FileModel._guess_mimetype(display_name),
+            "s3_key": FileModel._key_for(self),
+            "upload_mode": "multipart" if size > threshold else "simple",
+            "state": "pending",
+        })
+
+    # ------------------------------------------------------------------ finalize
+    def action_finalize(self, password=None):
+        """Verify every file on S3 (HEAD: exists + exact size, ETag pinned),
+        rotate the upload token, arm the expiry, activate and send the
+        emails. Idempotent under the row lock: a duplicate call on an
+        already-active transfer returns the same payload."""
+        self.ensure_one()
+        self._lock_row()
+        if self.state == "active":
+            return {
+                "share_url": self._share_url(),
+                "expiry_date": fields.Datetime.to_string(self.expiry_date),
+            }
+        if self.state != "draft":
+            raise UserError(_("Ce transfert ne peut plus être finalisé."))
+        # E-mail is required to SEND (it may have been blank while dropping
+        # files). Validate + allowlist + per-sender quota here.
+        if not self.sender_email:
+            raise UserError(_("Une adresse courriel d'expéditeur est requise."))
+        if not self.brand_id._sender_allowed(self.sender_email):
+            raise UserError(_(
+                "Cette adresse courriel n'est pas autorisée à envoyer depuis "
+                "ce service."))
+        self._check_sender_quota(self.sender_email)
+        # Drop page guarantor: re-force the fixed recipient at send time too,
+        # so a finalize call that carried a different address can never
+        # redirect the transfer away from the page owner.
+        if self.brand_id.fixed_recipient:
+            forced = self.brand_id._drop_recipient()
+            if self.recipient_emails != forced:
+                self.recipient_emails = forced
+        # A transfer must carry SOMETHING: files, or a message (message-only
+        # mode — a secure note, e.g. a password).
+        if not self.file_ids and not (self.message or "").strip():
+            raise UserError(_("Ajoutez au moins un fichier ou un message."))
+        for f in self.file_ids:
+            if f.s3_upload_id:
+                raise UserError(_(
+                    "Le téléversement de « %s » n'est pas terminé.", f.filename,
+                ))
+            if not f._verify_on_s3():
+                raise UserError(_(
+                    "Le fichier « %s » n'a pas été téléversé correctement. "
+                    "Retirez-le ou téléversez-le de nouveau.", f.filename,
+                ))
+        if password:
+            if not self.brand_id.allow_password:
+                raise UserError(_(
+                    "Le mot de passe n'est pas offert pour ce service."
+                ))
+            self._set_password(password)
+
+        # Sender OTP gate (tenant setting): don't activate yet — email a code
+        # to the sender and require confirmation first. The password is already
+        # stored above, so it survives the confirm round-trip.
+        if self._needs_sender_otp():
+            self._send_sender_otp()
+            return {"otp_required": "sender"}
+
+        return self._activate()
+
+    def _activate(self):
+        """Flip a verified draft to active: rotate the upload token, arm the
+        expiry, send the branded emails. Shared by the direct finalize and the
+        sender-OTP confirmation path."""
+        self.ensure_one()
+        now = fields.Datetime.now()
+        expiry = now + timedelta(days=self.retention_days or 7)
+        self.write({
+            # Rotation: the draft/upload capability dies here.
+            "upload_token": uuid.uuid4().hex,
+            "expiry_date": expiry,
+            "finalized_at": now,
+            "state": "active",
+        })
+        self._log(
+            "finalized",
+            note=_("%s fichier(s), %.0f octet(s), expiration le %s")
+            % (len(self.file_ids), self.total_size,
+               fields.Datetime.to_string(expiry)),
+        )
+        self._send_link_emails()
+        return {
+            "share_url": self._share_url(),
+            "expiry_date": fields.Datetime.to_string(expiry),
+        }
+
+    # ------------------------------------------------------------------ OTP
+    @staticmethod
+    def _otp_hash(code):
+        return hashlib.sha256(("bf_st_otp:" + (code or "")).encode()).hexdigest()
+
+    @api.model
+    def _needs_sender_otp_param(self):
+        return (s3.param(self.env, "require_sender_otp", "0") or "").strip().lower() \
+            in ("1", "true", "yes")
+
+    @api.model
+    def _needs_recipient_otp_param(self):
+        return (s3.param(self.env, "require_recipient_otp", "0") or "").strip().lower() \
+            in ("1", "true", "yes")
+
+    def _needs_sender_otp(self):
+        self.ensure_one()
+        return self._needs_sender_otp_param() and not self.sender_confirmed
+
+    def _brand_email_shell(self, heading, inner_html):
+        """Wrap ``inner_html`` in the branded email skeleton (dark header band
+        with logo/name + accent bar + white card). Shared by the OTP and abuse
+        emails so every Python-built message matches the pages."""
+        self.ensure_one()
+        v = self.brand_id._visuals()
+        base = self.brand_id._share_base_url()
+        logo = v.get("logo_url") or ""
+        if logo and not logo.startswith("http"):
+            logo = base + logo
+        head = (
+            '<img src="%s" alt="" style="height:36px;display:block;border:0;"/>'
+            % logo if logo else
+            '<span style="color:#fff;font-size:18px;font-weight:700;">%s</span>'
+            % html_escape(v["name"]))
+        return (
+            '<div style="font-family:Lexend,system-ui,Arial,sans-serif;color:#2D3031;'
+            'font-size:14px;line-height:1.55;max-width:600px;margin:0 auto;">'
+            '<div style="background:%(dark)s;padding:18px 24px;border-radius:10px 10px 0 0;">'
+            '<table role="presentation" width="100%%" cellpadding="0" cellspacing="0" '
+            'border="0"><tbody><tr><td>%(head)s</td>'
+            '<td align="right" style="color:#fff;font-size:16px;font-weight:700;">%(heading)s</td>'
+            '</tr></tbody></table></div>'
+            '<div style="height:4px;background:%(primary)s;"></div>'
+            '<div style="background:#fff;border:1px solid #e3e7eb;border-top:0;padding:24px;'
+            'border-radius:0 0 10px 10px;">%(inner)s</div></div>' % {
+                "dark": html_escape(v["dark"]), "primary": html_escape(v["primary"]),
+                "head": head, "heading": html_escape(heading), "inner": inner_html,
+            })
+
+    def _brand_email_from(self):
+        self.ensure_one()
+        return (self.brand_id.email_from or self.company_id.email_formatted
+                or self.env.user.email_formatted)
+
+    def _otp_email(self, to_email, code, kind):
+        """Send a branded 6-digit-code email. The intro is built HERE (not
+        passed in) so it renders in this recordset's context language — call
+        via ``self.with_context(lang=…)._otp_email(...)`` for the contact's
+        language. ``kind`` is 'sender' or 'recipient'."""
+        self.ensure_one()
+        if kind == "sender":
+            intro = _("Bonjour %s, confirmez votre envoi avec ce code :") \
+                % (self.sender_name or "")
+        else:
+            intro = _("Un expéditeur vous a partagé des fichiers via %s. "
+                      "Saisissez ce code pour y accéder :") \
+                % self.brand_id._visuals()["name"]
+        inner = (
+            '<p>%s</p>'
+            '<p style="text-align:center;margin:24px 0;">'
+            '<span style="display:inline-block;font-size:30px;font-weight:700;'
+            'letter-spacing:8px;background:#f4f6f8;border-radius:8px;padding:14px 24px;'
+            'color:%s;">%s</span></p>'
+            '<p style="color:#777;font-size:12px;">%s</p>'
+            % (html_escape(intro), html_escape(self.brand_id._visuals()["dark"]), code,
+               html_escape(_("Ce code expire dans 15 minutes. Si vous n'êtes pas "
+                             "à l'origine de cette demande, ignorez ce courriel."))))
+        self.env["mail.mail"].sudo().create({
+            "subject": _("Votre code de confirmation — %s") % self.name,
+            "email_from": self._brand_email_from(),
+            "email_to": to_email,
+            "body_html": self._brand_email_shell(_("Code de confirmation"), inner),
+            "auto_delete": True,
+        }).send()
+
+    def _send_abuse_notice(self, reason=None, ip=None):
+        """On an abuse report: alert the abuse desk (full detail) and warn the
+        transfer's recipients (neutral). The desk address is a tenant param,
+        falling back to the company e-mail."""
+        self.ensure_one()
+        abuse_email = (s3.param(self.env, "abuse_email", "")
+                       or (self.env.company.email or "")).strip()
+        from_addr = self._brand_email_from()
+        # 1) Abuse desk — full detail for the reviewer.
+        detail = (
+            '<p>Un transfert a été <strong>signalé comme abusif</strong> et '
+            '<strong>suspendu automatiquement</strong> en attente de revue.</p>'
+            '<table role="presentation" style="font-size:13px;color:#444;">'
+            '<tbody>%s</tbody></table>'
+            '<p style="margin-top:16px;color:#777;font-size:12px;">Réactivez (faux '
+            'signalement) ou purgez (abus confirmé) le transfert dans Odoo → '
+            'Transfert sécurisé.</p>' % "".join(
+                '<tr><td style="padding:2px 12px 2px 0;"><strong>%s</strong></td>'
+                '<td>%s</td></tr>' % (k, html_escape(v or "—"))
+                for k, v in [
+                    ("Référence", self.name),
+                    ("Marque", self.brand_id.name),
+                    ("Expéditeur", "%s <%s>" % (self.sender_name or "", self.sender_email or "")),
+                    ("Destinataires", self.recipient_emails or ""),
+                    ("Motif", reason or ""),
+                    ("IP du signalement", ip or ""),
+                ]))
+        if abuse_email:
+            self.env["mail.mail"].sudo().create({
+                "subject": _("[Abus] Transfert signalé et suspendu — %s") % self.name,
+                "email_from": from_addr,
+                "email_to": abuse_email,
+                "body_html": self._brand_email_shell(_("Signalement d'abus"), detail),
+                "auto_delete": True,
+            }).send()
+        # 2) Recipients — neutral notice (no reason/IP leaked).
+        if self.recipient_emails:
+            notice = (
+                '<p>Bonjour,</p>'
+                '<p>Un transfert de fichiers qui vous a été partagé a été '
+                '<strong>signalé et temporairement suspendu</strong> le temps '
+                'd\'une vérification. Le lien est indisponible pour l\'instant.</p>'
+                '<p style="color:#777;font-size:12px;">Vous n\'avez rien à faire. '
+                'Si le transfert est légitime, il sera rétabli après revue.</p>')
+            self.env["mail.mail"].sudo().create({
+                "subject": _("Transfert suspendu pour vérification — %s") % self.name,
+                "email_from": from_addr,
+                "email_to": self.recipient_emails,
+                "body_html": self._brand_email_shell(_("Transfert suspendu"), notice),
+                "auto_delete": True,
+            }).send()
+
+    def _send_sender_otp(self):
+        """Generate a fresh 6-digit code, store its hash (15 min TTL), and
+        email it to the sender."""
+        self.ensure_one()
+        code = "%06d" % secrets.randbelow(1_000_000)
+        self.write({
+            "sender_otp_hash": self._otp_hash(code),
+            "sender_otp_expiry": fields.Datetime.now() + timedelta(minutes=15),
+            "sender_otp_fails": 0,
+        })
+        self.with_context(lang=self._lang_for_email(self.sender_email))._otp_email(
+            self.sender_email, code, "sender")
+        self._log("otp_sent", actor=self.sender_email,
+                  note=_("Code de confirmation envoyé à l'expéditeur"))
+
+    def confirm_sender_otp(self, code):
+        """Verify the sender code and, on success, activate the transfer.
+        Returns the same payload as finalize. Raises UserError on a bad or
+        expired code."""
+        self.ensure_one()
+        self._lock_row()
+        if self.state == "active":
+            return {"share_url": self._share_url(),
+                    "expiry_date": fields.Datetime.to_string(self.expiry_date)}
+        if self.state != "draft" or not self.sudo().sender_otp_hash:
+            raise UserError(_("Aucune confirmation n'est en attente."))
+        if self.sender_otp_fails >= 8:
+            raise UserError(_("Trop de tentatives. Demandez un nouveau code."))
+        expiry = self.sudo().sender_otp_expiry
+        if not expiry or expiry < fields.Datetime.now():
+            raise UserError(_("Le code a expiré. Demandez-en un nouveau."))
+        if not hmac.compare_digest(
+                self.sudo().sender_otp_hash, self._otp_hash((code or "").strip())):
+            self.sender_otp_fails += 1
+            self._log("otp_fail", actor=self.sender_email)
+            raise UserError(_("Code invalide."))
+        self.write({
+            "sender_confirmed": True,
+            "sender_otp_hash": False,
+            "sender_otp_expiry": False,
+        })
+        self._log("otp_ok", actor=self.sender_email,
+                  note=_("Expéditeur confirmé par code"))
+        return self._activate()
+
+    # -- recipient OTP (download gate). The challenge is held in the visitor's
+    #    session by the controller (per-browser, no cross-recipient clobber);
+    #    the model only validates the target and sends the code.
+    def _is_recipient_email(self, email):
+        self.ensure_one()
+        email = email_normalize(email or "") or ""
+        if not email:
+            return False
+        return email in [
+            email_normalize(e) for e in (self.recipient_emails or "").split(",")
+            if e.strip()
+        ]
+
+    def send_recipient_otp(self, email, ip=None, ua=None):
+        """Email a fresh code to a declared recipient. Returns
+        ``(hash, expiry_datetime)`` for the controller to stash in the session,
+        or (None, None) when the email is not one of the recipients."""
+        self.ensure_one()
+        if not self._is_recipient_email(email):
+            return None, None
+        email = email_normalize(email)
+        code = "%06d" % secrets.randbelow(1_000_000)
+        expiry = fields.Datetime.now() + timedelta(minutes=15)
+        self.with_context(lang=self._lang_for_email(email))._otp_email(
+            email, code, "recipient")
+        self._log("otp_sent", actor=email, ip=ip, ua=ua,
+                  note=_("Code de confirmation envoyé au destinataire"))
+        return self._otp_hash(code), expiry
+
+    # ------------------------------------------------------------------ password
+    def _set_password(self, pw):
+        self.ensure_one()
+        self.sudo().write({"password_hash": _pwd_ctx.hash(pw)})
+
+    def _check_password(self, pw):
+        """Constant-time verification (passlib). A transfer without a
+        password always passes — the caller logs password_ok/password_fail."""
+        self.ensure_one()
+        stored = self.sudo().password_hash
+        if not stored:
+            return True
+        try:
+            return _pwd_ctx.verify(pw or "", stored)
+        except ValueError:
+            return False
+
+    # ------------------------------------------------------------------ availability / download
+    def _is_available(self):
+        """(available, reason). Reasons feed the neutral public pages:
+        not_found / expired / suspended — never internal detail."""
+        self.ensure_one()
+        if self.state in ("draft", "cancelled"):
+            return False, "not_found"
+        if self.state == "suspended":
+            return False, "suspended"
+        if self.state in ("expired", "deleted"):
+            return False, "expired"
+        if self.expiry_date and self.expiry_date <= fields.Datetime.now():
+            return False, "expired"
+        if self.max_downloads and self.download_count >= self.max_downloads:
+            return False, "expired"
+        return True, ""
+
+    def _register_download(self, file, ip, ua):
+        """Account one download under the row lock: re-check availability
+        (two racing downloads must not both pass a budget of 1), bump the
+        counters, expire when the budget is spent."""
+        self.ensure_one()
+        self._lock_row()
+        available, _reason = self._is_available()
+        if not available:
+            raise UserError(_("Ce transfert n'est plus disponible."))
+        self.download_count += 1
+        file.download_count += 1
+        self._log("download", file=file, ip=ip, ua=ua, note=file.filename)
+        # Notify the sender on the FIRST download (once per transfer, not per
+        # file — avoids a burst of notices on a multi-file transfer).
+        if self.notify_on_download and self.download_count == 1 and self.sender_email:
+            self._notify_download()
+        # Burn-after-download: the link dies right after the first download.
+        # The presigned GET already issued (short TTL) finishes the in-flight
+        # download; the purge cron then removes the S3 object. (A stricter
+        # immediate purge is impossible with the direct-to-S3 redirect model —
+        # deleting now would 404 the in-flight fetch.)
+        if self.burn_after_download:
+            self.state = "expired"
+            self._log("expired", note=_("Détruit après lecture (burn)"))
+        elif self.max_downloads and self.download_count >= self.max_downloads:
+            self.state = "expired"
+            self._log("expired", note=_("Budget de téléchargements épuisé"))
+
+    def _notify_download(self):
+        """Queue the 'your transfer was downloaded' notice to the sender."""
+        self.ensure_one()
+        tmpl = self.env.ref(
+            "bf_securetransfer.mail_template_download_notice",
+            raise_if_not_found=False,
+        )
+        if not tmpl:
+            return
+        tmpl.sudo().with_context(
+            lang=self._lang_for_email(self.sender_email)).send_mail(
+            self.id, force_send=False,
+        )
+        self._log("notified", actor="system",
+                  note=_("Avis de téléchargement envoyé à l'expéditeur"))
+
+    def _share_url(self):
+        self.ensure_one()
+        return "%s/s/%s" % (
+            self.brand_id._share_base_url(), self.sudo().token,
+        )
+
+    # ------------------------------------------------------------------ emails
+    def _lang_for_email(self, email):
+        """The matching Odoo contact's language when the email is a known
+        res.partner, else the transfer's own locale. Lets each message go out
+        in the recipient's language rather than a single transfer-wide one."""
+        self.ensure_one()
+        email = email_normalize(email or "") or ""
+        if email:
+            partner = self.env["res.partner"].sudo().search(
+                [("email", "=ilike", email)], limit=1)
+            if partner and partner.lang:
+                return partner.lang
+        return self.locale or "fr_CA"
+
+    def _send_link_emails(self):
+        """Queue the branded emails: the download link to EACH recipient (in
+        that recipient's contact language when known) and the receipt to the
+        sender (in the sender's language). The password is NEVER included; the
+        share link always rides the brand domain, never web.base.url."""
+        link_tmpl = self.env.ref(
+            "bf_securetransfer.mail_template_transfer_link",
+            raise_if_not_found=False,
+        )
+        receipt_tmpl = self.env.ref(
+            "bf_securetransfer.mail_template_transfer_receipt",
+            raise_if_not_found=False,
+        )
+        for rec in self:
+            recipients = [r.strip() for r in (rec.recipient_emails or "").split(",")
+                          if r.strip()]
+            if link_tmpl:
+                # One email per recipient so each renders in their own language.
+                for r in recipients:
+                    link_tmpl.sudo().with_context(
+                        lang=rec._lang_for_email(r)).send_mail(
+                        rec.id, force_send=False, email_values={"email_to": r})
+            if receipt_tmpl:
+                receipt_tmpl.sudo().with_context(
+                    lang=rec._lang_for_email(rec.sender_email)).send_mail(
+                    rec.id, force_send=False)
+            rec._log(
+                "emailed",
+                note=_("Lien envoyé à : %s ; accusé à : %s")
+                % (rec.recipient_emails or _("(aucun — mode lien seul)"),
+                   rec.sender_email),
+            )
+
+    # ------------------------------------------------------------------ operator buttons
+    def action_expire_now(self):
+        """Kill the link immediately; the purge cron reclaims the objects."""
+        for rec in self:
+            if rec.state != "active":
+                raise UserError(_("Seul un transfert actif peut être expiré."))
+            rec.state = "expired"
+            rec._log(
+                "expired", actor=self.env.user.login,
+                note=_("Expiration manuelle"),
+            )
+        return True
+
+    def action_suspend(self):
+        """Abuse kill-switch: the link goes dark but nothing is purged yet
+        (evidence preservation)."""
+        for rec in self:
+            if rec.state not in ("active", "expired"):
+                raise UserError(_(
+                    "Seul un transfert actif ou expiré peut être suspendu."
+                ))
+            rec.state = "suspended"
+            rec._log(
+                "suspended", actor=self.env.user.login,
+                note=_("Suspension manuelle (abus)"),
+            )
+        return True
+
+    def _suspend_for_abuse(self, ip=None, ua=None):
+        """Auto-suspend on an abuse report: the link goes dark IMMEDIATELY and
+        stays dark until an admin reactivates or purges. Idempotent — only an
+        active/expired transfer flips (a suspended/deleted one is left as is).
+        Nothing is purged (evidence preservation)."""
+        self.ensure_one()
+        if self.state in ("active", "expired"):
+            self.sudo().state = "suspended"
+            self._log(
+                "suspended", ip=ip, ua=ua, actor="signalement",
+                note=_("Suspendu automatiquement suite à un signalement d'abus "
+                       "— en attente d'une revue par l'administrateur"),
+            )
+
+    def action_reactivate(self):
+        """Admin restores a wrongly-reported transfer (suspended → active),
+        provided it is still within its expiry and its files are intact."""
+        for rec in self:
+            if rec.state != "suspended":
+                raise UserError(_("Seul un transfert suspendu peut être réactivé."))
+            if rec.purged_at or not rec.file_ids.filtered(
+                    lambda f: f.state == "verified"):
+                raise UserError(_(
+                    "Ce transfert ne peut plus être réactivé : ses fichiers ont "
+                    "été purgés."))
+            if rec.expiry_date and rec.expiry_date < fields.Datetime.now():
+                raise UserError(_(
+                    "Ce transfert est expiré ; réactivation impossible."))
+            rec.state = "active"
+            rec._log(
+                "reactivated", actor=self.env.user.login,
+                note=_("Réactivé après revue (signalement écarté)"),
+            )
+        return True
+
+    def action_purge_now(self):
+        """Expire if needed, then purge the S3 objects immediately. Manager
+        only — this is destructive on the storage side."""
+        if not self.env.user.has_group(
+            "bf_securetransfer.group_securetransfer_manager"
+        ):
+            raise UserError(_(
+                "Action réservée aux gestionnaires du transfert sécurisé."
+            ))
+        for rec in self:
+            if rec.state == "active":
+                rec.state = "expired"
+                rec._log(
+                    "expired", actor=self.env.user.login,
+                    note=_("Expiration manuelle (purge immédiate)"),
+                )
+            if rec.state not in ("draft", "expired", "suspended"):
+                continue  # already deleted/cancelled — nothing to purge
+            rec._purge_s3(actor=self.env.user.login)
+        return True
+
+    def action_reveal_link(self):
+        """Open the journaled reveal wizard (the only sanctioned backend
+        path to the share link — the token itself is manager-only)."""
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Révéler le lien de partage"),
+            "res_model": "secure.transfer.reveal.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"default_transfer_id": self.id},
+        }
+
+    def action_resend_emails(self):
+        """Resend the link/receipt emails for an active transfer."""
+        for rec in self:
+            if rec.state != "active":
+                raise UserError(_(
+                    "Les courriels ne peuvent être renvoyés que pour un "
+                    "transfert actif."
+                ))
+            rec._send_link_emails()
+        return True
+
+    def action_export_log(self):
+        """Export this transfer's Loi 25 access trail as a downloadable CSV.
+        The first line records the hash-chain verdict (verify_chain) so the
+        exported file is self-attesting. Returns an ir.actions.act_url that
+        downloads the generated ir.attachment."""
+        self.ensure_one()
+        # verify_chain() re-derives the whole per-transfer chain from any one
+        # of its log rows (ensure_one on the log side), so call it on a single
+        # entry — never the full recordset.
+        chain_ok = self.access_log_ids[:1].verify_chain() if self.access_log_ids else True
+        buf = io.StringIO()
+        writer = csv.writer(buf)
+        writer.writerow([
+            "# Journal d'accès — %s" % self.name,
+            "Chaîne d'intégrité: %s" % ("INTACTE" if chain_ok else "BRISÉE"),
+        ])
+        writer.writerow([
+            "horodatage_utc", "action", "acteur", "ip",
+            "user_agent", "fichier", "note", "empreinte",
+        ])
+        for e in self.access_log_ids.sorted("id"):
+            writer.writerow([
+                e.timestamp_utc or "", e.action or "", e.actor or "",
+                e.ip or "", e.user_agent or "",
+                e.file_id.filename if e.file_id else "",
+                e.note or "", e.entry_hash or "",
+            ])
+        data = buf.getvalue().encode("utf-8-sig")  # BOM → Excel opens UTF-8
+        att = self.env["ir.attachment"].create({
+            "name": "journal-acces-%s.csv" % (self.name or self.id),
+            "type": "binary",
+            "datas": base64.b64encode(data),
+            "mimetype": "text/csv",
+            "res_model": self._name,
+            "res_id": self.id,
+        })
+        return {
+            "type": "ir.actions.act_url",
+            "url": "/web/content/%s?download=true" % att.id,
+            "target": "self",
+        }
+
+    def action_verify_log_chain(self):
+        """Operator button: verify this transfer's access-log hash chain and
+        report the verdict as a notification."""
+        self.ensure_one()
+        ok = self.access_log_ids[:1].verify_chain() if self.access_log_ids else True
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("Vérification du journal"),
+                "message": _("Chaîne d'intégrité intacte pour %s.", self.name)
+                if ok else
+                _("ALERTE : la chaîne d'intégrité de %s est BRISÉE.", self.name),
+                "type": "success" if ok else "danger",
+                "sticky": not ok,
+            },
+        }
+
+    # ------------------------------------------------------------------ purge
+    def _purge_s3(self, actor=None):
+        """Delete this transfer's S3 footprint (abort pending MPUs, batch
+        delete the objects — NoSuchKey counts as success), then flip the
+        state: deleted (or cancelled for a harvested draft). Metadata and
+        the access trail are KEPT. Idempotent; returns True on full success.
+
+        Per-key failures increment purge_error_count and schedule an admin
+        activity when it crosses 5 (exactly once — no activity spam);
+        endpoint-unreachable errors propagate so the calling cron can abort
+        its run cleanly."""
+        self.ensure_one()
+        files = self.file_ids.filtered(lambda f: f.state != "purged")
+        for f in files.filtered("s3_upload_id"):
+            # mpu_abort raises on endpoint errors — let the cron abort.
+            s3.mpu_abort(self.env, f.s3_key, f.s3_upload_id)
+            f.s3_upload_id = False
+        keys = [f.s3_key for f in files if f.s3_key]
+        failed = s3.delete_keys(self.env, keys) if keys else []
+        if failed:
+            self.purge_error_count += 1
+            _logger.error(
+                "bf_securetransfer: purge en échec pour %s (tentative %s) — "
+                "clés restantes : %s",
+                self.name, self.purge_error_count, failed,
+            )
+            if self.purge_error_count == 5:
+                self.activity_schedule(
+                    "mail.mail_activity_data_todo",
+                    user_id=self.env.ref("base.user_admin").id,
+                    summary=_("Purge S3 en échec répété — %s", self.name),
+                    note=_(
+                        "5 tentatives de purge ont échoué pour ce transfert. "
+                        "Vérifier le bucket et les clés restantes : %s", failed,
+                    ),
+                )
+            return False
+        files.write({"state": "purged"})
+        was_draft = self.state == "draft"
+        self.write({
+            "state": "cancelled" if was_draft else "deleted",
+            "purged_at": fields.Datetime.now(),
+        })
+        self._log(
+            "purged", actor=actor,
+            note=_("Brouillon abandonné — %s objet(s) supprimé(s) du stockage")
+            % len(keys) if was_draft
+            else _("%s objet(s) supprimé(s) du stockage — métadonnées et "
+                   "journal conservés") % len(keys),
+        )
+        return True
+
+    # ------------------------------------------------------------------ crons
+    @api.model
+    def _cron_purge_expired(self):
+        """Daily 03:15 — flip overdue actives to expired, then purge the S3
+        objects of every expired transfer. Idempotent: a killed run simply
+        catches up at the next pass. An unreachable endpoint aborts the run
+        cleanly instead of burning error counters."""
+        now = fields.Datetime.now()
+        for rec in self.search([
+            ("state", "=", "active"),
+            ("expiry_date", "!=", False),
+            ("expiry_date", "<=", now),
+        ]):
+            rec.state = "expired"
+            rec._log("expired", note=_("Date d'expiration atteinte"))
+
+        for rec in self.search([("state", "=", "expired")]):
+            try:
+                rec._purge_s3()
+            except UserError as e:
+                # S3 not configured (fresh install) — nothing purgeable yet.
+                _logger.warning(
+                    "bf_securetransfer: purge interrompue — %s", e,
+                )
+                return
+            except Exception as e:  # noqa: BLE001 — classify, then re-raise
+                if s3.is_endpoint_error(e):
+                    _logger.warning(
+                        "bf_securetransfer: endpoint S3 injoignable — run de "
+                        "purge interrompu, reprise au prochain passage.",
+                    )
+                    return
+                raise
+
+    @api.model
+    def _cron_gc_drafts(self):
+        """Hourly — harvest abandoned drafts (abort MPUs, delete uploaded
+        objects, state cancelled) and sweep the bucket for orphaned MPUs
+        that no live draft claims (48 h grace)."""
+        ttl = s3._int_param(self.env, "draft_ttl_hours", 24)
+        cutoff = fields.Datetime.now() - timedelta(hours=ttl)
+        for rec in self.search([
+            ("state", "=", "draft"),
+            ("create_date", "<=", cutoff),
+        ]):
+            try:
+                rec._purge_s3()
+            except UserError as e:
+                _logger.warning(
+                    "bf_securetransfer: GC des brouillons interrompu — %s", e,
+                )
+                return
+            except Exception as e:  # noqa: BLE001 — classify, then re-raise
+                if s3.is_endpoint_error(e):
+                    _logger.warning(
+                        "bf_securetransfer: endpoint S3 injoignable — GC des "
+                        "brouillons interrompu.",
+                    )
+                    return
+                raise
+
+        # -- bucket-side sweep: MPUs nobody claims anymore
+        try:
+            # Scoped to THIS tenant's key prefix: other tenants sharing the
+            # bucket sweep their own prefix — never each other's uploads.
+            stale = s3.list_stale_mpus(
+                self.env, s3.key_prefix(self.env) + "/", MPU_SWEEP_GRACE_HOURS,
+            )
+            live_ids = set(
+                self.env["secure.transfer.file"].sudo().search([
+                    ("s3_upload_id", "!=", False),
+                ]).mapped("s3_upload_id")
+            )
+            for mpu in stale:
+                if mpu["upload_id"] not in live_ids:
+                    s3.mpu_abort(self.env, mpu["key"], mpu["upload_id"])
+                    _logger.info(
+                        "bf_securetransfer: MPU orphelin annulé (%s)",
+                        mpu["key"],
+                    )
+
+            # -- bucket-side sweep: OBJECTS with no live DB row (re-PUT after a
+            #    remove, a delete that half-failed, a rolled-back finalize).
+            #    Scoped to this tenant's prefix, with the same grace window so
+            #    an in-flight upload is never deleted. probes/ keys are the
+            #    setup action's own scratch space — skip them.
+            prefix = s3.key_prefix(self.env) + "/"
+            objects = s3.list_objects(self.env, prefix, MPU_SWEEP_GRACE_HOURS)
+            if objects:
+                known = set(
+                    self.env["secure.transfer.file"].sudo().search([
+                        ("state", "in", ("pending", "uploading", "uploaded",
+                                         "verified")),
+                    ]).mapped("s3_key")
+                )
+                orphans = [
+                    o["key"] for o in objects
+                    if o["key"] not in known
+                    and not o["key"].startswith(prefix + "probes/")
+                ]
+                if orphans:
+                    failed = s3.delete_keys(self.env, orphans)
+                    _logger.info(
+                        "bf_securetransfer: %d objet(s) orphelin(s) supprimé(s)"
+                        ", %d échec(s)", len(orphans) - len(failed), len(failed),
+                    )
+        except UserError:
+            return  # S3 not configured — nothing to sweep
+        except Exception as e:  # noqa: BLE001 — classify, then re-raise
+            if s3.is_endpoint_error(e):
+                _logger.warning(
+                    "bf_securetransfer: endpoint S3 injoignable — balayage "
+                    "MPU interrompu.",
+                )
+                return
+            raise
+
+    @api.model
+    def _cron_gc_logs(self):
+        """Weekly — hard GC of long-dead transfers after the log retention
+        period. The ONLY path that ever deletes log entries (DB cascade
+        under the st_gc context)."""
+        days = s3._int_param(self.env, "log_retention_days", 365)
+        cutoff = fields.Datetime.now() - timedelta(days=days)
+        doomed = self.search([
+            ("state", "in", ("deleted", "cancelled")),
+            "|",
+            "&", ("purged_at", "!=", False), ("purged_at", "<=", cutoff),
+            "&", ("purged_at", "=", False), ("write_date", "<=", cutoff),
+        ])
+        if doomed:
+            count = len(doomed)
+            doomed.with_context(st_gc=True).unlink()
+            _logger.info(
+                "bf_securetransfer: GC dur — %s transfert(s) et leur journal "
+                "supprimés après la période de rétention (%s jours).",
+                count, days,
+            )
