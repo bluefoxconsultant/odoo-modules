@@ -92,7 +92,7 @@
                         <setting string="Expéditeurs autorisés"
                                  help="Politique globale : qui peut envoyer depuis cette instance. Adresse complète ou domaine (@client.com). Vide = ouvert. Une marque peut définir sa propre liste.">
                             <field name="st_default_sender_allowlist"
-                                   placeholder="@monentreprise.com&#10;jean@partenaire.com"/>
+                                   placeholder="@monentreprise.com, jean@partenaire.com"/>
                         </setting>
                         <setting string="Destinataires autorisés"
                                  help="Politique globale : à qui l'on peut envoyer. Renseigné (ex. @monentreprise.com) = l'instance ne peut envoyer qu'à ces adresses/domaines.">

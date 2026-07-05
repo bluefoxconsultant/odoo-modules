@@ -9,7 +9,7 @@ nom d'hôte, **pages de dépôt personnelles** (`/to/<slug>`), **listes
 d'autorisation anti-piggyback** et **suspension automatique sur signalement
 d'abus**.
 
-- **Version** : `18.0.1.2.0`.
+- **Version** : `18.0.1.2.1`.
 - **Licence** : LGPL-3.
 - **Modèle de menaces & non-garanties** : voir [`SECURITY.md`](SECURITY.md).
 - **Multi-paliers** : le système multi-marques permet un palier gratuit limité
@@ -382,6 +382,7 @@ connaissance).
 
 | Version | Faits saillants |
 |---|---|
+| `18.0.1.2.1` | Correctif : les listes d'autorisation par défaut (`res.config.settings`) passent de `Text` à `Char` — un champ `Text` sur les paramètres faisait planter toute la page Paramètres (`_get_classified_fields`). Séparateur = virgules. |
 | `18.0.1.2.0` | Pages de dépôt perso `/to/<slug>` (destinataire forcé) ; onglets Fichiers/Message seul ; courriel expéditeur optionnel au dépôt / requis à l'envoi ; correctif d'ordre des champs. |
 | `18.0.1.1.0` | Langue des courriels selon le contact Odoo (`partner.lang`) ; traductions en_CA rendues durables par hook de migration. |
 | `18.0.1.0.x` | Phase 2 : burn-after-download, notify-on-download, domaines perso payants, tableau de bord, facturation, OTP expéditeur/destinataire, listes d'autorisation anti-piggyback, suspension auto sur abus + avis courriel. |

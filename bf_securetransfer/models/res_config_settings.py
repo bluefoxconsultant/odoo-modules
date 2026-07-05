@@ -110,15 +110,15 @@ class ResConfigSettings(models.TransientModel):
              "fichiers (renforce la conformité Loi 25).",
     )
     # Tenant-wide allowlists (default policy; a brand overrides with its own).
-    st_default_sender_allowlist = fields.Text(
+    st_default_sender_allowlist = fields.Char(
         string="Expéditeurs autorisés (défaut tenant)",
         config_parameter="bf_securetransfer.default_sender_allowlist",
         help="Politique globale d'expéditeurs pour toute l'instance. Adresse "
-             "complète (jean@client.com) ou domaine (@client.com), une par "
-             "ligne ou séparées par des virgules. VIDE = ouvert. Une marque "
+             "complète (jean@client.com) ou domaine (@client.com), séparées "
+             "par des virgules. VIDE = ouvert. Une marque "
              "avec sa propre liste la remplace.",
     )
-    st_default_recipient_allowlist = fields.Text(
+    st_default_recipient_allowlist = fields.Char(
         string="Destinataires autorisés (défaut tenant)",
         config_parameter="bf_securetransfer.default_recipient_allowlist",
         help="Politique globale de destinataires. Même format. Renseigné = "
