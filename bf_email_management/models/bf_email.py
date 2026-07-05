@@ -2093,10 +2093,10 @@ class BfEmail(models.Model):
         Excludes portal/share users, inactive users, OdooBot and the uids
         listed in ICP ``bf_email.route_exclude_user_ids`` (comma-separated
         — service accounts like the meeting-processor API user shouldn't
-        accumulate inbox rows nobody reads; same knob name as the PMEC
+        accumulate inbox rows nobody reads; same knob name as the other tenant's
         copy of this module). Falls back to the current (cron) user when
         no internal user remains so unmatched traffic still lands
-        somewhere visible. Unlike the PMEC variant, rows are created
+        somewhere visible. Unlike that variant, rows are created
         ``with_user(target)`` so direction/dedup/rules are per-owner and
         orphan outbound is kept (fallback), not dropped.
         """

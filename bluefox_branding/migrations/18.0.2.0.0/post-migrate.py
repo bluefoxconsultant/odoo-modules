@@ -19,15 +19,15 @@ _logger = logging.getLogger(__name__)
 _BF_TAGLINE = "Solutions éthiques et souveraines pour vos données."
 
 _BF_FOOTER_HTML = """\
-<a href="mailto:service@bluefoxconsultant.com" style="color:inherit;text-decoration:none;">service@bluefoxconsultant.com</a>
+<a href="mailto:service@example.com" style="color:inherit;text-decoration:none;">service@example.com</a>
 <span style="color:#D1D5DB;"> &middot; </span>
-<a href="tel:+15145132535" style="color:inherit;text-decoration:none;">514-513-2535</a>
+<a href="tel:+15555555555" style="color:inherit;text-decoration:none;">555-555-5555</a>
 <span style="color:#D1D5DB;"> &middot; </span>
-<a href="https://bluefoxconsultant.com" style="color:inherit;text-decoration:none;">bluefoxconsultant.com</a>
+<a href="https://example.com" style="color:inherit;text-decoration:none;">example.com</a>
 <br/>
-<a href="https://bluefoxconsultant.com/r/politique-de-confidentialite" style="color:#9CA3AF;text-decoration:underline;">Confidentialité</a>
+<a href="https://example.com/r/politique-de-confidentialite" style="color:#9CA3AF;text-decoration:underline;">Confidentialité</a>
 <span style="color:#D1D5DB;"> | </span>
-<a href="https://bluefoxconsultant.com/r/termes-et-conditions" style="color:#9CA3AF;text-decoration:underline;">Conditions</a>"""
+<a href="https://example.com/r/termes-et-conditions" style="color:#9CA3AF;text-decoration:underline;">Conditions</a>"""
 
 
 def migrate(cr, version):

@@ -284,7 +284,7 @@
                                     <t t-set="_brand_co" t-value="booking_type.company_id or env.company"/>
                                     <t t-set="_privacy_url" t-value="(_brand_co and _brand_co.appointment_brand_privacy_url) or env['ir.config_parameter'].sudo().get_param('bf_appointment.privacy_url', '/r/politique-de-confidentialite')"/>
                                     <t t-set="_company_name" t-value="(_brand_co and (_brand_co.appointment_brand_name or _brand_co.name)) or (_en and 'the organization' or 'l’organisation')"/>
-                                    <t t-set="_brand_support_email" t-value="(_brand_co and _brand_co.appointment_brand_support_email) or 'service@bluefoxconsultant.com'"/>
+                                    <t t-set="_brand_support_email" t-value="(_brand_co and _brand_co.appointment_brand_support_email) or 'service@example.com'"/>
 
                                     <!-- C1 - Loi 25 baseline: explicit consent for collecting the form data
                                          (name, email, phone, intake answers). Required to submit. -->

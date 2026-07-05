@@ -1287,7 +1287,7 @@ class DailyDigestConfig(models.Model):
                                         Solutions éthiques et souveraines pour vos données.
                                     </td>
                                     <td align="right" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;color:#9CA3AF;">
-                                        <a href="mailto:service@bluefoxconsultant.com" style="color:{COLORS['accent']};text-decoration:none;">service@bluefoxconsultant.com</a>
+                                        <a href="mailto:service@example.com" style="color:{COLORS['accent']};text-decoration:none;">service@example.com</a>
                                     </td>
                                 </tr>
                             </table>

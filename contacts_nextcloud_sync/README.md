@@ -31,7 +31,7 @@ Synchronize Odoo 18 contacts with a Nextcloud address book via CardDAV. Direct H
           |                     |              |                     |
           | /remote.php/dav/    |<-- PROPFIND -| List UIDs + ETags   |
           | addressbooks/users/ |              |                     |
-          | olivier/contacts/   |<-- GET ------| Pull vCard          |
+          | jdoe/contacts/   |<-- GET ------| Pull vCard          |
           |                     |              |                     |
           |                     |<-- PUT ------| Push vCard          |
           |                     |              |                     |
@@ -112,8 +112,8 @@ Go to **Settings > Technical > Nextcloud Contacts Sync > Address Book Configurat
 |-------|-------------|---------|
 | Address Book Name | Display name | `Nextcloud Contacts` |
 | Nextcloud URL | Base URL | `https://nextcloud.example.com` |
-| CardDAV Path | Address book path | `/remote.php/dav/addressbooks/users/olivier/contacts/` |
-| Nextcloud User | Username for auth | `olivier` |
+| CardDAV Path | Address book path | `/remote.php/dav/addressbooks/users/jdoe/contacts/` |
+| Nextcloud User | Username for auth | `jdoe` |
 | App Password | Nextcloud app password (encrypted at rest) | *(Settings > Security > App passwords)* |
 | Sync Direction | `Bidirectional`, `NC -> Odoo`, or `Odoo -> NC` | `Odoo -> NC` |
 | Exclusion Tag | Contacts with this tag are skipped | `No NC Sync` |

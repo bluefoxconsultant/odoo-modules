@@ -621,7 +621,7 @@ class ContactPersona(models.Model):
         ])
         # Wrap every IO with full silence: prevent activity-induced auto-subscribe,
         # tracking messages on the persona record, post-create chatter and outbound
-        # mail. The activity still appears in Olivier's systray.
+        # mail. The activity still appears in the user's systray.
         silence_ctx = dict(
             tracking_disable=True,
             mail_create_nosubscribe=True,

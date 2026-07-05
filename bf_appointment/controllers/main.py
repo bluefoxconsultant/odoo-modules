@@ -157,7 +157,7 @@ def _apply_security_headers(response):
 
 # Pragmatic location validation: refuse strings that are too short, lack any
 # letters, or are a single short token. Rejects "abc", "123", "x", "..." while
-# accepting "1072 Bellemare", "Bureau Olivier", "Café du Coin".
+# accepting "123 Main St", "Suite 200", "Café du Coin".
 _LOCATION_MIN_LEN = 5
 _LOCATION_RE = re.compile(r"[A-Za-zÀ-ÖØ-öø-ÿ]")
 
@@ -252,7 +252,7 @@ class AppointmentController(Controller):
         purposes (recording, marketing) on the given booking type's notices.
 
         Lets the public intake form silently hide consent checkboxes when
-        the booker has already granted (per Olivier's UX rule). Always
+        the booker has already granted (per the product's UX rule). Always
         returns 200 + a uniform shape to avoid email enumeration via
         timing or status code differences.
         """
@@ -420,7 +420,7 @@ class AppointmentController(Controller):
                 fallback_email = (
                     (booking_type.company_id and booking_type.company_id.email)
                     or request.env.company.email
-                    or "service@bluefoxconsultant.com"
+                    or "service@example.com"
                 )
                 msg = (
                     "Le compte rendu fait partie du service pour ce type de "
@@ -593,7 +593,7 @@ class AppointmentController(Controller):
 
         # Recording consent: only create a fresh record when the type
         # requires it AND there's no active record on file. Otherwise we
-        # leave the existing consent alone (Olivier's "do not re-ask" rule).
+        # leave the existing consent alone (the "do not re-ask" rule).
         if booking_type.requires_recording_consent and not recording_already_active:
             checked = bool(kwargs.get("bf_consent_recording"))
             _record(

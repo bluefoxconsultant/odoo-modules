@@ -395,7 +395,7 @@ class MeetingDashboard(models.Model):
             self.env['mail.mail'].sudo().create({
                 'subject': "Rencontres — votre digest du jour",
                 'body_html': body,
-                'email_from': self.env.company.email or 'noreply@bluefoxconsultant.com',
+                'email_from': self.env.company.email or 'noreply@example.com',
                 'email_to': user.email,
                 'auto_delete': True,
             }).send()

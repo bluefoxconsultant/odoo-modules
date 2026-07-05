@@ -316,7 +316,7 @@ class KnowledgeMatrix(models.Model):
                 primary=company.report_brand_primary or '#714B67',
                 dark=company.report_brand_dark or '#212529',
                 company_name=company.name or 'Blue Fox',
-                company_email=company.email or 'service@bluefoxconsultant.com',
+                company_email=company.email or 'service@example.com',
                 company_phone=company.phone or '',
                 company_website=website,
                 logo_url='/web/image/res.company/%d/logo' % company.id,

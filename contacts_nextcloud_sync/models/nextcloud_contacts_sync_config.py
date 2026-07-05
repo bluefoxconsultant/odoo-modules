@@ -96,7 +96,7 @@ class NextcloudContactsSyncConfig(models.Model):
         string="CardDAV Path",
         required=True,
         help="Path to the address book "
-        "(e.g., /remote.php/dav/addressbooks/users/olivier/contacts/)",
+        "(e.g., /remote.php/dav/addressbooks/users/jdoe/contacts/)",
     )
     nextcloud_user = fields.Char(
         string="Nextcloud User",

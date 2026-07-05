@@ -493,7 +493,7 @@
                                                                 <span style="color:#9CA3AF">Rapport généré automatiquement</span>
                                                             </td>
                                                             <td align="right" style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:12px;color:#9CA3AF">
-                                                                <a href="mailto:service@bluefoxconsultant.com" t-attf-style="color:{{ brand_primary }};text-decoration:none">Contact</a>
+                                                                <a href="mailto:service@example.com" t-attf-style="color:{{ brand_primary }};text-decoration:none">Contact</a>
                                                                 <span style="color:#d1d5db"> · </span>
                                                                 <a href="https://bluefoxconsultant.com" style="color:#9CA3AF;text-decoration:none">bluefoxconsultant.com</a>
                                                             </td>

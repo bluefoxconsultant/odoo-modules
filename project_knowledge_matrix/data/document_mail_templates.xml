@@ -10,7 +10,7 @@
         <record id="mail_template_document_distribution" model="mail.template">
             <field name="name">Documentation: Envoi de document</field>
             <field name="model_id" ref="model_project_document_distribution"/>
-            <field name="email_from">{{ (object.distributed_by_id.email_formatted or object.company_id.email_formatted or 'service@bluefoxconsultant.com') }}</field>
+            <field name="email_from">{{ (object.distributed_by_id.email_formatted or object.company_id.email_formatted or 'service@example.com') }}</field>
             <field name="email_to">{{ object.partner_id.email if object.recipient_type == 'partner' else object.user_id.email }}</field>
             <field name="subject">Documentation: {{ object.document_name }} v{{ object.version_number }}</field>
             <field name="body_html" type="html">
@@ -125,7 +125,7 @@
                                 </t>
                                 <p style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;line-height:20px;color:#6B7280;margin:16px 0 0 0">
                                     Pour toute question concernant cette documentation, n'hésitez pas à nous contacter à
-                                    <a href="mailto:service@bluefoxconsultant.com" t-attf-style="color:{{ brand_primary }};text-decoration:none">service@bluefoxconsultant.com</a>.
+                                    <a href="mailto:service@example.com" t-attf-style="color:{{ brand_primary }};text-decoration:none">service@example.com</a>.
                                 </p>
                             </td>
                         </tr>
@@ -172,7 +172,7 @@
         <record id="mail_template_document_reminder" model="mail.template">
             <field name="name">Documentation: Rappel d'accusé de réception</field>
             <field name="model_id" ref="model_project_document_distribution"/>
-            <field name="email_from">{{ (object.distributed_by_id.email_formatted or object.company_id.email_formatted or 'service@bluefoxconsultant.com') }}</field>
+            <field name="email_from">{{ (object.distributed_by_id.email_formatted or object.company_id.email_formatted or 'service@example.com') }}</field>
             <field name="email_to">{{ object.partner_id.email if object.recipient_type == 'partner' else object.user_id.email }}</field>
             <field name="subject">Rappel: Accusé de réception - {{ object.document_name }}</field>
             <field name="body_html" type="html">
@@ -239,7 +239,7 @@
                                 </p>
                                 <p style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;line-height:20px;color:#6B7280;margin:16px 0 0 0">
                                     Pour toute question, contactez-nous à
-                                    <a href="mailto:service@bluefoxconsultant.com" t-attf-style="color:{{ brand_primary }};text-decoration:none">service@bluefoxconsultant.com</a>.
+                                    <a href="mailto:service@example.com" t-attf-style="color:{{ brand_primary }};text-decoration:none">service@example.com</a>.
                                 </p>
                             </td>
                         </tr>
@@ -283,7 +283,7 @@
         <record id="mail_template_document_update_available" model="mail.template">
             <field name="name">Documentation: Mise à jour disponible</field>
             <field name="model_id" ref="model_project_document_distribution"/>
-            <field name="email_from">{{ (object.distributed_by_id.email_formatted or object.company_id.email_formatted or 'service@bluefoxconsultant.com') }}</field>
+            <field name="email_from">{{ (object.distributed_by_id.email_formatted or object.company_id.email_formatted or 'service@example.com') }}</field>
             <field name="email_to">{{ object.partner_id.email if object.recipient_type == 'partner' else object.user_id.email }}</field>
             <field name="subject">Mise à jour disponible: {{ object.document_name }}</field>
             <field name="body_html" type="html">
@@ -394,7 +394,7 @@
                                 </p>
                                 <p style="font-family:'Lexend','Segoe UI',Arial,sans-serif;font-size:13px;line-height:20px;color:#6B7280;margin:16px 0 0 0">
                                     Pour toute question, contactez-nous à
-                                    <a href="mailto:service@bluefoxconsultant.com" t-attf-style="color:{{ brand_primary }};text-decoration:none">service@bluefoxconsultant.com</a>.
+                                    <a href="mailto:service@example.com" t-attf-style="color:{{ brand_primary }};text-decoration:none">service@example.com</a>.
                                 </p>
                             </td>
                         </tr>

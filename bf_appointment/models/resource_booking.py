@@ -540,7 +540,7 @@ class ResourceBooking(models.Model):
         # ATTENDEE makes the invite RSVP-able in Outlook / Google / Apple Mail.
         organizer_email = (
             self.env.company.email
-            or "bonjour@bluefoxconsultant.com"
+            or "service@example.com"
         )
         organizer_name = _escape_ics(
             self.env.company.name or "Blue Fox"
@@ -588,10 +588,10 @@ class ResourceBooking(models.Model):
         the NZ two-layer setup) → the company calendar tz → configured
         default.
 
-        Deliberately EXCLUDES the organizer's ``user_id.tz``. The organizer
-        (Olivier) sits in Auckland; letting that leak into booker-facing
-        content is exactly what made a Montréal client's confirmation and ICS
-        show NZ time (RDV #344, 2026-06-17). Organizer-facing comms receive
+        Deliberately EXCLUDES the organizer's ``user_id.tz``. When the
+        organizer sits in a different timezone than the booker, letting that
+        tz leak into booker-facing content makes the confirmation and ICS
+        show the wrong local time. Organizer-facing comms receive
         the organizer tz explicitly via _send_appointment_email.
         """
         self.ensure_one()

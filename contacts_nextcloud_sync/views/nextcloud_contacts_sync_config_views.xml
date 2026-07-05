@@ -61,7 +61,7 @@
                             <field name="nextcloud_base_url"
                                 placeholder="https://nextcloud.example.com"/>
                             <field name="carddav_path"
-                                placeholder="/remote.php/dav/addressbooks/users/olivier/contacts/"/>
+                                placeholder="/remote.php/dav/addressbooks/users/jdoe/contacts/"/>
                             <field name="nextcloud_user"/>
                             <field name="nextcloud_app_password" password="True"/>
                         </group>

@@ -10,7 +10,7 @@ def migrate(cr, version):
 
     `base.group_system` is flagged noupdate, so the declarative implied_ids
     link only applies on a fresh install; on upgrade we apply it explicitly so
-    existing admins (e.g. Olivier) can manage report/digest configs.
+    existing admins can manage report/digest configs.
     """
     env = api.Environment(cr, SUPERUSER_ID, {})
     group_system = env.ref('base.group_system', raise_if_not_found=False)

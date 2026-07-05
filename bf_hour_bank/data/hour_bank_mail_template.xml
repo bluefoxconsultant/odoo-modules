@@ -67,9 +67,9 @@
                                                 </p>
                                                 <p style="font-size:13px; line-height:20px; color:#6B7280; margin:16px 0 0 0;">
                                                     Pour toute question, contactez-nous &#224;
-                                                    <a t-attf-href="mailto:{{ company.email or 'service@bluefoxconsultant.com' }}" t-attf-style="color:{{ brand_primary }}; text-decoration:none;"><t t-out="company.email or 'service@bluefoxconsultant.com'"/></a>
+                                                    <a t-attf-href="mailto:{{ company.email or 'service@example.com' }}" t-attf-style="color:{{ brand_primary }}; text-decoration:none;"><t t-out="company.email or 'service@example.com'"/></a>
                                                     ou appelez le
-                                                    <a t-attf-href="tel:{{ company.phone or '+15145132535' }}" t-attf-style="color:{{ brand_primary }}; text-decoration:none;"><t t-out="company.phone or '514-513-2535'"/></a>.
+                                                    <a t-attf-href="tel:{{ company.phone or '+15555555555' }}" t-attf-style="color:{{ brand_primary }}; text-decoration:none;"><t t-out="company.phone or '555-555-5555'"/></a>.
                                                 </p>
                                             </td>
                                         </tr>

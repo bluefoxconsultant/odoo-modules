@@ -13,9 +13,9 @@ _BF_DEFAULT_LOGO_URL = (
 _BF_DEFAULT_WEBSITE_URL = "https://www.bluefoxconsultant.com"
 _BF_DEFAULT_PRIMARY = "#714B67"
 _BF_DEFAULT_DARK = "#212529"
-_BF_DEFAULT_SUPPORT_EMAIL = "service@bluefoxconsultant.com"
-_BF_DEFAULT_SUPPORT_PHONE = "+15145132535"
-_BF_DEFAULT_SUPPORT_PHONE_DISPLAY = "514-513-2535"
+_BF_DEFAULT_SUPPORT_EMAIL = "service@example.com"
+_BF_DEFAULT_SUPPORT_PHONE = "+15555555555"
+_BF_DEFAULT_SUPPORT_PHONE_DISPLAY = "555-555-5555"
 _BF_DEFAULT_PRIVACY_URL = (
     "https://www.bluefoxconsultant.com/r/politique-de-confidentialite"
 )

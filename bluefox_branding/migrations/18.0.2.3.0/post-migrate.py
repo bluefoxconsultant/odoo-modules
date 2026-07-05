@@ -31,14 +31,14 @@ _logger = logging.getLogger(__name__)
 
 
 # Correct Blue Fox Inc. identifiers (post-incorporation 2025-06-27).
-BF_VAT = "785781436 RT0001"           # NE / BN — TPS
-BF_QST = "1232891251 TQ0001"          # TVQ — RQ
-BF_EMAIL = "bonjour@bluefoxconsultant.com"
-BF_PHONE = "514 513-2535"
+BF_VAT = "000000000 RT0001"           # NE / BN — TPS
+BF_QST = "0000000000 TQ0001"          # TVQ — RQ
+BF_EMAIL = "service@example.com"
+BF_PHONE = "555 555-5555"
 
 BF_COMPANY_DETAILS = (
-    "<p>1072, rue Bellemare<br>"
-    "Laval QC H7R 4S6<br>"
+    "<p>123, rue Exemple<br>"
+    "Ville QC A1A 1A1<br>"
     "Canada</p>"
 )
 
@@ -52,7 +52,7 @@ BF_REPORT_FOOTER = (
     f'TPS: {BF_VAT}<br/>'
     f'TVQ: {BF_QST}</p>'
     '<p>Sujet aux '
-    '<a href="https://bluefoxconsultant.com/terms">termes et conditions</a> '
+    '<a href="https://example.com/terms">termes et conditions</a> '
     'de Blue Fox.</p>'
 )
 
@@ -69,7 +69,7 @@ def _is_bf_tenant(env):
     if co.name not in ("Blue Fox", "Les services de consultation Blue Fox, Inc."):
         return False
     # Match either the correct new BN or the stale old enr. BN
-    stale_vat = "71200 3227 RT0001"
+    stale_vat = "00000 0000 RT0001"
     return (co.vat or "").strip() in (BF_VAT, stale_vat)
 
 
@@ -90,9 +90,9 @@ def migrate(cr, version):
 
     # Detect either of the two broken footers (with or without the o_file_box).
     needs_footer_rewrite = (
-        "1232891251 IC0001" in (co.report_footer or "")
+        "0000000000 IC0001" in (co.report_footer or "")
         or "o_file_box" in (co.report_footer or "")
-        or "info@bluefoxconsultant.com" in (co.report_footer or "")
+        or "info@example.com" in (co.report_footer or "")
     )
     if needs_footer_rewrite:
         updates["report_footer"] = BF_REPORT_FOOTER
