@@ -26,6 +26,7 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | `bf_chatter_chronological` | BF Chatter Chronological View | 18.0.4.0.0 | LGPL-3 | Sort the chatter feed by the email's original Date header instead of insertion id (Python `_order` + `_message_fetch` + JS `Thread.fetch*` patch); cogwheel action to re-parse lost Date headers from quoted body content |
 | `bf_chatter_send_now_force` | BF Chatter — Force Send on Scheduled Send Now | 18.0.1.0.0 | LGPL-3 | The "Send Now" button on a scheduled chatter message sends immediately instead of waiting up to 5 min for the mail queue cron (restores parity with the daily auto-send cron) |
 | `bf_chatter_timesheet` | Blue Fox — Feuille de temps depuis le chatter | 18.0.1.2.0 | LGPL-3 | Checkbox in the chatter composer to log a timesheet entry alongside an internal note. |
+| `bf_claude_chat` | TentaClaude | 18.0.1.5.1 | LGPL-3 | Chat with Claude AI directly inside Odoo |
 | `bf_contact_enrichment` | Enrichissement de contacts | 18.0.1.2.0 | LGPL-3 | Business cards (OCR), email signatures, vCard import, duplicate detection and completeness scoring, powered by Claude |
 | `bf_dark_mode` | Blue Fox Dark Mode | 18.0.1.1.0 | LGPL-3 | Dark mode for Odoo using the Blue Fox palette |
 | `bf_dashboard` | Tableau de bord Blue Fox | 18.0.1.0.0 | LGPL-3 | Unified dashboard aggregating billing, hosting, knowledge and privacy |
@@ -62,6 +63,7 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | `bf_sign_purchase` | Blue Fox — Signature pour les achats | 18.0.1.0.0 | LGPL-3 | Send a purchase order for electronic signature (bf_sign). |
 | `bf_sign_sale` | Blue Fox — Signature pour les ventes | 18.0.1.0.0 | LGPL-3 | Send a quotation / sales order for electronic signature (bf_sign). |
 | `bf_sms_archive` | SMS & Calls | 18.0.3.7.0 | LGPL-3 | Two-way live SMS/MMS messaging via VOIP.ms (chat workspace + systray) plus Android SMS/call-log archiving, search, PDF/CSV export and task linking |
+| `bf_stepbystep_clients` | Step-by-Step — Suivi d'accompagnement client | 18.0.2.0.1 | LGPL-3 | Internal dashboard tracking each client mandate's linear step-by-step progression: current step, hours budget, timeline. |
 | `bf_studio_light` | Blue Fox — Studio Light | 18.0.6.1.0 | LGPL-3 | Field builder for Odoo Community: add custom fields (incl. polymorphic reference with model whitelist), smart buttons (count via JSON controller, no compute Python), and inject them in views without writing a module — survives `-u all` upgrades |
 | `bf_subscription` | Abonnements | 18.0.1.3.1 | LGPL-3 | Paid subscription management with correlation to vendor bills |
 | `bf_subscription_daily_digest` | Abonnements — section du digest quotidien | 18.0.1.0.0 | LGPL-3 | Adds an 'Upcoming renewals' section to the daily digest |
