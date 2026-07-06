@@ -4,6 +4,12 @@ All notable changes to `bf_email_management` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This module follows Odoo's `MAJOR.MINOR.PATCH` convention prefixed with the Odoo series (`18.0.X.Y.Z`).
 
+## [18.0.6.5.0] — 2026-07-06
+
+### Changed
+
+- **Les courriels entrants non notifiés retombent sur les abonnés du dossier, plus sur l'usager du cron.** `_route_target_users` projetait une ligne `bf.email` par usager interne *notifié* sur le message ; quand aucun ne l'était (cas typique : une réponse client journalisée sur un dossier comme simple « Note » — sous-type `mail.mt_note` qui ne notifie personne, ce que fait Odoo pour les réponses aux **factures** `account.move`, contrairement aux tâches qui arrivent en « Discussion » et notifient les abonnés), le message retombait sur l'usager qui exécute le cron de synchronisation (uid du cron), qui héritait ainsi de tous les courriels non attribuables. Désormais, à défaut d'usager notifié, la ligne est attribuée aux **abonnés internes de l'enregistrement sous-jacent** (`model`/`res_id`) — la réponse à une facture va au vendeur/aux abonnés de la facture, la réponse à une tâche à ses abonnés. Seuls les vrais orphelins (aucun dossier lié, ou dossier sans abonné interne : rebonds, notifications tierces) retombent encore sur l'usager du cron, donc rien n'est perdu. Repli borné et défensif (modèle désinstallé, cible non `mail.thread`, enregistrement supprimé) : un échec de recherche des abonnés ne peut jamais casser le cron de projection. Rétroactif : non — seuls les nouveaux messages sont routés ainsi.
+
 ## [18.0.6.4.1] — 2026-07-02
 
 ### Fixed

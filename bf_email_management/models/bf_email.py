@@ -2094,11 +2094,23 @@ class BfEmail(models.Model):
         listed in ICP ``bf_email.route_exclude_user_ids`` (comma-separated
         — service accounts like the meeting-processor API user shouldn't
         accumulate inbox rows nobody reads; same knob name as the other tenant's
-        copy of this module). Falls back to the current (cron) user when
-        no internal user remains so unmatched traffic still lands
-        somewhere visible. Unlike that variant, rows are created
-        ``with_user(target)`` so direction/dedup/rules are per-owner and
-        orphan outbound is kept (fallback), not dropped.
+        copy of this module).
+
+        When no internal user is *notified* — the classic case being an
+        inbound customer reply that Odoo logs on a record as a bare "Note"
+        (subtype ``mail.mt_note``), which notifies nobody: invoice
+        (``account.move``) replies come in this way, unlike task replies
+        which arrive as "Discussion" and do notify followers — fall back
+        to the internal **followers of the underlying record**
+        (``model``/``res_id``). This routes the reply to the people
+        actually responsible for it (the invoice's salesperson, the task's
+        followers…) instead of dumping every unattributable message on the
+        cron runner. Only genuine orphans — no linked record, or a record
+        with no internal follower (bounces, third-party notifications) —
+        fall through to the current (cron) user, so nothing is ever lost.
+
+        Rows are created ``with_user(target)`` so direction/dedup/rules are
+        per-owner and orphan outbound is kept (fallback), not dropped.
         """
         raw = self.env["ir.config_parameter"].sudo().get_param(
             "bf_email.route_exclude_user_ids", ""
@@ -2108,10 +2120,31 @@ class BfEmail(models.Model):
             if tok.strip().isdigit()
         }
         excluded.add(1)  # OdooBot / superuser
+
+        def _internal(partners):
+            return partners.user_ids.filtered(
+                lambda u: u.active and not u.share and u.id not in excluded
+            )
+
         partners = msg.author_id | msg.notification_ids.res_partner_id
-        users = partners.user_ids.filtered(
-            lambda u: u.active and not u.share and u.id not in excluded
-        )
+        users = _internal(partners)
+
+        # Nobody internal was notified: attribute the row to the internal
+        # followers of the record the message lives on, rather than the cron
+        # runner. Best-effort and fully guarded (uninstalled model, non-
+        # mail.thread target, deleted record) — a lookup failure must never
+        # break the projection cron, which calls this outside its try/except.
+        if not users and msg.model and msg.res_id and msg.model in self.env:
+            try:
+                record = self.env[msg.model].sudo().browse(msg.res_id).exists()
+                if record and "message_follower_ids" in record._fields:
+                    users = _internal(record.message_follower_ids.partner_id)
+            except Exception:  # pragma: no cover - defensive
+                _logger.warning(
+                    "bf.email: follower fallback failed for %s,%s",
+                    msg.model, msg.res_id, exc_info=True,
+                )
+
         return users or self.env.user
 
     @api.model
