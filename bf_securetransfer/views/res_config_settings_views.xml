@@ -26,7 +26,7 @@
                                     <field name="st_s3_bucket" placeholder="securetransfer-…"/>
                                 </div>
                                 <div class="mt-2">
-                                    <label for="st_s3_key_prefix" string="Préfixe de clé (instance)"/>
+                                    <label for="st_s3_key_prefix" string="Préfixe de clé (tenant)"/>
                                     <field name="st_s3_key_prefix" placeholder="transfers-prod"/>
                                 </div>
                                 <div class="mt-2">
@@ -68,6 +68,10 @@
                                  help="Interrupteur général de la page publique d'envoi. Décoché, la page /secrets répond indisponible ; les liens de téléchargement existants continuent de fonctionner.">
                             <field name="st_public_upload_enabled"/>
                         </setting>
+                        <setting string="Page de dépôt par employé"
+                                 help="À la création d'un utilisateur interne (hors comptes de service, robots, API), crée et maintient automatiquement sa page de dépôt personnelle /to/&lt;slug&gt;. Renommage, changement de courriel et archivage suivis. Décoché = pages créées à la main seulement.">
+                            <field name="st_autoprovision_user_pages"/>
+                        </setting>
                         <setting string="URL publique de base"
                                  help="URL servie aux visiteurs quand la marque n'a pas de domaine propre. Ne jamais compter sur web.base.url (gelé sur certains tenants).">
                             <field name="st_public_base_url"
@@ -76,7 +80,7 @@
                         <setting string="Bureau d'abus"
                                  help="Adresse alertée lors d'un signalement d'abus. Le transfert est alors suspendu automatiquement et les destinataires reçoivent un avis neutre.">
                             <field name="st_abuse_email"
-                                   placeholder="abus@exemple.com"/>
+                                   placeholder="abuse@example.com"/>
                         </setting>
                         <setting string="OTP expéditeur"
                                  help="Exige que l'expéditeur confirme un code envoyé à son courriel avant l'envoi (anti-usurpation / anti-piggyback).">
@@ -85,6 +89,23 @@
                         <setting string="OTP destinataire"
                                  help="Exige que le destinataire saisisse un code envoyé à son courriel avant de télécharger (renforce la conformité Loi 25).">
                             <field name="st_require_recipient_otp"/>
+                        </setting>
+                    </block>
+                    <block title="Code destinataire par SMS (VoIP.ms)"
+                           name="bf_securetransfer_sms_block">
+                        <setting string="Activer le SMS"
+                                 help="Permet d'envoyer le code du destinataire par SMS au lieu du courriel (choisi à l'envoi d'un message sécurisé).">
+                            <field name="st_sms_enabled"/>
+                        </setting>
+                        <setting string="Numéro expéditeur (DID)"
+                                 help="DID VoIP.ms activé pour le SMS, d'où partent les codes (numéro nord-américain à 10 chiffres)."
+                                 invisible="not st_sms_enabled">
+                            <field name="st_sms_did" placeholder="5145551234"/>
+                        </setting>
+                        <setting string="Identifiants VoIP.ms"
+                                 help="L'utilisateur et le mot de passe de l'API VoIP.ms se déclarent dans odoo.conf (bf_securetransfer_voipms_user / _password), jamais en base."
+                                 invisible="not st_sms_enabled">
+                            <field name="st_sms_creds_status"/>
                         </setting>
                     </block>
                     <block title="Listes d'autorisation (défaut tenant, anti-piggyback)"

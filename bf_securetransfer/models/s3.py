@@ -115,7 +115,7 @@ def key_prefix(env):
     All environments may share ONE bucket (decision 2026-07-03): the prefix is
     what keeps each tenant's purge/MPU sweeps and lifecycle rules off the
     other tenants' objects. Configure ``bf_securetransfer.s3_key_prefix`` per
-    instance (e.g. ``transfers-prod`` / ``transfers-staging``).
+    tenant (e.g. ``transfers-bf`` / ``transfers-prod`` / ``transfers-staging``).
     """
     raw = (param(env, "s3_key_prefix", "transfers") or "transfers").strip()
     return raw.strip("/") or "transfers"

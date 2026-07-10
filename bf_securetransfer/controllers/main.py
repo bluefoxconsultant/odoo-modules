@@ -502,13 +502,15 @@ class SecureTransferController(Controller):
         })
         return _apply_security_headers(response, s3_host=_s3_connect_origins(env), img_host=visuals.get("logo_host"))
 
-    # ── Personal drop page (/to/<slug>) ───────────────────────────────────────
+    # ── Slug-addressed public page (/to/<slug>) ──────────────────────────────
     @route("/to/<string:slug>", type="http", auth="public", methods=["GET"],
            sitemap=False)
     def st_drop_page(self, slug, **kw):
-        """A slug-addressed page where visitors can only send to one fixed
-        recipient (the page owner). The recipient field is hidden; the server
-        forces the destination on create and finalize."""
+        """A slug-addressed public page for one brand. When the brand carries a
+        fixed_recipient it is a drop page: the recipient field is hidden and the
+        server forces the destination on create and finalize. Otherwise it is an
+        ordinary upload page — free sender, free recipients — just reached by
+        slug instead of by Host."""
         locale = _apply_locale()
         env = request.env
         brand = env["secure.transfer.brand"].sudo()._resolve_for_slug(slug)
@@ -526,14 +528,16 @@ class SecureTransferController(Controller):
         config["drop_slug"] = brand.slug
         config_json = Markup(
             json.dumps(config, ensure_ascii=False).replace("</", "<\\/"))
+        drop_mode = bool(brand.fixed_recipient)
         response = request.render("bf_securetransfer.page_upload", {
             "brand": brand,
             "visuals": visuals,
             "limits": limits,
             "locale": locale,
             "st_config_json": config_json,
-            "drop_mode": True,
-            "drop_recipient_label": brand._drop_recipient_label(),
+            "drop_mode": drop_mode,
+            "drop_recipient_label":
+                brand._drop_recipient_label() if drop_mode else "",
         })
         return _apply_security_headers(response, s3_host=_s3_connect_origins(env), img_host=visuals.get("logo_host"))
 
@@ -570,8 +574,9 @@ class SecureTransferController(Controller):
                 "expiry_display": expiry_display, "otp_stage": False,
             })
             return _apply_security_headers(response, img_host=visuals.get("logo_host"))
-        # Recipient OTP gate (tenant setting): after the password, before files.
-        if transfer.env["secure.transfer"]._needs_recipient_otp_param() \
+        # Recipient OTP gate (per-transfer force OR tenant setting): after the
+        # password, before the message body and files are ever rendered.
+        if transfer._recipient_otp_required() \
                 and not request.session.get("st_otp_ok_%d" % transfer.id):
             response = request.render("bf_securetransfer.page_download", {
                 "brand": brand, "visuals": visuals, "transfer": transfer,
@@ -604,8 +609,7 @@ class SecureTransferController(Controller):
         transfer = _resolve_transfer_by_token(token)
         if transfer is None or transfer.state in ("draft", "cancelled"):
             return request.not_found()
-        Model = transfer.env["secure.transfer"]
-        if not Model._needs_recipient_otp_param() or not transfer._is_available()[0]:
+        if not transfer._recipient_otp_required() or not transfer._is_available()[0]:
             return request.redirect("/s/%s" % token, code=303)
         ip, ua = _client_ip(), _user_agent()
         if not _otp_fail_limiter.check("%s:%s" % (ip, transfer.id), _OTP_FAIL_MAX):
@@ -709,7 +713,7 @@ class SecureTransferController(Controller):
                 and not request.session.get("st_unlock_%d" % transfer.id):
             return request.redirect("/s/%s" % token, code=303)
         # Recipient OTP gate: no download without a verified session.
-        if transfer.env["secure.transfer"]._needs_recipient_otp_param() \
+        if transfer._recipient_otp_required() \
                 and not request.session.get("st_otp_ok_%d" % transfer.id):
             return request.redirect("/s/%s" % token, code=303)
         rec_file = transfer.file_ids.filtered(

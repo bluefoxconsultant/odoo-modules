@@ -234,7 +234,7 @@
                 <meta charset="utf-8"/>
                 <meta name="viewport" content="width=device-width, initial-scale=1"/>
                 <meta name="robots" content="noindex, nofollow"/>
-                <title>Fichiers partagés — <t t-esc="visuals['name']"/></title>
+                <title><t t-esc="transfer.file_count and 'Fichiers partagés' or 'Message sécurisé'"/> — <t t-esc="visuals['name']"/></title>
                 <link t-if="visuals['favicon_url']" rel="icon" t-att-href="visuals['favicon_url']"/>
                 <link rel="stylesheet" href="/bf_securetransfer/static/src/css/st_public.css"/>
                 <t t-call="bf_securetransfer.brand_style"/>
@@ -280,8 +280,8 @@
                             <div t-elif="otp_error" class="st-error">
                                 Code ou adresse invalide.</div>
                             <t t-if="otp_stage == 'verify'">
-                                <p>Un code à 6 chiffres vient d'être envoyé à votre
-                                    adresse. Saisissez-le pour accéder aux fichiers.</p>
+                                <p>Un code à 6 chiffres vient de vous être envoyé.
+                                    Saisissez-le pour accéder à ce contenu.</p>
                                 <form method="post" t-attf-action="/s/#{token}/otp-verify">
                                     <input type="text" id="st-otp-input" name="code"
                                            inputmode="numeric" pattern="[0-9]*" maxlength="6"
@@ -295,9 +295,10 @@
                                 </form>
                             </t>
                             <t t-else="">
-                                <p>Pour accéder à ces fichiers, confirmez votre
+                                <p>Pour accéder à ce contenu, confirmez votre
                                     adresse courriel (celle à laquelle le lien a été envoyé).
-                                    Un code de vérification vous y sera transmis.</p>
+                                    Un code de vérification vous sera alors transmis
+                                    (par courriel ou par SMS).</p>
                                 <form method="post" t-attf-action="/s/#{token}/otp-request">
                                     <input type="email" id="st-otp-email" name="email"
                                            required="required" autocomplete="email"

@@ -2,7 +2,7 @@
 
 One record per skin: the free default (« Propulsé par ... ») plus one paid
 record per customer domain. Brands are product data, NOT res.company rows —
-the operator company is single-company and paid skins are just customer records.
+The host tenant is often single-company and paid skins are just customer records.
 
 By default a brand aligns with the house branding (bf_branding /
 bluefox_branding + bf_onboarding_base) when present: unset colours, logo,
@@ -15,6 +15,7 @@ instance may restrict who is allowed to send from it (see _sender_allowed).
 """
 import logging
 import re
+import unicodedata
 
 from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
@@ -68,16 +69,17 @@ class SecureTransferBrand(models.Model):
         required=True,
     )
 
-    # -- billing (paid tier). The recurring invoice is issued by your own
-    #    billing system (e.g. a subscription module on a central tenant);
-    #    these fields track the arrangement on the brand record.
+    # -- billing (paid tier). The recurring invoice is issued by Blue Fox
+    #    (bf_subscription lives on the BF tenant); these fields track the
+    #    arrangement on the brand record that serves the product.
     billing_active = fields.Boolean(
         string="Abonnement actif",
         help="La marque payante est couverte par un abonnement récurrent.",
     )
     billing_ref = fields.Char(
-        string="Réf. abonnement",
-        help="Référence de l'abonnement récurrent émis pour ce client.",
+        string="Réf. abonnement (BF)",
+        help="Référence de l'abonnement bf_subscription émis par Blue Fox "
+             "pour ce client.",
     )
     price_year = fields.Float(
         string="Prix annuel ($)",
@@ -132,27 +134,54 @@ class SecureTransferBrand(models.Model):
              "à son propre usage.",
     )
 
-    # -- personal drop page ("Dropbox"-style): a slug-addressed page where
-    #    visitors can only send TO one fixed recipient. Served at /to/<slug>;
-    #    the recipient is FORCED server-side (create + finalize), so nobody can
-    #    redirect a drop to another address. Empty = a normal Host-served brand.
+    # -- slug-addressed public page, served at /to/<slug>. The slug ALONE
+    #    publishes the page; fixed_recipient is an independent, optional lock:
+    #      slug only                  -> open page, free sender and recipients
+    #      slug + fixed_recipient     -> drop page ("Dropbox"-style): the
+    #         recipient is FORCED server-side (create + finalize), so nobody can
+    #         redirect a drop to another address.
+    #    Empty slug = a normal Host-served brand, reachable at /secrets only.
     slug = fields.Char(
         string="Identifiant de page (slug)",
         index=True,
-        help="Rend cette marque accessible comme page de dépôt personnelle à "
-             "/to/<slug> (p. ex. « depot » → /to/depot). Minuscules, "
-             "chiffres et tirets. Vide = marque servie par domaine seulement.",
+        help="Publie cette marque à /to/<slug> (p. ex. « depot » → "
+             "/to/depot). Minuscules, chiffres et tirets. Vide = marque "
+             "servie par domaine seulement.",
     )
     fixed_recipient = fields.Char(
         string="Destinataire unique (page de dépôt)",
-        help="Quand renseigné, cette marque est une page de dépôt : tous les "
-             "envois vont UNIQUEMENT à cette adresse, quel que soit ce que "
-             "saisit l'expéditeur. Le champ destinataire est masqué sur la page.",
+        help="Optionnel. Quand renseigné, la page devient une page de dépôt : "
+             "tous les envois vont UNIQUEMENT à cette adresse, quel que soit "
+             "ce que saisit l'expéditeur, et le champ destinataire est masqué. "
+             "Vide = page ouverte, l'expéditeur choisit ses destinataires.",
     )
     fixed_recipient_name = fields.Char(
         string="Nom affiché du destinataire",
         help="Nom montré sur la page de dépôt (« Envoi sécurisé à … »). "
              "Vide = l'adresse est affichée.",
+    )
+    # Employee behind an auto-provisioned personal drop page (see res.users).
+    # Anchors lifecycle sync (rename / e-mail change / archive) and prevents
+    # duplicate pages. Empty on manually-created or company-general brands.
+    owner_user_id = fields.Many2one(
+        "res.users",
+        string="Employé (page auto)",
+        ondelete="set null",
+        index=True,
+        copy=False,
+        help="Renseigné quand cette page de dépôt a été créée automatiquement "
+             "pour un employé. Sert à la resynchronisation et à l'archivage ; "
+             "empêche les doublons.",
+    )
+    # Native, Shlink-free public URL of the slug-addressed page. Computed,
+    # never stored: it tracks the slug and the resolved share base (brand
+    # domain → public base URL → web.base.url) so the admin always sees the
+    # live link.
+    page_url = fields.Char(
+        string="URL de la page publique",
+        compute="_compute_page_url",
+        help="Adresse publique native /to/<slug> de cette marque (aucun "
+             "raccourcisseur externe). Vide tant qu'aucun slug n'est défini.",
     )
 
     # -- limits (0 = default from settings for the tier)
@@ -222,6 +251,48 @@ class SecureTransferBrand(models.Model):
                     "Une seule marque active peut être la marque par défaut."
                 ))
 
+    # ------------------------------------------------------------------ slug + url
+    @api.model
+    def _st_slugify(self, text):
+        """ASCII-fold + kebab-case a free-text label into a slug candidate
+        matching _SLUG_RE (lowercase, digits, hyphens; leading/trailing and
+        repeated hyphens stripped). Returns '' when nothing usable remains."""
+        s = unicodedata.normalize("NFKD", text or "")
+        s = s.encode("ascii", "ignore").decode("ascii").lower()
+        s = re.sub(r"[^a-z0-9]+", "-", s).strip("-")
+        return re.sub(r"-{2,}", "-", s)
+
+    @api.model
+    def _st_unique_slug(self, seed):
+        """A free slug derived from `seed`: the slugified base, then base-2,
+        base-3… Checks archived brands too (slug is globally unique)."""
+        base = self._st_slugify(seed) or "page"
+        Brand = self.with_context(active_test=False).sudo()
+        candidate, n = base, 1
+        while Brand.search_count([("slug", "=", candidate)]):
+            n += 1
+            candidate = "%s-%s" % (base, n)
+        return candidate
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        # A drop page (fixed_recipient set) with no slug auto-gets one from its
+        # name — creating a page never requires typing a slug by hand.
+        for vals in vals_list:
+            if vals.get("fixed_recipient") and not vals.get("slug"):
+                seed = (vals.get("name") or vals.get("fixed_recipient_name")
+                        or (vals.get("fixed_recipient") or "").split("@")[0])
+                vals["slug"] = self._st_unique_slug(seed)
+        return super().create(vals_list)
+
+    @api.depends("slug", "domain")
+    def _compute_page_url(self):
+        for rec in self:
+            if rec.slug:
+                rec.page_url = "%s/to/%s" % (rec._share_base_url(), rec.slug)
+            else:
+                rec.page_url = False
+
     # ------------------------------------------------------------------ host resolution
     @api.model
     def _resolve_for_host(self, host):
@@ -245,16 +316,16 @@ class SecureTransferBrand(models.Model):
 
     @api.model
     def _resolve_for_slug(self, slug):
-        """Find the active brand exposed as a personal drop page at
-        /to/<slug>. Returns a recordset (empty if no match). Only brands that
-        actually carry a fixed_recipient are drop pages."""
+        """Find the active brand published at /to/<slug>. Returns a recordset
+        (empty if no match). A slug is enough to publish the page; whether the
+        page is a locked drop page or an open one is decided by
+        fixed_recipient, not here."""
         s = (slug or "").strip().lower()
         if not s:
             return self.browse()
         return self.sudo().search([
             ("slug", "=", s),
             ("active", "=", True),
-            ("fixed_recipient", "!=", False),
         ], limit=1)
 
     def _drop_recipient(self):
@@ -359,7 +430,7 @@ class SecureTransferBrand(models.Model):
         return {
             "name": self.name or company.name,
             # PUBLIC branding first (appointment_brand_*, the same fields the
-            # bf_appointment public pages use — e.g. a public brand colour),
+            # bf_appointment public pages use — e.g. a tenant navy #1186c0),
             # then the backend report_brand_* (bf_onboarding_base), then a
             # hardcoded default. getattr keeps every source dependency-free.
             "primary": self.color_primary
@@ -376,8 +447,8 @@ class SecureTransferBrand(models.Model):
             "powered_by": bool(self.powered_by),
             # « Propulsé par » must credit the hosting OPERATOR, never the
             # served brand. Prefer the company's PUBLIC brand name
-            # (appointment_brand_name) over res.company.name, which is often
-            # the legal entity.
+            # (appointment_brand_name — e.g. the operator's brand name) over
+            # res.company.name, which is often the legal entity.
             "powered_by_name": cfield("appointment_brand_name")
             or company.name or self.name,
             # Public tagline first, then the e-mail tagline; footer for e-mails.
@@ -482,9 +553,9 @@ class SecureTransferBrand(models.Model):
     def _share_base_url(self):
         """Base URL of the public pages for this brand, no trailing slash.
         The brand domain wins; then bf_securetransfer.public_base_url; then
-        web.base.url as a last resort. NEVER web.base.url first: on some
-        tenants it is frozen to the backend domain and must not leak into
-        share links."""
+        web.base.url as a last resort. NEVER web.base.url first: on some hosts it
+        is frozen to the backend domain (projets.example.com) and must
+        not leak into share links."""
         self.ensure_one()
         if self.domain:
             return "https://%s" % self.domain.strip().strip("/").lower()

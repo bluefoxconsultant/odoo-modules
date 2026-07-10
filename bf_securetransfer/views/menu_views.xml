@@ -10,6 +10,9 @@
     <menuitem id="menu_dashboard" name="Tableau de bord"
               parent="menu_securetransfer_root" action="action_secure_transfer_dashboard" sequence="5"/>
 
+    <menuitem id="menu_secure_send" name="Nouveau message sécurisé"
+              parent="menu_securetransfer_root" action="action_secure_send_wizard" sequence="8"/>
+
     <menuitem id="menu_transfers" name="Transferts"
               parent="menu_securetransfer_root" action="action_secure_transfer" sequence="10"/>
 

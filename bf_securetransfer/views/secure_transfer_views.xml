@@ -83,6 +83,9 @@
                             <field name="brand_id" readonly="1"/>
                             <field name="locale" readonly="1"/>
                             <field name="has_password" readonly="1"/>
+                            <field name="force_recipient_otp" readonly="1"/>
+                            <field name="recipient_otp_channel" readonly="1"
+                                   invisible="not force_recipient_otp"/>
                             <field name="notify_on_download" readonly="1"/>
                             <field name="burn_after_download" readonly="1"/>
                             <field name="expiry_date"

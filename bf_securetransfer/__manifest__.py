@@ -1,13 +1,13 @@
 {
     'name': 'Transfert sécurisé (Secure Transfer)',
-    'version': '18.0.1.2.1',
+    'version': '18.0.1.6.0',
     'category': 'Website',
     'summary': "Transfert de fichiers sécurisé : téléversement direct navigateur → S3, "
                "liens tokenisés avec expiration et mot de passe, journal d'accès "
                "inaltérable (Loi 25), purge automatique, multi-marques",
     'description': """
-Transfert sécurisé (Secure Transfer)
-====================================
+Blue Fox — Transfert sécurisé (Secrets)
+=======================================
 
 Transfert de fichiers « WeTransfer maison » propulsé par Odoo :
 
@@ -56,8 +56,10 @@ en base de données.
         'views/secure_transfer_brand_views.xml',
         'views/secure_transfer_access_log_views.xml',
         'views/res_config_settings_views.xml',
+        'views/res_users_views.xml',
         'views/secure_transfer_portal_templates.xml',
         'views/reveal_link_wizard_views.xml',
+        'views/secure_send_wizard_views.xml',
         'views/menu_views.xml',
     ],
     'installable': True,

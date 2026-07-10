@@ -8,3 +8,4 @@ access_secure_transfer_brand_manager,secure.transfer.brand manager,model_secure_
 access_secure_transfer_access_log_user,secure.transfer.access.log user,model_secure_transfer_access_log,group_securetransfer_user,1,0,0,0
 access_secure_transfer_access_log_manager,secure.transfer.access.log manager,model_secure_transfer_access_log,group_securetransfer_manager,1,0,0,0
 access_secure_transfer_reveal_wizard_manager,secure.transfer.reveal.wizard manager,model_secure_transfer_reveal_wizard,group_securetransfer_manager,1,1,1,0
+access_secure_transfer_send_wizard_user,secure.transfer.send.wizard user,model_secure_transfer_send_wizard,group_securetransfer_user,1,1,1,0

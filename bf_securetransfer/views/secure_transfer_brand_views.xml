@@ -79,13 +79,20 @@
                         <field name="billing_ref"/>
                     </group>
                     <group string="Page de dépôt personnelle (/to/&lt;slug&gt;)">
-                        <field name="slug" placeholder="depot"/>
+                        <field name="slug"
+                               placeholder="auto d'après le nom si laissé vide"/>
                         <field name="fixed_recipient"
                                placeholder="depot@exemple.com"
                                help="Renseigné = page de dépôt : tous les envois vont uniquement à cette adresse. Le champ destinataire est masqué et forcé côté serveur."/>
                         <field name="fixed_recipient_name"
-                               placeholder="Nom du destinataire"
+                               placeholder="Depot"
                                invisible="not fixed_recipient"/>
+                        <field name="page_url" widget="CopyClipboardChar"
+                               invisible="not page_url"
+                               help="URL publique native de la page de dépôt (aucun raccourcisseur externe)."/>
+                        <field name="owner_user_id" readonly="1"
+                               invisible="not owner_user_id"
+                               help="Page auto-provisionnée pour cet employé (synchro et archivage automatiques)."/>
                     </group>
                     <group string="Listes d'autorisation (anti-piggyback)">
                         <field name="sender_allowlist"

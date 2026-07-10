@@ -189,16 +189,19 @@ class SecureTransferUploadApi(Controller):
         if not _create_limiter.consume(ip, _rate_create_max(env)):
             return _err("rate_limited",
                         _("Trop de transferts créés récemment. Réessayez plus tard."))
-        # Personal drop page (/to/<slug>): the page tells us its slug so the
-        # draft is bound to the drop brand (fixed recipient), not the
-        # Host-resolved brand. Resolving by slug here is safe — sending to a
-        # drop page is public by design (anyone may send to its owner).
+        # Slug-addressed page (/to/<slug>): the page tells us its slug so the
+        # draft is bound to that brand, not the Host-resolved one. A slug names
+        # a page the admin chose to publish, so binding to it is public by
+        # design. It is NOT an authorization: an open (no fixed_recipient) page
+        # reached this way still runs the brand's sender/recipient allowlists,
+        # its effective limits and the IP + sender quotas — same as if it had
+        # been reached through its Host.
         brand = None
         drop_slug = (params.get("drop_slug") or "").strip().lower()
         if drop_slug:
             brand = env["secure.transfer.brand"].sudo()._resolve_for_slug(drop_slug)
             if not brand:
-                return _err("not_found", _("Page de dépôt introuvable."))
+                return _err("not_found", _("Page introuvable."))
         if not brand:
             brand = env["secure.transfer.brand"].sudo()._from_request()
         limits = brand._effective_limits()

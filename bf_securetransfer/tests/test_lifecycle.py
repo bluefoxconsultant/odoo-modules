@@ -85,6 +85,42 @@ class TestSecureTransferLifecycle(TransactionCase):
         self.assertIn("share_url", res)
         self.assertEqual(t.state, "active")
 
+    def test_message_only_body_not_emailed(self):
+        # A message-only transfer must NOT leak its body into the recipient's
+        # inbox: the notification carries the LINK only; the message is read on
+        # the branded page. (Regression guard for the message-reveal fix.)
+        secret = "MOT-DE-PASSE-SECRET-42"
+        Mail = self.env["mail.mail"].sudo()
+        before = Mail.search([])
+        t = self._create(message=secret)          # no files → message-only
+        self.assertFalse(t.file_ids)
+        t.action_finalize()
+        to_recipient = (Mail.search([]) - before).filtered(
+            lambda m: "dest@example.com" in (m.email_to or ""))
+        self.assertTrue(to_recipient, "recipient notification was not queued")
+        for m in to_recipient:
+            self.assertNotIn(
+                secret, m.body_html or "",
+                "the message body leaked into the recipient email")
+            self.assertIn("/s/", m.body_html or "",
+                          "the share link must be present so it can be read")
+
+    def test_file_transfer_keeps_cover_message(self):
+        # With files, the message is a cover note and stays inline as before.
+        secret = "NOTE-DE-COUVERTURE-XYZ"
+        Mail = self.env["mail.mail"].sudo()
+        before = Mail.search([])
+        t = self._create(message=secret)
+        t._register_file("doc.pdf", 4096)
+        with patch(S3_MOD + ".head_object", side_effect=self._head_for(t)):
+            t.action_finalize()
+        to_recipient = (Mail.search([]) - before).filtered(
+            lambda m: "dest@example.com" in (m.email_to or ""))
+        self.assertTrue(to_recipient)
+        self.assertTrue(
+            any(secret in (m.body_html or "") for m in to_recipient),
+            "the cover message should be inline for a file transfer")
+
     def test_finalize_needs_files_or_message(self):
         t = self._create(sender_email="s@x.com", message="")
         with self.assertRaises(UserError):
@@ -408,11 +444,11 @@ class TestSecureTransferLifecycle(TransactionCase):
     def test_abuse_report_suspends_and_notifies(self):
         t = self._active_with_file()
         self.assertTrue(t._is_available()[0])
+        self.env["ir.config_parameter"].sudo().set_param(
+            "bf_securetransfer.abuse_email", "abus@example.com")
         Mail = self.env["mail.mail"].sudo()
         before = Mail.search_count([])
         t._suspend_for_abuse(ip="203.0.113.1")
-        self.env["ir.config_parameter"].sudo().set_param(
-            "bf_securetransfer.abuse_email", "abus@example.com")
         # Stub send() so the auto_delete mails persist for counting.
         with patch("odoo.addons.mail.models.mail_mail.MailMail.send",
                    lambda self, *a, **k: True):

@@ -21,6 +21,7 @@ _logger = logging.getLogger(__name__)
 
 _TEMPLATE_XIDS = (
     "mail_template_transfer_link",
+    "mail_template_secure_message",
     "mail_template_transfer_receipt",
     "mail_template_download_notice",
 )
@@ -30,6 +31,9 @@ _EN_SUBJECTS = {
     "mail_template_transfer_link":
         "{{ object.sender_name or object.sender_email }} sent you files "
         "— {{ object.name }}",
+    "mail_template_secure_message":
+        "{{ object.sender_name or object.sender_email }} sent you a secure "
+        "message — {{ object.name }}",
     "mail_template_transfer_receipt":
         "Your transfer is online — {{ object.name }}",
     "mail_template_download_notice":

@@ -9,7 +9,7 @@ nom d'hôte, **pages de dépôt personnelles** (`/to/<slug>`), **listes
 d'autorisation anti-piggyback** et **suspension automatique sur signalement
 d'abus**.
 
-- **Version** : `18.0.1.2.1`.
+- **Version** : `18.0.1.6.0`.
 - **Licence** : LGPL-3.
 - **Modèle de menaces & non-garanties** : voir [`SECURITY.md`](SECURITY.md).
 - **Multi-paliers** : le système multi-marques permet un palier gratuit limité
@@ -36,6 +36,14 @@ d'abus**.
   stocké).
 - **Deux modes d'envoi, deux onglets** : **Fichiers** (défaut) ou **Message
   seul** (note sécurisée sans fichier — p. ex. transmettre un mot de passe).
+  En mode **Message seul**, le contenu n'apparaît **jamais en clair dans le
+  courriel** : la notification ne porte que le lien, et le message ne se lit
+  que sur la page sécurisée (à durée limitée, journalisée).
+- **Message sécurisé à code (OTP destinataire)** : depuis le backend, un envoi
+  peut **retenir le contenu derrière un code à usage unique** livré par
+  courriel ou par SMS — le message ne s'affiche qu'après preuve d'identité du
+  destinataire. Confirmation d'envoi par code côté expéditeur également
+  disponible.
 - **Ordre des champs pensé anti-friction** : courriel et destinataires **au-
   dessus** de la zone de dépôt ; le courriel expéditeur est **optionnel au
   dépôt, requis à l'envoi** (on peut déposer un fichier avant de saisir son
@@ -382,6 +390,8 @@ connaissance).
 
 | Version | Faits saillants |
 |---|---|
+| `18.0.1.6.0` | Mode **Message seul** : le corps n'est **plus jamais inclus en clair** dans le courriel de notification — celle-ci ne porte que le lien, et le message se lit uniquement sur la page sécurisée (comportement aligné sur les envois à code). |
+| `18.0.1.3.0`–`1.5.0` | **Message sécurisé à code destinataire** (OTP livré par courriel ou SMS) + **assistant d'envoi backend** ; confirmation d'envoi par code côté expéditeur ; **pages de dépôt personnelles** auto-provisionnées à la création d'un utilisateur interne ; publication d'une marque de dépôt par son seul **slug** ; durcissement de l'échappement `LIKE` sur la résolution d'hôte. _(Publication de rattrapage : versions intermédiaires regroupées.)_ |
 | `18.0.1.2.1` | Correctif : les listes d'autorisation par défaut (`res.config.settings`) passent de `Text` à `Char` — un champ `Text` sur les paramètres faisait planter toute la page Paramètres (`_get_classified_fields`). Séparateur = virgules. |
 | `18.0.1.2.0` | Pages de dépôt perso `/to/<slug>` (destinataire forcé) ; onglets Fichiers/Message seul ; courriel expéditeur optionnel au dépôt / requis à l'envoi ; correctif d'ordre des champs. |
 | `18.0.1.1.0` | Langue des courriels selon le contact Odoo (`partner.lang`) ; traductions en_CA rendues durables par hook de migration. |

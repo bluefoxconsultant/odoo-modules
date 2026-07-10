@@ -14,6 +14,7 @@ import csv
 import hashlib
 import hmac
 import io
+import json
 import logging
 import secrets
 import uuid
@@ -27,6 +28,7 @@ from odoo.exceptions import UserError
 from odoo.tools import email_normalize, email_split, html_escape
 
 from . import s3
+from . import sms
 from .secure_transfer_file import DENY_EXTENSIONS
 
 _logger = logging.getLogger(__name__)
@@ -164,6 +166,30 @@ class SecureTransfer(models.Model):
     sender_otp_hash = fields.Char(copy=False, groups="base.group_system")
     sender_otp_expiry = fields.Datetime(copy=False)
     sender_otp_fails = fields.Integer(default=0, copy=False)
+    # Recipient OTP — the "hold the mail until identity is proven" gate. The
+    # tenant setting require_recipient_otp is the instance-wide default; this
+    # per-transfer flag FORCES the gate on regardless (set by a secure send
+    # from the backend). _recipient_otp_required() ORs the two.
+    force_recipient_otp = fields.Boolean(
+        string="Exiger un code du destinataire",
+        default=False,
+        help="Le destinataire doit saisir un code à usage unique avant que le "
+             "message et les fichiers s'affichent — le contenu reste retenu "
+             "jusqu'à cette preuve d'identité.",
+    )
+    recipient_otp_channel = fields.Selection(
+        selection=[("email", "Courriel"), ("sms", "SMS")],
+        string="Canal du code destinataire",
+        default="email",
+        required=True,
+        help="Canal de livraison du code au destinataire. « SMS » exige un "
+             "numéro mobile connu pour le destinataire ; à défaut, le courriel "
+             "prend le relais automatiquement.",
+    )
+    # email_normalisé -> numéro (10 chiffres NANP), sérialisé JSON. Alimenté
+    # seulement par l'envoi sécurisé backend (le formulaire public ne collecte
+    # pas de téléphone) — sinon vide.
+    recipient_sms_map = fields.Text(copy=False)
     # Float on purpose: Integer maps to int4 and overflows at 2.1 GB.
     total_size = fields.Float(
         string="Taille totale (octets)",
@@ -593,6 +619,14 @@ class SecureTransfer(models.Model):
         self.ensure_one()
         return self._needs_sender_otp_param() and not self.sender_confirmed
 
+    def _recipient_otp_required(self):
+        """Whether THIS transfer holds its content behind a recipient code:
+        the per-transfer force flag OR the instance-wide setting. The public
+        controller consults this at the download page, the code request and
+        every file download."""
+        self.ensure_one()
+        return self.force_recipient_otp or self._needs_recipient_otp_param()
+
     def _brand_email_shell(self, heading, inner_html):
         """Wrap ``inner_html`` in the branded email skeleton (dark header band
         with logo/name + accent bar + white card). Shared by the OTP and abuse
@@ -659,6 +693,17 @@ class SecureTransfer(models.Model):
             "auto_delete": True,
         }).send()
 
+    def _otp_sms(self, phone, code):
+        """Deliver a recipient code by SMS (VoIP.ms). Returns True on a
+        confirmed send, False on any failure so the caller falls back to
+        e-mail. The text is one short segment; no PII reaches the logs."""
+        self.ensure_one()
+        text = _("%(brand)s : votre code de vérification est %(code)s "
+                 "(valide 15 minutes).") % {
+            "brand": self.brand_id._visuals()["name"], "code": code,
+        }
+        return sms.send(self.env, phone, text)
+
     def _send_abuse_notice(self, reason=None, ip=None):
         """On an abuse report: alert the abuse desk (full detail) and warn the
         transfer's recipients (neutral). The desk address is a tenant param,
@@ -686,14 +731,13 @@ class SecureTransfer(models.Model):
                     ("Motif", reason or ""),
                     ("IP du signalement", ip or ""),
                 ]))
-        if abuse_email:
-            self.env["mail.mail"].sudo().create({
-                "subject": _("[Abus] Transfert signalé et suspendu — %s") % self.name,
-                "email_from": from_addr,
-                "email_to": abuse_email,
-                "body_html": self._brand_email_shell(_("Signalement d'abus"), detail),
-                "auto_delete": True,
-            }).send()
+        self.env["mail.mail"].sudo().create({
+            "subject": _("[Abus] Transfert signalé et suspendu — %s") % self.name,
+            "email_from": from_addr,
+            "email_to": abuse_email,
+            "body_html": self._brand_email_shell(_("Signalement d'abus"), detail),
+            "auto_delete": True,
+        }).send()
         # 2) Recipients — neutral notice (no reason/IP leaked).
         if self.recipient_emails:
             notice = (
@@ -769,20 +813,60 @@ class SecureTransfer(models.Model):
             if e.strip()
         ]
 
+    def _phone_for_recipient(self, email):
+        """The mobile number to text a recipient's code to, or ''. First the
+        per-transfer sms map (captured by a backend secure send), then a
+        matching Odoo contact's mobile/phone. Normalized to 10 digits."""
+        self.ensure_one()
+        email = email_normalize(email or "") or ""
+        if not email:
+            return ""
+        try:
+            mapping = json.loads(self.recipient_sms_map or "{}")
+        except (ValueError, TypeError):
+            mapping = {}
+        candidate = mapping.get(email) or ""
+        if not candidate:
+            partner = self.env["res.partner"].sudo().search(
+                [("email", "=ilike", email)], limit=1)
+            candidate = partner.mobile or partner.phone or "" if partner else ""
+        return sms.normalize_na(candidate) or ""
+
+    def _otp_channel_for(self, email):
+        """The channel actually used for this recipient: 'sms' only when the
+        transfer elected SMS, the tenant has it configured, AND a phone is
+        known — otherwise 'email' (safe fallback, never a lock-out)."""
+        self.ensure_one()
+        if self.recipient_otp_channel == "sms" and sms.configured(self.env) \
+                and self._phone_for_recipient(email):
+            return "sms"
+        return "email"
+
     def send_recipient_otp(self, email, ip=None, ua=None):
-        """Email a fresh code to a declared recipient. Returns
-        ``(hash, expiry_datetime)`` for the controller to stash in the session,
-        or (None, None) when the email is not one of the recipients."""
+        """Send a fresh code to a declared recipient over the elected channel
+        (SMS when available, else e-mail). Returns ``(hash, expiry_datetime)``
+        for the controller to stash in the session, or (None, None) when the
+        email is not one of the recipients."""
         self.ensure_one()
         if not self._is_recipient_email(email):
             return None, None
         email = email_normalize(email)
         code = "%06d" % secrets.randbelow(1_000_000)
         expiry = fields.Datetime.now() + timedelta(minutes=15)
-        self.with_context(lang=self._lang_for_email(email))._otp_email(
-            email, code, "recipient")
+        channel = self._otp_channel_for(email)
+        lang = self._lang_for_email(email)
+        if channel == "sms":
+            sent = self.with_context(lang=lang)._otp_sms(
+                self._phone_for_recipient(email), code)
+            if not sent:
+                # SMS refused/unreachable — fall back so the recipient is never
+                # locked out of a transfer addressed to them.
+                channel = "email"
+        if channel == "email":
+            self.with_context(lang=lang)._otp_email(email, code, "recipient")
         self._log("otp_sent", actor=email, ip=ip, ua=ua,
-                  note=_("Code de confirmation envoyé au destinataire"))
+                  note=_("Code de confirmation envoyé au destinataire (%s)")
+                  % (_("SMS") if channel == "sms" else _("courriel")))
         return self._otp_hash(code), expiry
 
     # ------------------------------------------------------------------ password
@@ -892,6 +976,17 @@ class SecureTransfer(models.Model):
             "bf_securetransfer.mail_template_transfer_link",
             raise_if_not_found=False,
         )
+        # Two situations must NOT carry the message body in the notification —
+        # in clear, it would sit in the recipient's inbox and defeat the point:
+        #   • the content is held behind a recipient code (force_recipient_otp);
+        #   • the transfer is message-only (no files — the message ITSELF is the
+        #     payload, e.g. a secure note or a password typed in « Message seul »).
+        # Both use the link-only "secure message awaits you" template, whose body
+        # is never emailed: it is revealed only on the branded page via the link.
+        secure_tmpl = self.env.ref(
+            "bf_securetransfer.mail_template_secure_message",
+            raise_if_not_found=False,
+        )
         receipt_tmpl = self.env.ref(
             "bf_securetransfer.mail_template_transfer_receipt",
             raise_if_not_found=False,
@@ -899,10 +994,14 @@ class SecureTransfer(models.Model):
         for rec in self:
             recipients = [r.strip() for r in (rec.recipient_emails or "").split(",")
                           if r.strip()]
-            if link_tmpl:
+            message_only = not rec.file_ids and bool((rec.message or "").strip())
+            tmpl = (secure_tmpl
+                    if (rec.force_recipient_otp or message_only) and secure_tmpl
+                    else link_tmpl)
+            if tmpl:
                 # One email per recipient so each renders in their own language.
                 for r in recipients:
-                    link_tmpl.sudo().with_context(
+                    tmpl.sudo().with_context(
                         lang=rec._lang_for_email(r)).send_mail(
                         rec.id, force_send=False, email_values={"email_to": r})
             if receipt_tmpl:

@@ -1,7 +1,7 @@
 /* bf_securetransfer — public pages (upload, download, unavailable).
  *
  * The brand_style QWeb template injects the per-brand values of --st-primary
- * and --st-dark on :root; the defaults below are a neutral palette so the
+ * and --st-dark on :root; the defaults below are the Blue Fox palette so the
  * pages stay presentable even without a brand override. Lexend is used when
  * available locally, with a plain sans-serif fallback (the CSP blocks any
  * remote font fetch by design).

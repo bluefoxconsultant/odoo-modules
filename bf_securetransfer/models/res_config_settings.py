@@ -13,6 +13,7 @@ from odoo import _, api, fields, models
 from odoo.tools import config as odoo_config
 
 from . import s3
+from . import sms
 
 _logger = logging.getLogger(__name__)
 
@@ -44,8 +45,8 @@ class ResConfigSettings(models.TransientModel):
         string="Préfixe de clé (tenant)",
         config_parameter="bf_securetransfer.s3_key_prefix",
         default="transfers",
-        help="Racine des clés S3 de CETTE instance (p. ex. transfers-prod / "
-             "transfers-staging). Sur un bucket partagé, "
+        help="Racine des clés S3 de CE tenant (p. ex. transfers-bf / "
+             "transfers-prod / transfers-staging). Sur un bucket partagé, "
              "c'est ce qui empêche la purge et les balayages d'un tenant de "
              "toucher les objets d'un autre. À rendre UNIQUE par instance.",
     )
@@ -77,8 +78,8 @@ class ResConfigSettings(models.TransientModel):
         config_parameter="bf_securetransfer.public_base_url",
         help="Base des liens de partage quand la marque n'a pas de domaine "
              "propre, p. ex. https://secret.example.com. Ne JAMAIS "
-             "laisser web.base.url fuir dans les liens (sur certains tenants "
-             "il pointe vers le backend).",
+             "laisser web.base.url fuir dans les liens (sur certains hôtes il pointe "
+             "vers le backend).",
     )
     st_public_upload_enabled = fields.Boolean(
         string="Téléversement public activé",
@@ -87,11 +88,18 @@ class ResConfigSettings(models.TransientModel):
         help="Interrupteur général de la page publique /secrets. Décocher "
              "pour fermer le service sans désinstaller (p. ex. dogfood BF).",
     )
+    st_autoprovision_user_pages = fields.Boolean(
+        string="Créer une page de dépôt par employé",
+        config_parameter="bf_securetransfer.autoprovision_user_pages",
+        help="À la création d'un utilisateur interne (hors comptes de service, "
+             "robots et API), crée et maintient automatiquement sa page de "
+             "dépôt personnelle /to/<slug> (renommage, courriel, archivage "
+             "suivis). Décoché = pages créées manuellement seulement.",
+    )
     st_abuse_email = fields.Char(
         string="Courriel du bureau d'abus",
         config_parameter="bf_securetransfer.abuse_email",
         help="Adresse alertée (avec détails) lors d'un signalement d'abus. "
-             "À défaut, le courriel de la société est utilisé. "
              "Le transfert est suspendu automatiquement et un avis neutre part "
              "aussi aux destinataires.",
     )
@@ -108,6 +116,28 @@ class ResConfigSettings(models.TransientModel):
         help="Exige que le destinataire saisisse un code envoyé à son courriel "
              "avant de télécharger — seul le destinataire visé accède aux "
              "fichiers (renforce la conformité Loi 25).",
+    )
+    # ── recipient OTP by SMS (VoIP.ms) ───────────────────────────────────────
+    st_sms_enabled = fields.Boolean(
+        string="Code destinataire par SMS (VoIP.ms)",
+        config_parameter="bf_securetransfer.sms_enabled",
+        help="Permet d'envoyer le code du destinataire par SMS au lieu du "
+             "courriel (choisi à l'envoi). Exige un DID VoIP.ms activé pour le "
+             "SMS et les identifiants d'API déclarés en odoo.conf.",
+    )
+    st_sms_did = fields.Char(
+        string="Numéro expéditeur SMS (DID)",
+        config_parameter="bf_securetransfer.sms_did",
+        help="DID VoIP.ms activé pour le SMS, d'où partent les codes "
+             "(numéro nord-américain à 10 chiffres).",
+    )
+    st_sms_creds_status = fields.Char(
+        string="Identifiants VoIP.ms",
+        readonly=True,
+        compute="_compute_st_sms_creds_status",
+        help="L'utilisateur et le mot de passe de l'API VoIP.ms se déclarent "
+             "dans odoo.conf (bf_securetransfer_voipms_user / _password) ou en "
+             "variables d'environnement — jamais en base de données.",
     )
     # Tenant-wide allowlists (default policy; a brand overrides with its own).
     st_default_sender_allowlist = fields.Char(
@@ -167,6 +197,16 @@ class ResConfigSettings(models.TransientModel):
         )
         for rec in self:
             rec.st_s3_creds_status = label
+
+    @api.depends_context("uid")
+    def _compute_st_sms_creds_status(self):
+        has = sms.has_credentials()
+        label = (
+            _("Configurés (odoo.conf / environnement)") if has
+            else _("Absents — à déclarer dans odoo.conf, jamais en base")
+        )
+        for rec in self:
+            rec.st_sms_creds_status = label
 
     def action_st_setup_bucket(self):
         """Idempotent bucket provisioning: apply CORS + lifecycle and probe
