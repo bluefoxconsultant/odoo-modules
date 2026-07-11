@@ -6,7 +6,7 @@
         <field name="name">sms.archive.thread.tree</field>
         <field name="model">sms.archive.thread</field>
         <field name="arch" type="xml">
-            <list decoration-muted="is_hidden" decoration-bf="unread_count &gt; 0">
+            <list decoration-muted="is_hidden or not active" decoration-bf="unread_count &gt; 0">
                 <field name="active" column_invisible="1"/>
                 <field name="contact_name" string="Contact"/>
                 <field name="phone_normalized" string="Téléphone"/>
@@ -150,6 +150,8 @@
                 <separator/>
                 <filter name="filter_unread" string="Non lus"
                         domain="[('unread_count', '&gt;', 0)]"/>
+                <filter name="filter_active" string="Actives (boîte)"
+                        domain="[('active', '=', True)]"/>
                 <filter name="filter_archived" string="Archivés"
                         domain="[('active', '=', False)]"/>
                 <separator/>
@@ -167,7 +169,11 @@
         <field name="res_model">sms.archive.thread</field>
         <field name="view_mode">list,form</field>
         <field name="search_view_id" ref="sms_thread_view_search"/>
-        <field name="context">{'search_default_filter_visible': 1}</field>
+        <!-- active_test=False : la liste « Conversations » montre par défaut TOUS les
+             fils (actifs + archivés). Les filtres « Actives (boîte) » et « Archivés »
+             permettent de restreindre. search_default_filter_visible masque encore les
+             fils confidentiels (is_hidden) par défaut. -->
+        <field name="context">{'search_default_filter_visible': 1, 'active_test': False}</field>
     </record>
 
 </odoo>

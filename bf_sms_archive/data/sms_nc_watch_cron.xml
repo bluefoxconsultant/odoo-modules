@@ -26,16 +26,14 @@
 
     </data>
 
-    <!-- Config parameters: use function to avoid UniqueViolation on upgrade.
-         Shipped empty/placeholder — set them under Settings > Technical >
-         System Parameters before activating the watch cron. -->
+    <!-- Config parameters: use function to avoid UniqueViolation on upgrade -->
     <function model="ir.config_parameter" name="set_param">
         <value>bf_sms_archive.nc_watch_path</value>
-        <value></value>
+        <value>/Backups/SMS/Live XML</value>
     </function>
     <function model="ir.config_parameter" name="set_param">
         <value>bf_sms_archive.nc_watch_user_id</value>
-        <value>1</value>
+        <value>2</value>
     </function>
 
 </odoo>

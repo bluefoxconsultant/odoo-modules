@@ -1,7 +1,7 @@
 {
     "name": "SMS & Calls",
     "summary": "Messagerie SMS/MMS live via VOIP.ms + archivage de SMS et journaux d'appels Android",
-    "version": "18.0.3.7.0",
+    "version": "18.0.5.5.2",
     "category": "Tools",
     'author': 'Blue Fox Inc.',
     'website': 'https://bluefoxconsultant.com',
@@ -15,8 +15,9 @@
         "bf_onboarding_base",
     ],
     "external_dependencies": {
-        "python": ["defusedxml", "requests"],
+        "python": ["defusedxml", "requests", "pywebpush"],
     },
+    "post_init_hook": "post_init_hook",
     "data": [
         "security/sms_security.xml",
         "security/ir.model.access.csv",

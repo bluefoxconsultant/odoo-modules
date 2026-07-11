@@ -1,6 +1,7 @@
 import hashlib
 import logging
 import re
+import unicodedata
 from datetime import datetime, timezone
 
 from odoo import api, fields, models
@@ -282,6 +283,27 @@ class SmsArchiveMessage(models.Model):
     # Table d'extension : chacun coûte 2 septets (ESC + caractère).
     _GSM7_EXT = frozenset("^{}\\[~]|€")
 
+    # Translittération des caractères typographiques courants vers leur
+    # équivalent GSM-7. Objectif : ne PAS basculer tout le message en UCS-2
+    # (budget 70 car./SMS au lieu de 160) juste à cause d'une apostrophe
+    # courbe, d'un guillemet « », de points de suspension ou d'un tiret long.
+    # N.B. : € n'est PAS ici (il est en table d'extension GSM-7).
+    _GSM7_TRANSLIT = {
+        "‘": "'", "’": "'", "‚": "'", "′": "'",   # ‘ ’ ‚ ′
+        "‛": "'", "´": "'", "`": "'",                   # ‛ ´ `
+        "“": '"', "”": '"', "„": '"', "″": '"',   # “ ” „ ″
+        "«": '"', "»": '"', "‹": "<", "›": ">",   # « » ‹ ›
+        "–": "-", "—": "-", "―": "-", "−": "-",   # – — ― −
+        "…": "...",                                               # …
+        " ": " ", " ": " ", " ": " ", " ": " ",   # nbsp, nnbsp, thin, figure
+        "​": "", "‌": "", "‍": "", "﻿": "",       # zwsp, zwnj, zwj, bom
+        "Œ": "OE", "œ": "oe",                                # Œ œ
+        "•": "-", "·": ".", "‧": ".", "∙": ".",   # • · ‧ ∙
+        "⁄": "/", "≤": "<=", "≥": ">=", "≠": "!=", # ⁄ ≤ ≥ ≠
+        "½": "1/2", "¼": "1/4", "¾": "3/4",             # ½ ¼ ¾
+        "™": "(TM)", "®": "(R)", "©": "(C)",            # ™ ® ©
+    }
+
     @classmethod
     def _is_gsm7(cls, text):
         """True si ``text`` s'encode intégralement en GSM 7 bits."""
@@ -320,6 +342,102 @@ class SmsArchiveMessage(models.Model):
         if current:
             segments.append("".join(current))
         return segments
+
+    @classmethod
+    def _gsm7_fallback_char(cls, ch, flatten_accents=True):
+        """Meilleur équivalent GSM-7 d'un caractère hors table, sinon ``''``.
+
+        Ordre :
+          1. Ponctuation typographique mappée (``_GSM7_TRANSLIT``) → toujours.
+          2. Lettre accentuée hors GSM-7 (ê â î ô û ë ï ÿ…) → lettre de base
+             par décomposition Unicode NFKD, MAIS seulement si
+             ``flatten_accents`` (sinon on conserve la lettre telle quelle,
+             au prix de l'UCS-2).
+          3. Reste (emoji, symbole exotique) → ``''`` (retiré).
+        """
+        if ch in cls._GSM7_TRANSLIT:
+            return cls._GSM7_TRANSLIT[ch]
+        if unicodedata.category(ch).startswith("L"):
+            if not flatten_accents:
+                return ch  # lettre conservée exacte → force UCS-2, assumé
+            base = "".join(
+                c for c in unicodedata.normalize("NFKD", ch)
+                if not unicodedata.combining(c)
+            )
+            base = "".join(
+                c for c in base if c in cls._GSM7_BASIC or c in cls._GSM7_EXT
+            )
+            return base  # '' si la décomposition ne donne rien d'exploitable
+        return ""
+
+    @classmethod
+    def _normalize_gsm7(cls, text, flatten_accents=True):
+        """Ramène ``text`` dans l'alphabet GSM-7 quand c'est possible.
+
+        Un SMS tient dans 160 caractères en GSM-7, mais le budget tombe à 70
+        dès qu'UN SEUL caractère hors GSM-7 apparaît (bascule UCS-2). Un simple
+        emoji (⚡ 😊) ou une apostrophe courbe suffit alors à fragmenter un
+        message court en plusieurs SMS distincts (VOIP.ms n'assemble pas les
+        segments → le destinataire reçoit plusieurs messages).
+
+        Cette normalisation :
+          - translittère la ponctuation typographique (’ « » … —, nbsp, œ…) ;
+          - avec ``flatten_accents`` (défaut) : aplatit les lettres accentuées
+            hors GSM-7 (ê→e, â→a…) — les accents GSM-7 (é è à ç ä ö ñ ü…) sont
+            TOUJOURS préservés ;
+          - retire les caractères sans équivalent 7 bits (emoji, symboles).
+
+        Le texte déjà GSM-7 est renvoyé tel quel (chemin nominal, aucun coût).
+        """
+        text = text or ""
+        if cls._is_gsm7(text):
+            return text
+        out = []
+        for ch in text:
+            if ch in cls._GSM7_BASIC or ch in cls._GSM7_EXT:
+                out.append(ch)
+            else:
+                out.append(cls._gsm7_fallback_char(ch, flatten_accents))
+        normalized = "".join(out)
+        # Filet : garantir GSM-7 quand flatten_accents force l'aplatissement
+        # (si un caractère restait hors table, on le retire).
+        if flatten_accents and not cls._is_gsm7(normalized):
+            normalized = "".join(
+                c for c in normalized
+                if c in cls._GSM7_BASIC or c in cls._GSM7_EXT
+            )
+        # Les caractères retirés laissent parfois une double espace : on tasse
+        # les suites d'espaces horizontales, puis on enlève celles en fin de
+        # ligne (avant un \n) et aux extrémités — sans toucher aux sauts de
+        # ligne eux-mêmes.
+        normalized = re.sub(r"[^\S\n]{2,}", " ", normalized)
+        normalized = re.sub(r"[^\S\n]+(?=\n)", "", normalized)
+        return normalized.strip()
+
+    @api.model
+    def _gsm7_normalize_enabled(self):
+        """Interrupteur (ICP ``bf_sms_archive.gsm7_normalize``, défaut ON).
+
+        Mettre à ``0`` réactive l'envoi UCS-2 tel quel (emoji conservés, au
+        prix de la fragmentation).
+        """
+        val = self.env["ir.config_parameter"].sudo().get_param(
+            "bf_sms_archive.gsm7_normalize", "1")
+        return (val or "").strip().lower() in ("1", "true", "yes", "on", "t")
+
+    @api.model
+    def _gsm7_flatten_accents_enabled(self):
+        """Aplatir les lettres à accent circonflexe/tréma hors GSM-7 (ê→e…) ?
+
+        ICP ``bf_sms_archive.gsm7_flatten_accents``, **défaut OFF** (choix
+        choix par défaut : garder les accents exacts). À ``1``, ces lettres
+        sont aplaties pour éviter la bascule UCS-2 (donc la fragmentation) des
+        messages qui en contiennent. Les accents déjà GSM-7 (é è à ç ä ö ñ ü…)
+        sont préservés dans tous les cas, quel que soit ce réglage.
+        """
+        val = self.env["ir.config_parameter"].sudo().get_param(
+            "bf_sms_archive.gsm7_flatten_accents", "0")
+        return (val or "").strip().lower() in ("1", "true", "yes", "on", "t")
 
     @api.model
     def _mms_escalation_min_segments(self):
@@ -379,7 +497,18 @@ class SmsArchiveMessage(models.Model):
         did = Line._voipms_did_value(line.did)
         dst_api = self._to_voipms_dst(dst_norm)
         is_mms = bool(media)
-        segments = self._split_segments(body or "")
+        # Corps réellement transmis. Sur le chemin SMS (aucun média), on
+        # normalise vers GSM-7 pour qu'un message court reste UN seul segment
+        # plutôt que de se fragmenter en plusieurs SMS distincts (un simple
+        # emoji ou une apostrophe courbe suffirait à basculer en UCS-2, budget
+        # 70 car.). Le vrai MMS (avec média) conserve l'Unicode tel quel.
+        send_body = body or ""
+        if not is_mms and self._gsm7_normalize_enabled():
+            send_body = self._normalize_gsm7(
+                send_body,
+                flatten_accents=self._gsm7_flatten_accents_enabled(),
+            )
+        segments = self._split_segments(send_body)
 
         # Escalade « intelligente » : un texte qui ne tient pas dans un seul
         # SMS (long, ou riche en Unicode → enveloppe UCS-2 de 70 caractères)
@@ -407,7 +536,7 @@ class SmsArchiveMessage(models.Model):
                 if want_mms_escalation:
                     try:
                         voipms_id = Voipms._voipms_send_mms(
-                            did, dst_api, body or "", [])
+                            did, dst_api, send_body, [])
                         is_mms = True
                         sent_via_mms = True
                     except Exception as e:  # noqa: BLE001 — repli SMS segmenté
@@ -428,14 +557,17 @@ class SmsArchiveMessage(models.Model):
                 "Envoi SMS/MMS échoué (ligne=%s dst=%s) : %s", line.id, dst_norm, error,
             )
 
+        # On archive/hash le corps réellement transmis (normalisé le cas
+        # échéant), pour que le fil « Messagerie » reflète ce que le
+        # destinataire a reçu.
         msg_hash = hashlib.sha256(
-            f"{dst_norm}|{date_ms}|{body or ''}|out|{voipms_id}".encode("utf-8")
+            f"{dst_norm}|{date_ms}|{send_body}|out|{voipms_id}".encode("utf-8")
         ).hexdigest()
         rec = self.sudo().create({
             "thread_id": thread.id,
             "message_hash": msg_hash,
             "direction": "out",
-            "body": body or "",
+            "body": send_body,
             "date_sent": now,
             "date_sent_ms": str(date_ms),
             "is_mms": is_mms,
@@ -516,3 +648,19 @@ class SmsArchiveMessage(models.Model):
             self.env["bus.bus"]._sendone(
                 owner.partner_id, "sms.archive/new", payload,
             )
+            # Web Push hors bus : réveille le téléphone même navigateur fermé.
+            # Uniquement pour un entrant non lu ; jamais bloquant pour l'ingestion.
+            if kind == "new" and msg.direction == "in":
+                try:
+                    self.env["sms.archive.push.subscription"]._notify_new_message(msg)
+                except Exception:
+                    _logger.warning(
+                        "Web Push non envoyé (fil %s).", thread.id, exc_info=True,
+                    )
+                # Push UnifiedPush/ntfy vers l'app Android native (sans Google).
+                try:
+                    self.env["sms.archive.unifiedpush"]._notify_new_message(msg)
+                except Exception:
+                    _logger.warning(
+                        "Push UnifiedPush non envoyé (fil %s).", thread.id, exc_info=True,
+                    )

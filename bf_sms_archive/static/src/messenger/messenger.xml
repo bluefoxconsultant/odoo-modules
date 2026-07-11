@@ -7,6 +7,13 @@
             <!-- ───────────── Left pane: thread list ───────────── -->
             <div class="o_sms_sidebar d-flex flex-column">
                 <div class="o_sms_sidebar_head">
+                    <!-- Web Push : proposer l'activation tant que non abonné -->
+                    <button t-if="state.pushSupported and !state.pushReady"
+                            class="btn btn-sm btn-primary w-100 mb-2 o_sms_enable_push"
+                            t-on-click="enablePush"
+                            title="Recevoir les SMS en notification, même l'application fermée">
+                        <i class="fa fa-bell me-1"/>Activer les notifications
+                    </button>
                     <!-- ===== Advanced (legacy) toolbar ===== -->
                     <t t-if="state.advanced">
                         <div class="d-flex align-items-center mb-2">

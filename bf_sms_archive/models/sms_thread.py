@@ -702,7 +702,33 @@ class SmsArchiveThread(models.Model):
         if "bf.timezone" in self.env:
             tz = self.env["bf.timezone"].sudo().resolve([self.env.user.tz]) \
                 or self.env.user.tz or False
-        return {"tz": tz or False}
+        return {
+            "tz": tz or False,
+            # Clé publique VAPID (application server key) pour l'abonnement Web
+            # Push côté navigateur — générée à l'installation, idempotent ici.
+            "vapid_public_key":
+                self.env["sms.archive.push.subscription"]._ensure_vapid_keys(),
+        }
+
+    @api.model
+    def push_subscribe(self, endpoint, p256dh, auth, ua=None):
+        """Enregistre (ou réactive) l'abonnement Web Push du navigateur courant
+        pour l'utilisateur connecté. Appelé par la SPA après ``pushManager``."""
+        if not (endpoint and p256dh and auth):
+            return False
+        self.env["sms.archive.push.subscription"]._upsert(
+            self.env.uid, endpoint, p256dh, auth, ua,
+        )
+        return True
+
+    @api.model
+    def push_unsubscribe(self, endpoint):
+        """Désactive l'abonnement Web Push correspondant (déconnexion propre)."""
+        subs = self.env["sms.archive.push.subscription"].sudo().search([
+            ("endpoint", "=", endpoint), ("user_id", "=", self.env.uid),
+        ])
+        subs.write({"active": False})
+        return True
 
     @api.model
     def get_lines(self):
@@ -769,11 +795,24 @@ class SmsArchiveThread(models.Model):
         if unread:
             unread.write({"is_read": True})
             self._ping_unread(thread.owner_id)
+            self._up_clear(thread.owner_id, thread.id)
         return {
             "thread": thread._messenger_thread_dict(),
             "messages": messages,
             "has_more": len(found) == limit,
         }
+
+    def _up_clear(self, owner, thread_id=None):
+        """Sync lu → efface la notification correspondante sur l'app mobile
+        (UnifiedPush). Défensif : ne perturbe jamais la lecture."""
+        try:
+            UP = self.env["sms.archive.unifiedpush"]
+            if thread_id is None:
+                UP._notify_clear_all(owner)
+            else:
+                UP._notify_clear(owner, thread_id)
+        except Exception:  # noqa: BLE001
+            pass
 
     @api.model
     def mark_thread_read(self, thread_id):
@@ -783,6 +822,7 @@ class SmsArchiveThread(models.Model):
             lambda m: m.direction == "in" and not m.is_read
         ).write({"is_read": True})
         self._ping_unread(thread.owner_id)
+        self._up_clear(thread.owner_id, thread.id)
         return self.get_unread_summary()
 
     @api.model
@@ -838,6 +878,7 @@ class SmsArchiveThread(models.Model):
             ("is_read", "=", False),
         ]).write({"is_read": True})
         self._ping_unread(self.env.user)
+        self._up_clear(self.env.user)
         return self.get_unread_summary()
 
     @api.model

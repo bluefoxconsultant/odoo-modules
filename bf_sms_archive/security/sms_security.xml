@@ -122,4 +122,34 @@
         <field name="groups" eval="[(4, ref('group_sms_manager'))]"/>
     </record>
 
+    <!-- Record Rule: Push subscription (utilisateur ne voit que les siennes) -->
+    <record id="sms_push_sub_rule_user" model="ir.rule">
+        <field name="name">Abonnement push : propriétaire seulement</field>
+        <field name="model_id" ref="model_sms_archive_push_subscription"/>
+        <field name="domain_force">[('user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_sms_user'))]"/>
+    </record>
+
+    <record id="sms_push_sub_rule_manager" model="ir.rule">
+        <field name="name">Abonnement push : gestionnaire voit tout</field>
+        <field name="model_id" ref="model_sms_archive_push_subscription"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('group_sms_manager'))]"/>
+    </record>
+
+    <!-- Record Rule: Mobile device (utilisateur ne voit que les siens) -->
+    <record id="sms_mobile_device_rule_user" model="ir.rule">
+        <field name="name">Appareil mobile : propriétaire seulement</field>
+        <field name="model_id" ref="model_sms_archive_mobile_device"/>
+        <field name="domain_force">[('user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_sms_user'))]"/>
+    </record>
+
+    <record id="sms_mobile_device_rule_manager" model="ir.rule">
+        <field name="name">Appareil mobile : gestionnaire voit tout</field>
+        <field name="model_id" ref="model_sms_archive_mobile_device"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('group_sms_manager'))]"/>
+    </record>
+
 </odoo>

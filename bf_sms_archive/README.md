@@ -426,7 +426,7 @@ The same SHA-256 hashing used by the XML import is applied — re-posting the sa
 
 ```bash
 TOKEN=...
-curl -X POST https://erp.bluefoxconsultant.com/bf_sms_archive/api/ingest \
+curl -X POST https://odoo.example.com/bf_sms_archive/api/ingest \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"entries":[{"kind":"sms","phone":"+15145551234","direction":"in","body":"smoke test","date_ms":"1731234567890"}]}'
@@ -487,7 +487,7 @@ curl -X POST https://erp.bluefoxconsultant.com/bf_sms_archive/api/ingest \
 
 ### Version 18.0.1.3.0
 
-- **NEW:** `recording_url` field on `call.archive.call` -- Nextcloud internal link to audio file for calls sourced from the VOIP.ms daily sync (`scripts/sync_voipms_recordings.py` in the TentaClaude repo)
+- **NEW:** `recording_url` field on `call.archive.call` -- Nextcloud internal link to audio file for calls sourced from the VOIP.ms daily sync (from the VOIP.ms daily recording sync)
 - **NEW:** Recording link shown in the call tree view (optional column) and on the call form
 - **CHANGE:** Call records imported by VOIP.ms sync use `import_batch_id` prefixed with `voipms-` to distinguish from SMS Backup & Restore imports
 

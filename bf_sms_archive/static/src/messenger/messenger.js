@@ -68,6 +68,9 @@ class SmsMessenger extends Component {
             soundOn: localStorage.getItem("bf_sms_sound") !== "0",
             // UI density: simple (default, decluttered) vs advanced (legacy full toolbars)
             advanced: localStorage.getItem("bf_sms_ui_advanced") === "1",
+            // Web Push (notifications mobiles, navigateur fermé)
+            pushSupported: "serviceWorker" in navigator && "PushManager" in window,
+            pushReady: false,
         });
 
         this.tz = false;  // user timezone (resolved server-side via bf_timezone)
@@ -82,12 +85,16 @@ class SmsMessenger extends Component {
         onWillStart(async () => {
             const cfg = await this.orm.call(MODEL, "get_messenger_config", []);
             this.tz = cfg.tz || false;
+            this._vapidKey = cfg.vapid_public_key || "";
             await Promise.all([this.loadLines(), this.loadThreads()]);
             // Le client est déjà abonné au canal de son partenaire (bus core) ; on
             // se contente d'écouter le type de notification.
             this.busService.subscribe("sms.archive/new", this._busCb);
             this.busService.subscribe("sms.archive/read", this._readCb);
             this._requestNotifyPermission();
+            // Web Push : réveille le téléphone navigateur fermé (indépendant du
+            // bus). Non bloquant — n'empêche jamais l'ouverture de la messagerie.
+            this._setupPush();
         });
 
         onWillUnmount(() => {
@@ -659,6 +666,82 @@ class SmsMessenger extends Component {
         if (window.Notification && Notification.permission === "default") {
             Notification.requestPermission().catch(() => {});
         }
+    }
+
+    // ── Web Push (notifications mobiles fiables) ───────────────────────
+    // Enregistre le service worker, s'abonne au push du navigateur et pousse
+    // l'abonnement au serveur. Contrairement à window.Notification (premier plan
+    // seulement), le push est délivré onglet fermé → notif OS sur le téléphone.
+    async _setupPush({ prompt = false } = {}) {
+        try {
+            if (!this.state.pushSupported || !this._vapidKey) {
+                return;
+            }
+            // Ne pas harceler : si l'autorisation n'est pas encore accordée, on
+            // n'abonne qu'à la demande explicite (bouton « Activer »).
+            if (Notification.permission === "denied") {
+                return;
+            }
+            if (Notification.permission === "default") {
+                if (!prompt) {
+                    return;
+                }
+                const perm = await Notification.requestPermission();
+                if (perm !== "granted") {
+                    return;
+                }
+            }
+            const reg = await navigator.serviceWorker.register(
+                "/bf_sms_archive/push-sw.js",
+                { scope: "/bf_sms_archive/" },
+            );
+            await navigator.serviceWorker.ready;
+            let sub = await reg.pushManager.getSubscription();
+            if (!sub) {
+                sub = await reg.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: this._urlB64ToUint8(this._vapidKey),
+                });
+            }
+            const raw = sub.toJSON();
+            const ok = await this.orm.call(MODEL, "push_subscribe", [], {
+                endpoint: raw.endpoint,
+                p256dh: raw.keys && raw.keys.p256dh,
+                auth: raw.keys && raw.keys.auth,
+                ua: (navigator.userAgent || "").slice(0, 120),
+            });
+            this.state.pushReady = !!ok;
+        } catch (e) {
+            // Jamais fatal : la SPA reste utilisable sans push.
+            console.warn("[bf_sms] configuration Web Push échouée", e);
+        }
+    }
+
+    // Handler du bouton « Activer les notifications » (déclenche le prompt).
+    async enablePush() {
+        await this._setupPush({ prompt: true });
+        if (this.state.pushReady) {
+            this.notification.add("Notifications activées sur cet appareil.", {
+                type: "success",
+            });
+        } else if (window.Notification && Notification.permission === "denied") {
+            this.notification.add(
+                "Notifications bloquées par le navigateur — à réautoriser dans ses réglages.",
+                { type: "warning" },
+            );
+        }
+    }
+
+    // base64url (clé serveur VAPID) → Uint8Array (applicationServerKey).
+    _urlB64ToUint8(base64) {
+        const padding = "=".repeat((4 - (base64.length % 4)) % 4);
+        const b64 = (base64 + padding).replace(/-/g, "+").replace(/_/g, "/");
+        const rawData = atob(b64);
+        const out = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; i++) {
+            out[i] = rawData.charCodeAt(i);
+        }
+        return out;
     }
 
     // ── Helpers ────────────────────────────────────────────────
