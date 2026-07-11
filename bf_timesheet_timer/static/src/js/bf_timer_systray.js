@@ -1,5 +1,5 @@
 /** @odoo-module **/
-import { Component, markup, onMounted, onWillDestroy, useState } from "@odoo/owl";
+import { Component, markup, onMounted, onWillUnmount, useState } from "@odoo/owl";
 import { ConfirmationDialog } from "@web/core/confirmation_dialog/confirmation_dialog";
 import { Dropdown } from "@web/core/dropdown/dropdown";
 import { DropdownItem } from "@web/core/dropdown/dropdown_item";
@@ -32,15 +32,26 @@ export class BfTimerSystray extends Component {
         this._presets = null;
 
         onMounted(() => {
+            // Defensive: never stack a second interval onto the same instance.
+            // A remount (onMounted firing again before teardown) would otherwise
+            // leak the previous interval — they all share this._tickCount and
+            // compound into a runaway refresh() storm.
+            if (this._tickInterval) {
+                clearInterval(this._tickInterval);
+            }
             this._tickInterval = setInterval(() => this._tick(), 1000);
             document.addEventListener("keydown", this._boundKeyDown);
             // Check for pending timers on mount
             this._checkPendingTimers();
         });
 
-        onWillDestroy(() => {
+        // Use onWillUnmount (fires on every unmount, including remounts) rather
+        // than onWillDestroy (fires only on permanent teardown) so the interval
+        // is always cleared before a possible remount re-adds one.
+        onWillUnmount(() => {
             if (this._tickInterval) {
                 clearInterval(this._tickInterval);
+                this._tickInterval = null;
             }
             document.removeEventListener("keydown", this._boundKeyDown);
         });
