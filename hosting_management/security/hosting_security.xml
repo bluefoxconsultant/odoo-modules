@@ -142,4 +142,23 @@
         <field name="groups" eval="[(4, ref('group_hosting_manager'))]"/>
     </record>
 
+    <!-- DID : l'utilisateur voit les DID non assignés + ceux de ses clients -->
+    <record id="hosting_voip_did_rule_user" model="ir.rule">
+        <field name="name">DID : l'utilisateur voit les siens / non assignés</field>
+        <field name="model_id" ref="model_hosting_voip_did"/>
+        <field name="domain_force">['|', ('partner_id', '=', False), ('partner_id.hosting_service_ids.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_hosting_user'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <record id="hosting_voip_did_rule_manager" model="ir.rule">
+        <field name="name">DID : le gestionnaire voit tout</field>
+        <field name="model_id" ref="model_hosting_voip_did"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('group_hosting_manager'))]"/>
+    </record>
+
 </odoo>

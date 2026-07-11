@@ -20,6 +20,20 @@ def _human_bytes(n):
     return f"{n:.2f} EB"
 
 
+def _icp_truthy(value, default=True):
+    """Interpréter un paramètre `ir.config_parameter` booléen de façon tolérante.
+
+    Les champs `Boolean` liés via `config_parameter` sont stockés par Odoo sous
+    la forme `"True"` / `"False"`, alors que les seeds/`set_param` manuels
+    utilisent souvent `"1"` / `"0"`. On accepte les deux pour éviter qu'un simple
+    enregistrement du formulaire de configuration ne désactive silencieusement
+    l'envoi du rapport (cf. incident BKP-00168, 2026-06-30).
+    """
+    if value is None or value == "":
+        return default
+    return str(value).strip().lower() in ("1", "true", "yes", "on", "t")
+
+
 class HostingBackupRun(models.Model):
     """Représente une exécution de sauvegarde (exécution quotidienne de tous les scripts de sauvegarde)."""
 
@@ -259,10 +273,12 @@ class HostingBackupRun(models.Model):
         """
         self.ensure_one()
         ICP = self.env["ir.config_parameter"].sudo()
-        if ICP.get_param("hosting.backup_report_enabled", "1") != "1":
+        if not _icp_truthy(ICP.get_param("hosting.backup_report_enabled", "1")):
             self._maybe_send_ntfy_alert()
             return False
-        only_on_issues = ICP.get_param("hosting.backup_report_only_on_issues", "0") == "1"
+        only_on_issues = _icp_truthy(
+            ICP.get_param("hosting.backup_report_only_on_issues", "0"), default=False
+        )
         if only_on_issues and self.state == "success":
             # Marquer comme « traité » pour éviter une nouvelle évaluation par le
             # cron tant que la fenêtre de 36 h n'est pas écoulée.
@@ -305,7 +321,7 @@ class HostingBackupRun(models.Model):
         - l'heure courante (TZ configurée) ne correspond pas
         """
         ICP = self.env["ir.config_parameter"].sudo()
-        if ICP.get_param("hosting.backup_report_enabled", "1") != "1":
+        if not _icp_truthy(ICP.get_param("hosting.backup_report_enabled", "1")):
             return
         if ICP.get_param("hosting.backup_report_mode", "scheduled") != "scheduled":
             return
@@ -319,7 +335,11 @@ class HostingBackupRun(models.Model):
         except pytz.UnknownTimeZoneError:
             tz = pytz.timezone("America/Toronto")
         now_local = datetime.now(tz)
-        if now_local.hour != target_hour:
+        # Fenêtre de rattrapage : on tente à l'heure cible ET à chaque passage
+        # horaire suivant de la journée, jusqu'à ce que `report_sent` bascule.
+        # Un échec d'envoi transitoire (SMTP, fenêtre manquée) est ainsi réessayé
+        # au prochain tour plutôt que perdu jusqu'au lendemain (cf. BKP-00168).
+        if now_local.hour < target_hour:
             return
 
         # Couvre 36h pour absorber tout décalage TZ + un éventuel report tardif.
@@ -335,14 +355,35 @@ class HostingBackupRun(models.Model):
             if key in seen:
                 continue
             seen.add(key)
+            run_label = run.name or run.hostname or str(run.id)
+            run_host = run.hostname or "N/D"
             try:
                 if run.action_send_report():
                     sent += 1
-            except Exception:
+            except Exception as exc:
                 self.env.cr.rollback()
                 _logger.exception(
-                    "Échec de l'envoi du rapport de sauvegarde %s", run.name
+                    "Échec de l'envoi du rapport de sauvegarde %s", run_label
                 )
+                # Le rattrapage horaire réessaiera, mais on alerte tout de suite
+                # pour qu'un échec persistant ne reste pas silencieux.
+                try:
+                    self.env["hosting.ntfy"].send(
+                        title=f"RAPPORT SAUVEGARDE : échec d'envoi ({run_label})",
+                        body=(
+                            f"Hôte : {run_host}\n"
+                            f"L'envoi du courriel de rapport a échoué : "
+                            f"{str(exc)[:200]}\n"
+                            f"Nouvel essai au prochain passage horaire."
+                        ),
+                        priority="high",
+                        tags="floppy_disk,email,warning",
+                    )
+                except Exception:
+                    _logger.exception(
+                        "Échec de l'alerte ntfy pour le rapport de sauvegarde %s",
+                        run_label,
+                    )
         if sent:
             _logger.info(
                 "Rapport de sauvegarde quotidien : %d courriel(s) envoyé(s).", sent

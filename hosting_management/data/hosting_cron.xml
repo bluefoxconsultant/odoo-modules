@@ -114,6 +114,17 @@
             <field name="active">True</field>
         </record>
 
+        <!-- Tâche planifiée : Ingestion des rapports agrégés DMARC (RUA) -->
+        <record id="ir_cron_hosting_dmarc_ingest" model="ir.cron">
+            <field name="name">Hébergement : Ingestion rapports DMARC (RUA)</field>
+            <field name="model_id" ref="model_hosting_dmarc_report"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_dmarc_ingest_reports()</field>
+            <field name="interval_number">6</field>
+            <field name="interval_type">hours</field>
+            <field name="active">True</field>
+        </record>
+
         <!-- Tâche planifiée : Synchronisation Action1 (RMM) -->
         <record id="ir_cron_hosting_endpoint_action1_sync" model="ir.cron">
             <field name="name">Hébergement : Synchronisation Action1</field>

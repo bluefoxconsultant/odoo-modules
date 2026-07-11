@@ -4,6 +4,7 @@ from . import hosting_ntfy
 from . import hosting_email_template
 from . import hosting_server
 from . import hosting_domain
+from . import hosting_dmarc_report
 from . import hosting_software
 from . import hosting_software_version
 from . import hosting_service_tag
@@ -30,4 +31,8 @@ from . import hosting_endpoint
 from . import hosting_endpoint_group
 from . import hosting_license
 from . import hosting_license_seat
+from . import voipms_connector
+from . import hosting_voip_did
+from . import hosting_voip_cdr
+from . import hosting_voip_transaction
 from . import project_project

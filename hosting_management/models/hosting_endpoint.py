@@ -477,7 +477,8 @@ class HostingEndpoint(models.Model):
     def _action1_get_config(self):
         ICP = self.env["ir.config_parameter"].sudo()
         return {
-            "enabled": ICP.get_param("hosting.action1_enabled", "0") == "1",
+            "enabled": (ICP.get_param("hosting.action1_enabled", "0") or "").strip().lower()
+            in ("1", "true", "yes", "on", "t"),
             "token": ICP.get_param("hosting.action1_api_token", ""),
             "base_url": ICP.get_param(
                 "hosting.action1_api_base_url",

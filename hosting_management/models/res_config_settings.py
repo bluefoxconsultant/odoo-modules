@@ -332,6 +332,104 @@ class ResConfigSettings(models.TransientModel):
         readonly=True,
     )
 
+    # ------------------------------------------------------------------
+    # Intégration VOIP.ms (téléphonie — lecture seule)
+    # ------------------------------------------------------------------
+    hosting_voipms_enabled = fields.Boolean(
+        string="Activer la synchronisation VOIP.ms",
+        config_parameter="hosting.voipms_enabled",
+        default=False,
+        help="Active les crons qui synchronisent DID, CDR, transactions et solde "
+        "depuis VOIP.ms (lecture seule, aucune écriture).",
+    )
+    hosting_voipms_api_username = fields.Char(
+        string="Utilisateur API VOIP.ms",
+        config_parameter="hosting.voipms_api_username",
+        help="Courriel du compte VOIP.ms (ex. info@example.com). "
+        "L'API et l'allowlist IP se configurent sur voip.ms/m/api.php — "
+        "l'IP de sortie du serveur Odoo doit y figurer.",
+    )
+    hosting_voipms_api_password = fields.Char(
+        string="Mot de passe API VOIP.ms",
+        config_parameter="hosting.voipms_api_password",
+        help="Mot de passe API (distinct du mot de passe de connexion), "
+        "défini sur voip.ms/m/api.php.",
+    )
+    hosting_voipms_low_balance_threshold = fields.Float(
+        string="Seuil d'alerte de solde bas ($)",
+        config_parameter="hosting.voipms_low_balance_threshold",
+        default=10.0,
+        help="Sous ce solde, une alerte ntfy quotidienne est émise.",
+    )
+    hosting_voipms_cdr_backfill_days = fields.Integer(
+        string="Fenêtre CDR (jours)",
+        config_parameter="hosting.voipms_cdr_backfill_days",
+        default=90,
+        help="Profondeur d'historique CDR/transactions récupérée à chaque synchro.",
+    )
+    hosting_voipms_last_sync = fields.Datetime(
+        string="Dernière synchro VOIP.ms",
+        config_parameter="hosting.voipms_last_sync",
+        readonly=True,
+    )
+    hosting_voipms_last_balance = fields.Char(
+        string="Dernier solde VOIP.ms",
+        config_parameter="hosting.voipms_last_balance",
+        readonly=True,
+    )
+    hosting_voipms_last_balance_date = fields.Datetime(
+        string="Date du dernier solde",
+        config_parameter="hosting.voipms_last_balance_date",
+        readonly=True,
+    )
+
+    def action_test_voipms_connection(self):
+        """Tester la connexion VOIP.ms (getBalance) et afficher le résultat."""
+        self.ensure_one()
+        try:
+            bal = self.env["hosting.voip.did"]._voipms_fetch_balance()
+        except Exception as e:  # noqa: BLE001
+            return {
+                "type": "ir.actions.client",
+                "tag": "display_notification",
+                "params": {
+                    "title": _("VOIP.ms"),
+                    "message": _("Échec de connexion : %s", e),
+                    "type": "danger",
+                    "sticky": True,
+                },
+            }
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("VOIP.ms"),
+                "message": _("Connexion réussie. Solde : %.2f $", bal or 0.0),
+                "type": "success",
+                "sticky": False,
+            },
+        }
+
+    def action_sync_voipms_now(self):
+        """Lancer la synchro VOIP.ms immédiatement et notifier."""
+        self.ensure_one()
+        stats = self.env["hosting.voip.did"]._voipms_sync(manual=True)
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("Synchronisation VOIP.ms"),
+                "message": _(
+                    "Terminée : %(d)s DID, %(c)s appels, %(t)s transactions, "
+                    "%(e)s erreur(s).",
+                    d=stats["dids"], c=stats["cdr"], t=stats["transactions"],
+                    e=stats["errors"],
+                ),
+                "type": "success" if stats["errors"] == 0 else "warning",
+                "sticky": stats["errors"] > 0,
+            },
+        }
+
     def action_sync_action1_now(self):
         """Déclencher manuellement la synchro Action1 et notifier."""
         stats = self.env["hosting.endpoint"]._action1_sync(manual=True)

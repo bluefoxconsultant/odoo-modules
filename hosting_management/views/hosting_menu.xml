@@ -108,6 +108,13 @@
         action="hosting_domain_action_expiring"
         sequence="25"/>
 
+    <menuitem
+        id="hosting_menu_dmarc_reports"
+        name="Rapports DMARC"
+        parent="hosting_menu_infrastructure"
+        action="hosting_dmarc_report_action"
+        sequence="27"/>
+
     <!-- Parc client (SLA) -->
     <menuitem
         id="hosting_menu_endpoints_root"
@@ -149,6 +156,35 @@
         parent="hosting_menu_endpoints_root"
         action="hosting_endpoint_group_action"
         sequence="50"/>
+
+    <!-- Téléphonie (VOIP.ms) Menu -->
+    <menuitem
+        id="hosting_menu_voip"
+        name="Téléphonie"
+        parent="hosting_menu_root"
+        sequence="24"/>
+
+    <menuitem
+        id="hosting_menu_voip_dids"
+        name="DID"
+        parent="hosting_menu_voip"
+        action="hosting_voip_did_action"
+        sequence="10"/>
+
+    <menuitem
+        id="hosting_menu_voip_cdr"
+        name="Statistiques d'appels"
+        parent="hosting_menu_voip"
+        action="hosting_voip_cdr_action"
+        sequence="20"/>
+
+    <menuitem
+        id="hosting_menu_voip_transactions"
+        name="Transactions"
+        parent="hosting_menu_voip"
+        action="hosting_voip_transaction_action"
+        groups="hosting_management.group_hosting_manager"
+        sequence="30"/>
 
     <!-- Security Menu -->
     <menuitem

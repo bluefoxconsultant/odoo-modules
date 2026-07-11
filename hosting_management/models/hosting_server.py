@@ -16,12 +16,12 @@ class HostingServer(models.Model):
         string="Nom du serveur",
         required=True,
         tracking=True,
-        help="Nom convivial du serveur (ex. : « Serveur principal »)",
+        help="Nom convivial du serveur (ex. : « Production 1 »)",
     )
     code = fields.Char(
         string="Code",
         required=True,
-        help="Identifiant court (ex. : « SRV-A »)",
+        help="Identifiant court (ex. : « PT1 »)",
     )
     hostname = fields.Char(
         string="Nom d'hôte",

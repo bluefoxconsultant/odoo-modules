@@ -38,6 +38,11 @@
                         invisible="hosting_license_count == 0">
                     <field name="hosting_license_count" widget="statinfo" string="Licences"/>
                 </button>
+                <button name="action_view_voip_dids" type="object"
+                        class="oe_stat_button" icon="fa-phone"
+                        invisible="voip_did_count == 0">
+                    <field name="voip_did_count" widget="statinfo" string="DID"/>
+                </button>
             </xpath>
 
             <!-- Case has_sla : placée près du champ company_type pour visibilité -->

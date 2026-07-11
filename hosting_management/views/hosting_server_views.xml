@@ -62,7 +62,7 @@
                     <group>
                         <group string="Connexion">
                             <field name="hostname" string="Nom d'hôte" placeholder="server.example.com"/>
-                            <field name="ip_address" string="Adresse IP" placeholder="192.168.1.1"/>
+                            <field name="ip_address" string="Adresse IP" placeholder="203.0.113.1"/>
                             <field name="ssh_user" string="Utilisateur SSH"/>
                             <field name="ssh_port" string="Port SSH"/>
                         </group>

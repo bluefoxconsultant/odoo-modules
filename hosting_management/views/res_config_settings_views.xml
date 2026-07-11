@@ -137,6 +137,64 @@
                             </div>
                         </setting>
                     </block>
+                    <block title="Téléphonie VOIP.ms (DID, stats, solde)" name="voipms_integration">
+                        <setting string="Activation" help="Active les crons de synchronisation VOIP.ms (DID, CDR, transactions, solde) — lecture seule, toutes les 6 heures.">
+                            <field name="hosting_voipms_enabled" widget="boolean_toggle"/>
+                        </setting>
+                        <setting string="Identifiants API VOIP.ms" help="L'API et l'allowlist IP se configurent sur voip.ms/m/api.php. L'IP de sortie du serveur Odoo doit y figurer. Le mot de passe API est distinct du mot de passe de connexion.">
+                            <div class="content-group">
+                                <div class="row mt16">
+                                    <label for="hosting_voipms_api_username" class="col-lg-3 o_light_label"/>
+                                    <field name="hosting_voipms_api_username" class="oe_inline"/>
+                                </div>
+                                <div class="row mt8">
+                                    <label for="hosting_voipms_api_password" class="col-lg-3 o_light_label"/>
+                                    <field name="hosting_voipms_api_password" class="oe_inline" password="True"/>
+                                </div>
+                            </div>
+                        </setting>
+                        <setting string="Paramètres" help="Seuil d'alerte de solde bas (alerte ntfy quotidienne) et profondeur de l'historique CDR/transactions récupéré.">
+                            <div class="content-group">
+                                <div class="row mt16">
+                                    <label for="hosting_voipms_low_balance_threshold" class="col-lg-3 o_light_label"/>
+                                    <field name="hosting_voipms_low_balance_threshold" class="oe_inline"/>
+                                </div>
+                                <div class="row mt8">
+                                    <label for="hosting_voipms_cdr_backfill_days" class="col-lg-3 o_light_label"/>
+                                    <field name="hosting_voipms_cdr_backfill_days" class="oe_inline"/>
+                                </div>
+                            </div>
+                        </setting>
+                        <setting string="Solde et synchronisation" help="Dernier solde relevé et dernière synchro. Boutons : tester la connexion et synchroniser immédiatement.">
+                            <div class="content-group">
+                                <div class="row mt16">
+                                    <label for="hosting_voipms_last_balance" class="col-lg-3 o_light_label"/>
+                                    <field name="hosting_voipms_last_balance" class="oe_inline"/>
+                                </div>
+                                <div class="row mt8">
+                                    <label for="hosting_voipms_last_balance_date" class="col-lg-3 o_light_label"/>
+                                    <field name="hosting_voipms_last_balance_date" class="oe_inline"/>
+                                </div>
+                                <div class="row mt8">
+                                    <label for="hosting_voipms_last_sync" class="col-lg-3 o_light_label"/>
+                                    <field name="hosting_voipms_last_sync" class="oe_inline"/>
+                                </div>
+                                <div class="mt16">
+                                    <button name="action_test_voipms_connection"
+                                            type="object"
+                                            string="Tester la connexion"
+                                            class="btn-secondary"
+                                            icon="fa-plug"/>
+                                    <button name="action_sync_voipms_now"
+                                            type="object"
+                                            string="Synchroniser VOIP.ms maintenant"
+                                            class="btn-primary"
+                                            icon="fa-refresh"
+                                            confirm="Lancer la synchronisation des DID, CDR, transactions et solde depuis VOIP.ms ?"/>
+                                </div>
+                            </div>
+                        </setting>
+                    </block>
                     <block title="Provisioning de tenants (API)" name="provision_api">
                         <setting string="Jeton API" help="Jeton partagé envoyé par les scripts create_nextcloud_tenant.sh et create_odoo_client.sh dans l'entête X-Provision-Token vers /api/hosting/provision/report.">
                             <div class="content-group">

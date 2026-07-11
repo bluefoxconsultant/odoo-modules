@@ -1109,6 +1109,15 @@ class HostingService(models.Model):
             .get_param("hosting.health_alert_threshold", "3")
         )
         retry_delay = 10.0 / max(retry_count, 2)  # spread retries within 10s
+        # Cross-cycle flap dampening: only page once a failure has persisted
+        # across this many consecutive cron cycles. Defends against transient
+        # bursts (e.g. a mailing-blast open/click tracking storm that briefly
+        # exhausts the DB pool and returns 500s for a few seconds).
+        min_consecutive = max(int(
+            self.env["ir.config_parameter"]
+            .sudo()
+            .get_param("hosting.health_alert_min_consecutive", "2")
+        ), 1)
 
         services_now_down = []
         services_recovered = []
@@ -1154,15 +1163,30 @@ class HostingService(models.Model):
                 check_vals["error_message"] = error_message
             self.env["hosting.health.check"].create(check_vals)
 
-            # Alert logic
+            # Alert logic — flap dampening across cron cycles. Only raise an
+            # alert once the failure has persisted for ``min_consecutive``
+            # consecutive checks (default 2). A transient blip recovers within
+            # one cycle and never pages; a real sustained outage still alerts
+            # within ~N cycles. The check created just above is the newest row,
+            # so it counts toward the window.
             if status in ("down", "timeout", "degraded"):
                 if not service.health_alert_active:
-                    service.write({"health_alert_active": True})
-                    services_now_down.append({
-                        "service": service,
-                        "status": status,
-                        "error": error_message,
-                    })
+                    recent = self.env["hosting.health.check"].search(
+                        [("service_id", "=", service.id)],
+                        order="check_date desc, id desc",
+                        limit=min_consecutive,
+                    )
+                    sustained = (
+                        len(recent) >= min_consecutive
+                        and all(r.status != "up" for r in recent)
+                    )
+                    if sustained:
+                        service.write({"health_alert_active": True})
+                        services_now_down.append({
+                            "service": service,
+                            "status": status,
+                            "error": error_message,
+                        })
             elif status == "up":
                 if service.health_alert_active:
                     services_recovered.append({
