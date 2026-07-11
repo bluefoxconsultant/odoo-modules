@@ -18,7 +18,7 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | Directory | Name | Version | License | Description |
 |---|---|---|---|---|
 | `audit_ti` | Audit TI - Loi 25 | 18.0.1.17.1 | LGPL-3 | IT security audit management for Quebec's Loi 25 compliance |
-| `bf_appointment` | Blue Fox Appointment | 18.0.2.31.0 | LGPL-3 | Self-service public booking pages (extends `resource_booking`) |
+| `bf_appointment` | Blue Fox Appointment | 18.0.2.33.0 | LGPL-3 | Self-service public booking pages (extends `resource_booking`) |
 | `bf_bloc_notes` | BF Bloc-notes | 18.0.2.7.1 | LGPL-3 | Rich quick notes with multi-record links, one-click activity conversion, keyboard shortcuts, and systray icon (Alt+N) |
 | `bf_bureau` | BF Bureau — vues multi-panneaux | 18.0.3.1.0 | LGPL-3 | User-configurable dashboards ("desks") with multi-pane Odoo actions, six layouts, keyboard shortcuts, time slots, and a sidebar |
 | `bf_calendar_nc_talk` | BF Calendar — Nextcloud Talk button | 18.0.1.0.0 | LGPL-3 | Adds a '+ Nextcloud Talk' button next to '+ Odoo meeting' on calendar events. Creates a public Talk conversation via the Spreed OCS API and writes the room URL into videocall_location. |
@@ -31,7 +31,7 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | `bf_dashboard` | Tableau de bord Blue Fox | 18.0.1.0.0 | LGPL-3 | Unified dashboard aggregating billing, hosting, knowledge and privacy |
 | `bf_default_all_companies` | BF Default All Companies | 18.0.1.0.0 | LGPL-3 | Pre-selects every allowed company in the multi-company switcher on first login |
 | `bf_document_nextcloud_sync` | Document Nextcloud Sync | 18.0.1.3.0 | LGPL-3 | Document sync between Odoo and Nextcloud via WebDAV |
-| `bf_email_management` | Gestion des courriels | 18.0.6.5.0 | LGPL-3 | Unified IMAP inbox + Odoo chatter projection, two-pane OWL folder browser (Apple Mail / Thunderbird), bulk per-row target inference |
+| `bf_email_management` | Gestion des courriels | 18.0.6.6.1 | LGPL-3 | Unified IMAP inbox + Odoo chatter projection, two-pane OWL folder browser (Apple Mail / Thunderbird), bulk per-row target inference |
 | `bf_email_systray` | Boîte de réception bf.email — barre Odoo | 18.0.1.1.0 | LGPL-3 | Systray button opening the bf.email inbox with a (read + unread) counter |
 | `bf_follower_cleanup` | BF — Nettoyage des abonnés (followers internes uniquement) | 18.0.1.0.1 | LGPL-3 | Cron that removes all non-employee followers from chatters |
 | `bf_fundraising_core` | Levée de fonds — Cœur | 18.0.1.0.0 | AGPL-3 | Donor management and fundraising structure (Funds / Campaigns / Appeals / Packages) on top of the Donation module — comparable to Raiser's Edge |
@@ -62,7 +62,7 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | `bf_sign_privacy` | Blue Fox — Signature des consentements (Loi 25) | 18.0.1.0.0 | LGPL-3 | Sign Loi 25 consents with the native bf_sign engine (instead of external DocuSeal / LibreSign). |
 | `bf_sign_purchase` | Blue Fox — Signature pour les achats | 18.0.1.0.0 | LGPL-3 | Send a purchase order for electronic signature (bf_sign). |
 | `bf_sign_sale` | Blue Fox — Signature pour les ventes | 18.0.1.0.0 | LGPL-3 | Send a quotation / sales order for electronic signature (bf_sign). |
-| `bf_sms_archive` | SMS & Calls | 18.0.3.7.0 | LGPL-3 | Two-way live SMS/MMS messaging via VOIP.ms (chat workspace + systray) plus Android SMS/call-log archiving, search, PDF/CSV export and task linking |
+| `bf_sms_archive` | SMS & Calls | 18.0.5.5.2 | LGPL-3 | Two-way live SMS/MMS messaging via VOIP.ms (chat workspace + systray) plus Android SMS/call-log archiving, search, PDF/CSV export and task linking |
 | `bf_stepbystep_clients` | Step-by-Step — Suivi d'accompagnement client | 18.0.2.0.1 | LGPL-3 | Internal dashboard tracking each client mandate's linear step-by-step progression: current step, hours budget, timeline. |
 | `bf_studio_light` | Blue Fox — Studio Light | 18.0.6.1.0 | LGPL-3 | Field builder for Odoo Community: add custom fields (incl. polymorphic reference with model whitelist), smart buttons (count via JSON controller, no compute Python), and inject them in views without writing a module — survives `-u all` upgrades |
 | `bf_subscription` | Abonnements | 18.0.1.3.1 | LGPL-3 | Paid subscription management with correlation to vendor bills |
@@ -74,14 +74,14 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | `bf_task_unblock_notify` | BF Notification de déblocage de tâche | 18.0.1.7.0 | LGPL-3 | Notifies assignees when their task becomes unblocked |
 | `bf_task_waiting_states` | Task Waiting States | 18.0.1.0.0 | LGPL-3 | Add Attente - Client / Attente - Externe task states |
 | `bf_time_of_day` | BF Time of Day | 18.0.1.3.1 | LGPL-3 | Time-of-day slots (Morning / Noon / End of day / Off hours) for tasks and activities, with per-user overrides |
-| `bf_timesheet_timer` | BF Timer - Feuilles de temps | 18.0.1.8.1 | LGPL-3 | Global timesheet timer with multi-timer support and an OWL UI |
+| `bf_timesheet_timer` | BF Timer - Feuilles de temps | 18.0.1.9.0 | LGPL-3 | Global timesheet timer with multi-timer support and an OWL UI |
 | `bf_timezone` | Blue Fox Timezone Utilities | 18.0.1.0.0 | LGPL-3 | Shared timezone helpers and a configurable default timezone for Blue Fox modules |
 | `bf_universal_search` | BF Recherche universelle | 18.0.1.4.0 | LGPL-3 | Cross-module search through the command palette |
 | `bluefox_branding` | Blue Fox Branding | 18.0.3.4.0 | LGPL-3 | Per-company brand color + email layout overrides driven by `bf_lexend` company fields (CSS variables injected via QWeb layout — no SCSS recompile) |
 | `calendar_nextcloud_sync` | Calendar Nextcloud Sync | 18.0.2.7.0 | LGPL-3 | Bidirectional calendar synchronization between Odoo and Nextcloud (CalDAV/n8n) and Google Calendar (API v3/OAuth2) |
 | `contacts_nextcloud_sync` | Contacts Nextcloud Sync | 18.0.1.2.0 | LGPL-3 | Sync Odoo contacts with a Nextcloud address book via CardDAV |
 | `daily_todo_digest` | Daily To-Do Digest | 18.0.2.0.0 | LGPL-3 | Daily email digest with activities, overdue tasks, and a week-ahead view |
-| `hosting_management` | Gestion d'hébergement | 18.0.2.46.0 | LGPL-3 | Manage hosting services, client computer parks (endpoints, BitLocker, Action1 sync) and software license pools |
+| `hosting_management` | Gestion d'hébergement | 18.0.2.50.0 | LGPL-3 | Manage hosting services, client computer parks (endpoints, BitLocker, Action1 sync) and software license pools |
 | `privacy_consent` | Suivi des consentements (Loi 25) | 18.0.4.0.0 | LGPL-3 | Privacy, consents, retention and immutable destruction register; multi-framework (Loi 25, GDPR, UK GDPR, PIPEDA, NZ) |
 | `privacy_framework_gdpr` | Cadre de confidentialité — GDPR (UE) | 18.0.1.0.0 | LGPL-3 | GDPR (EU) regulatory-framework pack for the Privacy module |
 | `privacy_framework_nz` | Cadre de confidentialité — Privacy Act 2020 (Nouvelle-Zélande) | 18.0.1.0.0 | LGPL-3 | New Zealand Privacy Act 2020 regulatory-framework pack for the Privacy module |
