@@ -104,7 +104,7 @@ def _apply_locale_from_request():
     Accept-Language to choose en_CA vs fr_CA.
 
     Falls back to fr_CA if the resolved lang is not installed on this tenant
-    (e.g. a mono-lingual fr_CA-only deployment - setting en_CA would 400).
+    (e.g. a mono-lingual tenant ships fr_CA only - setting en_CA would 400).
     """
     # Public pages: the URL prefix is authoritative. Leave the context lang
     # exactly as the website middleware resolved it from the URL.
@@ -157,7 +157,7 @@ def _apply_security_headers(response):
 
 # Pragmatic location validation: refuse strings that are too short, lack any
 # letters, or are a single short token. Rejects "abc", "123", "x", "..." while
-# accepting "123 Main St", "Suite 200", "Café du Coin".
+# accepting "123 Main St", "Office", "Café du Coin".
 _LOCATION_MIN_LEN = 5
 _LOCATION_RE = re.compile(r"[A-Za-zÀ-ÖØ-öø-ÿ]")
 
@@ -252,7 +252,7 @@ class AppointmentController(Controller):
         purposes (recording, marketing) on the given booking type's notices.
 
         Lets the public intake form silently hide consent checkboxes when
-        the booker has already granted (per the product's UX rule). Always
+        the booker has already granted (per the maintainer's UX rule). Always
         returns 200 + a uniform shape to avoid email enumeration via
         timing or status code differences.
         """
@@ -593,7 +593,7 @@ class AppointmentController(Controller):
 
         # Recording consent: only create a fresh record when the type
         # requires it AND there's no active record on file. Otherwise we
-        # leave the existing consent alone (the "do not re-ask" rule).
+        # leave the existing consent alone (a "do not re-ask" rule).
         if booking_type.requires_recording_consent and not recording_already_active:
             checked = bool(kwargs.get("bf_consent_recording"))
             _record(

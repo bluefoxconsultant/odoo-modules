@@ -20,24 +20,24 @@ class ResConfigSettings(models.TransientModel):
     _inherit = "res.config.settings"
 
     bf_appointment_jitsi_domain = fields.Char(
-        string="Jitsi Domain",
+        string="Domaine Jitsi",
         config_parameter="bf_appointment.jitsi_domain",
         default="meet.jit.si",
-        help="Jitsi Meet server domain (e.g. meet.jit.si or your self-hosted instance).",
+        help="Domaine du serveur Jitsi Meet (ex. meet.jit.si ou votre instance auto-hébergée).",
     )
     bf_appointment_nc_talk_base_url = fields.Char(
-        string="Nextcloud Talk Base URL",
+        string="URL de base Nextcloud Talk",
         config_parameter="bf_appointment.nc_talk_base_url",
-        help="Base URL of the Nextcloud instance (e.g. https://cloud.example.com).",
+        help="URL de base de l'instance Nextcloud (ex. https://cloud.example.com).",
     )
     bf_appointment_nc_talk_user = fields.Char(
-        string="Nextcloud Talk User",
+        string="Utilisateur Nextcloud Talk",
         config_parameter="bf_appointment.nc_talk_user",
-        help="Nextcloud user for Talk API authentication.",
+        help="Utilisateur Nextcloud pour l'authentification à l'API Talk.",
     )
     bf_appointment_nc_talk_password = fields.Char(
-        string="Nextcloud Talk Password",
-        help="Nextcloud app password for Talk API. Stored encrypted.",
+        string="Mot de passe Nextcloud Talk",
+        help="Mot de passe d'application Nextcloud pour l'API Talk. Stocké chiffré.",
     )
 
     appointment_brand_name = fields.Char(

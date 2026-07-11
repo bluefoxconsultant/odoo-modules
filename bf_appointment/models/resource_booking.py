@@ -57,30 +57,59 @@ class ResourceBooking(models.Model):
     _inherit = "resource.booking"
 
     video_room_token = fields.Char(
-        string="Video Room Token",
+        string="Jeton de salle vidéo",
         copy=False,
-        help="Unique token for the video room URL.",
+        help="Jeton unique pour l'URL de la salle de vidéoconférence.",
     )
     reminder_sent = fields.Boolean(
+        string="Rappel envoyé",
         default=False,
         copy=False,
-        help="Whether the reminder email has been sent.",
+        help="Indique si le courriel de rappel a été envoyé.",
     )
     sent_schedule_ids = fields.Many2many(
         "appointment.email.schedule",
-        string="Sent Email Schedules",
+        string="Courriels planifiés envoyés",
         copy=False,
     )
     intake_answer_ids = fields.One2many(
         "appointment.intake.answer",
         "booking_id",
-        string="Intake Answers",
+        string="Réponses du formulaire d'accueil",
     )
     cancellation_reason = fields.Text(
         string="Raison de l'annulation",
         copy=False,
         help="Raison saisie par le client (ou l'organisateur) lors de "
              "l'annulation du rendez-vous. Optionnel.",
+    )
+
+    # --- Libellés français des champs de base OCA (resource.booking) ---
+    # Le fr.po OCA est vide → ses libellés ressortent en anglais sur un backend
+    # fr_CA. Redéfinition incrémentale du seul `string` (comodel/compute/store
+    # conservés par le merge ORM). La sélection `state` est aussi francisée.
+    name = fields.Char(string="Nom de la réservation")
+    type_id = fields.Many2one(string="Type de rendez-vous")
+    partner_ids = fields.Many2many(string="Demandeur(s)")
+    user_id = fields.Many2one(string="Organisateur")
+    combination_id = fields.Many2one(string="Combinaison de ressources")
+    combination_auto_assign = fields.Boolean(string="Attribution automatique des ressources")
+    meeting_id = fields.Many2one(string="Événement d'agenda")
+    location = fields.Char(string="Lieu")
+    videocall_location = fields.Char(string="URL de vidéoconférence")
+    description = fields.Html(string="Description")
+    categ_ids = fields.Many2many(string="Étiquettes")
+    start = fields.Datetime(string="Début")
+    stop = fields.Datetime(string="Fin")
+    duration = fields.Float(string="Durée (heures)")
+    state = fields.Selection(
+        [
+            ("pending", "En attente"),
+            ("scheduled", "Planifié"),
+            ("confirmed", "Confirmé"),
+            ("canceled", "Annulé"),
+        ],
+        string="État",
     )
 
     # K-of-N support: actual subset of combination resources that took the slot.
@@ -95,7 +124,7 @@ class ResourceBooking(models.Model):
         "rb_attendee_resource_rel",
         "booking_id",
         "resource_id",
-        string="Assigned Resources",
+        string="Ressources assignées",
         compute="_compute_attendee_resources",
         store=True,
         copy=False,
@@ -146,11 +175,11 @@ class ResourceBooking(models.Model):
     # timezone (defaults to America/Toronto).
     start_date_local = fields.Char(
         compute="_compute_start_local_strings",
-        string="Local Start Date",
+        string="Date de début (locale)",
     )
     start_time_local = fields.Char(
         compute="_compute_start_local_strings",
-        string="Local Start Time",
+        string="Heure de début (locale)",
     )
 
     @api.depends("start", "type_id.resource_calendar_id.tz",
@@ -455,6 +484,52 @@ class ResourceBooking(models.Model):
             return f"{h}h{m:02d}" if m else f"{h}h"
         return f"{minutes} min"
 
+    @api.depends("start")
+    def _compute_is_overdue(self):
+        """Verrou de modification/annulation.
+
+        Ventilation du « Modifications Deadline » OCA : ce verrou est désormais
+        piloté par `type_id.modification_lock_hours`, distinct du plancher de
+        disponibilité (`type_id.modifications_deadline`, relabellé « Préavis
+        minimum avant réservation »). Passé le verrou, `is_modifiable` (OCA)
+        tombe à False pour le portail; l'auto-annulation OCA des réservations
+        non confirmées reste inchangée.
+        """
+        now = fields.Datetime.now()
+        for one in self:
+            if not one.start:
+                one.is_overdue = False
+                continue
+            lock_hours = one.type_id.modification_lock_hours or 0.0
+            deadline = one.start - timedelta(hours=lock_hours)
+            one.is_overdue = now > deadline
+
+    # ---- Locale-aware calendar labels (public scheduling page) ----
+
+    def _appt_locale(self):
+        """Babel locale code for the current booker context.
+
+        Defaults to fr_CA. Used instead of datetime.strftime('%A'/'%B'),
+        which is driven by the server's C locale (LC_TIME) and therefore
+        leaked English weekday/month names on the public slot picker even
+        for a fr_CA booker.
+        """
+        return (self.env.context.get("lang") or self.env.lang or "fr_CA").replace("-", "_")
+
+    def appt_format_weekday(self, day):
+        """Locale-aware weekday name (e.g. 'lundi') for a slot day header.
+
+        The template span carries `text-capitalize`, so a lowercase babel
+        result is displayed capitalized without extra work here.
+        """
+        from babel.dates import format_date
+        return format_date(day, "EEEE", locale=self._appt_locale())
+
+    def appt_format_month(self, day):
+        """Locale-aware 'month year' header (e.g. 'juillet 2026')."""
+        from babel.dates import format_date
+        return format_date(day, "MMMM yyyy", locale=self._appt_locale())
+
     # ---- ICS Generation ----
 
     def _generate_ics_data(self):
@@ -467,7 +542,7 @@ class ResourceBooking(models.Model):
         # Localize once, in the booker display tz, and reuse for BOTH the
         # human-readable DESCRIPTION and DTSTART/DTEND below — otherwise the
         # notes text renders in naive UTC and contradicts the grid time
-        # (the RDV #344 bug class, just in the .ics body instead of the email).
+        # (the same bug class, just in the .ics body instead of the email).
         tzname = self._get_ics_tzname()
         tz = ZoneInfo(tzname)
         start_local = self.start.replace(tzinfo=ZoneInfo("UTC")).astimezone(tz)
@@ -588,10 +663,10 @@ class ResourceBooking(models.Model):
         the NZ two-layer setup) → the company calendar tz → configured
         default.
 
-        Deliberately EXCLUDES the organizer's ``user_id.tz``. When the
-        organizer sits in a different timezone than the booker, letting that
-        tz leak into booker-facing content makes the confirmation and ICS
-        show the wrong local time. Organizer-facing comms receive
+        Deliberately EXCLUDES the organizer's ``user_id.tz``. The organizer
+        the organizer may sit in another timezone; letting that leak into booker-facing
+        content is exactly what made a Montréal client's confirmation and ICS
+        show the organizer's local time. Organizer-facing comms receive
         the organizer tz explicitly via _send_appointment_email.
         """
         self.ensure_one()
@@ -601,7 +676,7 @@ class ResourceBooking(models.Model):
         # detection fallback from the public widget, not a real location.
         # Bookings are stored naive-UTC, so honouring it renders the raw UTC
         # instant to the booker -- a 13:00 Montréal slot shows as 17:00, the
-        # +4h offset reported on RDV #357. No client of a Québec-based practice
+        # +4h offset seen in testing. No booker of a Québec-based practice
         # is legitimately in UTC, so treat it as unset and fall through to the
         # type's Montréal display calendar.
         booker_tz = self.partner_id.tz if self.partner_id else None
@@ -622,7 +697,7 @@ class ResourceBooking(models.Model):
         availability calendar (Pacific/Auckland) contribute slots in DIFFERENT
         offsets, grouped by ``.date()``. A Québec booker then sees Auckland-time
         bubbles mislabelled under the wrong day -- they pick "19 juin 8h" and it
-        lands on the 18th (RDV #343).
+        lands on the 18th (observed in testing).
 
         We convert every slot to ``_get_booker_display_tz()`` (or the explicit
         context tz the picker passes) and regroup by the LOCAL date, deduping

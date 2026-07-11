@@ -8,29 +8,29 @@ class AppointmentIntakeField(models.Model):
 
     type_id = fields.Many2one(
         "resource.booking.type",
-        string="Booking Type",
+        string="Type de rendez-vous",
         required=True,
         ondelete="cascade",
     )
-    name = fields.Char(string="Label", required=True, translate=True)
+    name = fields.Char(string="Libellé", required=True, translate=True)
     field_type = fields.Selection(
         [
-            ("text", "Text"),
-            ("textarea", "Text (multi-line)"),
-            ("email", "Email"),
-            ("phone", "Phone"),
-            ("number", "Number"),
-            ("select", "Dropdown"),
+            ("text", "Texte"),
+            ("textarea", "Texte (multiligne)"),
+            ("email", "Courriel"),
+            ("phone", "Téléphone"),
+            ("number", "Nombre"),
+            ("select", "Liste déroulante"),
         ],
-        string="Type",
+        string="Type de champ",
         default="text",
         required=True,
     )
-    required = fields.Boolean(default=False)
-    placeholder = fields.Char(translate=True)
+    required = fields.Boolean(string="Obligatoire", default=False)
+    placeholder = fields.Char(string="Texte indicatif", translate=True)
     select_options = fields.Text(
-        string="Options (one per line)",
-        help="For dropdown fields, enter one option per line.",
+        string="Options (une par ligne)",
+        help="Pour les listes déroulantes, saisir une option par ligne.",
     )
     sequence = fields.Integer(default=10)
 
@@ -41,15 +41,15 @@ class AppointmentIntakeAnswer(models.Model):
 
     booking_id = fields.Many2one(
         "resource.booking",
-        string="Booking",
+        string="Réservation",
         required=True,
         ondelete="cascade",
     )
     field_id = fields.Many2one(
         "appointment.intake.field",
-        string="Field",
+        string="Champ",
         required=True,
         ondelete="cascade",
     )
-    value = fields.Text(string="Answer")
+    value = fields.Text(string="Réponse")
     field_name = fields.Char(related="field_id.name", string="Question")

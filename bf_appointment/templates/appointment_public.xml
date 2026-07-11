@@ -453,7 +453,7 @@
                     </a>
                 </div>
                 <h4 class="mb-0 fw-semibold text-capitalize"
-                    t-out="start.strftime('%B %Y')"/>
+                    t-out="booking.appt_format_month(start)"/>
                 <div>
                     <a t-attf-href="#{schedule_base_url}/#{start_next.year}/#{start_next.month}#{tz_param}"
                        class="btn btn-sm bf-btn-nav"
@@ -499,7 +499,7 @@
                     <div class="bf-slot-day">
                         <div class="bf-slot-day-header">
                             <span class="bf-slot-day-name text-capitalize"
-                                  t-out="day.strftime('%A')"/>
+                                  t-out="booking.appt_format_weekday(day)"/>
                             <span class="bf-slot-day-date"
                                   t-out="day.strftime(date_format)"/>
                         </div>

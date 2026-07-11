@@ -27,58 +27,58 @@ class ResourceBookingType(models.Model):
              "Désactivez pour un type « unlisted » : accessible seulement par lien direct.",
     )
     slug = fields.Char(
-        string="URL Slug",
+        string="Identifiant URL (slug)",
         index=True,
         copy=False,
-        help="URL-friendly identifier for the public booking page.",
+        help="Identifiant lisible utilisé dans l'URL publique de la page de rendez-vous.",
     )
     public_description = fields.Html(
-        string="Public Description",
+        string="Description publique",
         translate=True,
         sanitize=True,
-        help="Description shown to visitors on the public booking page.",
+        help="Description présentée aux visiteurs sur la page publique de rendez-vous.",
     )
     public_image = fields.Image(
-        string="Public Image",
+        string="Image publique",
         max_width=512,
         max_height=512,
     )
     sequence = fields.Integer(default=10)
     video_provider = fields.Selection(
         [
-            ("none", "None"),
+            ("none", "Aucun"),
             ("jitsi", "Jitsi Meet"),
             ("nextcloud_talk", "Nextcloud Talk"),
         ],
-        string="Video Provider",
+        string="Fournisseur de vidéoconférence",
         default="nextcloud_talk",
     )
     is_in_person = fields.Boolean(
-        string="In-Person Available",
+        string="Rendez-vous en personne possible",
         default=False,
-        help="Indicate that in-person meetings are available for this type.",
+        help="Indique que ce type de rendez-vous peut avoir lieu en personne.",
     )
     reminder_hours = fields.Float(
-        string="Reminder Before (hours)",
+        string="Rappel avant le rendez-vous (heures)",
         default=24.0,
-        help="Hours before appointment to send a reminder email.",
+        help="Nombre d'heures avant le rendez-vous pour l'envoi d'un courriel de rappel.",
     )
     color_hex = fields.Char(
-        string="Accent Color",
+        string="Couleur d'accent",
         default="#714B67",
-        help="Hex color for the public page accent. Defaults to Odoo stock; "
-             "override per booking type. For tenant-wide colors see "
-             "Settings → General → Identité de marque.",
+        help="Couleur (hex) de l'accent sur la page publique. Valeur Odoo par défaut; "
+             "à personnaliser par type de rendez-vous. Pour les couleurs à l'échelle de "
+             "l'organisation, voir Paramètres → Général → Identité de marque.",
     )
     duration_options = fields.Char(
-        string="Duration Options (min)",
-        help="Comma-separated list of selectable durations in minutes, "
-        "e.g. '15,30,45,60'. Leave empty to use the fixed duration.",
+        string="Durées proposées (minutes)",
+        help="Liste de durées sélectionnables en minutes, séparées par des virgules, "
+        "ex. « 15,30,45,60 ». Laisser vide pour utiliser la durée fixe.",
     )
     default_duration = fields.Float(
-        string="Default Duration (hours)",
-        help="Pre-selected duration on the public page. "
-        "Must match one of the duration options (in hours, e.g. 0.5 = 30 min).",
+        string="Durée par défaut (heures)",
+        help="Durée pré-sélectionnée sur la page publique. "
+        "Doit correspondre à l'une des durées proposées (en heures, ex. 0,5 = 30 min).",
     )
 
     def get_duration_choices(self):
@@ -107,12 +107,12 @@ class ResourceBookingType(models.Model):
     intake_field_ids = fields.One2many(
         "appointment.intake.field",
         "type_id",
-        string="Intake Form Fields",
+        string="Champs du formulaire d'accueil",
     )
     email_schedule_ids = fields.One2many(
         "appointment.email.schedule",
         "type_id",
-        string="Email Schedules",
+        string="Courriels planifiés",
     )
     requires_recording_consent = fields.Boolean(
         string="Demander le consentement d'enregistrement",
@@ -155,6 +155,48 @@ class ResourceBookingType(models.Model):
         compute="_compute_public_url",
         help="Lien complet à partager. Actif uniquement quand le type est publié.",
     )
+
+    # --- Ventilation du « Modifications Deadline » OCA (champ surchargé) ---
+    # L'OCA utilisait un seul champ pour DEUX comportements distincts. On les
+    # sépare : `modifications_deadline` conserve le rôle de PLANCHER DE
+    # DISPONIBILITÉ (préavis minimum avant réservation, lu tel quel par
+    # resource_booking `_get_available_slots`), et le nouveau
+    # `modification_lock_hours` pilote le VERROU DE MODIFICATION/ANNULATION
+    # (voir ResourceBooking._compute_is_overdue, surchargé). On garde
+    # required/default de l'OCA sur le champ existant pour ne rien casser.
+    modifications_deadline = fields.Float(
+        string="Préavis minimum avant réservation (heures)",
+        required=True,
+        default=24,
+        help="Empêche la réservation d'un créneau trop rapproché : aucun créneau "
+             "n'est proposé à moins de ce nombre d'heures de maintenant. "
+             "Ex. : 2 = aucune disponibilité dans les 2 prochaines heures.",
+    )
+    modification_lock_hours = fields.Float(
+        string="Délai limite de modification/annulation (heures)",
+        default=2.0,
+        help="Passé ce délai avant le rendez-vous, le client ne peut plus le "
+             "modifier ni l'annuler lui-même (seul un gestionnaire le peut); une "
+             "réservation non confirmée est annulée automatiquement.",
+    )
+
+    # --- Libellés français des champs de base OCA affichés sur le formulaire ---
+    # L'OCA `resource_booking` ne livre qu'un fr.po vide : ses libellés
+    # ressortent en anglais sur un backend fr_CA. On francise la source (en_US)
+    # par redéfinition incrémentale du seul `string` (les autres attributs OCA —
+    # comodel, relation, sélection, required — sont conservés par le merge ORM).
+    name = fields.Char(string="Nom du type de rendez-vous")
+    company_id = fields.Many2one(string="Société")
+    duration = fields.Float(string="Durée (heures)")
+    slot_duration = fields.Float(string="Intervalle entre les créneaux (heures)")
+    combination_assignment = fields.Selection(string="Attribution des ressources")
+    combination_rel_ids = fields.One2many(string="Combinaisons de ressources disponibles")
+    categ_ids = fields.Many2many(string="Étiquettes par défaut")
+    alarm_ids = fields.Many2many(string="Rappels par défaut")
+    location = fields.Char(string="Lieu")
+    videocall_location = fields.Char(string="URL de vidéoconférence")
+    resource_calendar_id = fields.Many2one(string="Calendrier de disponibilité")
+    requester_advice = fields.Text(string="Conseils au demandeur")
 
     @api.depends("slug")
     def _compute_public_url(self):

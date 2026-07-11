@@ -29,59 +29,61 @@ class ResCompany(models.Model):
     _inherit = "res.company"
 
     appointment_brand_name = fields.Char(
-        string="Appointment Brand Name",
+        string="Nom de marque (rendez-vous)",
         default=_BF_DEFAULT_BRAND_NAME,
-        help="Display name used in appointment emails (subject lines, sign-offs).",
+        help="Nom affiché dans les courriels de rendez-vous (objet, signatures).",
     )
     appointment_brand_logo_url = fields.Char(
-        string="Appointment Brand Logo URL",
+        string="URL du logo (rendez-vous)",
         default=_BF_DEFAULT_LOGO_URL,
-        help="Public URL of the logo embedded in appointment emails. "
-             "Must be reachable without authentication.",
+        help="URL publique du logo intégré aux courriels de rendez-vous. "
+             "Doit être accessible sans authentification.",
     )
     appointment_brand_website_url = fields.Char(
-        string="Appointment Brand Website",
+        string="Site web de marque (rendez-vous)",
         default=_BF_DEFAULT_WEBSITE_URL,
-        help="Where the email logo links to.",
+        help="Adresse vers laquelle pointe le logo des courriels.",
     )
     appointment_brand_primary = fields.Char(
-        string="Appointment Brand Primary Color",
+        string="Couleur principale de marque (rendez-vous)",
         default=_BF_DEFAULT_PRIMARY,
-        help="Hex color used for accents (buttons, links) on appointment "
-             "pages and emails.",
+        help="Couleur (hex) des accents (boutons, liens) sur les pages et "
+             "courriels de rendez-vous.",
     )
     appointment_brand_dark = fields.Char(
-        string="Appointment Brand Dark Color",
+        string="Couleur foncée de marque (rendez-vous)",
         default=_BF_DEFAULT_DARK,
-        help="Hex color for dark headers/footers in appointment emails.",
+        help="Couleur (hex) des en-têtes/pieds foncés des courriels de rendez-vous.",
     )
     appointment_brand_support_email = fields.Char(
-        string="Appointment Support Email",
+        string="Courriel de soutien (rendez-vous)",
         default=_BF_DEFAULT_SUPPORT_EMAIL,
-        help="Contact email shown in appointment emails for booker questions.",
+        help="Courriel de contact affiché dans les courriels de rendez-vous "
+             "pour les questions des clients.",
     )
     appointment_brand_support_phone = fields.Char(
-        string="Appointment Support Phone (E.164)",
+        string="Téléphone de soutien (format E.164)",
         default=_BF_DEFAULT_SUPPORT_PHONE,
-        help="Phone in E.164 format (e.g. +15145551212), used in tel: links.",
+        help="Téléphone au format E.164 (ex. +15145551212), utilisé dans les liens tel:.",
     )
     appointment_brand_support_phone_display = fields.Char(
-        string="Appointment Support Phone (display)",
+        string="Téléphone de soutien (affichage)",
         default=_BF_DEFAULT_SUPPORT_PHONE_DISPLAY,
-        help="Phone in human format (e.g. 514-555-1212) shown to readers.",
+        help="Téléphone en format lisible (ex. 514-555-1212) montré aux lecteurs.",
     )
     appointment_brand_privacy_url = fields.Char(
-        string="Appointment Privacy Policy URL",
+        string="URL de la politique de confidentialité (rendez-vous)",
         default=_BF_DEFAULT_PRIVACY_URL,
-        help="Privacy-policy URL shown in email footers and the public form.",
+        help="URL de la politique de confidentialité affichée dans les pieds de "
+             "courriel et le formulaire public.",
     )
     appointment_brand_terms_url = fields.Char(
-        string="Appointment Terms & Conditions URL",
+        string="URL des conditions d'utilisation (rendez-vous)",
         default=_BF_DEFAULT_TERMS_URL,
-        help="Terms & conditions URL shown in email footers.",
+        help="URL des conditions d'utilisation affichée dans les pieds de courriel.",
     )
     appointment_brand_tagline = fields.Char(
-        string="Appointment Brand Tagline",
+        string="Slogan de marque (rendez-vous)",
         default=_BF_DEFAULT_TAGLINE,
-        help="Short tagline shown under the brand name in email footers.",
+        help="Court slogan affiché sous le nom de marque dans les pieds de courriel.",
     )

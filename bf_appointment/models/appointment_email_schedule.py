@@ -8,7 +8,7 @@ class AppointmentEmailSchedule(models.Model):
 
     type_id = fields.Many2one(
         "resource.booking.type",
-        string="Booking Type",
+        string="Type de rendez-vous",
         required=True,
         ondelete="cascade",
     )
@@ -20,7 +20,7 @@ class AppointmentEmailSchedule(models.Model):
     hours = fields.Float(
         string="D\u00e9lai (heures)",
         required=True,
-        help="Number of hours before/after the appointment.",
+        help="Nombre d'heures avant/apr\u00e8s le rendez-vous.",
     )
     template_id = fields.Many2one(
         "mail.template",
@@ -28,7 +28,7 @@ class AppointmentEmailSchedule(models.Model):
         required=True,
         domain="[('model_id.model', '=', 'resource.booking')]",
     )
-    active = fields.Boolean(default=True)
+    active = fields.Boolean(string="Actif", default=True)
     name = fields.Char(compute="_compute_name", store=True)
 
     def _compute_name(self):

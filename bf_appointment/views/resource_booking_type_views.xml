@@ -9,6 +9,12 @@
             <xpath expr="//field[@name='videocall_location']" position="after">
                 <field name="video_provider"/>
             </xpath>
+            <!-- Ventilation du « Modifications Deadline » OCA : le champ existant
+                 (relabellé « Préavis minimum avant réservation ») reste en place;
+                 on ajoute juste à côté le nouveau verrou de modification. -->
+            <xpath expr="//field[@name='modifications_deadline']" position="after">
+                <field name="modification_lock_hours"/>
+            </xpath>
             <xpath expr="//group[@name='main']" position="after">
                 <group string="Page publique de rendez-vous">
                     <group>
