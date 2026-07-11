@@ -14,6 +14,7 @@ from odoo import _, api, fields, models, tools
 from odoo.exceptions import UserError
 
 from . import bf_email_imap
+from . import imip
 from .subject_utils import dedup_subject_prefix
 
 _logger = logging.getLogger(__name__)
@@ -2093,7 +2094,7 @@ class BfEmail(models.Model):
         Excludes portal/share users, inactive users, OdooBot and the uids
         listed in ICP ``bf_email.route_exclude_user_ids`` (comma-separated
         — service accounts like the meeting-processor API user shouldn't
-        accumulate inbox rows nobody reads; same knob name as the other tenant's
+        accumulate inbox rows nobody reads; same knob name as the reference
         copy of this module).
 
         When no internal user is *notified* — the classic case being an
@@ -2659,6 +2660,7 @@ class BfEmail(models.Model):
                     mail_create_nosubscribe=True,
                     tracking_disable=True,
                 ).create(chatter_vals)
+                self._maybe_ingest_calendar_invite(msg, account, folder)
                 return True
 
         vals = self._prepare_imap_email_vals(msg, raw_bytes, uid, folder, account)
@@ -2668,6 +2670,7 @@ class BfEmail(models.Model):
             mail_create_nosubscribe=True,
             tracking_disable=True,
         ).create(vals)
+        self._maybe_ingest_calendar_invite(msg, account, folder)
         return True
 
     @api.model
@@ -2750,6 +2753,140 @@ class BfEmail(models.Model):
         return Partner.search(
             [("email_normalized", "=", bare.lower())], limit=1
         )
+
+    # ------------------------------------------------------------------
+    # Inbound calendar invitations (iMIP) -> tentative calendar events
+    # ------------------------------------------------------------------
+    def _maybe_ingest_calendar_invite(self, msg, account, folder):
+        """Auto-add a *tentative* calendar.event from an inbound invitation.
+
+        Best-effort and fully guarded: any failure is logged and swallowed so
+        IMAP ingestion is never interrupted. Gated by the
+        ``bf_email.auto_add_calendar_invites`` config parameter (default on).
+
+        Only inbound ``METHOD:REQUEST``/``CANCEL`` invitations addressed to the
+        mailbox owner produce an event. Echoes of the owner's own events (they
+        organized, then their provider mails the .ics back) are skipped, as are
+        UIDs already present locally (reschedules update in place). The event
+        carries ONLY the mailbox owner as attendee: the owner is also the
+        organizer, so the Nextcloud CalDAV plugin has no EXTERNAL party to
+        re-invite, yet the event stays visible in the owner's Odoo calendar
+        (that view filters by attendee). ``show_as='free'`` keeps it
+        non-blocking until the owner confirms.
+        """
+        try:
+            ICP = self.env["ir.config_parameter"].sudo()
+            if ICP.get_param(
+                "bf_email.auto_add_calendar_invites", "1"
+            ).strip().lower() not in ("1", "true", "yes"):
+                return
+            if (folder or "").strip().lower() == "sent":
+                return
+            owner = account.user_id
+            if not owner:
+                return
+            events = imip.parse_imip_events(msg)
+            if not events:
+                return
+
+            self_addrs = self._get_self_addresses(owner)
+            CalendarEvent = self.env["calendar.event"].sudo().with_context(
+                no_mail_to_attendees=True,
+                mail_create_nosubscribe=True,
+                mail_create_nolog=True,
+                tracking_disable=True,
+                dont_notify=True,
+            )
+            has_nc_uid = "x_nc_uid" in CalendarEvent._fields
+
+            for ev in events:
+                if ev["method"] not in imip.ACTIONABLE_METHODS:
+                    continue
+                # Skip echoes of our own Odoo-originated events: the owner is
+                # the organizer, so it already lives in their calendar.
+                if ev["organizer"] and ev["organizer"] in self_addrs:
+                    continue
+
+                uid = ev["uid"]
+                domain = [("x_imip_uid", "=", uid)]
+                if has_nc_uid:
+                    domain = ["|", ("x_imip_uid", "=", uid),
+                              ("x_nc_uid", "=", uid)]
+                domain.append(("user_id", "=", owner.id))
+                existing = CalendarEvent.with_context(
+                    active_test=False
+                ).search(domain, limit=1)
+
+                if ev["method"] == "CANCEL":
+                    if existing:
+                        existing.unlink()
+                    continue
+
+                # REQUEST: only materialize when the owner is actually invited
+                # (skip broadcasts / forwards where we are not an attendee).
+                if ev["attendees"] and not (set(ev["attendees"]) & self_addrs):
+                    continue
+
+                if existing:
+                    existing.write(self._imip_update_vals(ev))
+                else:
+                    CalendarEvent.create(self._imip_create_vals(ev, owner))
+        except Exception:  # noqa: BLE001 - must never break ingestion
+            _logger.exception(
+                "bf_email: calendar invite ingestion failed (non-fatal)"
+            )
+
+    def _imip_create_vals(self, ev, owner):
+        """Build calendar.event vals for a freshly received invitation."""
+        return {
+            "name": self._imip_event_name(ev),
+            "start": ev["start"],
+            "stop": ev["stop"],
+            "allday": ev["allday"],
+            "location": ev["location"] or "",
+            "description": self._imip_description(ev),
+            # Routes to the owner's default Nextcloud calendar via
+            # calendar_nextcloud_sync's create() (organizer-based routing).
+            "user_id": owner.id,
+            # Owner-only attendee: makes the event show in the owner's Odoo
+            # calendar (that view filters by attendee) while staying safe — the
+            # owner is also the organizer, so there is no EXTERNAL party for
+            # Nextcloud's CalDAV plugin to re-invite.
+            "partner_ids": [(6, 0, [owner.partner_id.id])] if owner.partner_id else [],
+            # Tentative == non-blocking until the owner confirms.
+            "show_as": "free",
+            "x_imip_uid": ev["uid"],
+        }
+
+    def _imip_update_vals(self, ev):
+        """Vals for an updated invitation (reschedule / edited details)."""
+        return {
+            "name": self._imip_event_name(ev),
+            "start": ev["start"],
+            "stop": ev["stop"],
+            "allday": ev["allday"],
+            "location": ev["location"] or "",
+            "active": True,
+        }
+
+    @staticmethod
+    def _imip_event_name(ev):
+        summary = (ev.get("summary") or "").strip() or "(sans titre)"
+        return "[Tentatif] %s" % summary
+
+    @staticmethod
+    def _imip_description(ev):
+        """Compose the event body: a clear tentative note + original details."""
+        lines = [
+            "Ajouté automatiquement depuis une invitation reçue par courriel "
+            "(à confirmer).",
+        ]
+        if ev.get("organizer"):
+            lines.append("Organisateur : %s" % ev["organizer"])
+        if ev.get("description"):
+            lines.append("")
+            lines.append(ev["description"])
+        return "\n".join(lines)
 
     # ------------------------------------------------------------------
     # Manual sync trigger

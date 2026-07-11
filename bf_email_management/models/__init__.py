@@ -4,6 +4,7 @@ from . import bf_email_dashboard
 from . import bf_email_rule
 from . import calendar_alarm_manager
 from . import calendar_attendee
+from . import calendar_event
 from . import inherit_account_move
 from . import inherit_project_task
 from . import inherit_res_partner
