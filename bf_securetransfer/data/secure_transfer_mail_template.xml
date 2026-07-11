@@ -114,19 +114,10 @@
                             <t t-if="object.sender_name"> &lt;<t t-out="object.sender_email"/>&gt;</t>
                         </div>
                         <t t-set="gated" t-value="object._recipient_otp_required()"/>
-                        <p>Un <strong>message sécurisé</strong> vous a été transmis. Son contenu
-                            n'est <strong>pas inclus dans ce courriel</strong> : il ne s'affiche
-                            que sur une page sécurisée, à durée limitée, accessible par le lien ci-dessous.</p>
-                        <p t-if="gated" style="background:#f4f6f8; border:1px solid #e3e7eb; border-radius:8px; padding:10px 14px;">
-                            Pour le lire, cliquez ci-dessous, confirmez votre adresse courriel,
-                            puis saisissez le <strong>code de vérification à usage unique</strong>
-                            qui vous sera transmis (par courriel ou par SMS).</p>
-                        <p t-else="" style="background:#f4f6f8; border:1px solid #e3e7eb; border-radius:8px; padding:10px 14px;">
-                            Pour le lire, cliquez sur le bouton ci-dessous : le message
-                            s'affichera directement sur la page sécurisée.</p>
-                        <p t-if="object.has_password" style="background:#fff8e6; border:1px solid #f2e3b3; border-radius:8px; padding:10px 14px;">
-                            L'accès est aussi <strong>protégé par un mot de passe</strong>.
-                            L'expéditeur vous le communiquera séparément (il ne figure jamais dans ce courriel).</p>
+                        <p>Un <strong>message sécurisé</strong> vous a été transmis. Son contenu n'est <strong>pas inclus dans ce courriel</strong> : il ne s'affiche que sur une page sécurisée, à durée limitée, accessible par le lien ci-dessous.</p>
+                        <p t-if="gated" style="background:#f4f6f8; border:1px solid #e3e7eb; border-radius:8px; padding:10px 14px;">Pour le lire, cliquez ci-dessous, confirmez votre adresse courriel, puis saisissez le <strong>code de vérification à usage unique</strong> qui vous sera transmis (par courriel ou par SMS).</p>
+                        <p t-else="" style="background:#f4f6f8; border:1px solid #e3e7eb; border-radius:8px; padding:10px 14px;">Pour le lire, cliquez sur le bouton ci-dessous : le message s'affichera directement sur la page sécurisée.</p>
+                        <p t-if="object.has_password" style="background:#fff8e6; border:1px solid #f2e3b3; border-radius:8px; padding:10px 14px;">L'accès est aussi <strong>protégé par un mot de passe</strong>. L'expéditeur vous le communiquera séparément (il ne figure jamais dans ce courriel).</p>
                         <p style="margin:24px 0;">
                             <a t-att-href="share"
                                t-attf-style="background:#{primary}; color:#ffffff; text-decoration:none; padding:12px 26px; border-radius:8px; font-weight:600; display:inline-block;">

@@ -86,7 +86,7 @@ class ResConfigSettings(models.TransientModel):
         config_parameter="bf_securetransfer.public_upload_enabled",
         default=True,
         help="Interrupteur général de la page publique /secrets. Décocher "
-             "pour fermer le service sans désinstaller (p. ex. dogfood BF).",
+             "pour fermer le service sans désinstaller (p. ex. tests internes).",
     )
     st_autoprovision_user_pages = fields.Boolean(
         string="Créer une page de dépôt par employé",

@@ -69,16 +69,16 @@ class SecureTransferBrand(models.Model):
         required=True,
     )
 
-    # -- billing (paid tier). The recurring invoice is issued by Blue Fox
-    #    (bf_subscription lives on the BF tenant); these fields track the
+    # -- billing (paid tier). The recurring invoice is issued by the
+    #    operator's own subscription module; these fields track the
     #    arrangement on the brand record that serves the product.
     billing_active = fields.Boolean(
         string="Abonnement actif",
         help="La marque payante est couverte par un abonnement récurrent.",
     )
     billing_ref = fields.Char(
-        string="Réf. abonnement (BF)",
-        help="Référence de l'abonnement bf_subscription émis par Blue Fox "
+        string="Réf. abonnement",
+        help="Référence de l'abonnement récurrent émis "
              "pour ce client.",
     )
     price_year = fields.Float(

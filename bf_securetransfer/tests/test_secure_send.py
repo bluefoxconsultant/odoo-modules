@@ -163,7 +163,10 @@ class TestSecureSend(TransactionCase):
         self.assertTrue(rec_mail, "recipient notification not queued")
         for m in rec_mail:
             self.assertNotIn("TOP-SECRET-123", m.body_html or "")
-            self.assertIn("sécuris", (m.body_html or "").lower())
+            # Link-only notification: the share link is present (proof it is the
+            # secure-message template) — asserted language-independently, since
+            # the body renders in the recipient's language (fr_CA or en_CA).
+            self.assertIn("/s/", m.body_html or "")
 
     def test_wizard_sms_channel_requires_configuration(self):
         partner = self.env["res.partner"].create({

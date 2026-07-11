@@ -78,7 +78,12 @@ def apply_email_translations(env):
             continue
         tmpl.sudo().lang = False
         src = tmpl.sudo().with_context(lang="en_US").body_html or tmpl.sudo().body_html or ""
-        en_body = src
+        # str(): body_html is a markupsafe.Markup, whose .replace() ESCAPES its
+        # arguments — a term containing inline markup (e.g. "<strong>…</strong>")
+        # would be escaped to "&lt;strong&gt;…" and never match the raw HTML. A
+        # plain str .replace() matches the markup verbatim (no-op difference for
+        # tag-free terms, so existing translations are unaffected).
+        en_body = str(src)
         for fr, en in terms_sorted:
             en_body = en_body.replace(fr, en)
         env.cr.execute(

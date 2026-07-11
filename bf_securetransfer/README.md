@@ -9,7 +9,7 @@ nom d'hôte, **pages de dépôt personnelles** (`/to/<slug>`), **listes
 d'autorisation anti-piggyback** et **suspension automatique sur signalement
 d'abus**.
 
-- **Version** : `18.0.1.6.0`.
+- **Version** : `18.0.1.6.1`.
 - **Licence** : LGPL-3.
 - **Modèle de menaces & non-garanties** : voir [`SECURITY.md`](SECURITY.md).
 - **Multi-paliers** : le système multi-marques permet un palier gratuit limité
@@ -390,6 +390,7 @@ connaissance).
 
 | Version | Faits saillants |
 |---|---|
+| `18.0.1.6.1` | **Localisation** : traduction en_CA complète du module (champs, aides, messages, assistant d'envoi, pages publiques) et du courriel « message sécurisé ». Correctif du hook de traduction des courriels (les termes contenant du balisage sont désormais appliqués correctement). |
 | `18.0.1.6.0` | Mode **Message seul** : le corps n'est **plus jamais inclus en clair** dans le courriel de notification — celle-ci ne porte que le lien, et le message se lit uniquement sur la page sécurisée (comportement aligné sur les envois à code). |
 | `18.0.1.3.0`–`1.5.0` | **Message sécurisé à code destinataire** (OTP livré par courriel ou SMS) + **assistant d'envoi backend** ; confirmation d'envoi par code côté expéditeur ; **pages de dépôt personnelles** auto-provisionnées à la création d'un utilisateur interne ; publication d'une marque de dépôt par son seul **slug** ; durcissement de l'échappement `LIKE` sur la résolution d'hôte. _(Publication de rattrapage : versions intermédiaires regroupées.)_ |
 | `18.0.1.2.1` | Correctif : les listes d'autorisation par défaut (`res.config.settings`) passent de `Text` à `Char` — un champ `Text` sur les paramètres faisait planter toute la page Paramètres (`_get_classified_fields`). Séparateur = virgules. |
