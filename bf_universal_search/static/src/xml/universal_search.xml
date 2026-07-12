@@ -11,4 +11,22 @@
         </div>
     </t>
 
+    <t t-name="bf_universal_search.CommandItem">
+        <div class="o_command_default o_universal_search_command d-flex align-items-center justify-content-between px-4 py-2 cursor-pointer"
+             t-att-class="{ o_universal_search_closed: props.closed }">
+            <span class="d-flex align-items-center gap-2 text-truncate">
+                <i t-if="props.icon" t-att-class="props.icon"
+                   class="o_universal_search_icon text-muted" role="img"/>
+                <t t-slot="name"/>
+            </span>
+            <span class="d-flex align-items-center gap-2 flex-shrink-0">
+                <small t-if="props.detail"
+                       class="o_universal_search_detail text-muted text-truncate"
+                       t-att-title="props.detail"
+                       t-out="props.detail"/>
+                <t t-slot="focusMessage"/>
+            </span>
+        </div>
+    </t>
+
 </templates>
