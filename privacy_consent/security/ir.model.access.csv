@@ -64,3 +64,5 @@ access_privacy_right_user,privacy.right.user,model_privacy_right,group_privacy_u
 access_privacy_right_manager,privacy.right.manager,model_privacy_right,group_privacy_manager,1,1,1,0
 access_privacy_right_officer,privacy.right.officer,model_privacy_right,group_privacy_officer,1,1,1,1
 access_privacy_right_portal,privacy.right.portal,model_privacy_right,base.group_portal,1,0,0,0
+access_privacy_consent_withdraw_wizard_user,privacy.consent.withdraw.wizard.user,model_privacy_consent_withdraw_wizard,group_privacy_user,1,1,1,0
+access_privacy_consent_withdraw_wizard_manager,privacy.consent.withdraw.wizard.manager,model_privacy_consent_withdraw_wizard,group_privacy_manager,1,1,1,1
