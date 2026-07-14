@@ -1,6 +1,6 @@
 {
     'name': 'Banque d\'heures',
-    'version': '18.0.1.13.0',
+    'version': '18.0.1.14.0',
     'category': 'Services/Project',
     'summary': 'Suivi automatisé des banques d\'heures client',
     'description': """
@@ -44,6 +44,6 @@ Fonctionnalités:
         'views/menu_views.xml',
     ],
     'installable': True,
-    'application': False,
+    'application': True,
     'auto_install': False,
 }

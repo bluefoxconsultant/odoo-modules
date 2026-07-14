@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <!-- Top-level menu under Project -->
+    <!-- Application root -->
     <menuitem id="menu_hour_bank_root"
               name="Banque d'heures"
-              parent="project.menu_main_pm"
-              sequence="30"/>
+              web_icon="bf_hour_bank,static/description/icon.png"
+              sequence="60"/>
 
     <menuitem id="menu_hour_bank_clients"
               name="Clients"

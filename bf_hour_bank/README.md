@@ -90,7 +90,7 @@ bf_hour_bank/
 │   ├── hour_bank_client_views.xml     # Formulaire, liste, recherche
 │   ├── hour_bank_threshold_views.xml  # Vues pour hour.bank.threshold.event
 │   ├── hour_bank_portal_templates.xml # Pages portail
-│   └── menu_views.xml                 # Menu sous Projet
+│   └── menu_views.xml                 # Menu racine de l'application
 ├── data/
 │   ├── hour_bank_mail_template.xml
 │   └── hour_bank_cron.xml             # Crons : rapports périodiques + paliers
@@ -106,7 +106,7 @@ bf_hour_bank/
 ## Accès
 
 ### Backend (interne)
-- **Projet > Banque d'heures > Clients**
+- **Banque d'heures > Clients** (application dédiée, avec sa propre icône)
 - Lecture : `project.group_project_user`
 - Gestion complète : `project.group_project_manager`
 
