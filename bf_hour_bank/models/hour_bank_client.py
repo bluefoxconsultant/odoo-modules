@@ -606,7 +606,10 @@ class HourBankClient(models.Model):
                 'subject': subject,
                 'body_html': body_html,
                 'email_from': sender,
-                'email_to': partner.email_formatted or partner.email,
+                # recipient_ids ONLY — never also set email_to to the same
+                # person: Odoo's _prepare_outgoing_list builds one outgoing
+                # email for email_to AND one per recipient_ids partner (no
+                # dedup), so the recipient gets two identical SMTP deliveries.
                 'recipient_ids': [(4, partner.id)],
                 'attachment_ids': [(6, 0, [pdf_att.id, xlsx_att.id])],
             })
@@ -937,7 +940,8 @@ class HourBankClient(models.Model):
                 'subject': subject,
                 'body_html': body_html,
                 'email_from': sender,
-                'email_to': partner.email_formatted or partner.email,
+                # recipient_ids ONLY — see note in _send_report_to_recipients:
+                # setting email_to to the same partner duplicates the SMTP send.
                 'recipient_ids': [(4, partner.id)],
                 'attachment_ids': [(6, 0, [xlsx_att.id])],
             })

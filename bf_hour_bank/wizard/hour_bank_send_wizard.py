@@ -218,7 +218,8 @@ class HourBankSendWizard(models.TransientModel):
                 'subject': self.subject,
                 'body_html': body_html,
                 'email_from': self.env.user.email_formatted,
-                'email_to': partner.email_formatted or partner.email,
+                # recipient_ids ONLY — never also set email_to to the same
+                # person, or Odoo sends two identical copies per recipient.
                 'recipient_ids': [(4, partner.id)],
                 'attachment_ids': [(6, 0, [pdf_att.id, xlsx_att.id])],
             }
