@@ -28,6 +28,8 @@ Permettre à une équipe de projet de planifier, tenir et documenter ses rencont
 - **Opt-out par rencontre** — case à cocher `bf_skip_agenda` sur `calendar.event` pour les rencontres internes courtes ou récurrentes
 - **Rappel automatique avant rencontre** — cron quotidien `_cron_remind_unsent_agenda` qui crée une activité « À faire » due aujourd'hui sur l'organisateur (utilisateur interne uniquement) si la rencontre arrive dans les 7 prochains jours et que l'OdJ n'a pas encore été envoyé ; idempotent via le `summary` de l'activité
 - **Contributions publiques des destinataires** — après l'**envoi** d'un OdJ encore en brouillon et **jusqu'à sa confirmation**, le courriel inclut un lien public tokenisé (`/meeting/agenda/<token>`) permettant aux destinataires (même sans compte Odoo) de **proposer des sujets** et de **laisser des commentaires/notes**. La fenêtre s'ouvre et se ferme automatiquement (`contributions_open ≡ envoyé ET état brouillon`) ; la confirmation referme le lien. Les sujets proposés arrivent en **modération** (`source='contributed'`, `moderation_state='pending'`) et n'entrent ni dans le PDF ni dans le courriel tant que le gestionnaire ne les a pas acceptés ; les commentaires sont postés au chatter et l'organisateur reçoit une activité de relecture
+- **Fenêtre de visibilité des pièces jointes** — une pièce jointe à un OdJ ou à un compte rendu peut n'être visible qu'avant, pendant (± 2 h) ou après la rencontre, ou sur une plage personnalisée (`bf_visibility_window`, `bf_visible_from`, `bf_visible_until`). Le choix d'une fenêtre relative calcule les bornes à partir de la date de la rencontre liée ; une `ir.rule` filtre la lecture pour `group_meeting_user`, alors que `group_meeting_manager` voit toujours tout. Les pièces jointes des autres modèles ne sont pas touchées. ⚠️ **Limite connue** : à traiter comme un confort d'affichage, pas comme un contrôle d'accès. La règle compare à `time.strftime(...)`, or `ir.rule._compute_domain` est mis en cache par `ormcache` sur `(uid, su, model, mode, allowed_company_ids)`, sans composante temporelle : l'horodatage est évalué une fois puis figé jusqu'à invalidation du cache, si bien qu'une pièce jointe peut rester lisible après son `bf_visible_until`. L'implémentation exacte au moment de l'appel existe (`ir_attachment._bf_visibility_domain`) mais n'est pas encore branchée
+- **Tableau de bord** — vue OWL agrégeant les OdJ et comptes rendus à suivre en tuiles KPI et en taux de complétion sur 30 jours, avec horizons réglables par utilisateur (`bf_meeting_dashboard_lookahead_days` / `lookback_days`, plafonnés à +90 / -180 jours) et exclusion possible par contact (`bf_skip_dashboard`)
 
 ## Architecture technique
 
@@ -45,6 +47,10 @@ Permettre à une équipe de projet de planifier, tenir et documenter ses rencont
 | `project.project` (hérité) | Smart button « Comptes rendus » |
 | `calendar.event` (hérité) | Smart buttons « Comptes rendus » et « Ordre du jour », champs `meeting_agenda_ids/id/count`, `bf_skip_agenda` (opt-out), `bf_needs_agenda` (calculé), création d'un OdJ ou d'un compte rendu depuis l'événement |
 | `project.knowledge.item` (hérité) | Lien Many2many vers les comptes rendus qui référencent l'item |
+| `ir.attachment` (hérité) | Fenêtre de visibilité des pièces jointes de rencontre (`bf_visibility_window`, `bf_visible_from`, `bf_visible_until`, `bf_is_visible_now`) |
+| `res.company` (hérité) | `meeting_logo` — logo affiché sur la bannière sombre des PDF et courriels (repli sur le logo standard de la société) |
+| `res.partner` (hérité) | `bf_skip_dashboard` — exclut les rencontres de ce contact du tableau de bord |
+| `res.users` (hérité) | Horizons personnels du tableau de bord (`bf_meeting_dashboard_lookahead_days`, `bf_meeting_dashboard_lookback_days`) |
 | `meeting.dashboard` / `meeting.dashboard.line` | Tableau de bord des rencontres (vue OWL agrégeant OdJ/comptes rendus à suivre) |
 
 ### Dépendances
@@ -55,15 +61,18 @@ Permettre à une équipe de projet de planifier, tenir et documenter ses rencont
 | `mail` | Chatter, activités, modèles de courriel |
 | `calendar` | Lien avec les événements calendrier Odoo |
 | `project_knowledge_matrix` | Matrices de connaissances alimentées par les décisions |
-| `bluefox_branding` | En-tête et palette de marque des rapports PDF |
-| `bf_onboarding_base` | Panneau d'accueil guidé (étape de configuration) |
+| `bf_onboarding_base` | Panneau d'accueil guidé (étape de configuration) et champs de marque `report_brand_{primary,dark,logo}` sur `res.company` (palette des rapports PDF et des courriels) |
 | `bf_timezone` | Affichage des dates/heures dans le fuseau du destinataire |
+
+Le module de marque blanche `bluefox_branding` n'est **pas** requis : il ne fait qu'exposer et styler les champs `report_brand_*`, qui appartiennent à `bf_onboarding_base` depuis la v18.0.2.0.0 de ce dernier. Sans lui, les rapports et courriels se rendent avec la palette de la société, ou avec les couleurs Odoo par défaut (`#714B67` / `#212529`) si elle n'est pas configurée.
 
 ### Sécurité
 
 - Groupe `group_meeting_user` — consulter et modifier les rencontres des projets auxquels l'utilisateur a accès (via `project.message_partner_ids`)
 - Groupe `group_meeting_manager` — accès complet à tous les comptes rendus, ordres du jour, décisions et présences
-- Règles `ir.rule` sur `meeting.record`, `meeting.agenda`, `meeting.topic`, `meeting.decision`, `meeting.agenda.topic`, `meeting.attendance`
+- Règles `ir.rule` sur `meeting.record`, `meeting.agenda`, `meeting.topic`, `meeting.decision`, `meeting.agenda.topic`, `meeting.attendance` (une paire utilisateur/gestionnaire par modèle)
+- Règles `ir.rule` sur `ir.attachment` — appliquent la fenêtre de visibilité aux seules pièces jointes de `meeting.record` / `meeting.agenda`, sans toucher aux autres (voir la limite connue de la fenêtre, plus haut)
+- Règles `ir.rule` sur `meeting.dashboard.line` — une règle globale multi-société, plus la paire utilisateur/gestionnaire calquée sur `meeting.record`. ⚠️ La vue SQL agrège **toutes** les rencontres de la base : `get_dashboard_data()` lit en SQL brut, hors ORM, donc ni les ACL ni ces règles ne s'y appliquent et il **réimplémente les mêmes garde-fous à la main**. Toute évolution de l'un doit être répercutée dans l'autre
 - ACL standard déclarées dans `security/ir.model.access.csv`
 
 ### Tâche planifiée
@@ -85,7 +94,7 @@ Le contrôleur public (`controllers/main.py`, routes `type="http", auth="public"
 - **Aucun IDOR** — l'URL ne porte que le jeton (pas d'`id` d'enregistrement) ; la résolution se fait par jeton via `hmac.compare_digest` (temps constant). Un jeton forgé/expiré renvoie un `404` indiscernable.
 - **Fenêtre re-vérifiée côté serveur** — chaque GET et POST revalide `contributions_open` après résolution : un onglet resté ouvert ne peut pas écrire après la confirmation.
 - **Assainissement** — tout texte libre passe par `markupsafe.escape` avec plafonds stricts (titre ≤ 200, description/commentaire ≤ 4000, nom ≤ 120, courriel ≤ 254). Création de sujet par dictionnaire explicite (`source`/`moderation_state` non pilotables depuis le POST).
-- **Limitation de débit** — deux limiteurs par IP : échecs de jeton (10 / 300 s) et volume de POST (5 / 60 s), honorant `X-Real-IP` / `X-Forwarded-For`.
+- **Limitation de débit** — deux limiteurs par IP : échecs de jeton (10 / 300 s) et volume de POST (5 / 60 s). L'IP retenue est **celle du pair de la socket**, jamais `X-Real-IP` / `X-Forwarded-For` : ces en-têtes sont forgeables si l'endpoint est joignable en direct, et les lire soi-même rendrait le limiteur contournable. Sous `proxy_mode = True`, werkzeug (ProxyFix) a déjà réécrit `remote_addr` à partir d'un nombre de sauts de confiance.
 - **Liste blanche de lecture** — la page publique ne reçoit que le titre, la date formatée, les objectifs (texte) et les **noms des sujets acceptés**. Aucun contexte, préparation, note, tâche, pièce jointe, participant, chatter ou proposition d'un autre contributeur.
 - **Écritures sous `sudo()`** — l'utilisateur public n'a aucun droit ORM ; toutes les écritures sont explicites avec des dictionnaires sûrs. Les notes sont postées avec `author_id=False` (l'identité du contributeur vit dans le corps, jamais forgée en `res.partner`).
 

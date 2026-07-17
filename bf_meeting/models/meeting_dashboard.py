@@ -33,10 +33,39 @@ class MeetingDashboard(models.Model):
         Per-user horizons (``bf_meeting_dashboard_lookahead_days`` /
         ``bf_meeting_dashboard_lookback_days`` on ``res.users``) narrow the
         view's hard limits of +90 days / -180 days.
+
+        ⚠️ Le SQL brut ci-dessous **ne passe pas par l'ORM**, donc ni les ACL ni
+        les ``ir.rule`` ne s'y appliquent : le scoping doit être écrit à la main.
+        On reproduit ici, en SQL, exactement les deux garde-fous que l'ORM
+        appliquerait — la société active et ``rule_meeting_record_user`` — sinon
+        n'importe quel membre de ``group_meeting_user`` lit toutes les lignes de
+        la base, toutes sociétés confondues (noms de clients et de projets
+        compris). Toute évolution de ``rule_meeting_dashboard_line_user`` dans
+        ``security/meeting_security.xml`` doit être répercutée ici.
         """
         user = self.env.user
         lookahead = max(1, min(user.bf_meeting_dashboard_lookahead_days or 90, 90))
         lookback = max(1, min(user.bf_meeting_dashboard_lookback_days or 180, 180))
+
+        # ---- Scoping (voir docstring) ----
+        params = {'companies': list(self.env.companies.ids)}
+        # Société : une ligne sans société reste visible (convention Odoo pour
+        # les enregistrements non rattachés).
+        where = ["(dl.company_id IS NULL OR dl.company_id = ANY(%(companies)s))"]
+        # Projet : miroir de `rule_meeting_record_user`. Le gestionnaire voit
+        # tout (miroir de `rule_meeting_record_manager`).
+        if not user.has_group('bf_meeting.group_meeting_manager'):
+            params['partner'] = user.partner_id.id
+            where.append("""(
+                dl.project_id IS NULL
+                OR EXISTS (
+                    SELECT 1 FROM mail_followers mf
+                    WHERE mf.res_model = 'project.project'
+                      AND mf.res_id = dl.project_id
+                      AND mf.partner_id = %(partner)s
+                )
+            )""")
+        scope_sql = " AND ".join(where)
         # ---- Single query : view + joins, all the data we need ----
         self.env.cr.execute("""
             SELECT
@@ -80,8 +109,9 @@ class MeetingDashboard(models.Model):
             LEFT JOIN res_partner up_a   ON up_a.id = ua.partner_id
             LEFT JOIN res_users um       ON um.id = dl.minutes_resp_id
             LEFT JOIN res_partner up_m   ON up_m.id = um.partner_id
+            WHERE """ + scope_sql + """
             ORDER BY priority_bucket, dl.date DESC NULLS LAST
-        """)
+        """, params)
         all_rows = self.env.cr.dictfetchall()
 
         # ---- Apply per-user horizons (narrow the view's hard window) ----
@@ -520,6 +550,7 @@ class MeetingDashboardLine(models.Model):
     event_id = fields.Many2one('calendar.event', string='Événement', readonly=True)
     project_id = fields.Many2one('project.project', string='Projet', readonly=True)
     partner_id = fields.Many2one('res.partner', string='Client', readonly=True)
+    company_id = fields.Many2one('res.company', string='Société', readonly=True)
     agenda_id = fields.Many2one('meeting.agenda', string='Ordre du jour', readonly=True)
     record_id = fields.Many2one('meeting.record', string='Compte rendu', readonly=True)
 
@@ -657,6 +688,7 @@ class MeetingDashboardLine(models.Model):
                     b.agenda_id, b.record_id,
                     COALESCE(mr.project_id, ma.project_id)      AS project_id,
                     COALESCE(mr.partner_id, ma.partner_id)      AS partner_id,
+                    COALESCE(mr.company_id, ma.company_id)      AS company_id,
                     b.agenda_resp_id, b.minutes_resp_id,
                     COALESCE(b.skipped_steps, '')               AS skipped_steps,
                     ma.state                                    AS agenda_state,
@@ -691,6 +723,7 @@ class MeetingDashboardLine(models.Model):
                     ma.id                                       AS agenda_id,
                     ma.meeting_record_id                        AS record_id,
                     ma.project_id, ma.partner_id,
+                    COALESCE(ma.company_id, mr.company_id)      AS company_id,
                     ma.organizer_id                             AS agenda_resp_id,
                     ma.organizer_id                             AS minutes_resp_id,
                     ''::varchar                                 AS skipped_steps,
@@ -724,6 +757,7 @@ class MeetingDashboardLine(models.Model):
                     NULL::int                                   AS agenda_id,
                     mr.id                                       AS record_id,
                     mr.project_id, mr.partner_id,
+                    mr.company_id                               AS company_id,
                     mr.organizer_id                             AS agenda_resp_id,
                     mr.organizer_id                             AS minutes_resp_id,
                     ''::varchar                                 AS skipped_steps,
@@ -757,6 +791,11 @@ class MeetingDashboardLine(models.Model):
                 s.id, s.event_id, s.name, s.date,
                 s.agenda_id, s.record_id,
                 s.project_id, s.partner_id,
+                -- Une rencontre porte sa propre société ; à défaut (événement
+                -- calendrier nu, `calendar_event` n'ayant pas de company_id),
+                -- on retombe sur celle du projet. Reste NULL si ni l'un ni
+                -- l'autre : traité comme un enregistrement sans société.
+                COALESCE(s.company_id, pj.company_id)           AS company_id,
                 s.agenda_resp_id, s.minutes_resp_id,
                 s.skipped_steps,
                 (s.date < NOW() AT TIME ZONE 'UTC')             AS is_past,
