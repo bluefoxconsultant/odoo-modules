@@ -32,10 +32,10 @@ class MeetingDashboard(models.Model):
 
         Per-user horizons (``bf_meeting_dashboard_lookahead_days`` /
         ``bf_meeting_dashboard_lookback_days`` on ``res.users``) narrow the
-        view's hard limits of +30 days / -180 days.
+        view's hard limits of +90 days / -180 days.
         """
         user = self.env.user
-        lookahead = max(1, min(user.bf_meeting_dashboard_lookahead_days or 30, 30))
+        lookahead = max(1, min(user.bf_meeting_dashboard_lookahead_days or 90, 90))
         lookback = max(1, min(user.bf_meeting_dashboard_lookback_days or 180, 180))
         # ---- Single query : view + joins, all the data we need ----
         self.env.cr.execute("""
@@ -564,18 +564,46 @@ class MeetingDashboardLine(models.Model):
                 ADD COLUMN IF NOT EXISTS bf_skip_dashboard BOOLEAN DEFAULT FALSE
         """)
         # Backfill responsible fields from the event's user_id (organizer).
-        # Idempotent : only fills NULL values.
+        # Idempotent : only fills NULL values, plus the rows pointing at a user
+        # who cannot be a responsible.
+        #
+        # Le `WHERE IS NULL` seul ne suffisait pas : à la création de la colonne,
+        # l'ORM y applique le défaut du champ pour les lignes existantes, et ce
+        # défaut tournait sous OdooBot pendant la mise à jour. Résultat, les
+        # lignes valaient déjà `1` (OdooBot) et le backfill ne les voyait jamais.
+        # On rattrape ici tout responsable non interne / inactif (OdooBot, compte
+        # public du site, utilisateur désactivé depuis).
+        # Même règle que `_bf_resolve_responsibles` côté Python : on ne recale que
+        # vers un organisateur qui est lui-même un interne actif, sinon on ne
+        # ferait que remplacer un mauvais responsable par un autre.
+        for _fname in ('bf_agenda_responsible_id', 'bf_minutes_responsible_id'):
+            self.env.cr.execute(f"""
+                UPDATE calendar_event ce
+                SET {_fname} = ce.user_id
+                WHERE EXISTS (
+                          SELECT 1 FROM res_users o
+                          WHERE o.id = ce.user_id
+                            AND o.active = true
+                            AND o.share = false
+                      )
+                  AND ce.{_fname} IS DISTINCT FROM ce.user_id
+                  AND (
+                      ce.{_fname} IS NULL
+                      OR EXISTS (
+                          SELECT 1 FROM res_users u
+                          WHERE u.id = ce.{_fname}
+                            AND (u.share = true OR u.active = false)
+                      )
+                  )
+            """)
+        # L'horizon « à venir » de la vue passe de +30 à +90 jours. 30 était à la
+        # fois le défaut ET le plafond : personne n'a pu le choisir délibérément,
+        # donc on remonte au nouveau plafond ceux qui y sont encore. Une valeur
+        # autre que 30 est, elle, un vrai choix : on n'y touche pas.
         self.env.cr.execute("""
-            UPDATE calendar_event
-            SET bf_agenda_responsible_id  = user_id
-            WHERE bf_agenda_responsible_id IS NULL
-              AND user_id IS NOT NULL
-        """)
-        self.env.cr.execute("""
-            UPDATE calendar_event
-            SET bf_minutes_responsible_id = user_id
-            WHERE bf_minutes_responsible_id IS NULL
-              AND user_id IS NOT NULL
+            UPDATE res_users
+            SET bf_meeting_dashboard_lookahead_days = 90
+            WHERE bf_meeting_dashboard_lookahead_days = 30
         """)
         # Partial index that matches the dashboard's calendar.event filter —
         # turns the previous 17k-row seq scan into a tiny index scan.
@@ -644,7 +672,7 @@ class MeetingDashboardLine(models.Model):
                   AND b.has_partner = true
                   AND (
                       (b.date >= NOW() AT TIME ZONE 'UTC'
-                       AND b.date <= (NOW() AT TIME ZONE 'UTC') + INTERVAL '30 days')
+                       AND b.date <= (NOW() AT TIME ZONE 'UTC') + INTERVAL '90 days')
                       OR
                       (b.date < NOW() AT TIME ZONE 'UTC'
                        AND b.date >= (NOW() AT TIME ZONE 'UTC') - INTERVAL '180 days'
@@ -677,7 +705,7 @@ class MeetingDashboardLine(models.Model):
                   AND ma.date IS NOT NULL
                   AND (
                       (ma.date >= NOW() AT TIME ZONE 'UTC'
-                       AND ma.date <= (NOW() AT TIME ZONE 'UTC') + INTERVAL '30 days')
+                       AND ma.date <= (NOW() AT TIME ZONE 'UTC') + INTERVAL '90 days')
                       OR
                       (ma.date < NOW() AT TIME ZONE 'UTC'
                        AND ma.date >= (NOW() AT TIME ZONE 'UTC') - INTERVAL '180 days'

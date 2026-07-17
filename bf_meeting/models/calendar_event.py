@@ -64,7 +64,7 @@ class CalendarEvent(models.Model):
     bf_agenda_responsible_id = fields.Many2one(
         'res.users',
         string="Responsable de l'OdJ",
-        default=lambda self: self.env.user.id,
+        default=lambda self: self._bf_default_responsible_id(),
         help="Personne responsable de préparer, réviser et envoyer l'ordre "
              "du jour. Par défaut : organisateur de la rencontre. Pilote le "
              "routage du digest quotidien.",
@@ -72,7 +72,7 @@ class CalendarEvent(models.Model):
     bf_minutes_responsible_id = fields.Many2one(
         'res.users',
         string='Responsable du CR',
-        default=lambda self: self.env.user.id,
+        default=lambda self: self._bf_default_responsible_id(),
         help="Personne responsable de rédiger, réviser et envoyer le compte "
              "rendu. Par défaut : organisateur de la rencontre. Pilote le "
              "routage du digest quotidien.",
@@ -84,6 +84,40 @@ class CalendarEvent(models.Model):
         help="Vrai si la rencontre est à venir, n'a pas d'ordre du jour lié et "
              "n'est pas marquée comme dispensée.",
     )
+
+    @api.model
+    def _bf_default_responsible_id(self):
+        """Utilisateur courant, seulement s'il peut réellement être responsable.
+
+        Deux contextes produisent un « utilisateur courant » qui n'a rien à
+        faire dans ce champ : un RDV pris depuis le site public est créé par
+        le compte public (`share=True`), et une mise à jour de module tourne
+        sous OdooBot (`active=False`). On retourne alors False et `create()`
+        retombe sur l'organisateur de la rencontre.
+        """
+        user = self.env.user
+        return user.id if (user.active and not user.share) else False
+
+    def _bf_resolve_responsibles(self):
+        """Recale les responsables OdJ/CR sur l'organisateur de la rencontre
+        quand la valeur en place n'est pas un utilisateur interne actif."""
+        for event in self:
+            organizer = event.user_id
+            if not (organizer and organizer.active and not organizer.share):
+                continue
+            vals = {}
+            for fname in ('bf_agenda_responsible_id', 'bf_minutes_responsible_id'):
+                current = event[fname]
+                if not current or current.share or not current.active:
+                    vals[fname] = organizer.id
+            if vals:
+                event.write(vals)
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        events = super().create(vals_list)
+        events._bf_resolve_responsibles()
+        return events
 
     @api.depends('meeting_record_ids')
     def _compute_meeting_record_id(self):

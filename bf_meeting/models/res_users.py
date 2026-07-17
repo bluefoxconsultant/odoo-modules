@@ -6,10 +6,10 @@ class ResUsers(models.Model):
 
     bf_meeting_dashboard_lookahead_days = fields.Integer(
         string="Horizon — OdJ à préparer (jours)",
-        default=30,
+        default=90,
         help="Nombre de jours à venir affichés sur le tableau de bord des "
              "rencontres pour les colonnes « OdJ à préparer / envoyer ». "
-             "Maximum 30 jours (limite de la vue SQL).",
+             "Maximum 90 jours (limite de la vue SQL).",
     )
     bf_meeting_dashboard_lookback_days = fields.Integer(
         string="Horizon — CR en retard (jours)",
