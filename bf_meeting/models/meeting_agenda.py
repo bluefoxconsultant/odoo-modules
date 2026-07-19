@@ -889,13 +889,18 @@ class MeetingAgenda(models.Model):
             _logger.warning("No recipients for agenda %s", self.name)
             return
 
-        # Mint the public contribution token before rendering so the CTA link
-        # is available to the email body.
+        # Mint the public contribution token AND stamp sent_date before
+        # rendering: the CTA block is gated on `contributions_open`, which is
+        # computed from `sent_date`. Stamping after send_mail() left the flag
+        # False at render time, so the link never made it into the email
+        # (parity with action_send_agenda_wizard).
         if self.allow_contributions:
             self._ensure_access_token()
+        if not self.sent_date:
+            self.write({'sent_date': fields.Datetime.now()})
+        self.flush_recordset(['sent_date', 'contributions_open'])
 
         template.send_mail(self.id, force_send=True)
-        self.write({'sent_date': fields.Datetime.now()})
 
     def action_send_agenda_wizard(self):
         """Ouvrir l'assistant d'envoi de l'ordre du jour."""

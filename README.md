@@ -47,14 +47,14 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | `bf_mail_subject_clean` | BF Nettoyage des sujets de courriel | 18.0.1.1.0 | LGPL-3 | Prevents "Re: Re: Re:" stacking on subjects sent through the chatter |
 | `bf_mail_vigie` | BF Vigie courriels (re-router) | 18.0.2.2.0 | LGPL-3 | "Re-route" button on `bf.email` to move a misrouted email to the correct chatter |
 | `bf_mass_notes` | Blue Fox — Notes en lot | 18.0.1.0.0 | LGPL-3 | List-view Action to post a chatter note (or message) to many selected records at once; binds to all `mail.thread` models |
-| `bf_meeting` | Rencontres | 18.0.3.43.0 | LGPL-3 | Agendas, meeting records, and discussion items unified around `calendar.event` with automatic reminders |
+| `bf_meeting` | Rencontres | 18.0.3.43.1 | LGPL-3 | Agendas, meeting records, and discussion items unified around `calendar.event` with automatic reminders |
 | `bf_meeting_call_archive` | Rencontres ↔ Archive d'appels | 18.0.1.0.0 | LGPL-3 | Optional link between a meeting record and an archived call |
 | `bf_nextcloud_browser` | Nextcloud File Browser | 18.0.3.3.0 | LGPL-3 | Embedded + standalone Nextcloud WebDAV file browser on projects/tasks: folder tree, modal preview, drag-and-drop upload/move, configurable share presets, open-in-Nextcloud for office files, Knowledge Matrix linking, systray launcher |
 | `bf_onboarding_base` | Blue Fox Onboarding Foundation | 18.0.2.0.0 | LGPL-3 | Shared helpers for Blue Fox per-module onboarding panels. |
 | `bf_persona` | Persona des contacts | 18.0.2.1.0 | LGPL-3 | Active relationship intelligence: composer hint with auto-cc, monthly auto-seed from email signals, weekly degradation detector with optional ntfy alert, kanban dashboard |
 | `bf_project_merge` | Blue Fox — Regroupement de tâches | 18.0.1.0.0 | LGPL-3 | Merge tasks by reassigning their content (messages, activities, hours, dependencies) to the kept task, then archive the rest. |
 | `bf_receipt_ca` | Reçus de dons — Canada (ARC + Revenu Québec) | 18.0.1.0.4 | AGPL-3 | CRA + Revenu Québec compliant official donation receipts, in French — eligible amount, advantage, in-kind gifts, void/reissue |
-| `bf_securetransfer` | Transfert sécurisé (Secure Transfer) | 18.0.1.6.1 | LGPL-3 | Secure file transfer: browser-direct uploads to S3 (presigned, multipart), tokenized links with expiry/password/OTP, tamper-evident access log (Law 25), auto-purge, multi-brand |
+| `bf_securetransfer` | Transfert sécurisé (Secure Transfer) | 18.0.1.6.2 | LGPL-3 | Secure file transfer: browser-direct uploads to S3 (presigned, multipart), tokenized links with expiry/password/OTP, tamper-evident access log (Law 25), auto-purge, multi-brand |
 | `bf_security_awareness` | Security Awareness | 18.0.1.9.0 | LGPL-3 | KnowBe4/Terranova-style platform: phishing simulations (open/click/submit, QR, attachments), per-person risk profiles, eLearning remediation, OWL dashboards, a Phish Alert Button with sim-aware triage, and email clawback (PhishRIP-style) to pull a confirmed malicious email from every mailbox (M365 app-only XOAUTH2 or per-mailbox IMAP) into reversible quarantine — see `SECURITY.md` |
 | `bf_sign` | Blue Fox — Signature électronique | 18.0.3.12.0 | LGPL-3 | Native electronic signature (SES): request, sign via public link, completion certificate and tamper-evident audit trail |
 | `bf_sign_account` | Blue Fox — Signature pour la comptabilité | 18.0.1.0.0 | LGPL-3 | Send a customer invoice / vendor bill for electronic signature (bf_sign). |
@@ -82,7 +82,7 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | `contacts_nextcloud_sync` | Contacts Nextcloud Sync | 18.0.1.2.0 | LGPL-3 | Sync Odoo contacts with a Nextcloud address book via CardDAV |
 | `daily_todo_digest` | Daily To-Do Digest | 18.0.2.0.0 | LGPL-3 | Daily email digest with activities, overdue tasks, and a week-ahead view |
 | `hosting_management` | Gestion d'hébergement | 18.0.2.50.0 | LGPL-3 | Manage hosting services, client computer parks (endpoints, BitLocker, Action1 sync) and software license pools |
-| `privacy_consent` | Suivi des consentements (Loi 25) | 18.0.4.0.0 | LGPL-3 | Privacy, consents, retention and immutable destruction register; multi-framework (Loi 25, GDPR, UK GDPR, PIPEDA, NZ) |
+| `privacy_consent` | Suivi des consentements (Loi 25) | 18.0.4.1.0 | LGPL-3 | Privacy, consents, retention and immutable destruction register; multi-framework (Loi 25, GDPR, UK GDPR, PIPEDA, NZ) |
 | `privacy_framework_gdpr` | Cadre de confidentialité — GDPR (UE) | 18.0.1.0.0 | LGPL-3 | GDPR (EU) regulatory-framework pack for the Privacy module |
 | `privacy_framework_nz` | Cadre de confidentialité — Privacy Act 2020 (Nouvelle-Zélande) | 18.0.1.0.0 | LGPL-3 | New Zealand Privacy Act 2020 regulatory-framework pack for the Privacy module |
 | `privacy_framework_pipeda` | Cadre de confidentialité — LPRPDE / PIPEDA (Canada) | 18.0.1.0.0 | LGPL-3 | PIPEDA (Canada federal) regulatory-framework pack for the Privacy module |
