@@ -22,7 +22,7 @@
         <t t-call="portal.portal_layout">
             <t t-set="breadcrumbs_searchbar" t-value="False"/>
 
-            <div class="mb-4 p-3 rounded" style="background-color:#000000; border-bottom:4px solid #32373c;">
+            <div class="mb-4 p-3 rounded" style="background-color:var(--brand-dark, #212529); border-bottom:4px solid var(--brand-primary, #714B67);">
                 <h4 class="mb-0" style="color:#ffffff; font-weight:600;">
                     Préférences de confidentialité / Privacy Preferences
                 </h4>
@@ -154,7 +154,7 @@
         <t t-call="portal.portal_layout">
             <t t-set="breadcrumbs_searchbar" t-value="False"/>
 
-            <div class="mb-4 p-3 rounded" style="background-color:#000000; border-bottom:4px solid #32373c;">
+            <div class="mb-4 p-3 rounded" style="background-color:var(--brand-dark, #212529); border-bottom:4px solid var(--brand-primary, #714B67);">
                 <h4 class="mb-0" style="color:#ffffff; font-weight:600;">
                     Historique des consentements / Consent History
                 </h4>
@@ -226,7 +226,7 @@
         <t t-call="portal.portal_layout">
             <t t-set="breadcrumbs_searchbar" t-value="False"/>
 
-            <div class="mb-4 p-3 rounded" style="background-color:#000000; border-bottom:4px solid #32373c;">
+            <div class="mb-4 p-3 rounded" style="background-color:var(--brand-dark, #212529); border-bottom:4px solid var(--brand-primary, #714B67);">
                 <h4 class="mb-0" style="color:#ffffff; font-weight:600;">
                     Détails du consentement / Consent Details
                 </h4>
@@ -293,7 +293,7 @@
                 </t>
 
                 <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center" style="background-color:#000000;">
+                    <div class="card-header d-flex justify-content-between align-items-center" style="background-color:var(--brand-dark, #212529);">
                         <h5 class="mb-0" style="color:#ffffff;"><t t-esc="consent.purpose_id.name"/></h5>
                         <span t-attf-class="badge #{'bg-success' if consent.status == 'granted' else 'bg-warning' if consent.status == 'pending' else 'bg-danger' if consent.status in ('refused', 'withdrawn') else 'bg-secondary'}">
                             <t t-esc="consent.status"/>
@@ -341,8 +341,8 @@
                         <t t-set="notice_html" t-value="consent.notice_version_id.body if consent.notice_version_id and consent.notice_version_id.body else consent.purpose_id.plain_language_summary"/>
                         <t t-if="notice_html">
                             <hr/>
-                            <h6 style="color:#32373c; font-weight:600;">Modèle de consentement / Consent Notice</h6>
-                            <div class="p-3 rounded" style="background-color:#333333; color:#ffffff; max-height:400px; overflow-y:auto; border-left:4px solid #32373c;">
+                            <h6 style="color:var(--brand-primary, #714B67); font-weight:600;">Modèle de consentement / Consent Notice</h6>
+                            <div class="p-3 rounded" style="background-color:var(--brand-dark, #212529); color:#ffffff; max-height:400px; overflow-y:auto; border-left:4px solid var(--brand-primary, #714B67);">
                                 <t t-raw="notice_html"/>
                             </div>
                         </t>
