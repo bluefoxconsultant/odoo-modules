@@ -56,8 +56,17 @@ def _api_guard(func):
     """
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
+        # The savepoint is what makes an error message HONEST. Returning an
+        # error dict is a normal return, so Odoo commits the transaction: any
+        # row written before the failure survives. api_presign registers the
+        # file row BEFORE talking to S3, so a flaky endpoint left a committed
+        # "pending" ghost behind every failed attempt — each one eating a
+        # max_files slot and daily-bytes quota, and each one blocking
+        # action_finalize (which verifies every row on S3) with no hint why.
+        # Rolling back to the savepoint means "error" leaves nothing behind.
         try:
-            return func(self, *args, **kwargs)
+            with request.env.cr.savepoint():
+                return func(self, *args, **kwargs)
         except UserError as exc:
             return _err("invalid", str(exc))
         except Exception:
@@ -515,5 +524,5 @@ class SecureTransferUploadApi(Controller):
             return _err("rate_limited",
                         _("Trop de requêtes. Réessayez plus tard."))
         if transfer.sudo().sender_otp_hash:
-            transfer._send_sender_otp()
+            transfer._send_sender_otp(reset_fails=False)
         return {"resent": True}

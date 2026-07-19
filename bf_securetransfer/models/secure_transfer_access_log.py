@@ -88,6 +88,27 @@ class SecureTransferAccessLog(models.Model):
         The single choke-point every event goes through (Phase 2 hooks —
         burn/notify — plug in here)."""
         Log = self.sudo()
+        # Serialize the read-tail-then-append per transfer. Two concurrent
+        # events (two parallel GETs on /s/<token> — link scanners on a mailing
+        # list do exactly that) must not both chain onto the same tail:
+        # verify_chain would report the trail as BROKEN on the "Vérifier"
+        # button and in the CSV export, and since write/unlink are blocked
+        # here the chain could never be repaired. A concurrent read must not
+        # look like tampering.
+        #
+        # ⚠️ An advisory lock is NOT enough, and that is the whole subtlety:
+        # Odoo runs every cursor in REPEATABLE READ, so a transaction's
+        # snapshot is frozen at its FIRST statement — long before this code
+        # runs. Waiters would serialize correctly and still each read the same
+        # stale tail. (Measured: 12 collisions out of 12.)
+        #
+        # What works is taking the parent row FOR UPDATE and *touching* it: a
+        # concurrent committed touch makes PostgreSQL raise SerializationFailure
+        # here, which odoo.service.model.retrying replays (up to 5 times) on a
+        # FRESH snapshot — the only way to see the neighbour's entry.
+        transfer._lock_row()
+        self.env.cr.execute(
+            "UPDATE secure_transfer SET id = id WHERE id = %s", (transfer.id,))
         prev = Log.search(
             [("transfer_id", "=", transfer.id)], order="id desc", limit=1
         )

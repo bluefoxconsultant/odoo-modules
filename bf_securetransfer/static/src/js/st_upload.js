@@ -952,7 +952,11 @@
         if (tm) { tm.classList.toggle("st-tab-active", mode === "message"); }
         var label = el("st-message-label");
         if (label) {
-            label.textContent = mode === "message" ? "Message *" : "Message (optionnel)";
+            // Through S like every other string: hardcoding these turned an
+            // English page back to French after two tab clicks.
+            label.textContent = mode === "message"
+                ? (S.message_label_required || "Message *")
+                : (S.message_label_optional || "Message (optionnel)");
         }
         var btn = el("st-finalize");
         if (btn && !state.finalized) {
@@ -1062,8 +1066,26 @@
         if (resend && !resend.dataset.bound) {
             resend.dataset.bound = "1";
             resend.addEventListener("click", async function () {
+                // This button used to swallow every outcome: success and
+                // failure looked identical (nothing happened), so a sender
+                // past the rate limit just kept clicking a button they
+                // believed was broken. Say what happened, either way.
                 clearError();
-                try { await rpc(turl("confirm/resend"), {}); } catch (e) { /* ignore */ }
+                var original = resend.textContent;
+                resend.disabled = true;
+                try {
+                    await rpc(turl("confirm/resend"), {});
+                    resend.textContent = S.otp_resent
+                        || "Un nouveau code vous a été envoyé.";
+                } catch (e) {
+                    showError(e.message || S.error_generic);
+                    resend.textContent = original;
+                } finally {
+                    setTimeout(function () {
+                        resend.disabled = false;
+                        resend.textContent = original;
+                    }, 4000);
+                }
             });
         }
     }

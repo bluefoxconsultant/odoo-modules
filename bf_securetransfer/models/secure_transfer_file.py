@@ -211,6 +211,13 @@ class SecureTransferFile(models.Model):
         self._check_uploadable()
         if not self.s3_upload_id:
             raise UserError(_("Le téléversement multipart n'est pas initialisé."))
+        # Require a real sequence. A bare string iterates CHARACTER BY
+        # CHARACTER, so mpu_sign("123") used to quietly sign parts 1, 2 and 3.
+        # The web controller already rejects non-lists, but this method has no
+        # leading underscore — it is RPC surface for anyone holding model
+        # access, and the guard belongs where the parsing happens.
+        if part_numbers is not None and not isinstance(part_numbers, (list, tuple, set)):
+            raise UserError(_("Numéros de partie invalides."))
         try:
             nums = sorted({int(n) for n in (part_numbers or [])})
         except (TypeError, ValueError):

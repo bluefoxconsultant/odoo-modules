@@ -366,6 +366,12 @@ _UI_STRINGS = {
         "finalizing": "Vérification des fichiers…",
         "send": "Obtenir le lien",
         "send_message": "Envoyer le message",
+        # Distinct from "message_required" above, which is the VALIDATION
+        # ERROR. These two are the field LABEL in each tab; reusing the same
+        # key would silently replace the error text with "Message *".
+        "message_label_required": "Message *",
+        "message_label_optional": "Message (optionnel)",
+        "otp_resent": "Un nouveau code vous a été envoyé.",
     },
     "en_CA": {
         "units": ["B", "KB", "MB", "GB", "TB"],
@@ -403,6 +409,9 @@ _UI_STRINGS = {
         "finalizing": "Verifying files…",
         "send": "Get the link",
         "send_message": "Send the message",
+        "message_label_required": "Message *",
+        "message_label_optional": "Message (optional)",
+        "otp_resent": "A new code has been sent to you.",
     },
 }
 
@@ -590,8 +599,7 @@ class SecureTransferController(Controller):
             })
             return _apply_security_headers(response, img_host=visuals.get("logo_host"))
         transfer._log("view", ip=ip, ua=ua)
-        files = transfer.file_ids.filtered(
-            lambda f: f.state == "verified" and f.scanned in ("none", "clean"))
+        files = transfer._downloadable_files()
         response = request.render("bf_securetransfer.page_download", {
             "brand": brand, "visuals": visuals, "transfer": transfer,
             "files": files, "token": token, "locked": False,
@@ -716,9 +724,8 @@ class SecureTransferController(Controller):
         if transfer._recipient_otp_required() \
                 and not request.session.get("st_otp_ok_%d" % transfer.id):
             return request.redirect("/s/%s" % token, code=303)
-        rec_file = transfer.file_ids.filtered(
-            lambda f: f.id == file_id and f.state == "verified"
-            and f.scanned in ("none", "clean"))[:1]
+        rec_file = transfer._downloadable_files().filtered(
+            lambda f: f.id == file_id)[:1]
         if not rec_file:
             return request.not_found()
         # Integrity re-check before every download: the ETag pinned at

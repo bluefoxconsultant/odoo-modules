@@ -297,14 +297,23 @@ class SecureTransfer(models.Model):
         return int(count or 0), float(declared or 0.0)
 
     @api.model
-    def _check_sender_quota(self, sender_email):
+    def _check_sender_quota(self, sender_email, exclude_id=None):
         """Per-sender daily transfer quota, under an advisory lock (TOCTOU).
         Raises UserError when exceeded. Called at create (if the e-mail is
-        known then) and at finalize."""
+        known then) and at finalize.
+
+        ``exclude_id`` is what makes the finalize call honest: by then the
+        transfer being finalized is already in the DB (and _lock_row has
+        flushed), so it would COUNT ITSELF. Without it a quota of 5 really
+        allowed 4, and the refusal landed after the upload was done — the
+        worst possible moment, with no way for the sender to recover."""
         self.env.cr.execute("SELECT pg_advisory_xact_lock(hashtext(%s))",
                             ("bf_st_create_sender:" + (sender_email or ""),))
         quota = s3._int_param(self.env, "quota_daily_transfers_per_sender", 5)
-        count, _b = self._daily_usage([("sender_email", "=", sender_email)])
+        domain = [("sender_email", "=", sender_email)]
+        if exclude_id:
+            domain.append(("id", "!=", exclude_id))
+        count, _b = self._daily_usage(domain)
         if count >= quota:
             raise UserError(_(
                 "Limite quotidienne de transferts atteinte pour cette "
@@ -455,7 +464,17 @@ class SecureTransfer(models.Model):
         # display name keeps Unicode but drops path components, control
         # chars and CR-LF, capped at 255.
         stripped = secure_filename(filename or "") or ""
-        ext = stripped.rsplit(".", 1)[-1].lower() if "." in stripped else ""
+        raw_name = (filename or "").replace("\\", "/").rsplit("/", 1)[-1]
+        # The extension comes from the RAW name, never from secure_filename's
+        # output. secure_filename drops non-ASCII then strips leading "._", so
+        # "документ.pdf" collapses to "pdf" — no dot left, and a perfectly
+        # legitimate file was refused with "must have an extension", a message
+        # its owner could only read as wrong. Worse for the deny-list: it saw
+        # "" instead of "php" for "рисунок.php", so the block was incidental
+        # rather than by rule. Keep only the alphanumerics of the raw suffix:
+        # enough to match DENY_EXTENSIONS, and safe to store.
+        raw_ext = raw_name.rsplit(".", 1)[-1] if "." in raw_name else ""
+        ext = "".join(c for c in raw_ext if c.isalnum()).lower()[:32]
         if not ext:
             raise UserError(_("Le fichier doit avoir une extension."))
         if ext in DENY_EXTENSIONS:
@@ -463,7 +482,6 @@ class SecureTransfer(models.Model):
                 "Le format « .%s » n'est pas autorisé pour des raisons de "
                 "sécurité.", ext,
             ))
-        raw_name = (filename or "").replace("\\", "/").rsplit("/", 1)[-1]
         display_name = "".join(
             c for c in raw_name if c.isprintable() and c not in "\r\n"
         )[:255] or stripped or "fichier"
@@ -536,7 +554,7 @@ class SecureTransfer(models.Model):
             raise UserError(_(
                 "Cette adresse courriel n'est pas autorisée à envoyer depuis "
                 "ce service."))
-        self._check_sender_quota(self.sender_email)
+        self._check_sender_quota(self.sender_email, exclude_id=self.id)
         # Drop page guarantor: re-force the fixed recipient at send time too,
         # so a finalize call that carried a different address can never
         # redirect the transfer away from the page owner.
@@ -739,32 +757,45 @@ class SecureTransfer(models.Model):
             "auto_delete": True,
         }).send()
         # 2) Recipients — neutral notice (no reason/IP leaked).
-        if self.recipient_emails:
-            notice = (
-                '<p>Bonjour,</p>'
-                '<p>Un transfert de fichiers qui vous a été partagé a été '
-                '<strong>signalé et temporairement suspendu</strong> le temps '
-                'd\'une vérification. Le lien est indisponible pour l\'instant.</p>'
-                '<p style="color:#777;font-size:12px;">Vous n\'avez rien à faire. '
-                'Si le transfert est légitime, il sera rétabli après revue.</p>')
+        # ONE MAIL PER RECIPIENT, like _send_link_emails. A single mail with
+        # recipient_emails in To: would show every recipient to every other —
+        # a disclosure any anonymous link holder could trigger by clicking
+        # "report abuse", on a transfer that may span several organisations.
+        notice = (
+            '<p>Bonjour,</p>'
+            '<p>Un transfert de fichiers qui vous a été partagé a été '
+            '<strong>signalé et temporairement suspendu</strong> le temps '
+            'd\'une vérification. Le lien est indisponible pour l\'instant.</p>'
+            '<p style="color:#777;font-size:12px;">Vous n\'avez rien à faire. '
+            'Si le transfert est légitime, il sera rétabli après revue.</p>')
+        for recipient in self._recipient_list():
             self.env["mail.mail"].sudo().create({
                 "subject": _("Transfert suspendu pour vérification — %s") % self.name,
                 "email_from": from_addr,
-                "email_to": self.recipient_emails,
+                "email_to": recipient,
                 "body_html": self._brand_email_shell(_("Transfert suspendu"), notice),
                 "auto_delete": True,
             }).send()
 
-    def _send_sender_otp(self):
+    def _send_sender_otp(self, reset_fails=True):
         """Generate a fresh 6-digit code, store its hash (15 min TTL), and
-        email it to the sender."""
+        email it to the sender.
+
+        ``reset_fails=False`` is for the "resend a code" button. Clearing the
+        counter there let anyone walk past the 8-attempt cap in
+        confirm_sender_otp: guess seven times, click "renvoyer un code", and
+        the budget is full again. The per-transfer ceiling has to survive a
+        resend or it bounds nothing — only the per-IP limiter would be left.
+        """
         self.ensure_one()
         code = "%06d" % secrets.randbelow(1_000_000)
-        self.write({
+        vals = {
             "sender_otp_hash": self._otp_hash(code),
             "sender_otp_expiry": fields.Datetime.now() + timedelta(minutes=15),
-            "sender_otp_fails": 0,
-        })
+        }
+        if reset_fails:
+            vals["sender_otp_fails"] = 0
+        self.write(vals)
         self.with_context(lang=self._lang_for_email(self.sender_email))._otp_email(
             self.sender_email, code, "sender")
         self._log("otp_sent", actor=self.sender_email,
@@ -903,6 +934,25 @@ class SecureTransfer(models.Model):
             return False, "expired"
         return True, ""
 
+    def _recipient_list(self):
+        """The recipient addresses, split and trimmed. Every caller that mails
+        recipients must go through this and send ONE mail each: the raw
+        comma-joined field in an email_to would expose the whole list to each
+        of them."""
+        self.ensure_one()
+        return [e.strip() for e in (self.recipient_emails or "").split(",")
+                if e.strip()]
+
+    def _downloadable_files(self):
+        """The files a recipient may actually fetch: upload verified and not
+        flagged by the scanner. Single source of truth for the listing page,
+        the per-file download route and the burn accounting — they must agree
+        on "what this transfer offers", or burn fires on a file nobody could
+        have downloaded."""
+        self.ensure_one()
+        return self.file_ids.filtered(
+            lambda f: f.state == "verified" and f.scanned in ("none", "clean"))
+
     def _register_download(self, file, ip, ua):
         """Account one download under the row lock: re-check availability
         (two racing downloads must not both pass a budget of 1), bump the
@@ -919,14 +969,23 @@ class SecureTransfer(models.Model):
         # file — avoids a burst of notices on a multi-file transfer).
         if self.notify_on_download and self.download_count == 1 and self.sender_email:
             self._notify_download()
-        # Burn-after-download: the link dies right after the first download.
+        # Burn-after-download: the link dies once the recipient HAS THE WHOLE
+        # transfer, not on the first file. A browser fetches one file per
+        # request, so burning on the first download strands every remaining
+        # attachment — the recipient is left with file 1 of N and a dead link,
+        # which is exactly what the public label promises not to do.
+        # Files that were never downloadable (upload error, scanner hit) are
+        # excluded, otherwise they would hold the burn open forever.
         # The presigned GET already issued (short TTL) finishes the in-flight
-        # download; the purge cron then removes the S3 object. (A stricter
+        # download; the purge cron then removes the S3 objects. (A stricter
         # immediate purge is impossible with the direct-to-S3 redirect model —
         # deleting now would 404 the in-flight fetch.)
         if self.burn_after_download:
-            self.state = "expired"
-            self._log("expired", note=_("Détruit après lecture (burn)"))
+            pending = self._downloadable_files().filtered(
+                lambda f: not f.download_count)
+            if not pending:
+                self.state = "expired"
+                self._log("expired", note=_("Détruit après lecture (burn)"))
         elif self.max_downloads and self.download_count >= self.max_downloads:
             self.state = "expired"
             self._log("expired", note=_("Budget de téléchargements épuisé"))
@@ -992,11 +1051,17 @@ class SecureTransfer(models.Model):
             raise_if_not_found=False,
         )
         for rec in self:
-            recipients = [r.strip() for r in (rec.recipient_emails or "").split(",")
-                          if r.strip()]
+            recipients = rec._recipient_list()
             message_only = not rec.file_ids and bool((rec.message or "").strip())
+            # The gate is the per-transfer force flag OR the instance-wide
+            # setting, i.e. _recipient_otp_required() — the SAME predicate the
+            # download controller gates on. Testing only the per-transfer flag
+            # silently defeated the instance-wide setting: the gate held the
+            # files, but the notification still carried the message body and
+            # the filename/size listing into the recipient's inbox.
             tmpl = (secure_tmpl
-                    if (rec.force_recipient_otp or message_only) and secure_tmpl
+                    if (rec._recipient_otp_required() or message_only)
+                    and secure_tmpl
                     else link_tmpl)
             if tmpl:
                 # One email per recipient so each renders in their own language.
