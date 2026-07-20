@@ -10,14 +10,24 @@
     >
         <xpath expr="//div[hasclass('o_portal_docs')]" position="inside">
             <t t-call="portal.portal_docs_entry">
-                <t t-set="icon" t-value="'/bf_fundraising_web/static/description/icon.png'" />
+                <!-- portal_docs_entry n'impose aucune dimension : l'image sort a
+                     sa taille naturelle. icon.png fait 256 px, soit 4x la taille
+                     des icones natives (toutes en 64x64), d'ou un logo trop gros
+                     sur la carte. portal_icon.svg est le meme visuel declare en
+                     64x64, avec un raster 128 px (2x) pour rester net en retina. -->
+                <t t-set="icon" t-value="'/bf_fundraising_web/static/src/img/portal_icon.svg'" />
                 <t t-set="title">Mes dons</t>
                 <t t-set="url" t-value="'/my/donations'" />
                 <t t-set="text">Consultez l'historique de vos dons</t>
                 <t t-set="placeholder_count" t-value="'donation_count'" />
             </t>
             <t t-call="portal.portal_docs_entry">
-                <t t-set="icon" t-value="'/bf_fundraising_web/static/description/icon.png'" />
+                <!-- portal_docs_entry n'impose aucune dimension : l'image sort a
+                     sa taille naturelle. icon.png fait 256 px, soit 4x la taille
+                     des icones natives (toutes en 64x64), d'ou un logo trop gros
+                     sur la carte. portal_icon.svg est le meme visuel declare en
+                     64x64, avec un raster 128 px (2x) pour rester net en retina. -->
+                <t t-set="icon" t-value="'/bf_fundraising_web/static/src/img/portal_icon.svg'" />
                 <t t-set="title">Mes reçus officiels</t>
                 <t t-set="url" t-value="'/my/tax_receipts'" />
                 <t t-set="text">Téléchargez vos reçus aux fins de l'impôt</t>
