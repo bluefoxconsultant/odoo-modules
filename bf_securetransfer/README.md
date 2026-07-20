@@ -9,7 +9,7 @@ nom d'hôte, **pages de dépôt personnelles** (`/to/<slug>`), **listes
 d'autorisation anti-piggyback** et **suspension automatique sur signalement
 d'abus**.
 
-- **Version** : `18.0.1.6.1`.
+- **Version** : `18.0.1.6.2`.
 - **Licence** : LGPL-3.
 - **Modèle de menaces & non-garanties** : voir [`SECURITY.md`](SECURITY.md).
 - **Multi-paliers** : le système multi-marques permet un palier gratuit limité

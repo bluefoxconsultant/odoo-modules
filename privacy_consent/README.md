@@ -627,6 +627,7 @@ Pour signaler un problème ou suggérer une amélioration, veuillez contacter l'
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 18.0.4.1.0 | 2026-07 | Portail de consentement **brandé** : les gabarits du portail consomment les variables `--brand-primary` / `--brand-dark` issues de `report_brand_*` au lieu de couleurs codées en dur, avec repli sur les valeurs par défaut |
 | 18.0.4.0.0 | 2026-06 | Moteur **multi-cadres réglementaires** : modèle `privacy.framework` (+ bases légales + droits des personnes), cadre par défaut par société surchargeable par enregistrement, courriels et certificats paramétrés. Loi 25 intégrée + modules compagnons GDPR / UK GDPR / PIPEDA / Privacy Act 2020 (NZ). La Loi 25 reste **inchangée** (rendu identique, chaîne d'intégrité du registre de destruction préservée) |
 | 18.0.3.1.0 | 2026-04 | Registre de destruction a chaine SHA-256 (chaque entree integre l'empreinte de la precedente) + cron de verification d'integrite (8e tache planifiee) |
 | 18.0.3.1.4 | 2026-06 | Synchronisation documentation et métadonnées (licence/LICENSE). Voir l'historique git pour le détail. |

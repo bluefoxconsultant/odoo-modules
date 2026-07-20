@@ -6,7 +6,7 @@ québécois**. Signature électronique simple (SES) prouvable et inaltérable, a
 **sceau numérique PAdES** optionnel (document « signé / non altéré » dans un
 lecteur PDF, à la DocuSeal).
 
-- **Version** : `18.0.3.8.3` — voir [`CHANGELOG.md`](CHANGELOG.md).
+- **Version** : `18.0.3.12.0` — voir [`CHANGELOG.md`](CHANGELOG.md).
 - **Licence** : LGPL-3.
 - **Modèle de menace & non-garanties** : voir [`SECURITY.md`](SECURITY.md).
 
@@ -102,7 +102,7 @@ source**.
   fil du record source.
 - **Certificat de complétion** PDF brandé fusionné au document.
 - **Courriels brandés** (invitation, complétion avec pièces jointes, refus, code
-  OTP) via `bluefox_branding` (couleurs/logo de la société) + `bf_lexend`.
+  OTP) via `bf_onboarding_base` (couleurs/logo de la société) + `bf_lexend`.
 - **Expiration automatique** des liens (cron quotidien) et **assistant
   d'intégration** (`bf_onboarding_base`).
 
@@ -162,8 +162,7 @@ PDF), et ajouter les boutons `action_send_for_signature` /
 
 ## Dépendances
 
-**Modules Odoo** : `mail`, `portal`, `bluefox_branding`, `bf_lexend`,
-`bf_onboarding_base`.
+**Modules Odoo** : `mail`, `portal`, `bf_lexend`, `bf_onboarding_base`.
 
 **Bibliothèques Python**
 - *Requises* (livrées avec l'image Odoo) : `Pillow` (PIL), `reportlab`, `PyPDF2`.
