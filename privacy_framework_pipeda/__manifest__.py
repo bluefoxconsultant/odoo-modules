@@ -1,6 +1,6 @@
 {
     "name": "Cadre de confidentialité — LPRPDE / PIPEDA (Canada)",
-    "version": "18.0.1.0.0",
+    "version": '18.0.1.0.1',
     "category": "Privacy/Compliance",
     "summary": "Pack de cadre réglementaire LPRPDE / PIPEDA (fédéral) pour le module Vie privée",
     "description": """
@@ -15,7 +15,7 @@ de préjudice grave ») et citations. Pour les clients canadiens hors Québec.
     """,
     "author": "Blue Fox Inc.",
     "website": "https://bluefoxconsultant.com",
-    "license": "LGPL-3",
+    "license": 'Other proprietary',
     "depends": ["privacy_consent"],
     "data": [
         "data/pipeda_framework_data.xml",

@@ -1,6 +1,6 @@
 {
     "name": "Cadre de confidentialité — UK GDPR (Royaume-Uni)",
-    "version": "18.0.1.0.0",
+    "version": '18.0.1.0.1',
     "category": "Privacy/Compliance",
     "summary": "Pack de cadre réglementaire UK GDPR / DPA 2018 pour le module Vie privée",
     "description": """
@@ -15,7 +15,7 @@ post-Brexit.
     """,
     "author": "Blue Fox Inc.",
     "website": "https://bluefoxconsultant.com",
-    "license": "LGPL-3",
+    "license": 'Other proprietary',
     "depends": ["privacy_consent"],
     "data": [
         "data/uk_framework_data.xml",

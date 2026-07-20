@@ -2,6 +2,28 @@
 
 Custom Odoo 18 Community Edition modules developed by [Blue Fox Inc.](https://bluefoxconsultant.com)
 
+## Licensing
+
+Two regimes, both with the full source in this repository.
+
+**Most modules are LGPL-3** (a few AGPL-3, noted per row). Use them, modify them,
+redistribute them. Nothing changes.
+
+**Twelve modules are BUSL-1.1** — the secure transfer, electronic signature and
+consent-tracking modules, plus the bridges and framework packs that exist only to
+serve them. The source is published and auditable, and you may run them in
+production for your own internal business operations. Using them to provide a
+product or service to third parties, whether hosted, managed or resold, requires
+an agreement with us. Each version converts to **LGPL-3.0-or-later on 2029-07-20**,
+after which those restrictions fall away. See the `LICENSE` file in each module
+for the exact parameters.
+
+Odoo manifests show these as `Other proprietary` because Odoo's manifest schema
+has no BUSL value; the `LICENSE` file governs.
+
+If you want to use a BUSL module beyond the grant above, [talk to us](https://bluefoxconsultant.com) —
+we license individually and we are not difficult about it.
+
 ## Bundles (recommended starting point)
 
 Install one of these meta-modules to pull in a coherent set in a single click:
@@ -54,14 +76,14 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | `bf_persona` | Persona des contacts | 18.0.2.1.0 | LGPL-3 | Active relationship intelligence: composer hint with auto-cc, monthly auto-seed from email signals, weekly degradation detector with optional ntfy alert, kanban dashboard |
 | `bf_project_merge` | Blue Fox — Regroupement de tâches | 18.0.1.0.0 | LGPL-3 | Merge tasks by reassigning their content (messages, activities, hours, dependencies) to the kept task, then archive the rest. |
 | `bf_receipt_ca` | Reçus de dons — Canada (ARC + Revenu Québec) | 18.0.1.0.4 | AGPL-3 | CRA + Revenu Québec compliant official donation receipts, in French — eligible amount, advantage, in-kind gifts, void/reissue |
-| `bf_securetransfer` | Transfert sécurisé (Secure Transfer) | 18.0.1.6.2 | LGPL-3 | Secure file transfer and secure messaging: browser-direct S3 uploads (presigned, multipart, ETag-pinned integrity), tokenized links with expiry, download budget, password, recipient and sender OTP (email or SMS), burn-after-download, download notification; message-only mode; personal drop pages `/to/<slug>` with per-employee auto-provisioning; backend secure-send wizard; sender/recipient allowlists, abuse reporting with automatic suspension, IP and sender quotas, rate limiting, hardened headers and CSP; hash-chained tamper-evident access log with CSV export and integrity verification (Law 25); auto-purge and GC crons; multi-brand skinning by host with free/paid tiers and white-label toggle; dashboard; guided S3 bucket setup with data-residency probe |
+| `bf_securetransfer` | Transfert sécurisé (Secure Transfer) | 18.0.1.6.3 | BUSL-1.1 | Secure file transfer and secure messaging: browser-direct S3 uploads (presigned, multipart, ETag-pinned integrity), tokenized links with expiry, download budget, password, recipient and sender OTP (email or SMS), burn-after-download, download notification; message-only mode; personal drop pages `/to/<slug>` with per-employee auto-provisioning; backend secure-send wizard; sender/recipient allowlists, abuse reporting with automatic suspension, IP and sender quotas, rate limiting, hardened headers and CSP; hash-chained tamper-evident access log with CSV export and integrity verification (Law 25); auto-purge and GC crons; multi-brand skinning by host with free/paid tiers and white-label toggle; dashboard; guided S3 bucket setup with data-residency probe |
 | `bf_security_awareness` | Security Awareness | 18.0.1.9.0 | LGPL-3 | KnowBe4/Terranova-style platform: phishing simulations (open/click/submit, QR, attachments), per-person risk profiles, eLearning remediation, OWL dashboards, a Phish Alert Button with sim-aware triage, and email clawback (PhishRIP-style) to pull a confirmed malicious email from every mailbox (M365 app-only XOAUTH2 or per-mailbox IMAP) into reversible quarantine — see `SECURITY.md` |
-| `bf_sign` | Blue Fox — Signature électronique | 18.0.3.12.0 | LGPL-3 | Native electronic signature (SES): parallel or sequential multi-signer requests, drag-and-drop pad placement on the PDF with reusable layout templates, draw/type/upload signature and initials with embedded handwriting fonts, signer-fillable text and date fields, optional email OTP identity verification of signers, refusal flow with reason, branded public signing pages and transactional emails, completion certificate, optional PAdES cryptographic seal (pyHanko) with in-app certificate generation, optional RFC 3161 trusted timestamping, hash-chained tamper-evident audit trail with one-click integrity verification, link expiry cron, manager-gated link reveal, and a mixin to send any Odoo record for signature with post-back of the signed document |
-| `bf_sign_account` | Blue Fox — Signature pour la comptabilité | 18.0.1.0.0 | LGPL-3 | Send a customer invoice / vendor bill for electronic signature (bf_sign). |
-| `bf_sign_corporate` | Blue Fox — Signature des résolutions corporatives | 18.0.1.1.0 | LGPL-3 | Send a corporate resolution for electronic signature (bf_sign). |
-| `bf_sign_privacy` | Blue Fox — Signature des consentements (Loi 25) | 18.0.1.0.0 | LGPL-3 | Sign Loi 25 consents with the native bf_sign engine (instead of external DocuSeal / LibreSign). |
-| `bf_sign_purchase` | Blue Fox — Signature pour les achats | 18.0.1.0.0 | LGPL-3 | Send a purchase order for electronic signature (bf_sign). |
-| `bf_sign_sale` | Blue Fox — Signature pour les ventes | 18.0.1.0.0 | LGPL-3 | Send a quotation / sales order for electronic signature (bf_sign). |
+| `bf_sign` | Blue Fox — Signature électronique | 18.0.3.13.0 | BUSL-1.1 | Native electronic signature (SES): parallel or sequential multi-signer requests, drag-and-drop pad placement on the PDF with reusable layout templates, draw/type/upload signature and initials with embedded handwriting fonts, signer-fillable text and date fields, optional email OTP identity verification of signers, refusal flow with reason, branded public signing pages and transactional emails, completion certificate, optional PAdES cryptographic seal (pyHanko) with in-app certificate generation, optional RFC 3161 trusted timestamping, hash-chained tamper-evident audit trail with one-click integrity verification, link expiry cron, manager-gated link reveal, and a mixin to send any Odoo record for signature with post-back of the signed document |
+| `bf_sign_account` | Blue Fox — Signature pour la comptabilité | 18.0.1.0.1 | BUSL-1.1 | Send a customer invoice / vendor bill for electronic signature (bf_sign). |
+| `bf_sign_corporate` | Blue Fox — Signature des résolutions corporatives | 18.0.1.1.1 | BUSL-1.1 | Send a corporate resolution for electronic signature (bf_sign). |
+| `bf_sign_privacy` | Blue Fox — Signature des consentements (Loi 25) | 18.0.1.0.1 | BUSL-1.1 | Sign Loi 25 consents with the native bf_sign engine (instead of external DocuSeal / LibreSign). |
+| `bf_sign_purchase` | Blue Fox — Signature pour les achats | 18.0.1.0.1 | BUSL-1.1 | Send a purchase order for electronic signature (bf_sign). |
+| `bf_sign_sale` | Blue Fox — Signature pour les ventes | 18.0.1.0.1 | BUSL-1.1 | Send a quotation / sales order for electronic signature (bf_sign). |
 | `bf_sms_archive` | SMS & Calls | 18.0.5.5.2 | LGPL-3 | Two-way live SMS/MMS messaging via VOIP.ms (chat workspace + systray) plus Android SMS/call-log archiving, search, PDF/CSV export and task linking |
 | `bf_stepbystep_clients` | Step-by-Step — Suivi d'accompagnement client | 18.0.2.0.1 | LGPL-3 | Internal dashboard tracking each client mandate's linear step-by-step progression: current step, hours budget, timeline. |
 | `bf_studio_light` | Blue Fox — Studio Light | 18.0.6.1.0 | LGPL-3 | Field builder for Odoo Community: add custom fields (incl. polymorphic reference with model whitelist), smart buttons (count via JSON controller, no compute Python), and inject them in views without writing a module — survives `-u all` upgrades |
@@ -82,11 +104,11 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | `contacts_nextcloud_sync` | Contacts Nextcloud Sync | 18.0.1.2.0 | LGPL-3 | Sync Odoo contacts with a Nextcloud address book via CardDAV |
 | `daily_todo_digest` | Daily To-Do Digest | 18.0.2.0.0 | LGPL-3 | Daily email digest with activities, overdue tasks, and a week-ahead view |
 | `hosting_management` | Gestion d'hébergement | 18.0.2.50.0 | LGPL-3 | Manage hosting services, client computer parks (endpoints, BitLocker, Action1 sync) and software license pools |
-| `privacy_consent` | Suivi des consentements (Loi 25) | 18.0.4.1.0 | LGPL-3 | Privacy suite: consents with purposes, SHA-256 versioned notices, minors and legal guardians, forensic evidence capture, renewal chains; self-service portal plus no-login token pages to view, grant, refuse, withdraw and renew; contact preference centre with `mail.blacklist` sync; retention calendar and document classification; destruction requests, bulk campaigns, anonymisation assessments and a hash-chained immutable destruction register with integrity cron; consent and destruction certificates (PDF); 20-KPI dashboard with drill-downs; configurable email sequences and 8 crons; DocuSeal and LibreSign e-signature integrations with webhooks; ships 18 purposes and 19 bilingual notices; framework engine with Loi 25 built in (GDPR, UK GDPR, PIPEDA, NZ via companion modules) |
-| `privacy_framework_gdpr` | Cadre de confidentialité — GDPR (UE) | 18.0.1.0.0 | LGPL-3 | GDPR (EU) regulatory-framework pack for the Privacy module |
-| `privacy_framework_nz` | Cadre de confidentialité — Privacy Act 2020 (Nouvelle-Zélande) | 18.0.1.0.0 | LGPL-3 | New Zealand Privacy Act 2020 regulatory-framework pack for the Privacy module |
-| `privacy_framework_pipeda` | Cadre de confidentialité — LPRPDE / PIPEDA (Canada) | 18.0.1.0.0 | LGPL-3 | PIPEDA (Canada federal) regulatory-framework pack for the Privacy module |
-| `privacy_framework_uk` | Cadre de confidentialité — UK GDPR (Royaume-Uni) | 18.0.1.0.0 | LGPL-3 | UK GDPR / DPA 2018 regulatory-framework pack for the Privacy module |
+| `privacy_consent` | Suivi des consentements (Loi 25) | 18.0.4.1.1 | BUSL-1.1 | Privacy suite: consents with purposes, SHA-256 versioned notices, minors and legal guardians, forensic evidence capture, renewal chains; self-service portal plus no-login token pages to view, grant, refuse, withdraw and renew; contact preference centre with `mail.blacklist` sync; retention calendar and document classification; destruction requests, bulk campaigns, anonymisation assessments and a hash-chained immutable destruction register with integrity cron; consent and destruction certificates (PDF); 20-KPI dashboard with drill-downs; configurable email sequences and 8 crons; DocuSeal and LibreSign e-signature integrations with webhooks; ships 18 purposes and 19 bilingual notices; framework engine with Loi 25 built in (GDPR, UK GDPR, PIPEDA, NZ via companion modules) |
+| `privacy_framework_gdpr` | Cadre de confidentialité — GDPR (UE) | 18.0.1.0.1 | BUSL-1.1 | GDPR (EU) regulatory-framework pack for the Privacy module |
+| `privacy_framework_nz` | Cadre de confidentialité — Privacy Act 2020 (Nouvelle-Zélande) | 18.0.1.0.1 | BUSL-1.1 | New Zealand Privacy Act 2020 regulatory-framework pack for the Privacy module |
+| `privacy_framework_pipeda` | Cadre de confidentialité — LPRPDE / PIPEDA (Canada) | 18.0.1.0.1 | BUSL-1.1 | PIPEDA (Canada federal) regulatory-framework pack for the Privacy module |
+| `privacy_framework_uk` | Cadre de confidentialité — UK GDPR (Royaume-Uni) | 18.0.1.0.1 | BUSL-1.1 | UK GDPR / DPA 2018 regulatory-framework pack for the Privacy module |
 | `project_knowledge_matrix` | Project Knowledge Matrix | 18.0.9.12.3 | LGPL-3 | Project knowledge base, policies, and documentation |
 <!-- MODULES_TABLE:END -->
 

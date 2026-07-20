@@ -1,6 +1,6 @@
 {
     'name': "Blue Fox — Signature des résolutions corporatives",
-    'version': '18.0.1.1.0',
+    'version': '18.0.1.1.1',
     'category': 'Productivity/Sign',
     'summary': "Envoyer une résolution corporative pour signature électronique (bf_sign).",
     'description': """
@@ -16,7 +16,7 @@ Ils restent modifiables sur la demande en brouillon avant l'envoi.
 """,
     'author': "Blue Fox Inc.",
     'website': "https://bluefoxconsultant.com",
-    'license': 'LGPL-3',
+    'license': 'Other proprietary',
     'depends': ['bf_sign', 'project_knowledge_matrix'],
     'data': [
         'views/corporate_resolution_views.xml',

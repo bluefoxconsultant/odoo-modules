@@ -1,6 +1,6 @@
 {
     'name': "Blue Fox — Signature pour la comptabilité",
-    'version': '18.0.1.0.0',
+    'version': '18.0.1.0.1',
     'category': 'Accounting/Accounting',
     'summary': "Envoyer une facture client / facture fournisseur pour signature électronique (bf_sign).",
     'description': """
@@ -11,7 +11,7 @@ une fois signé par tous.
 """,
     'author': "Blue Fox Inc.",
     'website': "https://bluefoxconsultant.com",
-    'license': 'LGPL-3',
+    'license': 'Other proprietary',
     'depends': ['bf_sign', 'account'],
     'data': [
         'views/account_move_views.xml',

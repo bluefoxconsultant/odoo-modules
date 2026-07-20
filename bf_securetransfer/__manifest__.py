@@ -1,6 +1,6 @@
 {
     'name': 'Transfert sécurisé (Secure Transfer)',
-    'version': '18.0.1.6.2',
+    'version': '18.0.1.6.3',
     'category': 'Website',
     'summary': "Transfert de fichiers sécurisé : téléversement direct navigateur → S3, "
                "liens tokenisés avec expiration et mot de passe, journal d'accès "
@@ -32,7 +32,7 @@ en base de données.
     """,
     'author': 'Blue Fox Inc.',
     'website': 'https://bluefoxconsultant.com',
-    'license': 'LGPL-3',
+    'license': 'Other proprietary',
     'depends': [
         'web',
         'mail',

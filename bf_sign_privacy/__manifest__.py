@@ -1,6 +1,6 @@
 {
     'name': "Blue Fox — Signature des consentements (Loi 25)",
-    'version': '18.0.1.0.0',
+    'version': '18.0.1.0.1',
     'category': 'Privacy/Compliance',
     'summary': "Signer les consentements Loi 25 avec le moteur natif bf_sign (au lieu de DocuSeal / LibreSign externes).",
     'description': """
@@ -20,7 +20,7 @@ présents.
 """,
     'author': "Blue Fox Inc.",
     'website': "https://bluefoxconsultant.com",
-    'license': 'LGPL-3',
+    'license': 'Other proprietary',
     'depends': ['bf_sign', 'privacy_consent'],
     'data': [
         'views/privacy_consent_views.xml',

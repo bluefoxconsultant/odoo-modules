@@ -1,6 +1,6 @@
 {
     'name': "Blue Fox — Signature pour les ventes",
-    'version': '18.0.1.0.0',
+    'version': '18.0.1.0.1',
     'category': 'Sales/Sales',
     'summary': "Envoyer un devis / bon de commande pour signature électronique (bf_sign).",
     'description': """
@@ -10,7 +10,7 @@ signé est reversé dans le fil de la commande une fois signé par tous.
 """,
     'author': "Blue Fox Inc.",
     'website': "https://bluefoxconsultant.com",
-    'license': 'LGPL-3',
+    'license': 'Other proprietary',
     'depends': ['bf_sign', 'sale'],
     'data': [
         'views/sale_order_views.xml',

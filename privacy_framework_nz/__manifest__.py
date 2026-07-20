@@ -1,6 +1,6 @@
 {
     "name": "Cadre de confidentialité — Privacy Act 2020 (Nouvelle-Zélande)",
-    "version": "18.0.1.0.0",
+    "version": '18.0.1.0.1',
     "category": "Privacy/Compliance",
     "summary": "Pack de cadre réglementaire NZ Privacy Act 2020 pour le module Vie privée",
     "description": """
@@ -14,7 +14,7 @@ schéma de notification d'incident (NotifyUs, « serious harm ») et citations.
     """,
     "author": "Blue Fox Inc.",
     "website": "https://bluefoxconsultant.com",
-    "license": "LGPL-3",
+    "license": 'Other proprietary',
     "depends": ["privacy_consent"],
     "data": [
         "data/nz_framework_data.xml",

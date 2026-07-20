@@ -1,6 +1,6 @@
 {
     "name": "Cadre de confidentialité — GDPR (UE)",
-    "version": "18.0.1.0.0",
+    "version": '18.0.1.0.1',
     "category": "Privacy/Compliance",
     "summary": "Pack de cadre réglementaire GDPR (Union européenne) pour le module Vie privée",
     "description": """
@@ -19,7 +19,7 @@ rendu des courriels et certificats selon le GDPR.
     """,
     "author": "Blue Fox Inc.",
     "website": "https://bluefoxconsultant.com",
-    "license": "LGPL-3",
+    "license": 'Other proprietary',
     "depends": ["privacy_consent"],
     "data": [
         "data/gdpr_framework_data.xml",

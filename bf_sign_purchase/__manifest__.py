@@ -1,6 +1,6 @@
 {
     'name': "Blue Fox — Signature pour les achats",
-    'version': '18.0.1.0.0',
+    'version': '18.0.1.0.1',
     'category': 'Inventory/Purchase',
     'summary': "Envoyer un bon de commande fournisseur pour signature électronique (bf_sign).",
     'description': """
@@ -10,7 +10,7 @@ signé est reversé dans le fil du bon de commande une fois signé.
 """,
     'author': "Blue Fox Inc.",
     'website': "https://bluefoxconsultant.com",
-    'license': 'LGPL-3',
+    'license': 'Other proprietary',
     'depends': ['bf_sign', 'purchase'],
     'data': [
         'views/purchase_order_views.xml',
