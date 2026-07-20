@@ -11,7 +11,16 @@
               customize_show="True" priority="35">
         <div id="portal_common_category" position="inside">
             <t t-call="portal.portal_docs_entry">
-                <t t-set="icon" t-value="'fa fa-clock-o'"/>
+                <!-- portal.portal_docs_entry rend l'icone dans une balise img,
+                     via son attribut src : il faut donc un CHEMIN d'image.
+                     Une classe Font Awesome y produit une image brisee (404).
+                     portal_icon.svg est le logo backend en taille intrinseque
+                     64x64, comme les icones natives : le gabarit n'impose aucune
+                     dimension, donc l'image sort a sa taille naturelle et
+                     l'original de 1091 px paraitrait enorme. Le raster embarque
+                     fait 128 px (2x) pour rester net en retina, ~11 Ko contre
+                     ~1062 Ko. L'icone d'application d'origine reste intacte. -->
+                <t t-set="icon" t-value="'/bf_hour_bank/static/src/img/portal_icon.svg'"/>
                 <t t-set="title">Banque d'heures</t>
                 <t t-set="url" t-value="'/my/hour-banks'"/>
                 <t t-set="placeholder_count" t-value="'hour_bank_count'"/>
