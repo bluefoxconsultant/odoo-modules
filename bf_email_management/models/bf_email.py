@@ -1089,8 +1089,21 @@ class BfEmail(models.Model):
                     target = tpl.replace("{YYYY}", year)
                     try:
                         uid_tok = bf_email_imap.imap_uid_token(uid)
-                        conn.uid("COPY", uid_tok,
-                                 bf_email_imap.imap_quote_mailbox(target))
+                        status, resp = conn.uid(
+                            "COPY", uid_tok,
+                            bf_email_imap.imap_quote_mailbox(target),
+                        )
+                        # imaplib only raises on BAD, never on NO. Without this
+                        # guard a refused COPY (folder absent, quota, lock) is
+                        # still followed by STORE \Deleted + EXPUNGE and the
+                        # message is destroyed with no copy anywhere.
+                        if status != "OK":
+                            _logger.warning(
+                                "bf.email IMAP writeback: COPY vers %r refusé "
+                                "pour #%s (UID %s): %s — message laissé en "
+                                "INBOX", target, rec.id, uid, resp,
+                            )
+                            continue
                         conn.uid("STORE", uid_tok, "+FLAGS", "(\\Deleted)")
                         rec.write({
                             "imap_uid": str(uid),
@@ -2631,12 +2644,23 @@ class BfEmail(models.Model):
             # chatter cron may have created the row first via gateway
             # projection, and without a UID the writeback can't archive
             # the message server-side when the user clicks « Traiter ».
+            #
+            # ``account_id`` is part of that traceability, not an extra: both
+            # ``action_archive`` and ``_imap_writeback_archive`` gate on it,
+            # and so does ``_cron_imap_mirror``. A gateway row left without an
+            # account is invisible to all three — the message stays in the
+            # INBOX forever once the user marks the row « Traité ».
+            backfill = {}
             if not existing.imap_uid:
-                existing.write({
+                backfill.update({
                     "imap_uid": str(uid),
                     "imap_folder": folder,
                     "imap_in_inbox": (folder or "").upper() == "INBOX",
                 })
+            if not existing.account_id:
+                backfill["account_id"] = account.id
+            if backfill:
+                existing.write(backfill)
             return False
 
         # Internal Odoo wins: if a mail.message with the same Message-ID

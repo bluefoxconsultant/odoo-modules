@@ -4,6 +4,20 @@ All notable changes to `bf_email_management` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This module follows Odoo's `MAJOR.MINOR.PATCH` convention prefixed with the Odoo series (`18.0.X.Y.Z`).
 
+## [18.0.6.7.0] — 2026-07-19
+
+### Fixed
+
+- **Un courriel arrivé par la passerelle et marqué « Traité » restait en boîte de réception IMAP.** Quand la ligne `bf.email` existait déjà (projection chatter/passerelle) au moment où le cron IMAP découvrait le même Message-ID, `_ingest_rfc822` complétait `imap_uid` / `imap_folder` / `imap_in_inbox` mais **pas** `account_id`. Or les trois mécanismes qui exploitent cette traçabilité filtrent sur `account_id` : `action_archive`, `_imap_writeback_archive` et `_cron_imap_mirror`. Résultat, une ligne de source `gateway` ou `chatter` n'était candidate ni à l'archivage bilatéral (le message restait indéfiniment en INBOX après le clic « Traité ») ni au miroir (son `imap_in_inbox` ne redescendait jamais à faux). Le backfill pose désormais `account_id`, et il s'applique aussi aux lignes qui avaient déjà un UID mais pas de compte.
+
+### Changed
+
+- **Le writeback vérifie le statut du COPY avant de supprimer.** `_imap_writeback_archive` enchaînait `COPY` puis `STORE \Deleted` + `EXPUNGE` sans lire le statut du `COPY`. `imaplib` ne lève d'exception que sur `BAD`, jamais sur `NO` : un `COPY` refusé (dossier cible absent, quota, verrou) était donc suivi de la suppression du message, sans copie nulle part. Un `COPY` non `OK` laisse maintenant le message en INBOX et journalise un avertissement nommant le dossier cible et l'enregistrement.
+
+### Known issue
+
+- **Le writeback fait confiance au `imap_uid` stocké sans le vérifier.** Lorsque deux comptes `bf.email.account` visent des boîtes différentes pour le même usager, une ligne peut porter un UID enregistré contre l'autre boîte. `UID COPY` répond alors `OK` sans rien copier (la RFC 3501 demande d'ignorer silencieusement les UID absents), et la ligne est enregistrée comme archivée alors que le message n'a pas bougé. Aucune perte de courriel, mais un archivage fantôme en base. Correctif prévu : confronter le UID au Message-ID avant de s'y fier, sinon retomber sur la recherche `HEADER Message-ID`.
+
 ## [18.0.6.5.0] — 2026-07-06
 
 ### Changed
