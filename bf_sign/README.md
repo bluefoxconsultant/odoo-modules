@@ -7,7 +7,8 @@ québécois**. Signature électronique simple (SES) prouvable et inaltérable, a
 lecteur PDF, à la DocuSeal).
 
 - **Version** : `18.0.3.12.0` — voir [`CHANGELOG.md`](CHANGELOG.md).
-- **Licence** : LGPL-3.
+- **Licence** : LGPL-3. Ne couvre pas les œuvres de tiers embarquées (polices de
+  caractères) : voir [`THIRD-PARTY.md`](THIRD-PARTY.md).
 - **Modèle de menace & non-garanties** : voir [`SECURITY.md`](SECURITY.md).
 
 ---
