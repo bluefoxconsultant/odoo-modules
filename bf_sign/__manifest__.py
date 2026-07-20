@@ -1,6 +1,6 @@
 {
     'name': 'Blue Fox — Signature électronique',
-    'version': '18.0.3.13.0',
+    'version': '18.0.3.13.1',
     'category': 'Productivity/Sign',
     'summary': "Signature électronique native (SES) : demande, signature par lien public, "
                "certificat de complétion et piste de vérification inaltérable",
@@ -66,7 +66,13 @@ LibreSign) sans modifier la structure.
     # ``asn1crypto`` are only needed when RFC 3161 timestamping is enabled
     # (lazy-imported + guarded), so they stay out of the hard dependencies.
     'external_dependencies': {
-        'python': ['PIL', 'reportlab', 'PyPDF2'],
+        # PAdES sealing (pyhanko + its cert validator, asn1crypto, cryptography)
+        # and the TSA client (requests) were imported but never declared, so a
+        # host missing them installed the module and failed at signing time.
+        'python': [
+            'asn1crypto', 'cryptography', 'PIL', 'pyhanko',
+            'pyhanko_certvalidator', 'PyPDF2', 'reportlab', 'requests',
+        ],
     },
     'data': [
         'security/bf_sign_security.xml',
