@@ -37,7 +37,7 @@
                                    readonly="state == 'signed'"/>
                         </group>
                         <group string="Paramètres">
-                            <field name="signature_method" readonly="state != 'draft'"/>
+                            <field name="signature_method" readonly="1"/>
                             <field name="signing_order" readonly="state != 'draft'"/>
                             <field name="require_signer_otp" readonly="state != 'draft'"/>
                             <field name="expiry_date" readonly="state == 'signed'"/>

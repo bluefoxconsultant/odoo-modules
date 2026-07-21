@@ -496,3 +496,29 @@ class TestBfSign(TransactionCase):
         req.signer_ids[0].email = "ok@example.com"
         self._field(req, req.signer_ids[0], "text", y=0.4)
         self.assertEqual(req.signer_ids[0].email, "ok@example.com")
+
+    # ── méthode de signature : SES seulement ─────────────────────────────────
+    def test_signature_method_offers_only_ses(self):
+        """Le module ne livre que la SES : la sélection ne doit rien promettre de
+        plus. Garde contre la réintroduction d'un palier « avancé » (AES)
+        sélectionnable mais non implémenté — le pipeline est le même dans tous
+        les cas, donc toute valeur supplémentaire ici est une fausse promesse
+        tant qu'une implémentation ne l'accompagne pas.
+
+        On vérifie la définition statique ET la sélection résolue servie au
+        client : la seconde seule attrape une valeur réintroduite par
+        ``selection_add`` depuis un module dépendant ou par une ligne
+        ``ir.model.fields.selection``, ce que la première ne verrait pas.
+        """
+        static = [v for v, _label in
+                  self.Request._fields["signature_method"].selection]
+        self.assertEqual(static, ["native_ses"])
+
+        resolved = [v for v, _label in self.Request.fields_get(
+            ["signature_method"])["signature_method"]["selection"]]
+        self.assertEqual(resolved, ["native_ses"])
+
+    def test_signature_method_rejects_unimplemented_value(self):
+        req = self._new_request(signers=1)
+        with self.assertRaises(ValueError):
+            req.signature_method = "libresign_aes"

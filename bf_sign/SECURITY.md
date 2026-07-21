@@ -2,7 +2,7 @@
 
 ## Versions supportées
 
-La version courante (`18.0.3.7.x`) reçoit les correctifs de sécurité.
+La version courante (`18.0.3.13.2`) reçoit les correctifs de sécurité. Les versions antérieures n'en reçoivent pas : mettez à niveau avant de signaler.
 
 ## Signaler une vulnérabilité
 
@@ -53,7 +53,7 @@ Le module expose des **routes publiques non authentifiées** protégées par un
 - La vérification du jeton RFC 3161 au palier 1 contrôle la **concordance de
   l'empreinte** (messageImprint) et le **statut « granted »** ; elle **ne vérifie
   pas** cryptographiquement la signature CMS du jeton contre la chaîne d'AC de la
-  TSA (prévu au palier 2).
+  TSA (non implémenté à ce jour).
 - Le module produit une **signature électronique simple (SES)**, **pas** une
   signature avancée (AES) ni qualifiée (QES).
 - L'horodatage RFC 3161 est **optionnel** et désactivé par défaut.

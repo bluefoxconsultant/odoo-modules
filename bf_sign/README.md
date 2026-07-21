@@ -6,9 +6,13 @@ québécois**. Signature électronique simple (SES) prouvable et inaltérable, a
 **sceau numérique PAdES** optionnel (document « signé / non altéré » dans un
 lecteur PDF, à la DocuSeal).
 
-- **Version** : `18.0.3.12.0` — voir [`CHANGELOG.md`](CHANGELOG.md).
-- **Licence** : LGPL-3. Ne couvre pas les œuvres de tiers embarquées (polices de
-  caractères) : voir [`THIRD-PARTY.md`](THIRD-PARTY.md).
+- **Version** : `18.0.3.13.2` — voir [`CHANGELOG.md`](CHANGELOG.md).
+- **Licence** : **BUSL-1.1**. Usage en production permis pour vos **propres
+  opérations internes** ; fournir le module comme produit ou service à des tiers
+  (hébergé, infogéré ou revendu) demande une entente écrite. Bascule en
+  **LGPL-3.0-or-later** le **2029-07-20**. Voir [`LICENSE`](LICENSE). Ne couvre
+  pas les œuvres de tiers embarquées (polices de caractères) : voir
+  [`THIRD-PARTY.md`](THIRD-PARTY.md).
 - **Modèle de menace & non-garanties** : voir [`SECURITY.md`](SECURITY.md).
 
 ---
@@ -47,8 +51,8 @@ source**.
 > régime QES au Canada et les actes notariés restent hors périmètre. Le sceau
 > PAdES renforce l'**inaltérabilité** du document final mais reste un cachet
 > d'organisation auto-signé (voir « Sceau numérique » plus bas). Le champ
-> `signature_method` prépare un palier AES via LibreSign sans changer la
-> structure.
+> `signature_method` n'offre que `native_ses` : aucun palier AES n'est
+> implémenté, et le module n'en propose donc pas.
 
 ---
 
@@ -261,4 +265,15 @@ périmètre des routes publiques et les non-garanties.
 
 ## Licence
 
-Distribué sous licence **LGPL-3**. Voir le fichier [`LICENSE`](LICENSE).
+Distribué sous **Business Source License 1.1** (BUSL-1.1). Voir le fichier
+[`LICENSE`](LICENSE) pour les paramètres exacts.
+
+- **Permis sans entente** : l'usage en production pour vos propres opérations
+  internes.
+- **Demande une entente écrite** : fournir le module comme produit ou service à
+  des tiers — hébergé, infogéré ou revendu.
+- **Change Date** : le 2029-07-20, cette version bascule automatiquement en
+  **LGPL-3.0-or-later**.
+
+Les œuvres de tiers embarquées (polices de caractères) restent sous leurs
+propres licences : voir [`THIRD-PARTY.md`](THIRD-PARTY.md).

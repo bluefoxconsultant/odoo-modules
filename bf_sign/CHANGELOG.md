@@ -2,6 +2,42 @@
 
 Le versionnage suit la convention Odoo `18.0.MAJOR.MINOR.PATCH`.
 
+## 18.0.3.13.2 — Retrait de l'option « signature avancée (AES) »
+
+- **Le choix « LibreSign — signature avancée (AES) » est retiré** de
+  `signature_method`. L'option était sélectionnable dans le formulaire mais
+  n'avait **aucune implémentation** : la demande passait par le pipeline SES
+  ordinaire quel que soit le choix. « Avancée » ayant un sens précis dans le
+  vocabulaire de la signature électronique, l'écart entre ce que l'interface
+  promettait et ce que le module livre était un enjeu de représentation.
+- Le champ demeure (structure inchangée, valeur unique `native_ses`) et devient
+  **lecture seule** : il indique le niveau de signature obtenu au lieu de faire
+  choisir entre deux paliers dont un seul existe.
+- **Migration** `18.0.3.13.2/pre-migrate.py` : ramène à `native_ses` toute
+  demande portant encore `libresign_aes`.
+- Docs : le manifeste et le README ne présentent plus le champ comme
+  « préparant un palier AES via LibreSign ».
+
+## 18.0.3.13.1 — Dépendances Python réellement déclarées
+
+- `external_dependencies` déclarait seulement `PIL`, `reportlab` et `PyPDF2`.
+  Le scellement PAdES (`pyhanko`, `pyhanko_certvalidator`, `asn1crypto`,
+  `cryptography`) et le client d'horodatage (`requests`) étaient importés sans
+  être déclarés : un hôte auquel il manquait ces paquets installait le module
+  sans avertissement et échouait au moment de signer. Tous sont maintenant
+  déclarés, donc l'absence est détectée à l'installation.
+
+## 18.0.3.13.0 — Passage sous Business Source License 1.1
+
+- La licence passe de **LGPL-3** à **BUSL-1.1**. L'usage en production pour vos
+  **propres opérations internes** reste permis sans entente ; fournir le module
+  comme produit ou service à des tiers (hébergé, infogéré ou revendu) demande
+  une entente écrite avec Blue Fox Inc. Le **2029-07-20**, cette version bascule
+  automatiquement en **LGPL-3.0-or-later**. Voir `LICENSE`.
+- `THIRD-PARTY.md` : attribution des polices embarquées sous SIL OFL (*Caveat*,
+  *Dancing Script*, *Great Vibes*), qui restent sous leur propre licence et ne
+  sont pas couvertes par la BUSL.
+
 ## 18.0.3.12.0 — Titre convivial + polices de signature embarquées
 
 - **Champ « Titre »** sur la demande : un nom convivial pour repérer un document

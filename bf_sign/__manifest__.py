@@ -1,6 +1,6 @@
 {
     'name': 'Blue Fox — Signature électronique',
-    'version': '18.0.3.13.1',
+    'version': '18.0.3.13.2',
     'category': 'Productivity/Sign',
     'summary': "Signature électronique native (SES) : demande, signature par lien public, "
                "certificat de complétion et piste de vérification inaltérable",
@@ -50,8 +50,8 @@ Fonctionnement
   calcul des empreintes, journalisation, courriel de confirmation avec le
   document signé et le certificat.
 
-Le champ ``signature_method`` prépare un palier 2 (signature avancée AES via
-LibreSign) sans modifier la structure.
+Le module livre **uniquement** la SES. Il n'y a pas de palier « signature
+avancée » (AES) : le champ ``signature_method`` n'offre que ``native_ses``.
     """,
     'author': 'Blue Fox Inc.',
     'website': 'https://bluefoxconsultant.com',

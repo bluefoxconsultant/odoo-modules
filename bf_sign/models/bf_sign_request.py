@@ -19,7 +19,7 @@ _PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 
 
 class BfSignRequest(models.Model):
-    """A request to electronically sign a PDF (SES — palier 1.5).
+    """A request to electronically sign a PDF (simple electronic signature).
 
     Supports multiple signers (parallel or sequential) and visually placed
     signature pads (``bf.sign.field``). When the last signer signs, the placed
@@ -65,9 +65,11 @@ class BfSignRequest(models.Model):
     signature_method = fields.Selection(
         selection=[
             ("native_ses", "Native — signature simple (SES)"),
-            ("libresign_aes", "LibreSign — signature avancée (AES)"),
         ],
         string="Méthode de signature", default="native_ses", required=True,
+        help="Le module produit une signature électronique simple (SES). "
+             "Un palier avancé (AES) ajouterait une valeur ici ; tant qu'il "
+             "n'est pas implémenté, la sélection n'en offre pas.",
     )
     signing_order = fields.Selection(
         selection=[("parallel", "En parallèle"), ("sequential", "Séquentiel")],
