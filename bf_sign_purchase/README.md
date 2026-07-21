@@ -18,4 +18,12 @@ Module passerelle qui branche les bons de commande d'achat sur la signature
 
 ## Licence
 
-Distribué sous **LGPL-3**. Voir le fichier `LICENSE`.
+Distribué sous **Business Source License 1.1** (BUSL-1.1). Voir le fichier
+[`LICENSE`](LICENSE) pour les paramètres exacts.
+
+- **Permis sans entente** : l'usage en production pour vos propres opérations
+  internes.
+- **Demande une entente écrite** : fournir le module comme produit ou service à
+  des tiers — hébergé, infogéré ou revendu.
+- **Change Date** : le 2029-07-20, cette version bascule automatiquement en
+  **LGPL-3.0-or-later**.

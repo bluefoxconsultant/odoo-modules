@@ -1,7 +1,7 @@
 # Privacy Framework — PIPEDA (Canada)
 
 [![Odoo Version](https://img.shields.io/badge/Odoo-18.0-purple.svg)](https://www.odoo.com)
-[![License: LGPL-3](https://img.shields.io/badge/License-LGPL--3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0.html)
+[![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-blue.svg)](https://mariadb.com/bsl11/)
 
 A **data-only** module for [`privacy_consent`](../privacy_consent). It adds Canada's federal **PIPEDA** framework (for Canadian clients outside Quebec).
 
@@ -21,4 +21,4 @@ After installing, set this framework as the company default (**Privacy → Confi
 
 ## License
 
-LGPL-3 — Blue Fox Inc.
+BUSL-1.1 — Blue Fox Inc. Bascule en LGPL-3.0-or-later le 2029-07-20. Voir [`LICENSE`](LICENSE).

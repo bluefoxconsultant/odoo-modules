@@ -10,7 +10,7 @@ d'autorisation anti-piggyback** et **suspension automatique sur signalement
 d'abus**.
 
 - **Version** : `18.0.1.6.2`.
-- **Licence** : LGPL-3.
+- **Licence** : **BUSL-1.1** — usage en production permis pour vos propres opérations internes ; fournir le module comme produit ou service à des tiers (hébergé, infogéré ou revendu) demande une entente écrite. Bascule en **LGPL-3.0-or-later** le **2029-07-20**. Voir [`LICENSE`](LICENSE).
 - **Modèle de menaces & non-garanties** : voir [`SECURITY.md`](SECURITY.md).
 - **Multi-paliers** : le système multi-marques permet un palier gratuit limité
   (marque par défaut, mention « Propulsé par » optionnelle) et un palier payant
@@ -401,4 +401,12 @@ connaissance).
 
 ## Licence
 
-Distribué sous licence **LGPL-3**.
+Distribué sous **Business Source License 1.1** (BUSL-1.1). Voir le fichier
+[`LICENSE`](LICENSE) pour les paramètres exacts.
+
+- **Permis sans entente** : l'usage en production pour vos propres opérations
+  internes.
+- **Demande une entente écrite** : fournir le module comme produit ou service à
+  des tiers — hébergé, infogéré ou revendu.
+- **Change Date** : le 2029-07-20, cette version bascule automatiquement en
+  **LGPL-3.0-or-later**.

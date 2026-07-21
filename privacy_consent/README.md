@@ -1,7 +1,7 @@
 # Suivi des consentements (Loi 25)
 
 [![Odoo Version](https://img.shields.io/badge/Odoo-18.0-purple.svg)](https://www.odoo.com)
-[![License: LGPL-3](https://img.shields.io/badge/License-LGPL--3-blue.svg)](https://www.gnu.org/licenses/lgpl-3.0.html)
+[![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-blue.svg)](https://mariadb.com/bsl11/)
 
 Module Odoo 18 CE pour la gestion de la vie privée conformément à la **Loi 25** du Québec sur la protection des renseignements personnels : consentements, destruction documentaire et anonymisation.
 
@@ -605,10 +605,18 @@ La Loi 25 (Québec) est intégrée au module principal ; **aucun module compagno
 
 ## Licence
 
-Ce module est distribué sous licence **GNU LGPL-3**.
+Distribué sous **Business Source License 1.1** (BUSL-1.1). Voir le fichier
+[`LICENSE`](LICENSE) pour les paramètres exacts.
+
+- **Permis sans entente** : l'usage en production pour vos propres opérations
+  internes.
+- **Demande une entente écrite** : fournir le module comme produit ou service à
+  des tiers — hébergé, infogéré ou revendu.
+- **Change Date** : le 2029-07-20, cette version bascule automatiquement en
+  **LGPL-3.0-or-later**.
 
 ```
-This module is licensed under the GNU Lesser General Public License v3.0 (LGPL-3). See [LICENSE](LICENSE) for the full text.
+This module is licensed under the **Business Source License 1.1** (BUSL-1.1). Production use for your own internal business operations is permitted; providing the module as a product or service to third parties — hosted, managed or resold — requires a separate written agreement. On 2029-07-20 it converts to LGPL-3.0-or-later. See [LICENSE](LICENSE) for the full text.
 ```
 
 ## Disclaimer
