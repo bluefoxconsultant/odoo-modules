@@ -4,6 +4,12 @@ All notable changes to `bf_email_management` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This module follows Odoo's `MAJOR.MINOR.PATCH` convention prefixed with the Odoo series (`18.0.X.Y.Z`).
 
+## [18.0.6.7.1] — 2026-07-24
+
+### Fixed
+
+- **« Synchroniser maintenant » échouait en « Accès à des sociétés non autorisées ou invalides » en environnement multi-société.** Les trois environnements par propriétaire (`_cron_sync_emails`, et les deux de `_sync_account`) étaient construits avec `with_user(cible).with_company(cible.company_id)`. Or `with_company()` **préfixe** `allowed_company_ids` au lieu de le remplacer : les sociétés de l'appelant restaient dans le contexte. Lancée depuis l'interface web avec plusieurs sociétés actives, la synchro basculait donc sur une cible qui n'appartient pas à toutes ces sociétés, et `env.company` levait `AccessError` (`odoo/api.py`, `set(company_ids) - set(user_company_ids)`) — dans `_prepare_email_vals` (`"company_id": self.env.company.id`), **hors** du `try/except` de la boucle, donc l'action entière avortait sans rien importer. Les crons n'ont jamais été touchés : ils tournent sans `allowed_company_ids`, d'où un symptôme visible uniquement au déclenchement manuel. Le contexte est désormais **remplacé** par la seule société du propriétaire de la ligne.
+
 ## [18.0.6.7.0] — 2026-07-19
 
 ### Fixed

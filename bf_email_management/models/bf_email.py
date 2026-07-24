@@ -2064,8 +2064,18 @@ class BfEmail(models.Model):
                 # user_id/company_id defaults, direction (env.user-relative)
                 # and rule application all belong to the row owner — same
                 # pattern as _sync_account for IMAP rows.
-                BfTarget = self.with_user(target).with_company(
-                    target.company_id
+                #
+                # NOT with_company(): that one *prepends* to
+                # allowed_company_ids instead of replacing it, so the
+                # caller's own companies stay in the context. Run from the
+                # web UI with several companies enabled, env.company then
+                # raises AccessError ("Access to unauthorized or invalid
+                # companies.") on every target who isn't in all of them —
+                # in _prepare_email_vals, outside the try below, so the
+                # whole sync aborts. The cron never hit it: it runs with an
+                # empty allowed_company_ids.
+                BfTarget = self.with_user(target).with_context(
+                    allowed_company_ids=target.company_id.ids
                 )
                 if not BfTarget._should_sync(msg):
                     skipped += 1
@@ -2362,8 +2372,10 @@ class BfEmail(models.Model):
 
         # Run the sync in the account owner's environment so create() vals
         # default user_id/company_id correctly via env.user / env.company.
-        owner_env = self.with_user(account.user_id).with_company(
-            account.user_id.company_id
+        # allowed_company_ids is *replaced*, not with_company()'d — see the
+        # note in _cron_sync_emails.
+        owner_env = self.with_user(account.user_id).with_context(
+            allowed_company_ids=account.user_id.company_id.ids
         ).env
         BfEmail = owner_env["bf.email"]
         try:
@@ -2421,8 +2433,8 @@ class BfEmail(models.Model):
                 continue
 
             # Owner environment so any new row inherits user_id / company_id.
-            owner_env = self.with_user(account.user_id).with_company(
-                account.user_id.company_id
+            owner_env = self.with_user(account.user_id).with_context(
+                allowed_company_ids=account.user_id.company_id.ids
             ).env
             BfEmail = owner_env["bf.email"]
 
