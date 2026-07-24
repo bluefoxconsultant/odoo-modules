@@ -161,7 +161,7 @@ Generate professional branded PDF reports directly from any knowledge matrix:
 Send branded PDF reports by email — manually or on a configurable schedule:
 
 - **Send Wizard**: "Envoyer rapport" button on matrix form opens a dialog with pre-filled recipients, subject, body (with progress stats), PDF preview, and send action
-- **Branded Email**: Blue Fox email wrapper with logo, "Matrice de connaissances" header, "contiGNU par Blue Fox" footer, contact info, and privacy links
+- **Branded Email**: Blue Fox email wrapper with logo, "Matrice de connaissances" header, a footer carrying the company name, contact info, and privacy links
 - **Configurable Recipients**: Set default recipients per matrix via the "Envoi de rapport" tab
 - **Flexible Scheduling**: Four frequency options — Weekly (pick day of week), Biweekly (same day, even ISO weeks), Monthly (pick day 1-28), Custom interval (N days)
 - **Daily Cron**: Runs at 08:00 EST, checks all active non-template matrices with `auto_send=True` and sends reports to matrices that are due
@@ -617,7 +617,7 @@ This module follows Odoo 18 best practices:
 - **Send Wizard**: "Envoyer rapport" button on matrix form with pre-filled recipients, subject, body (progress stats), PDF preview, and send action
 - **Flexible Scheduling**: Four frequency options — weekly (pick day), biweekly (even ISO weeks), monthly (pick day 1-28), custom interval (N days)
 - **Daily Cron**: Checks all auto_send matrices and sends reports to those that are due
-- **Branded Email**: Blue Fox email wrapper with "Matrice de connaissances" header and "contiGNU par Blue Fox" footer
+- **Branded Email**: Blue Fox email wrapper with a "Matrice de connaissances" header and a footer carrying the company name
 - **New Fields on Matrix**: `recipient_ids`, `auto_send`, `send_frequency`, `send_day_of_week`, `send_day_of_month`, `send_interval_days`, `last_report_date`
 - **New Tab**: "Envoi de rapport" notebook page on matrix form with recipient configuration and scheduling controls
 
