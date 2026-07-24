@@ -4,6 +4,12 @@ All notable changes to `bf_email_management` are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 This module follows Odoo's `MAJOR.MINOR.PATCH` convention prefixed with the Odoo series (`18.0.X.Y.Z`).
 
+## [18.0.6.7.2] — 2026-07-24
+
+### Fixed
+
+- **The inbox raised an access error as soon as another user's email showed up in a list.** `web_read` ("mark as read on form open") flips every still-`new` row to `read`. But `web_search_read` calls `web_read` on the batch it returns (`odoo/addons/web/models/models.py:46`), so the override also runs on **lists**, not just on a single form. The two record rules shipped for `bf.email` are asymmetric — "visible to owner only" (`[('user_id','=',user.id)]`, full rights) and "admin sees all" (`[(1,'=',1)]`, **read-only**): a member of the "Email administrator" group can therefore read other people's rows but not write them. Any view that does not pin `user_id = uid` — the conversation thread (`action_open_conversation` filters on `thread_root_id` alone), a cleared filter, a global search — then returned a foreign row still marked `new`, and the implicit write failed **the entire request** with `AccessError`, not just the offending row. Marking is now restricted to rows the user can actually write (`_filtered_access("write")`), which also closes a privacy side effect: browsing someone else's mailbox no longer marks their email read on their behalf.
+
 ## [18.0.6.7.1] — 2026-07-24
 
 ### Fixed

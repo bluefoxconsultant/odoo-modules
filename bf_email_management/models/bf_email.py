@@ -856,7 +856,13 @@ class BfEmail(models.Model):
         result = super().web_read(specification)
         new_recs = self.filtered(lambda r: r.status == "new")
         if new_recs:
-            new_recs.write({"status": "read"})
+            # Only flip rows the current user may actually write. The
+            # "admin sees all (read-only)" rule grants read on other people's
+            # mail, so any list surfacing a foreign row (thread view, filter
+            # cleared) would otherwise raise AccessError for the whole
+            # request. Reading someone else's mailbox must not mark it read
+            # on their behalf either.
+            new_recs._filtered_access("write").write({"status": "read"})
         return result
 
     # ------------------------------------------------------------------
