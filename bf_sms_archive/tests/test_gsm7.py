@@ -81,3 +81,37 @@ class TestGsm7Normalize(TransactionCase):
     def test_default_flatten_off(self):
         """Le réglage runtime par défaut conserve les accents (choix par défaut)."""
         self.assertFalse(self.M._gsm7_flatten_accents_enabled())
+
+    # ── Segments bornés en OCTETS UTF-8 (contrôle VOIP.ms) ─────────
+    def test_split_segments_utf8_byte_budget(self):
+        """VOIP.ms refuse tout segment > 160 octets UTF-8 (« sms_toolong »),
+        même s'il tient en 160 septets GSM-7. Vécu 2026-07-23 : un segment
+        de 160 caractères contenant un seul « è » (161 octets) a été refusé.
+        Chaque segment produit doit donc tenir dans 160 octets."""
+        cases = [
+            # 160 « a » + 1 « é » : 161 car. GSM-7 mais 162 octets → 2 segments
+            "a" * 160 + "é",
+            # cas type du bogue : >160 car. GSM-7 dont un accent avant la
+            # coupe → le 1er segment de 160 car. faisait 161 octets
+            "Bonjour! Merci pour votre retour. La revue du dossier est "
+            "terminée et tout est conforme. On se reparle très vite pour "
+            "planifier la suite des travaux prévus à l'agenda, d'accord? "
+            "A bientot!",
+            # accents GSM-7 en rafale : 100 « é » = 200 octets → 2 segments
+            "é" * 100,
+        ]
+        for src in cases:
+            self.assertTrue(self.M._is_gsm7(src))
+            segs = self.M._split_segments(src)
+            self.assertEqual("".join(segs), src)  # rien de perdu
+            for seg in segs:
+                self.assertLessEqual(len(seg.encode("utf-8")), 160, repr(seg))
+
+    def test_split_segments_ascii_unchanged(self):
+        """ASCII pur : le budget reste 160 caractères pleins (pas de
+        sur-découpage), et l'extension GSM-7 compte toujours double."""
+        self.assertEqual(len(self.M._split_segments("a" * 160)), 1)
+        self.assertEqual(len(self.M._split_segments("a" * 161)), 2)
+        # 80 paires ESC+{ = 160 septets = 1 segment ; une de plus déborde
+        self.assertEqual(len(self.M._split_segments("{" * 80)), 1)
+        self.assertEqual(len(self.M._split_segments("{" * 81)), 2)

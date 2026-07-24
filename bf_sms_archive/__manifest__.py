@@ -1,7 +1,7 @@
 {
     "name": "SMS & Calls",
     "summary": "Messagerie SMS/MMS live via VOIP.ms + archivage de SMS et journaux d'appels Android",
-    "version": "18.0.5.5.2",
+    "version": "18.0.5.5.5",
     "category": "Tools",
     'author': 'Blue Fox Inc.',
     'website': 'https://bluefoxconsultant.com',

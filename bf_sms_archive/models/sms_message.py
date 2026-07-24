@@ -267,8 +267,12 @@ class SmsArchiveMessage(models.Model):
 
     # ── Envoi live (SMS/MMS via VOIP.ms) ───────────────────────────
 
-    # Enveloppe d'un SMS unique côté VOIP.ms : 160 septets en GSM-7,
+    # Enveloppe d'un SMS unique côté VOIP.ms : 160 « unités » en GSM-7,
     # 70 caractères dès qu'on bascule en UCS-2 (au-delà → « sms_toolong »).
+    # ⚠️ Le contrôle de longueur de VOIP.ms compte les OCTETS UTF-8, pas les
+    # septets GSM-7 : é/è/à/ù (2 octets) comptent double même s'ils tiennent
+    # dans un septet. Empirique (2026-07-23) : segment de 160 octets accepté,
+    # 161 octets refusé (« sms_toolong »).
     _SMS_GSM7_LEN = 160
     _SMS_UCS2_LEN = 70
 
@@ -315,8 +319,12 @@ class SmsArchiveMessage(models.Model):
     def _split_segments(cls, text):
         """Segmente ``text`` selon l'encodage réel du message.
 
-        - GSM-7 (ASCII + accents de base) : 160 septets/segment, les
-          caractères d'extension ``^{}\\[~]|€`` comptant double.
+        - GSM-7 (ASCII + accents de base) : 160 unités/segment, chaque
+          caractère coûtant ``max(septets GSM-7, octets UTF-8)`` — les
+          caractères d'extension ``^{}\\[~]|€`` comptent double (septets),
+          et les lettres accentuées GSM-7 (é è à ù ì ò ä ö ñ ü…) comptent
+          double aussi car le contrôle de longueur de VOIP.ms est en octets
+          UTF-8 (161 octets → « sms_toolong », vécu 2026-07-23).
         - UCS-2 (dès qu'un caractère hors GSM-7 apparaît : ``œ``, ``’``,
           ``…``, ``À``/``È``, emoji…) : 70 caractères/segment.
 
@@ -329,11 +337,13 @@ class SmsArchiveMessage(models.Model):
         if not cls._is_gsm7(text):
             size = cls._SMS_UCS2_LEN
             return [text[i:i + size] for i in range(0, len(text), size)]
-        # GSM-7 : empaquetage septet par septet (un caractère n'est jamais
-        # scindé, donc une paire d'extension reste dans le même segment).
+        # GSM-7 : empaquetage caractère par caractère (un caractère n'est
+        # jamais scindé, donc une paire d'extension reste dans le même
+        # segment).
         segments, current, cost = [], [], 0
         for ch in text:
-            ch_cost = 2 if ch in cls._GSM7_EXT else 1
+            septets = 2 if ch in cls._GSM7_EXT else 1
+            ch_cost = max(septets, len(ch.encode("utf-8")))
             if cost + ch_cost > cls._SMS_GSM7_LEN:
                 segments.append("".join(current))
                 current, cost = [], 0

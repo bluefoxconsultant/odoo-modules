@@ -21,6 +21,8 @@ from odoo import fields, http
 from odoo.exceptions import AccessDenied, UserError
 from odoo.http import request
 
+from .voipms_webhook import _safe_media_url
+
 _logger = logging.getLogger(__name__)
 
 BASE = "/bf_sms_archive/mobile/v1"
@@ -301,7 +303,11 @@ class BfSmsMobileApi(http.Controller):
         """Enregistre l'endpoint UnifiedPush (ntfy) de l'app pour cet appareil."""
         data = _body()
         endpoint = (data.get("endpoint") or "").strip()
-        if not endpoint.startswith(("http://", "https://")):
+        # The server POSTs to this endpoint on every inbound message
+        # (push_transport._post), so an endpoint resolving to a private/loopback
+        # address is a blind-SSRF sink. Reuse the module's anti-SSRF guard.
+        if not endpoint.startswith(("http://", "https://")) \
+                or not _safe_media_url(endpoint):
             return _json({"error": "invalid_endpoint"}, 400)
         device.sudo().write({
             "push_endpoint": endpoint,

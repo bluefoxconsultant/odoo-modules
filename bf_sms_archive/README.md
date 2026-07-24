@@ -438,6 +438,11 @@ curl -X POST https://odoo.example.com/bf_sms_archive/api/ingest \
 
 ## Changelog
 
+### Version 18.0.5.5.5 (catch-up entry covering 18.0.5.5.3 – 18.0.5.5.5)
+
+- **FIX:** GSM-7 segments are now budgeted in **UTF-8 bytes**, not characters. The VOIP.ms `sendSMS` length check counts bytes, so GSM-7 accented letters (`é è à ù ì ò ä ö ñ ü`…) cost 2 even though they fit in a single septet — a full 160-character segment containing a single accent (161 bytes) was rejected with `sms_toolong`, failing the whole message while shorter UCS-2 messages went through. Each character now costs `max(GSM-7 septets, UTF-8 bytes)`; pure-ASCII segments keep the full 160-character budget, and messages with accents split slightly earlier instead of being refused.
+- **SEC:** The push-subscription endpoint registered from the mobile client is now validated with the module's anti-SSRF guard (public scheme + public address) before the server ever POSTs to it, and outbound media fetches pin the connection to a single resolved public IP, closing the DNS-rebind window between the safety check and the actual request.
+
 ### Version 18.0.3.7.0
 
 - **FIX:** Outbound SMS no longer fail with the VOIP.ms `sms_toolong` error on messages that contain non-GSM-7 characters. Segmentation is now encoding-aware: 160 septets per SMS for GSM-7 text (the extension characters `^{}\[~]|€` counted as two), and 70 characters per SMS as soon as the body contains any character that forces UCS-2 encoding (lowercase `ç`, `œ`, curly quotes, `…`, accented capitals, emoji…). Every segment now fits inside a single SMS envelope, so long or accented messages are delivered instead of rejected.
