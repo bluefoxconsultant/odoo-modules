@@ -122,6 +122,16 @@ class BfCxProgram(models.Model):
              "différencié performe mieux qu'un renvoi identique). Vide = "
              "renvoi du gabarit d'invitation.",
     )
+    hide_respondent = fields.Boolean(
+        string="Masquer le répondant (360)",
+        default=True,
+        help="Sur un programme interne, n'inscrit pas le répondant au "
+             "registre des feedbacks : les listes, regroupements, exports "
+             "et tableaux de bord ne le nomment pas. Le masquage porte sur "
+             "le registre, pas sur la base : un gestionnaire garde accès à "
+             "la réponse de sondage elle-même. Sur une équipe de trois "
+             "personnes, dites-le honnêtement aux répondants.",
+    )
     cooldown_days = fields.Integer(
         string="Cadence minimale (jours)",
         default=0,

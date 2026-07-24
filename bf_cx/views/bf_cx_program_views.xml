@@ -62,6 +62,8 @@
                                    invisible="program_type not in ('nps', 'pulse')"/>
                             <field name="reminder_days"/>
                             <field name="cooldown_days"/>
+                            <field name="hide_respondent"
+                                   invisible="program_type != 'internal'"/>
                         </group>
                     </group>
                     <group string="Sondage" name="survey_group">

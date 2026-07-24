@@ -110,8 +110,19 @@ class SurveyUserInput(models.Model):
         if kind in ("nps", "csat") and not score_line:
             kind = "verbatim" if kind != "internal" else kind
 
+        # Internal 360: the entry is filed under the person REVIEWED, and
+        # the respondent is left out of the registry when the program asks
+        # for it - lists, grouped views and exports are where a name
+        # actually leaks, not the raw survey answer.
+        is_internal = kind == "internal"
+        hide_respondent = is_internal and program.hide_respondent
         vals = {
-            "partner_id": self.partner_id.id,
+            "partner_id": False if hide_respondent else self.partner_id.id,
+            "subject_user_id": (
+                self.bf_cx_wave_id.subject_user_id.id
+                if is_internal
+                else False
+            ),
             "date": fields.Date.context_today(self),
             "kind": kind,
             "source": "survey",

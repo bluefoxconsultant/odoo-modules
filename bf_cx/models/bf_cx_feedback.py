@@ -23,6 +23,12 @@ NPS_PASSIVE_MIN = 7
 # Core rating module scale (0-5); below RATING_LIMIT_OK is "dissatisfied".
 CSAT_KO_BELOW = 3.0
 
+# Below this many answers, a per-person 360 average says more about who
+# happened to reply than about the person reviewed. Same honesty rule as the
+# n=10 threshold on the NPS window, tightened for the much smaller population
+# a 360 draws from.
+MIN_360_RESPONSES = 3
+
 
 def param_is_true(env, key, default=False):
     """Tolerant reader for Boolean ir.config_parameter values.
@@ -129,6 +135,15 @@ class BfCxFeedback(models.Model):
         tracking=True,
         help="Reçoit l'activité de boucle fermée pour un détracteur ou une "
              "note insatisfaite.",
+    )
+    subject_user_id = fields.Many2one(
+        "res.users",
+        string="Personne évaluée",
+        index=True,
+        tracking=True,
+        help="Rétroaction interne (360) : la personne SUR QUI porte cette "
+             "entrée. À ne pas confondre avec le responsable du suivi, qui "
+             "est le porteur du compte client.",
     )
     state = fields.Selection(
         [
@@ -484,6 +499,63 @@ class BfCxFeedback(models.Model):
             "display": display,
             **buckets,
         }
+
+    # ── Internal 360 aggregates ─────────────────────────────────────────────
+
+    def _bf_cx_360_stats(self, extra_domain=None, group_field="subject_user_id"):
+        """Average internal-360 score, grouped by subject or by wave.
+
+        Returns {group_id: {"n", "average", "score_max", "masked"}}.
+        ``masked`` is True below MIN_360_RESPONSES answers: with two
+        replies an average reports who answered, not how the person
+        works, and a number on a screen gets read as a verdict either
+        way. Callers decide whether to show the raw average; the display
+        helper below does not.
+
+        Runs under the caller's rights on purpose: the record rules keep
+        internal entries away from operators, and this must not be the
+        hole in that wall.
+        """
+        domain = [
+            ("kind", "=", "internal"),
+            (group_field, "!=", False),
+            ("score_max", ">", 0),
+        ] + (extra_domain or [])
+        stats = {}
+        for group, count, score_sum, score_max in self._read_group(
+            domain,
+            [group_field],
+            ["__count", "score:sum", "score_max:max"],
+        ):
+            group_id = group.id if hasattr(group, "id") else group
+            stats[group_id] = {
+                "n": count,
+                "average": round(score_sum / count, 1) if count else 0.0,
+                "score_max": score_max or 0.0,
+                "masked": count < MIN_360_RESPONSES,
+            }
+        return stats
+
+    def _bf_cx_360_summary(self, extra_domain=None):
+        """Per-person 360 aggregates (the usual entry point)."""
+        return self._bf_cx_360_stats(extra_domain, "subject_user_id")
+
+    def _bf_cx_360_display(self, summary):
+        """One-line rendering of a 360 aggregate, honest about thin data."""
+        if not summary or not summary["n"]:
+            return _("Aucune réponse")
+        if summary["masked"]:
+            return _(
+                "%(n)s réponse(s) - moyenne masquée sous %(min)s",
+                n=summary["n"],
+                min=MIN_360_RESPONSES,
+            )
+        return _(
+            "%(avg)s/%(max)s sur %(n)s réponses",
+            avg=summary["average"],
+            max=int(summary["score_max"]),
+            n=summary["n"],
+        )
 
     # ── Dashboard data (OWL client action) ──────────────────────────────────
 

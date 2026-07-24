@@ -89,6 +89,9 @@
                     <group>
                         <group name="who">
                             <field name="partner_id"/>
+                            <field name="subject_user_id"
+                                   widget="many2one_avatar_user"
+                                   invisible="kind != 'internal'"/>
                             <field name="date"/>
                             <field name="kind"/>
                             <field name="source"/>
@@ -155,6 +158,7 @@
         <field name="arch" type="xml">
             <search string="Feedbacks">
                 <field name="partner_id"/>
+                <field name="subject_user_id"/>
                 <field name="comment"/>
                 <field name="program_id"/>
                 <field name="project_id"/>
@@ -177,6 +181,7 @@
                     <filter string="Catégorie NPS" name="group_bucket" context="{'group_by': 'nps_bucket'}"/>
                     <filter string="Programme" name="group_program" context="{'group_by': 'program_id'}"/>
                     <filter string="Contact" name="group_partner" context="{'group_by': 'partner_id'}"/>
+                    <filter string="Personne évaluée (360)" name="group_subject" context="{'group_by': 'subject_user_id'}"/>
                     <filter string="Mois" name="group_month" context="{'group_by': 'date:month'}"/>
                     <filter string="Thème" name="group_theme" context="{'group_by': 'theme_ids'}"/>
                 </group>

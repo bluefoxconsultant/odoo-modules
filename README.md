@@ -49,7 +49,7 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | `bf_chatter_timesheet` | Blue Fox — Feuille de temps depuis le chatter | 18.0.1.2.0 | LGPL-3 | Checkbox in the chatter composer to log a timesheet entry alongside an internal note. |
 | `bf_claude_chat` | TentaClaude | 18.0.1.5.1 | LGPL-3 | Chat with Claude AI directly inside Odoo |
 | `bf_contact_enrichment` | Enrichissement de contacts | 18.0.1.2.0 | LGPL-3 | Business cards (OCR), email signatures, vCard import, duplicate detection and completeness scoring, powered by Claude |
-| `bf_cx` | Expérience client | 18.0.1.3.0 | LGPL-3 | Customer experience measurement: NPS programs, continuous feedback, complaints and consent-tracked testimonials |
+| `bf_cx` | Expérience client | 18.0.1.4.0 | LGPL-3 | Customer experience measurement: NPS programs, continuous feedback, complaints and consent-tracked testimonials |
 | `bf_cx_appointment` | Expérience client : feedback post-rendez-vous | 18.0.1.1.0 | LGPL-3 | Three-smiley feedback request when an appointment is completed (opt-in) |
 | `bf_cx_crm` | Expérience client - sondage post-perte CRM | 18.0.1.1.0 | LGPL-3 | Automatic win/loss survey when a CRM opportunity is marked lost |
 | `bf_cx_dashboard` | Expérience client - tuile tableau de bord | 18.0.1.1.0 | LGPL-3 | NPS tile with pending detractors and open complaints on the Blue Fox dashboard |
@@ -89,6 +89,7 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | `bf_mass_notes` | Blue Fox — Notes en lot | 18.0.1.0.0 | LGPL-3 | List-view Action to post a chatter note (or message) to many selected records at once; binds to all `mail.thread` models |
 | `bf_meeting` | Rencontres | 18.0.3.43.1 | LGPL-3 | Agendas, meeting records, and discussion items unified around `calendar.event` with automatic reminders |
 | `bf_meeting_call_archive` | Rencontres ↔ Archive d'appels | 18.0.1.0.0 | LGPL-3 | Optional link between a meeting record and an archived call |
+| `bf_meeting_portal` | Rencontres - Portail client | 18.0.2.0.1 | LGPL-3 | Portal read access to meeting reports that were already emailed to the client |
 | `bf_nextcloud_browser` | Nextcloud File Browser | 18.0.3.3.0 | LGPL-3 | Embedded + standalone Nextcloud WebDAV file browser on projects/tasks: folder tree, modal preview, drag-and-drop upload/move, configurable share presets, open-in-Nextcloud for office files, Knowledge Matrix linking, systray launcher |
 | `bf_onboarding_base` | Blue Fox Onboarding Foundation | 18.0.2.0.0 | LGPL-3 | Shared helpers for Blue Fox per-module onboarding panels. |
 | `bf_persona` | Persona des contacts | 18.0.2.1.0 | LGPL-3 | Active relationship intelligence: composer hint with auto-cc, monthly auto-seed from email signals, weekly degradation detector with optional ntfy alert, kanban dashboard |

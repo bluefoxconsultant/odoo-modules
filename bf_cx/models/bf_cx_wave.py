@@ -11,7 +11,7 @@ import logging
 from markupsafe import Markup
 
 from odoo import _, api, fields, models
-from odoo.exceptions import UserError
+from odoo.exceptions import UserError, ValidationError
 
 _logger = logging.getLogger(__name__)
 
@@ -53,6 +53,16 @@ class BfCxWave(models.Model):
         help="Contacts à inviter. Ceux sans adresse courriel sont ignorés à "
              "l'envoi (et listés dans le journal de la vague).",
     )
+    subject_user_id = fields.Many2one(
+        "res.users",
+        string="Personne évaluée",
+        index=True,
+        tracking=True,
+        help="Sur un programme interne, la personne SUR QUI porte la "
+             "rétroaction : les destinataires l'évaluent, elle ne s'évalue "
+             "pas nécessairement elle-même. Laisser vide pour un pouls "
+             "interne qui porte sur l'organisation et non sur quelqu'un.",
+    )
     campaign_id = fields.Many2one(
         "utm.campaign",
         string="Campagne UTM",
@@ -84,8 +94,57 @@ class BfCxWave(models.Model):
         string="Taux de réponse (%)", compute="_compute_input_stats"
     )
     nps_score = fields.Integer(string="Score NPS", compute="_compute_nps_score")
+    subject_summary = fields.Char(
+        string="Résultat 360",
+        compute="_compute_subject_summary",
+        help="Moyenne des notes reçues par la personne évaluée dans cette "
+             "vague, masquée sous un seuil de réponses.",
+    )
+
+    # ── Constraints ──────────────────────────────────────────────────────────
+
+    @api.constrains("subject_user_id", "program_id")
+    def _check_subject_is_internal(self):
+        """A subject only means something on an internal 360 program.
+
+        Setting one on a client program would silently file client answers
+        under an employee's name.
+        """
+        for wave in self:
+            if (
+                wave.subject_user_id
+                and wave.program_id.program_type != "internal"
+            ):
+                raise ValidationError(
+                    _("Une personne évaluée ne se règle que sur un programme "
+                      "de type « Feedback interne (360) ». Le programme "
+                      "« %(program)s » est de type « %(type)s ».",
+                      program=wave.program_id.name,
+                      type=dict(
+                          wave.program_id._fields["program_type"]
+                          ._description_selection(self.env)
+                      ).get(wave.program_id.program_type),
+                      )
+                )
 
     # ── Compute ──────────────────────────────────────────────────────────────
+
+    def _compute_subject_summary(self):
+        Feedback = self.env["bf.cx.feedback"]
+        rated = self.filtered("subject_user_id")
+        (self - rated).subject_summary = False
+        if not rated:
+            return
+        # Grouped per WAVE, not per subject: the same person can be
+        # reviewed by several waves over time, and each wave reports its
+        # own round.
+        summaries = Feedback._bf_cx_360_stats(
+            [("wave_id", "in", rated.ids)], "wave_id"
+        )
+        for wave in rated:
+            wave.subject_summary = Feedback._bf_cx_360_display(
+                summaries.get(wave.id)
+            )
 
     @api.depends("program_id")
     def _compute_campaign_id(self):

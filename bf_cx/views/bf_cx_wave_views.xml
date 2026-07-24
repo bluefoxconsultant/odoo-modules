@@ -13,6 +13,7 @@
                 <field name="completed_count"/>
                 <field name="completion_rate" widget="progressbar"/>
                 <field name="program_type" column_invisible="True"/>
+                <field name="subject_user_id" widget="many2one_avatar_user" optional="show"/>
                 <field name="nps_score" string="NPS" optional="show"/>
                 <field name="state" widget="badge"
                        decoration-info="state == 'draft'"
@@ -53,6 +54,13 @@
                                 invisible="program_type not in ('nps', 'pulse')">
                             <field name="nps_score" widget="statinfo" string="Score NPS"/>
                         </button>
+                        <button class="oe_stat_button" icon="fa-users" disabled="1"
+                                invisible="program_type != 'internal' or not subject_user_id">
+                            <div class="o_stat_info">
+                                <field name="subject_summary" class="o_stat_text"/>
+                                <span class="o_stat_text">Résultat 360</span>
+                            </div>
+                        </button>
                     </div>
                     <div class="oe_title">
                         <h1><field name="name"/></h1>
@@ -61,6 +69,10 @@
                         <group>
                             <field name="program_id" readonly="state != 'draft'"/>
                             <field name="program_type" invisible="1"/>
+                            <field name="subject_user_id"
+                                   widget="many2one_avatar_user"
+                                   invisible="program_type != 'internal'"
+                                   readonly="state != 'draft'"/>
                             <field name="campaign_id"/>
                             <field name="deadline"/>
                         </group>
@@ -109,8 +121,10 @@
                 <field name="program_id"/>
                 <filter string="Brouillons" name="filter_draft" domain="[('state', '=', 'draft')]"/>
                 <filter string="Envoyées" name="filter_sent" domain="[('state', '=', 'sent')]"/>
+                <field name="subject_user_id"/>
                 <group expand="0" string="Regrouper par">
                     <filter string="Programme" name="group_program" context="{'group_by': 'program_id'}"/>
+                    <filter string="Personne évaluée" name="group_subject" context="{'group_by': 'subject_user_id'}"/>
                     <filter string="État" name="group_state" context="{'group_by': 'state'}"/>
                 </group>
             </search>
