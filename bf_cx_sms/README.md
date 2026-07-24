@@ -1,8 +1,8 @@
-# bf_cx_sms : invitation de sondage par SMS
+# bf_cx_sms: survey invitations by SMS
 
-S'auto-installe quand `bf_cx` et `bf_sms_archive` sont installés. Ajoute
-le bouton « Inviter par SMS » sur les vagues d'envoi : les destinataires
-sans adresse courriel mais avec un numéro reçoivent leur lien de sondage
-personnel (jeton individuel) par SMS, sur la ligne configurée. Opt-in
-(`bf_cx.sms_invite`, défaut désactivé), action manuelle seulement (aucun
-cron), maximum 5 SMS par clic, garde-fous de sollicitation appliqués.
+Auto-installs when both `bf_cx` and `bf_sms_archive` are installed. Adds an
+"Invite by SMS" button on send waves: recipients with no email address but
+a phone number receive their personal survey link (individual token) by
+SMS, on the configured line. Opt-in (`bf_cx.sms_invite`, off by default),
+manual action only (no cron), a maximum of 5 texts per click, with the
+solicitation guardrails applied.

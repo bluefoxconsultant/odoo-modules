@@ -1,7 +1,7 @@
-# bf_cx_crm - sondage post-perte
+# bf_cx_crm - post-loss survey
 
-S'auto-installe quand `bf_cx` et `crm` sont installés. Quand une
-opportunité est marquée perdue, envoie le sondage du programme désigné
-(`bf_cx.loss_program_id`, vide = désactivé) au contact - une fois par
-opportunité, garde-fous de sollicitation appliqués, motif de perte
-consigné au chatter.
+Auto-installs when both `bf_cx` and `crm` are installed. When an
+opportunity is marked lost, sends the designated program's survey
+(`bf_cx.loss_program_id`, empty = disabled) to the contact: once per
+opportunity, with the solicitation guardrails applied and the loss reason
+recorded in the chatter.

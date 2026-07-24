@@ -1,8 +1,8 @@
-# bf_cx_subscription : revenu récurrent à risque
+# bf_cx_subscription: recurring revenue at risk
 
-S'auto-installe quand `bf_cx_dashboard` et `bf_subscription` sont
-installés. Ajoute sur la tuile Expérience client du tableau de bord la
-somme des coûts mensualisés (`monthly_equivalent`) des abonnements
-actifs gérés (`managed_for_id`) pour des clients ayant un feedback à
-rappeler ou une plainte ouverte, affichée en rouge quand elle dépasse
-zéro. Lecture seule, aucun envoi au client.
+Auto-installs when both `bf_cx_dashboard` and `bf_subscription` are
+installed. Adds to the dashboard's Customer Experience tile the sum of
+monthly-equivalent costs (`monthly_equivalent`) of active managed
+subscriptions (`managed_for_id`) belonging to clients who have feedback
+awaiting a callback or an open complaint, shown in red once it rises
+above zero. Read-only, nothing is sent to the client.

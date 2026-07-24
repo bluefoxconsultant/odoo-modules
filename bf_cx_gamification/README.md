@@ -1,8 +1,7 @@
-# bf_cx_gamification : XP Fox Quest pour la discipline CX
+# bf_cx_gamification: Fox Quest XP for CX discipline
 
-S'auto-installe quand `bf_cx` et `bf_gamification` sont installés.
-Accorde de l'XP Fox Quest au responsable quand un suivi de boucle fermée
-est complété (feedback passé en « Traité ») et quand une plainte client
-est résolue. Une seule attribution par enregistrement (drapeau
-anti-double), aucun envoi au client, et toute erreur d'XP est
-journalisée sans bloquer le flux d'origine.
+Auto-installs when both `bf_cx` and `bf_gamification` are installed.
+Awards Fox Quest XP to the owner when a closed-loop follow-up is completed
+(feedback moved to "Handled") and when a client complaint is resolved. One
+award per record (anti-double flag), nothing is sent to the client, and
+any XP error is logged without blocking the originating flow.

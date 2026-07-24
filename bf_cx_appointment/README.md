@@ -1,8 +1,7 @@
-# bf_cx_appointment : feedback post-rendez-vous
+# bf_cx_appointment: post-appointment feedback
 
-S'auto-installe quand `bf_cx` et `bf_appointment` sont installés. Quand
-un rendez-vous est terminé (passe du cron d'envoi des courriels de
-rendez-vous), demande de feedback à 3 émojis (module rating) au contact
-du rendez-vous. Opt-in (`bf_cx.appointment_feedback`, défaut désactivé),
-une seule demande par rendez-vous, rendez-vous récents seulement, et
-garde-fous de sollicitation appliqués.
+Auto-installs when both `bf_cx` and `bf_appointment` are installed. When
+an appointment has finished (a pass on the appointment email cron), sends
+a 3-emoji feedback request (rating module) to the appointment contact.
+Opt-in (`bf_cx.appointment_feedback`, off by default), one request per
+booking, recent bookings only, and the solicitation guardrails apply.

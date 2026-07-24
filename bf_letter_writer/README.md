@@ -1,159 +1,150 @@
 # Letter Writer (`bf_letter_writer`)
 
-Rédaction de lettres officielles brandées dans Odoo 18 — en-tête verrouillé, fusion
-de champs, modèles réutilisables et blocs de texte.
+Writing branded official letters in Odoo 18 — locked letterhead, merge fields,
+reusable templates and text blocks.
 
-## Aperçu
+## Overview
 
-`bf_letter_writer` ajoute une application **Lettres** à Odoo pour produire des
-lettres officielles dont l'en-tête (logo, couleurs, signataire, pied de page) est
-**piloté par la société** et **verrouillé** : l'auteur ne contrôle que le corps du
-texte, ce qui garantit le respect des règles de marque. Le module est
-**multi-société / marque blanche** — chaque société émet ses lettres avec sa
-propre identité visuelle.
+`bf_letter_writer` adds a **Letters** application to Odoo for producing official
+letters whose letterhead (logo, colours, signatory, footer) is **driven by the
+company** and **locked**: the author only controls the body text, which
+guarantees the brand rules are respected. The module is **multi-company /
+white-label** — each company issues its letters with its own visual identity.
 
-## Fonctionnalités
+## Features
 
-### En-tête brandé (marque blanche) — 5 modes
-Piloté par `res.company` ; chaque société émet ses lettres avec sa propre
-identité. Le « chrome » est verrouillé — l'utilisateur n'édite que le corps,
-l'appel et la salutation finale.
+### Branded letterhead (white-label) — 5 modes
+Driven by `res.company`; each company issues its letters with its own identity.
+The chrome is locked — the user only edits the body, the salutation and the
+closing.
 
-- **Bannière foncée** *(générée)* — en-tête sombre avec logo, couleurs de
-  marque (`report_brand_primary` / `report_brand_dark` via `bf_lexend`),
-  adresse, mention d'en-tête et pied de page.
-- **Classique sobre** *(générée)* — variante claire avec filet.
-- **Image téléversée (PNG/JPG)** — l'image d'en-tête de la société sert de
-  fond pleine page ; le corps est décalé pour la dégager.
-- **PDF téléversé (superposition)** — le corps est *estampé* sur chaque page
-  du PDF d'en-tête de la société (via PyPDF2). Qualité vectorielle.
-- **Sans en-tête (papier pré-imprimé)** — aucun chrome ; le corps est décalé
-  d'une marge configurable pour s'imprimer proprement sur du papier à
-  en-tête déjà imprimé.
+- **Dark banner** *(generated)* — dark header with logo, brand colours
+  (`report_brand_primary` / `report_brand_dark` through `bf_lexend`), address,
+  letterhead note and footer.
+- **Understated classic** *(generated)* — light variant with a rule.
+- **Uploaded image (PNG/JPG)** — the company's letterhead image is used as a
+  full-page background; the body is offset to clear it.
+- **Uploaded PDF (overlay)** — the body is *stamped* onto each page of the
+  company's letterhead PDF (through PyPDF2). Vector quality.
+- **No letterhead (pre-printed paper)** — no chrome; the body is offset by a
+  configurable margin so it prints cleanly on already-printed letterhead paper.
 
-Les modes *image*, *PDF* et *pré-imprimé* utilisent les marges configurables
-`letter_body_top_margin` / `letter_body_bottom_margin` de la société.
+The *image*, *PDF* and *pre-printed* modes use the company's configurable
+`letter_body_top_margin` / `letter_body_bottom_margin` margins.
 
-### Modèles de lettres
-- Modèles réutilisables (`letter.template`) avec objet et corps.
-- Champs de fusion : jetons `{{ object.champ }}` (style « publipostage Word ») et
-  syntaxe QWeb `<t t-out="object.champ"/>` pour les cas avancés.
-- Légende des champs de fusion intégrée à l'éditeur de modèle.
-- Blocs de texte suggérés rattachés au modèle.
+### Letter templates
+- Reusable templates (`letter.template`) with subject and body.
+- Merge fields: `{{ object.field }}` tokens (Word mail-merge style) and QWeb
+  `<t t-out="object.field"/>` syntax for advanced cases.
+- A merge-field legend built into the template editor.
+- Suggested text blocks attached to the template.
 
-### Fusion de champs (publipostage)
-- Application d'un modèle sur une lettre : le corps est rendu avec les valeurs du
-  destinataire.
-- **Fusion en lot** : un modèle, plusieurs destinataires → une lettre par
-  destinataire.
-- Action sur la liste des contacts : « Créer des lettres » à partir d'une
-  sélection.
-- Détection des champs de fusion non remplis (avertissement non bloquant).
+### Merge fields (mail merge)
+- Applying a template to a letter renders the body with the recipient's values.
+- **Batch merge**: one template, several recipients → one letter per recipient.
+- An action on the contact list: "Create letters" from a selection.
+- Detection of unfilled merge fields (non-blocking warning).
 
-### Blocs de texte (quicktext)
-- Bibliothèque de blocs réutilisables (`letter.quicktext`), classés par catégorie,
-  avec raccourci.
-- Insertion dans le corps via un sélecteur (au début ou à la fin).
-- Les blocs peuvent eux-mêmes contenir des champs de fusion.
-- Trois blocs de départ fournis.
+### Text blocks (quicktext)
+- A library of reusable blocks (`letter.quicktext`), sorted by category, with a
+  shortcut.
+- Inserted into the body through a picker (at the start or at the end).
+- Blocks can themselves contain merge fields.
+- Three starter blocks are provided.
 
-### Génération et envoi
-- PDF brandé natif (QWeb), format US Letter.
-- Aperçu PDF en un clic.
-- Envoi par courriel avec le PDF en pièce jointe, dans une enveloppe courriel
-  brandée.
-- Bouton d'impression natif Odoo (rapport lié au modèle).
+### Generation and sending
+- Native branded PDF (QWeb), US Letter format.
+- One-click PDF preview.
+- Email delivery with the PDF attached, inside a branded email envelope.
+- Native Odoo print button (report linked to the model).
 
-### Cycle de vie
-- États : **Brouillon → Finalisée → Envoyée**.
-- Numérotation automatique `LET-AAAA-NNN`.
-- Référence destinataire (nom + adresse) figée à la finalisation.
-- Suivi (chatter) et activités.
-- **Archivage** des lettres (champ `active` + filtre « Archivées »).
+### Lifecycle
+- States: **Draft → Finalised → Sent**.
+- Automatic numbering `LET-YYYY-NNN`.
+- Recipient reference (name + address) frozen at finalisation.
+- Chatter tracking and activities.
+- **Archiving** of letters (`active` field plus an "Archived" filter).
 
-### Confort d'utilisation
-- **Titre automatique** : « Lettre à [destinataire] » dès qu'un destinataire
-  est choisi (remplacé par l'objet du modèle si un modèle est appliqué).
-- **Aperçu de l'en-tête** : vignette de l'image d'en-tête sur la fiche société
-  et sur la lettre en mode image.
-- Boutons distincts **Aperçu PDF** (ouvre) et **Télécharger le PDF**.
-- Les lettres avec champs de fusion non remplis sont **surlignées** dans la
-  liste.
+### Convenience
+- **Automatic title**: "Letter to [recipient]" as soon as a recipient is chosen
+  (replaced by the template's subject when a template is applied).
+- **Letterhead preview**: a thumbnail of the letterhead image on the company
+  record and on the letter in image mode.
+- Distinct **Preview PDF** (opens) and **Download PDF** buttons.
+- Letters with unfilled merge fields are **highlighted** in the list.
 
-### Intégrations optionnelles (détectées à l'exécution)
-- **`bf_persona`** : pré-remplissage de l'appel et de la salutation finale depuis
-  le persona du destinataire.
-- **`bf_claude_chat`** : bouton « Réviser avec Claude » qui ouvre l'assistant avec
-  la lettre en contexte.
-- Aucune dépendance dure : le module fonctionne seul ; les boutons disparaissent
-  si les modules ne sont pas installés.
+### Optional integrations (detected at runtime)
+- **`bf_persona`**: prefills the salutation and closing from the recipient's
+  persona.
+- **`bf_claude_chat`**: a "Review with Claude" button that opens the assistant
+  with the letter in context.
+- No hard dependency: the module works on its own, and the buttons disappear
+  when those modules are not installed.
 
-### Configuration guidée
-- Panneau d'intégration (onboarding) en 3 étapes : en-tête → modèles →
-  première lettre.
+### Guided setup
+- A 3-step onboarding panel: letterhead → templates → first letter.
 
-## Modèles
+## Models
 
-| Modèle | Rôle |
+| Model | Role |
 |---|---|
-| `letter.document` | La lettre (instance) |
-| `letter.template` | Modèle de lettre réutilisable |
-| `letter.quicktext` | Bloc de texte réutilisable |
-| `letter.merge.wizard` | Assistant de fusion en lot |
-| `letter.send.wizard` | Assistant d'envoi par courriel |
-| `letter.quicktext.picker` | Assistant d'insertion de bloc |
+| `letter.document` | The letter (instance) |
+| `letter.template` | Reusable letter template |
+| `letter.quicktext` | Reusable text block |
+| `letter.merge.wizard` | Batch merge wizard |
+| `letter.send.wizard` | Email sending wizard |
+| `letter.quicktext.picker` | Block insertion wizard |
 
-## Champs de fusion disponibles
+## Available merge fields
 
 `{{ object.partner_id.name }}`, `{{ object.partner_id.parent_id.name }}`,
 `{{ object.recipient_name }}`, `{{ object.letter_date }}`,
 `{{ object.reference }}`, `{{ object.company_id.name }}`,
-`{{ object.signatory_id.name }}`, `{{ object.signatory_function }}` — ainsi que
-toute expression QWeb `<t t-out="..."/>`.
+`{{ object.signatory_id.name }}`, `{{ object.signatory_function }}` — plus any
+QWeb `<t t-out="..."/>` expression.
 
 ## Configuration
 
-Fiche **Société** → onglet **Lettres** :
-- **En-tête par défaut** appliqué aux nouvelles lettres + marges haute/basse du
-  corps (modes sans en-tête généré).
-- **Image d'en-tête** (PNG/JPG) et **PDF d'en-tête** téléversables.
-- **Signataire** par défaut, fonction, image de signature.
-- **Mention d'en-tête** et **pied de page** (modes générés).
+**Company** record → **Letters** tab:
+- **Default letterhead** applied to new letters, plus top/bottom body margins
+  (modes without a generated letterhead).
+- **Letterhead image** (PNG/JPG) and **letterhead PDF**, both uploadable.
+- Default **signatory**, function, signature image.
+- **Letterhead note** and **footer** (generated modes).
 
-Les couleurs de marque proviennent de `bf_lexend`.
+Brand colours come from `bf_lexend`.
 
-## Sécurité
+## Security
 
-- Tout utilisateur interne peut rédiger des lettres (créer / modifier).
-- Le groupe **Rédacteur de lettres / Gestionnaire** gère les modèles, les blocs de
-  texte et la configuration de l'en-tête.
-- Règles multi-société sur les lettres et les blocs de texte.
+- Any internal user can write letters (create / edit).
+- The **Letter writer / Manager** group manages templates, text blocks and the
+  letterhead configuration.
+- Multi-company rules on letters and text blocks.
 
-## Dépendances
+## Dependencies
 
-- Odoo : `base`, `mail`, `bf_lexend`, `bf_onboarding_base`.
-- Python : `PyPDF2` (mode « PDF téléversé » — fourni dans l'image Odoo BF).
+- Odoo: `base`, `mail`, `bf_lexend`, `bf_onboarding_base`.
+- Python: `PyPDF2` (the "uploaded PDF" mode — shipped in the BF Odoo image).
 
-## Notes techniques
+## Technical notes
 
-- La fusion utilise `mail.render.mixin` (le moteur de `mail.template`) : passe
-  `inline_template` pour les jetons `{{ }}`, puis passe `qweb` si des
-  `<t t-out>` subsistent. Le résultat est encapsulé en `Markup`.
-- Le PDF est un gabarit QWeb autonome (pas `web.external_layout`), comme les
-  autres rapports brandés Blue Fox ; les couleurs sont injectées depuis
-  `doc.company_id`.
-- Mode `pdf_overlay` : `_get_pdf_binary()` rend le corps sans chrome puis
-  `_stamp_on_letterhead()` le superpose à chaque page du PDF d'en-tête via
-  PyPDF2.
-- Mode `image` : fond pleine page (limite connue — couvre la première page ;
-  préférer `pdf_overlay` pour les lettres multi-pages).
-- Détection des modules optionnels via `ir.module.module` (état `installed`).
-- Licence LGPL-3.
+- The merge uses `mail.render.mixin` (the `mail.template` engine): an
+  `inline_template` pass for `{{ }}` tokens, then a `qweb` pass if any
+  `<t t-out>` remain. The result is wrapped in `Markup`.
+- The PDF is a standalone QWeb template (not `web.external_layout`), like the
+  other Blue Fox branded reports; colours are injected from `doc.company_id`.
+- `pdf_overlay` mode: `_get_pdf_binary()` renders the body without chrome, then
+  `_stamp_on_letterhead()` overlays it on each page of the letterhead PDF
+  through PyPDF2.
+- `image` mode: full-page background (known limitation — it covers the first
+  page; prefer `pdf_overlay` for multi-page letters).
+- Optional modules are detected through `ir.module.module` (`installed` state).
+- LGPL-3 licence.
 
 ## Tests
 
-Suite `TransactionCase` dans `tests/test_letter_writer.py` couvrant chaque
-fonctionnalité annoncée. Exécution :
+A `TransactionCase` suite in `tests/test_letter_writer.py` covering each
+advertised feature. To run:
 
 ```bash
 odoo -c <conf> -d <db> -u bf_letter_writer --test-enable --test-tags /bf_letter_writer --stop-after-init

@@ -1,41 +1,40 @@
-# Blue Fox — Signature des consentements Loi 25 (`bf_sign_privacy`)
+# Blue Fox — Signing Law 25 consents (`bf_sign_privacy`)
 
-Module-pont qui branche le moteur de signature électronique natif
-[`bf_sign`](../bf_sign) sur le module de consentements
-[`privacy_consent`](../privacy_consent).
+A bridge module wiring the native [`bf_sign`](../bf_sign) electronic signature
+engine into the [`privacy_consent`](../privacy_consent) consent module.
 
-`privacy_consent` peut envoyer ses consentements à signer via des plateformes
-**externes** (DocuSeal, LibreSign). Ce pont ajoute une troisième voie,
-**interne** : « Envoyer pour signature » sur le consentement (`privacy.consent`)
-via le mixin `bf.sign.mixin`.
+`privacy_consent` can send its consents out for signature through **external**
+platforms (DocuSeal, LibreSign). This bridge adds a third, **internal** route:
+"Send for signature" on the consent (`privacy.consent`) through the
+`bf.sign.mixin` mixin.
 
-Le certificat de consentement est rendu en PDF (rapport
-`privacy_consent.action_report_consent_certificate`), une demande de signature
-`bf_sign` liée est créée, et le document signé est reversé dans le fil de
-discussion du consentement une fois signé. Le sujet du consentement
-(`subject_partner_id`) est pré-rempli comme signataire par défaut.
+The consent certificate is rendered as a PDF (the
+`privacy_consent.action_report_consent_certificate` report), a linked `bf_sign`
+signature request is created, and the signed document is posted back into the
+consent's thread once signed. The consent subject (`subject_partner_id`) is
+prefilled as the default signer.
 
-Les artefacts de consentement peuvent ainsi être signés avec le moteur de
-signature électronique simple (SES) maison — opposable en droit québécois (voir
-[`bf_sign`](../bf_sign)) — **sans dépendre d'un signataire externe**.
+Consent artefacts can therefore be signed with the in-house simple electronic
+signature (SES) engine, which holds up under Quebec law (see
+[`bf_sign`](../bf_sign)), **without depending on an external signing service**.
 
 ## Installation
 
-S'auto-installe lorsque `bf_sign` **et** `privacy_consent` sont tous deux
-présents (`auto_install: True`).
+Auto-installs when `bf_sign` **and** `privacy_consent` are both present
+(`auto_install: True`).
 
-## Dépendances
+## Dependencies
 
 `bf_sign`, `privacy_consent`.
 
 ## Licence
 
-Distribué sous **Business Source License 1.1** (BUSL-1.1). Voir le fichier
-[`LICENSE`](LICENSE) pour les paramètres exacts.
+Distributed under the **Business Source License 1.1** (BUSL-1.1). See the
+[`LICENSE`](LICENSE) file for the exact parameters.
 
-- **Permis sans entente** : l'usage en production pour vos propres opérations
-  internes.
-- **Demande une entente écrite** : fournir le module comme produit ou service à
-  des tiers — hébergé, infogéré ou revendu.
-- **Change Date** : le 2029-07-20, cette version bascule automatiquement en
+- **Allowed without an agreement**: production use for your own internal
+  business operations.
+- **Requires a written agreement**: providing the module as a product or
+  service to third parties, whether hosted, managed or resold.
+- **Change Date**: on 2029-07-20, this version converts automatically to
   **LGPL-3.0-or-later**.

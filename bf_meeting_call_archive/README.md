@@ -1,26 +1,24 @@
-# Rencontres ↔ Archive d'appels (`bf_meeting_call_archive`)
+# Meetings ↔ Call archive (`bf_meeting_call_archive`)
 
-Pont optionnel entre les modules `bf_meeting` et `bf_sms_archive` : lie un
-compte rendu de rencontre à l'appel archivé correspondant.
+An optional bridge between the `bf_meeting` and `bf_sms_archive` modules:
+links a meeting report to the matching archived call.
 
-## Fonctionnalités
+## Features
 
-- Champ `call_archive_id` sur `meeting.record` (visible quand le mode est
-  « Téléphonique »).
-- Relation inverse `meeting_record_ids` sur `call.archive.call` + bandeau dans
-  le formulaire d'appel.
-- Pré-remplissage automatique de `duration_minutes` et `partner_id` au choix de
-  l'appel.
-- Le journal brut des appels n'est jamais modifié : la promotion est purement
-  déclarative.
+- A `call_archive_id` field on `meeting.record` (shown when the mode is
+  "Phone").
+- The reverse `meeting_record_ids` relation on `call.archive.call`, plus a
+  banner in the call form.
+- `duration_minutes` and `partner_id` are prefilled automatically when a call
+  is picked.
+- The raw call log is never modified: the promotion is purely declarative.
 
-S'auto-installe lorsque `bf_meeting` **et** `bf_sms_archive` sont tous deux
-installés.
+Auto-installs when `bf_meeting` **and** `bf_sms_archive` are both installed.
 
-## Dépendances
+## Dependencies
 
 `bf_meeting`, `bf_sms_archive`.
 
 ## Licence
 
-Distribué sous licence **LGPL-3**. Voir le fichier `LICENSE`.
+Distributed under the **LGPL-3** licence. See the `LICENSE` file.

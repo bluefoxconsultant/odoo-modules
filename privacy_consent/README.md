@@ -1,396 +1,416 @@
-# Suivi des consentements (Loi 25)
+# Consent tracking (Law 25)
 
 [![Odoo Version](https://img.shields.io/badge/Odoo-18.0-purple.svg)](https://www.odoo.com)
 [![License: BUSL-1.1](https://img.shields.io/badge/License-BUSL--1.1-blue.svg)](https://mariadb.com/bsl11/)
 
-Module Odoo 18 CE pour la gestion de la vie privée conformément à la **Loi 25** du Québec sur la protection des renseignements personnels : consentements, destruction documentaire et anonymisation.
+An Odoo 18 CE module for privacy management under Quebec's **Law 25** on the
+protection of personal information: consents, document destruction and
+anonymisation.
 
-Depuis la **v18.0.4.0.0**, le moteur est **multi-cadres** : la Loi 25 est intégrée par défaut, et des modules compagnons facultatifs ajoutent le **RGPD/GDPR (UE)**, le **UK GDPR**, la **LPRPDE/PIPEDA (Canada)** et le **Privacy Act 2020 (Nouvelle-Zélande)**.
+Since **v18.0.4.0.0** the engine is **multi-framework**: Law 25 is built in by
+default, and optional companion modules add **GDPR (EU)**, **UK GDPR**,
+**PIPEDA (Canada)** and the **Privacy Act 2020 (New Zealand)**.
 
 ---
 
-## Table des matières
+## Table of contents
 
-- [Aperçu](#aperçu)
+- [Overview](#overview)
 - [Documentation](#documentation)
-- [Fonctionnalités](#fonctionnalités)
-  - [Consentements](#gestion-des-consentements)
-  - [Destruction documentaire](#destruction-et-anonymisation-documentaire-v1800300)
+- [Features](#features)
+  - [Consents](#consent-management)
+  - [Document destruction](#document-destruction-and-anonymisation-v1800300)
 - [Installation](#installation)
 - [Configuration](#configuration)
-- [Utilisation](#utilisation)
-- [Architecture technique](#architecture-technique)
-- [Sécurité et conformité](#sécurité-et-conformité)
-- [Portail client](#portail-client)
-- [Automatisations](#automatisations)
-- [Dépendances](#dépendances)
+- [Usage](#usage)
+- [Technical architecture](#technical-architecture)
+- [Security and compliance](#security-and-compliance)
+- [Client portal](#client-portal)
+- [Automations](#automations)
+- [Dependencies](#dependencies)
 - [Licence](#licence)
 - [Support](#support)
 
 ---
 
-## Aperçu
+## Overview
 
-La **Loi 25** (anciennement projet de loi 64) modernise le cadre juridique québécois en matière de protection des renseignements personnels. Elle impose aux organisations de nouvelles obligations, notamment :
+**Law 25** (formerly Bill 64) modernises Quebec's legal framework for the
+protection of personal information. It places new obligations on
+organisations, notably to:
 
-- Obtenir un **consentement manifeste, libre, éclairé et spécifique** pour chaque finalité
-- Présenter les demandes de consentement en **langage clair et simple**
-- Documenter et **tracer** tous les consentements obtenus
-- Permettre le **retrait** du consentement à tout moment
-- Gérer les **expirations** et renouvellements
+- Obtain **manifest, free, informed and specific consent** for each purpose
+- Present consent requests in **clear and simple language**
+- Document and **trace** every consent obtained
+- Allow consent to be **withdrawn** at any time
+- Manage **expiries** and renewals
 
-Ce module fournit :
+This module provides:
 
-**Consentements** : un registre unifié reliant personne concernee, finalite, contexte et preuve, avec historique inviolable et automatisations.
+**Consents**: a unified register linking the data subject, the purpose, the
+context and the evidence, with a tamper-evident history and automations.
 
-**Destruction et anonymisation** (v18.0.3.0.0) : calendrier de conservation par type de document, classification des renseignements personnels, registre de destruction immuable (Art. 3.2 LPRPSP), campagnes de destruction en lot, evaluations d'anonymisation selon les 3 criteres du Reglement A-2.1, r. 0.1, et droit a l'effacement (Art. 28.1 LPRPSP).
+**Destruction and anonymisation** (v18.0.3.0.0): a retention calendar per
+document type, classification of personal information, an immutable destruction
+register (s. 3.2 of the Private Sector Act), batch destruction campaigns,
+anonymisation assessments against the 3 criteria of Regulation A-2.1, r. 0.1,
+and the right to erasure (s. 28.1).
 
-**Cadres réglementaires multiples** (v18.0.4.0.0) : un enregistrement `privacy.framework` porte les faits statutaires (autorité de surveillance, titre du responsable, âge du consentement, délais de déclaration d'incident, droits des personnes concernées, citations légales). Chaque société choisit son cadre par défaut, surchargeable par enregistrement (consentement, avis, calendrier de conservation, évaluation). Les courriels et certificats s'adaptent automatiquement au cadre applicable. La **Loi 25** est intégrée ; le **GDPR**, le **UK GDPR**, la **LPRPDE/PIPEDA** et le **Privacy Act 2020 (NZ)** s'ajoutent via des modules compagnons `privacy_framework_*` (voir [Dépendances](#dépendances)).
+**Multiple regulatory frameworks** (v18.0.4.0.0): a `privacy.framework` record
+carries the statutory facts (supervisory authority, officer title, age of
+consent, incident reporting deadlines, data subject rights, legal citations).
+Each company picks its default framework, overridable per record (consent,
+notice, retention calendar, assessment). Emails and certificates adapt
+automatically to the applicable framework. **Law 25** is built in; **GDPR**,
+**UK GDPR**, **PIPEDA** and the **Privacy Act 2020 (NZ)** are added through
+`privacy_framework_*` companion modules (see [Dependencies](#dependencies)).
 
 ---
 
 ## Documentation
 
-### Manuel d'utilisation
+### User manual
 
-Un **manuel d'utilisation complet** en français est disponible pour les utilisateurs finaux :
+A **complete user manual** in French is available for end users:
 
-📖 **[Manuel d'utilisation (Français)](doc/MANUEL_UTILISATEUR.md)**
+📖 **[User manual (French)](doc/MANUEL_UTILISATEUR.md)**
 
-Ce manuel couvre :
+The manual covers:
 
-- **Navigation** : Structure des menus et accès selon les rôles
-- **Tableau de bord** : Indicateurs clés et actions rapides
-- **Opérations** : Gestion des consentements, demandes en attente, destructions
-- **Configuration** : Finalités, avis, préférences, politiques de rétention, séquences de courriels, DocuSeal
-- **Portail client** : Accès et fonctionnalités pour les clients
-- **Intégrations** : Contacts, projets, marketing
-- **Cycle de vie** : Diagramme d'états complet avec transitions
-- **Preuves et traçabilité** : Types de preuves et données médico-légales
-- **Automatisations** : Tâches cron et activités automatiques
-- **Rôles et permissions** : Niveaux d'accès (Utilisateur, Gestionnaire, Responsable)
-- **Conformité légale** : Loi 25, RGPD
-- **Glossaire** : Définitions des termes clés
+- **Navigation**: menu structure and access by role
+- **Dashboard**: key indicators and quick actions
+- **Operations**: managing consents, pending requests, destructions
+- **Configuration**: purposes, notices, preferences, retention policies, email sequences, DocuSeal
+- **Client portal**: access and features for clients
+- **Integrations**: contacts, projects, marketing
+- **Life cycle**: a complete state diagram with transitions
+- **Evidence and traceability**: evidence types and forensic data
+- **Automations**: cron jobs and automatic activities
+- **Roles and permissions**: access levels (User, Manager, Officer)
+- **Legal compliance**: Law 25, GDPR
+- **Glossary**: definitions of key terms
 
 ---
 
-## Fonctionnalités
+## Features
 
-### Gestion des finalités (Purposes)
+### Purpose management
 
-- Définition de finalités avec code unique et description en langage clair
-- Configuration du type de consentement requis (express opt-in ou implicite)
-- Durée de validité par défaut configurable
-- Portée par canal (email, SMS, téléphone, vidéo, présentiel)
-- Portée par contexte (projet, marketing, réunion, CRM)
+- Purposes defined with a unique code and a plain-language description
+- The required consent type is configurable (express opt-in or implied)
+- A configurable default validity period
+- Scope by channel (email, SMS, phone, video, in person)
+- Scope by context (project, marketing, meeting, CRM)
 
-**Finalités incluses par défaut (18) :**
+**Purposes included by default (18):**
 
-*Finalités générales (consultation, hébergement, marketing) :*
+*General purposes (consulting, hosting, marketing):*
 
-| Code | Finalité | Opt-in express | Validité par défaut |
-|------|----------|----------------|---------------------|
-| `marketing` | Communications marketing et infolettres | Oui | 730 jours |
-| `recording` | Enregistrement ponctuel de rencontres | Oui | 365 jours |
-| `recording_audio` | Enregistrement audio | Oui | 365 jours |
-| `transcription` | Transcription des communications | Oui | 365 jours |
-| `training` | Formation interne | Oui | 365 jours |
-| `reference` | Utilisation comme référence client | Non | 1095 jours (3 ans) |
-| `logo` | Utilisation du logo | Non | 1095 jours (3 ans) |
-| `case_study` | Étude de cas | Oui | 1825 jours (5 ans) |
-| `service` | Communications de service | Consentement non requis | Illimité |
-| `third_party` | Partage avec des tiers | Non | 365 jours |
-| `agent` | Installation d'agent logiciel (LCAP/CASL) | Oui | Illimité (durée du mandat) |
-| `sensibles` | Traitements à risque élevé et données sensibles | Oui | 365 jours |
+| Code | Purpose | Express opt-in | Default validity |
+|------|---------|----------------|------------------|
+| `marketing` | Marketing communications and newsletters | Yes | 730 days |
+| `recording` | One-off meeting recording | Yes | 365 days |
+| `recording_audio` | Audio recording | Yes | 365 days |
+| `transcription` | Transcription of communications | Yes | 365 days |
+| `training` | Internal training | Yes | 365 days |
+| `reference` | Use as a client reference | No | 1095 days (3 years) |
+| `logo` | Use of the logo | No | 1095 days (3 years) |
+| `case_study` | Case study | Yes | 1825 days (5 years) |
+| `service` | Service communications | Consent not required | Unlimited |
+| `third_party` | Sharing with third parties | No | 365 days |
+| `agent` | Installing a software agent (CASL) | Yes | Unlimited (for the duration of the engagement) |
+| `sensibles` | High-risk processing and sensitive data | Yes | 365 days |
 
-*Finalités sectorielles — services de garde (CPE) :*
+*Sector-specific purposes — childcare centres:*
 
-| Code | Finalité | Opt-in express | Validité par défaut |
-|------|----------|----------------|---------------------|
-| `medicaments` | Administration de médicaments | Oui | 365 jours |
-| `sorties` | Sorties éducatives et excursions | Oui | 365 jours |
-| `baignades` | Baignades et activités aquatiques | Oui | 365 jours |
-| `transport` | Transport des enfants | Oui | 365 jours |
-| `depart` | Personnes autorisées à récupérer l'enfant | Non | 365 jours |
-| `surveillance` | Vidéosurveillance des locaux | Consentement non requis | Illimité (enregistrements conservés 30 j) |
+| Code | Purpose | Express opt-in | Default validity |
+|------|---------|----------------|------------------|
+| `medicaments` | Administering medication | Yes | 365 days |
+| `sorties` | Educational outings and excursions | Yes | 365 days |
+| `baignades` | Swimming and water activities | Yes | 365 days |
+| `transport` | Transporting children | Yes | 365 days |
+| `depart` | People authorised to collect the child | No | 365 days |
+| `surveillance` | Video surveillance of the premises | Consent not required | Unlimited (recordings kept 30 days) |
 
-> Les finalités sont **extensibles** : chaque organisation peut en ajouter, en modifier ou en désactiver selon son secteur. Les six dernières sont des modèles sectoriels pour les services de garde (CPE).
+> Purposes are **extensible**: every organisation can add, change or deactivate
+> them for its own sector. The last six are sector templates for childcare
+> centres.
 
-### Gestion des avis (Notices)
+### Notice management
 
-- Création de modèles d'avis bilingues (français/anglais)
-- **Versionnage automatique** avec empreinte SHA256
-- Traçabilité complète : quelle version a été présentée à quel moment
-- Impossibilité de modifier une version déjà utilisée (immutabilité)
+- Bilingual notice templates (French/English)
+- **Automatic versioning** with a SHA256 hash
+- Full traceability: which version was presented, and when
+- A version already in use cannot be modified (immutability)
 
-### Enregistrement des consentements
+### Recording consents
 
-- Workflow complet : Brouillon → En attente → Accordé/Refusé → Retiré/Expiré
-- Lien avec le **contact** (personne concernée)
-- Lien optionnel avec un **représentant** (pour les mineurs < 14 ans)
-- Lien contextuel avec un **projet** ou autre enregistrement
-- Méthode de collecte traçable (portail, email, signature, verbal, importation)
-- Horodatage de chaque changement d'état
-- **Chatter intégré** pour l'historique complet
+- A complete workflow: Draft → Pending → Granted/Refused → Withdrawn/Expired
+- A link to the **contact** (the data subject)
+- An optional link to a **representative** (for minors under 14)
+- A contextual link to a **project** or another record
+- A traceable collection method (portal, email, signature, verbal, import)
+- Timestamping of every state change
+- **Built-in chatter** for the complete history
 
-### Gestion des preuves (Evidence)
+### Evidence management
 
-- Pièces jointes (PDF signé, capture d'écran, document)
-- Notes de confirmation verbale
-- Métadonnées techniques (adresse IP, user agent) pour le portail
-- Traçabilité : qui a collecté, quand, comment
+- Attachments (signed PDF, screenshot, document)
+- Verbal confirmation notes
+- Technical metadata (IP address, user agent) for the portal
+- Traceability: who collected it, when and how
 
-### Préférences de contact
+### Contact preferences
 
-- Gestion granulaire par canal :
-  - Email de service / Email marketing
-  - Téléphone / SMS
-- Indicateur **Ne pas contacter** (coupe-circuit global)
-- Langue préférée et heures de contact préférées
-- Motif d'opt-out catégorisé
-- Historique des modifications via chatter
+- Granular management per channel:
+  - Service email / marketing email
+  - Phone / SMS
+- A **Do not contact** flag (a global kill switch)
+- Preferred language and preferred contact hours
+- A categorised opt-out reason
+- A change history through the chatter
 
-### Destruction et anonymisation documentaire (v18.0.3.0.0)
+### Document destruction and anonymisation (v18.0.3.0.0)
 
-#### Calendrier de conservation
+#### Retention calendar
 
-- Regles de conservation par type de document (contrats, factures, dossiers RH, projets, etc.)
-- Base legale obligatoire pour chaque regle (ex: Art. 2925 C.c.Q.)
-- Periodes de conservation active et semi-active en annees
-- Disposition finale configurable : detruire, anonymiser, archiver en permanence, transferer
-- Revision annuelle integree avec suivi des dates
+- Retention rules per document type (contracts, invoices, HR files, projects, and so on)
+- A mandatory legal basis for each rule (e.g. art. 2925 C.C.Q.)
+- Active and semi-active retention periods in years
+- A configurable final disposition: destroy, anonymise, archive permanently, transfer
+- Built-in annual review with date tracking
 
-**Regles incluses par defaut :**
+**Rules included by default:**
 
-| Code | Type de document | Conservation | Base legale |
-|------|-----------------|--------------|-------------|
-| `CTR-001` | Contrats | 6 ans | Art. 2925 C.c.Q. |
-| `FIN-001` | Factures et documents fiscaux | 7 ans (6+1) | Loi sur l'administration fiscale |
-| `RH-001` | Dossiers employes | 5 ans (3+2) | Normes du travail |
-| `PRJ-001` | Dossiers de projet | 5 ans | Art. 2925 C.c.Q. |
-| `COR-001` | Correspondance | 3 ans | Pratique |
-| `MED-001` | Documents medicaux | 7 ans | Regl. dossiers de sante (LSST) |
-| `SEC-001` | Identifiants et mots de passe | 0 an | Securite |
-| `CST-001` | Registres de consentement | 3 ans | Loi 25 |
+| Code | Document type | Retention | Legal basis |
+|------|---------------|-----------|-------------|
+| `CTR-001` | Contracts | 6 years | Art. 2925 C.C.Q. |
+| `FIN-001` | Invoices and tax documents | 7 years (6+1) | Tax Administration Act |
+| `RH-001` | Employee files | 5 years (3+2) | Labour standards |
+| `PRJ-001` | Project files | 5 years | Art. 2925 C.C.Q. |
+| `COR-001` | Correspondence | 3 years | Practice |
+| `MED-001` | Medical documents | 7 years | Health records regulation (OHS Act) |
+| `SEC-001` | Credentials and passwords | 0 years | Security |
+| `CST-001` | Consent registers | 3 years | Law 25 |
 
-#### Classification documentaire
+#### Document classification
 
-- Classifie n'importe quel enregistrement Odoo avec ses categories de RP
-- 10 categories de renseignements personnels (identification, medical, financier, biometrique, etc.)
-- 4 niveaux de sensibilite (public, interne, confidentiel, hautement confidentiel)
-- Identifiants directs et indirects
-- Date d'expiration de retention calculee automatiquement
-- **Liste blanche de modeles** : seuls les modeles pouvant contenir des RP peuvent etre classifies (securite)
+- Classifies any Odoo record with its personal information categories
+- 10 categories of personal information (identification, medical, financial, biometric, and so on)
+- 4 sensitivity levels (public, internal, confidential, highly confidential)
+- Direct and indirect identifiers
+- A retention expiry date computed automatically
+- **A model allowlist**: only models that can hold personal information may be classified (security)
 
-#### Registre de destruction (immuable)
+#### Destruction register (immutable)
 
-- Registre de destruction conforme a l'article 3.2 LPRPSP
-- **Immutabilite totale** : aucune modification (sauf notes) ni suppression possible
-- **Chaine SHA-256** : chaque entree integre l'empreinte de l'entree precedente (hash chaine) — toute alteration ou suppression d'un maillon rompt la chaine et devient detectable
-- **Cron de verification d'integrite** : parcourt le registre dans l'ordre et signale toute empreinte rompue (v18.0.3.1)
-- Numerotation automatique (REG-YYYY-NNNNN)
-- Lien avec les demandes de destruction et les campagnes
-- Double protection : Python (`write()`/`unlink()` overrides) + regles d'enregistrement ORM
+- A destruction register compliant with section 3.2 of the Private Sector Act
+- **Total immutability**: no modification (except notes) and no deletion
+- **SHA-256 chain**: each entry embeds the previous entry's hash — altering or deleting any link breaks the chain and becomes detectable
+- **An integrity verification cron**: walks the register in order and reports any broken hash (v18.0.3.1)
+- Automatic numbering (REG-YYYY-NNNNN)
+- Links to destruction requests and campaigns
+- Double protection: Python (`write()`/`unlink()` overrides) plus ORM record rules
 
-#### Campagnes de destruction en lot
+#### Batch destruction campaigns
 
-- Workflow complet : Brouillon -> Balayage -> Revision -> Approbation -> Execution -> Terminee
-- Balayage automatique des documents depasses selon le calendrier de conservation
-- Execution par ligne avec gestion des erreurs individuelle (pas d'abandon global)
-- Creation automatique d'entrees au registre de destruction pour chaque document detruit
-- Possibilite d'ignorer des documents individuellement
+- A complete workflow: Draft → Scan → Review → Approval → Execution → Done
+- Automatic scanning for documents past their retention under the calendar
+- Per-line execution with individual error handling (no global abort)
+- Automatic creation of destruction register entries for each destroyed document
+- The option to skip individual documents
 
-#### Evaluations d'anonymisation (Reglement A-2.1, r. 0.1)
+#### Anonymisation assessments (Regulation A-2.1, r. 0.1)
 
-- Evaluation des 3 criteres du Reglement sur l'anonymisation (mai 2024) :
-  1. **Individualisation** : peut-on isoler une personne?
-  2. **Correlation** : peut-on relier des jeux de donnees?
-  3. **Inference** : peut-on deduire des RP?
-- Risque global calcule automatiquement (le plus eleve des 3)
-- Determination automatique si les donnees sont effectivement anonymes
-- Reevaluations periodiques programmees avec alerte automatique
-- Chaine de reevaluation (parent/enfant)
+- Assessment against the 3 criteria of the anonymisation regulation (May 2024):
+  1. **Individualisation**: can a person be singled out?
+  2. **Correlation**: can data sets be linked?
+  3. **Inference**: can personal information be deduced?
+- Overall risk computed automatically (the highest of the 3)
+- Automatic determination of whether the data is effectively anonymous
+- Scheduled periodic reassessments with an automatic alert
+- A reassessment chain (parent/child)
 
-#### Droit a l'effacement (Art. 28.1 LPRPSP)
+#### Right to erasure (s. 28.1)
 
-- Action serveur depuis la fiche contact : « Demander l'effacement des donnees »
-- Creation automatique d'une demande de destruction avec toutes les classifications du contact
-- Destruction securisee des identifiants (overwrite cryptographique)
-- Creation d'activite pour la suppression manuelle du dossier Nextcloud
+- A server action from the contact record: "Request erasure of the data"
+- Automatic creation of a destruction request covering all of the contact's classifications
+- Secure destruction of credentials (cryptographic overwrite)
+- An activity created for manually deleting the Nextcloud folder
 
-### Intégration aux Contacts
+### Contacts integration
 
-- Nouvel onglet **« Vie privée (Loi 25) »** dans la fiche contact
-- **Badges visuels** : Marketing ✓/✗, Enregistrement ✓/✗, Référence ✓/✗
-- Liste des consentements actifs
-- Boutons d'action rapide :
-  - Demander un consentement
-  - Voir/modifier les préférences
+- A new **"Privacy (Law 25)"** tab on the contact record
+- **Visual badges**: Marketing ✓/✗, Recording ✓/✗, Reference ✓/✗
+- A list of active consents
+- Quick action buttons:
+  - Request a consent
+  - View/edit the preferences
 
-### Intégration aux Projets
+### Projects integration
 
-- Nouvel onglet **« Consentements »** dans la fiche projet
-- Indicateur de statut global (Aucun / En attente / Partiel / Complet)
-- Liste des consentements liés au projet
-- Bouton pour demander des consentements aux contacts du projet
+- A new **"Consents"** tab on the project record
+- An overall status indicator (None / Pending / Partial / Complete)
+- A list of consents linked to the project
+- A button to request consents from the project's contacts
 
-### Portail client (Preference Center)
+### Client portal (preference centre)
 
-- Page **« Mes préférences de confidentialité »** accessible à `/my/privacy/preferences`
-- Gestion autonome des préférences de communication
-- Historique des consentements
-- Réponse aux demandes de consentement en attente
-- Interface bilingue français/anglais
+- A **"My privacy preferences"** page at `/my/privacy/preferences`
+- Self-service management of communication preferences
+- Consent history
+- Responses to pending consent requests
+- A bilingual French/English interface
 
 ---
 
 ## Installation
 
-### Prérequis
+### Prerequisites
 
 - Odoo 18.0 Community Edition
-- Modules dépendants : `base`, `mail`, `project`, `portal`, `bluefox_branding`
+- Dependent modules: `base`, `mail`, `project`, `portal`, `bluefox_branding`
 
-### Procédure
+### Procedure
 
-1. **Copier le module** dans votre répertoire `addons` :
+1. **Copy the module** into your `addons` directory:
    ```bash
    cp -r privacy_consent /path/to/odoo/addons/
    ```
 
-2. **Redémarrer Odoo** :
+2. **Restart Odoo**:
    ```bash
    ./odoo-bin -c odoo.conf -u base
    ```
 
-3. **Installer le module** :
-   - Aller dans *Applications*
-   - Cliquer sur *Mettre à jour la liste des applications*
-   - Rechercher « Suivi des consentements » ou « privacy_consent »
-   - Cliquer sur *Installer*
+3. **Install the module**:
+   - Go to *Apps*
+   - Click *Update Apps List*
+   - Search for "Consent tracking" or "privacy_consent"
+   - Click *Install*
 
 ---
 
 ## Configuration
 
-### 1. Configurer les finalités
+### 1. Configure the purposes
 
-Accéder à **Privacy > Configuration > Finalités**
+Go to **Privacy > Configuration > Purposes**
 
-Pour chaque finalité, définir :
-- **Code** : identifiant technique unique
-- **Nom** : libellé affiché
-- **Résumé en langage clair** : texte présenté aux personnes concernées
-- **Consentement requis** : oui/non
-- **Opt-in express requis** : pour les finalités sensibles
-- **Validité par défaut** : nombre de jours (0 = illimité)
+For each purpose, define:
+- **Code**: a unique technical identifier
+- **Name**: the displayed label
+- **Plain-language summary**: the text presented to data subjects
+- **Consent required**: yes/no
+- **Express opt-in required**: for sensitive purposes
+- **Default validity**: number of days (0 = unlimited)
 
-### 2. Créer les avis de consentement
+### 2. Create the consent notices
 
-Accéder à **Privacy > Configuration > Avis**
+Go to **Privacy > Configuration > Notices**
 
-Pour chaque avis :
-1. Associer une finalité
-2. Rédiger le contenu en français et en anglais
-3. Cliquer sur **« Créer une nouvelle version »**
+For each notice:
+1. Associate a purpose
+2. Write the content in French and English
+3. Click **"Create a new version"**
 
-### 3. Configurer les groupes de securite
+### 3. Configure the security groups
 
-| Groupe | Acces |
-|--------|-------|
-| **Privacy User** | Lecture des consentements, classifications, registre |
-| **Privacy Manager** | CRUD sur consentements, classifications, campagnes. Peut creer des demandes de destruction |
-| **Privacy Officer** | Administration complete. Peut approuver et executer les destructions et evaluations |
+| Group | Access |
+|-------|--------|
+| **Privacy User** | Read consents, classifications, register |
+| **Privacy Manager** | CRUD on consents, classifications, campaigns. Can create destruction requests |
+| **Privacy Officer** | Full administration. Can approve and execute destructions and assessments |
 
-Les utilisateurs sont assignes aux groupes via *Parametres > Utilisateurs*.
-
----
-
-## Utilisation
-
-### Demander un consentement
-
-**Depuis un contact :**
-1. Ouvrir la fiche contact
-2. Aller à l'onglet « Vie privée (Loi 25) »
-3. Cliquer sur **« Demander un consentement »**
-4. Sélectionner la finalité et l'avis
-5. Choisir si un email doit être envoyé
-6. Valider
-
-**Depuis le menu Privacy :**
-1. Aller à **Privacy > Operations > Consentements**
-2. Cliquer sur **Créer**
-3. Remplir les informations et enregistrer
-4. Cliquer sur **« Envoyer la demande »**
-
-### Accorder un consentement
-
-- Depuis le **portail client** : le contact répond directement
-- Depuis le **backend** : un utilisateur peut cliquer sur « Accorder »
-- La date d'expiration est calculée automatiquement
-
-### Retirer un consentement
-
-1. Ouvrir le consentement accordé
-2. Cliquer sur **« Retirer »**
-3. Sélectionner le motif de retrait
-4. Optionnellement, mettre à jour les préférences de contact
-5. Valider
-
-### Consulter l'historique
-
-Chaque consentement dispose d'un **chatter** affichant :
-- Les changements de statut
-- Les emails envoyés
-- Les notes ajoutées
-- Les modifications de dates
+Users are assigned to groups through *Settings > Users*.
 
 ---
 
-## Architecture technique
+## Usage
 
-### Modeles de donnees
+### Requesting a consent
 
-**Consentements :**
+**From a contact:**
+1. Open the contact record
+2. Go to the "Privacy (Law 25)" tab
+3. Click **"Request a consent"**
+4. Select the purpose and the notice
+5. Choose whether an email should be sent
+6. Confirm
+
+**From the Privacy menu:**
+1. Go to **Privacy > Operations > Consents**
+2. Click **Create**
+3. Fill in the information and save
+4. Click **"Send the request"**
+
+### Granting a consent
+
+- From the **client portal**: the contact responds directly
+- From the **backend**: a user can click "Grant"
+- The expiry date is computed automatically
+
+### Withdrawing a consent
+
+1. Open the granted consent
+2. Click **"Withdraw"**
+3. Select the withdrawal reason
+4. Optionally, update the contact preferences
+5. Confirm
+
+### Reviewing the history
+
+Every consent has a **chatter** showing:
+- Status changes
+- Emails sent
+- Notes added
+- Date changes
+
+---
+
+## Technical architecture
+
+### Data models
+
+**Consents:**
 ```
-privacy.purpose               # Finalites de consentement
-privacy.notice                # Modeles d'avis
-privacy.notice.version        # Versions immutables avec hash SHA256
-privacy.consent               # Enregistrements de consentement (mail.thread)
-privacy.consent.evidence      # Preuves et pieces jointes
-privacy.contact.preference    # Preferences de communication
-privacy.consent.group         # Groupes de consentement
-privacy.dashboard             # Tableau de bord avec KPIs (transient)
+privacy.purpose               # Consent purposes
+privacy.notice                # Notice templates
+privacy.notice.version        # Immutable versions with a SHA256 hash
+privacy.consent               # Consent records (mail.thread)
+privacy.consent.evidence      # Evidence and attachments
+privacy.contact.preference    # Communication preferences
+privacy.consent.group         # Consent groups
+privacy.dashboard             # Dashboard with KPIs (transient)
 ```
 
-**Destruction et anonymisation :**
+**Destruction and anonymisation:**
 ```
-privacy.retention.policy             # Politiques de retention (par consentement)
-privacy.retention.calendar           # Calendrier de conservation (par type de document)
-privacy.document.classification      # Classification documentaire (RP)
-privacy.destruction.request          # Demandes de destruction (mail.thread)
-privacy.destruction.register         # Registre de destruction immuable
-privacy.destruction.campaign         # Campagnes de destruction en lot (mail.thread)
-privacy.destruction.campaign.line    # Lignes de campagne
-privacy.anonymization.assessment     # Evaluations d'anonymisation (mail.thread)
-```
-
-**Signatures electroniques :**
-```
-privacy.docuseal.config        # Configuration DocuSeal
-privacy.docuseal.template      # Modeles DocuSeal
-privacy.libresign.config       # Configuration LibreSign
-privacy.libresign.template     # Modeles LibreSign
+privacy.retention.policy             # Retention policies (per consent)
+privacy.retention.calendar           # Retention calendar (per document type)
+privacy.document.classification      # Document classification (personal information)
+privacy.destruction.request          # Destruction requests (mail.thread)
+privacy.destruction.register         # Immutable destruction register
+privacy.destruction.campaign         # Batch destruction campaigns (mail.thread)
+privacy.destruction.campaign.line    # Campaign lines
+privacy.anonymization.assessment     # Anonymisation assessments (mail.thread)
 ```
 
-**Extensions :**
+**Electronic signatures:**
 ```
-res.partner              # Onglet Privacy + badges + compteurs
-project.project          # Onglet Consentements + statut global
+privacy.docuseal.config        # DocuSeal configuration
+privacy.docuseal.template      # DocuSeal templates
+privacy.libresign.config       # LibreSign configuration
+privacy.libresign.template     # LibreSign templates
 ```
 
-### Structure des fichiers
+**Extensions:**
+```
+res.partner              # Privacy tab + badges + counters
+project.project          # Consents tab + overall status
+```
+
+### File structure
 
 ```
 privacy_consent/
@@ -443,7 +463,7 @@ privacy_consent/
 │   └── privacy_consent_certificate.xml
 ├── security/
 │   ├── ir.model.access.csv          # 55 ACLs
-│   └── privacy_security.xml         # 3 groupes, 14 regles d'enregistrement
+│   └── privacy_security.xml         # 3 groups, 14 record rules
 ├── views/
 │   ├── menu_views.xml
 │   ├── portal_templates.xml
@@ -483,167 +503,168 @@ privacy_consent/
 
 ---
 
-## Sécurité et conformité
+## Security and compliance
 
 ### Audit trail
 
-- Tous les modèles principaux héritent de `mail.thread`
-- Les champs critiques (`status`, `expires_at`, etc.) ont `tracking=True`
-- Chaque modification est journalisée dans le chatter
+- All the main models inherit `mail.thread`
+- Critical fields (`status`, `expires_at`, and so on) carry `tracking=True`
+- Every change is logged in the chatter
 
-### Intégrité des avis
+### Notice integrity
 
-- Les versions d'avis sont **immutables** une fois utilisées
-- Une empreinte **SHA256** est générée automatiquement
-- Impossible de modifier le contenu d'une version liée à des consentements
+- Notice versions are **immutable** once used
+- A **SHA256** hash is generated automatically
+- The content of a version linked to consents cannot be modified
 
-### Isolation des données
+### Data isolation
 
-- Regles de securite par **entreprise** (multi-company) sur tous les modeles
-- Les utilisateurs du **portail** ne voient que leurs propres donnees
-- Acces graduel selon les groupes (User < Manager < Officer)
+- Per-**company** security rules (multi-company) on every model
+- **Portal** users see only their own data
+- Graduated access by group (User < Manager < Officer)
 
-### Durcissement de securite (v18.0.3.0.0)
+### Security hardening (v18.0.3.0.0)
 
-- **Registre immuable** : double protection Python + regles ORM (no-unlink)
-- **Liste blanche de modeles** pour la classification documentaire
-- **Verification des droits d'acces** avant toute operation sudo() dans les destructions
-- **Verification de groupe Python** sur toutes les actions sensibles (approuver, executer)
-- **Contraintes de transition d'etat** sur les evaluations d'anonymisation
-- **Validation des methodes** de destruction (rejet des valeurs inattendues)
-- **Approbation cron securisee** : seules les demandes avec politique sont auto-approuvees
-- **Isolation par entreprise** pour les demandes de destruction et classifications
+- **Immutable register**: double protection, Python plus ORM rules (no unlink)
+- **A model allowlist** for document classification
+- **Access rights verified** before any `sudo()` operation in destructions
+- **Python group checks** on every sensitive action (approve, execute)
+- **State transition constraints** on anonymisation assessments
+- **Validation of destruction methods** (unexpected values rejected)
+- **Secured cron approval**: only requests with a policy are auto-approved
+- **Per-company isolation** for destruction requests and classifications
 
-### Conformite Loi 25
+### Law 25 compliance
 
-| Exigence | Implementation |
-|----------|----------------|
-| Consentement manifeste (Art. 14) | Workflow explicite avec horodatage |
-| Langage clair (Art. 14) | Champ « resume en langage clair » obligatoire |
-| Par finalite (Art. 14) | Une finalite = un enregistrement de consentement |
-| Preuve (Art. 14) | Modele `privacy.consent.evidence` avec pieces jointes |
-| Retrait (Art. 14) | Wizard avec motif et propagation aux preferences |
-| Expiration | Cron quotidien + alertes 30 jours avant |
-| Mineurs < 14 ans (Art. 14) | Champ « donne par » pour representant legal |
-| Destruction (Art. 23) | Demandes de destruction + registre immuable |
-| Gouvernance (Art. 3.2) | Calendrier de conservation + registre de destruction |
-| Droit a l'effacement (Art. 28.1) | Action serveur depuis la fiche contact |
-| Anonymisation (Regl. A-2.1) | Evaluation des 3 criteres avec reevaluation periodique |
+| Requirement | Implementation |
+|-------------|----------------|
+| Manifest consent (s. 14) | An explicit workflow with timestamping |
+| Clear language (s. 14) | A mandatory "plain-language summary" field |
+| Per purpose (s. 14) | One purpose = one consent record |
+| Evidence (s. 14) | The `privacy.consent.evidence` model with attachments |
+| Withdrawal (s. 14) | A wizard with a reason and propagation to the preferences |
+| Expiry | A daily cron plus alerts 30 days ahead |
+| Minors under 14 (s. 14) | A "given by" field for the legal representative |
+| Destruction (s. 23) | Destruction requests plus an immutable register |
+| Governance (s. 3.2) | A retention calendar plus a destruction register |
+| Right to erasure (s. 28.1) | A server action from the contact record |
+| Anonymisation (Reg. A-2.1) | Assessment against the 3 criteria with periodic reassessment |
 
 ---
 
-## Portail client
+## Client portal
 
-### URLs disponibles
+### Available URLs
 
 | URL | Description |
 |-----|-------------|
-| `/my/privacy/preferences` | Centre de préférences |
-| `/my/privacy/consents` | Historique des consentements |
-| `/my/privacy/consent/<id>` | Détail d'un consentement |
-| `/my/privacy/consent/<id>/respond` | Répondre à une demande |
+| `/my/privacy/preferences` | Preference centre |
+| `/my/privacy/consents` | Consent history |
+| `/my/privacy/consent/<id>` | A consent's detail |
+| `/my/privacy/consent/<id>/respond` | Responding to a request |
 
-### Fonctionnalités
+### Features
 
-- **Gestion des préférences** : activer/désactiver les communications par canal
-- **Bouton « Ne pas contacter »** : opt-out global
-- **Historique** : voir tous les consentements passés et présents
-- **Réponse aux demandes** : accorder ou refuser directement
-
----
-
-## Automatisations
-
-### Taches planifiees (Cron)
-
-| Tache | Frequence | Action |
-|-------|-----------|--------|
-| Verification des expirations | Quotidienne | Cree une activite 30 jours avant expiration |
-| Marquage des expires | Quotidienne | Passe le statut a « Expire » |
-| Expiration auto des demandes en attente | Quotidienne | Expire les consentements restes sans reponse |
-| Traitement des sequences de courriels | Quotidienne | Envoie les rappels et renouvellements programmes |
-| Creation des demandes de destruction | Quotidienne | Cree les demandes selon les politiques de retention |
-| Traitement des destructions planifiees | Quotidienne | Approuve et execute les demandes dues |
-| Verification des reevaluations | Quotidienne | Signale les evaluations d'anonymisation dues |
-| Verification de l'integrite du registre | Quotidienne | Recalcule la chaine SHA-256 et alerte en cas d'alteration |
-
-### Templates email
-
-- **Demande de consentement** : envoye lors d'une nouvelle demande
-- **Avertissement d'expiration** : disponible pour envoi manuel ou automatise
-- **Sequences automatisees** : sequences de courriels configurables (rappels, renouvellements)
+- **Preference management**: turning communications on/off per channel
+- **A "Do not contact" button**: global opt-out
+- **History**: seeing every past and present consent
+- **Responding to requests**: granting or refusing directly
 
 ---
 
-## Dépendances
+## Automations
 
-| Module | Usage |
-|--------|-------|
-| `base` | Modele `res.partner`, infrastructure de base |
-| `mail` | Chatter, activites, templates email |
-| `project` | Extension du modele `project.project` |
-| `portal` | Controleur et templates du portail client |
-| `bluefox_branding` | Gabarits de courriels et rapports brandes |
+### Scheduled jobs (cron)
 
-| Dependance Python | Usage |
-|-------------------|-------|
-| `cryptography` | Chiffrement des mots de passe et cles API |
-| `dateutil` | Calcul des dates de reevaluation (relativedelta) |
+| Job | Frequency | Action |
+|-----|-----------|--------|
+| Expiry check | Daily | Creates an activity 30 days before expiry |
+| Marking expiries | Daily | Moves the status to "Expired" |
+| Auto-expiry of pending requests | Daily | Expires consents left unanswered |
+| Processing email sequences | Daily | Sends the scheduled reminders and renewals |
+| Creating destruction requests | Daily | Creates requests according to the retention policies |
+| Processing scheduled destructions | Daily | Approves and executes the due requests |
+| Reassessment check | Daily | Flags anonymisation assessments that are due |
+| Register integrity check | Daily | Recomputes the SHA-256 chain and alerts on alteration |
 
-### Modules compagnons facultatifs — cadres réglementaires (v18.0.4.0.0)
+### Email templates
 
-La Loi 25 (Québec) est intégrée au module principal ; **aucun module compagnon n'est requis** pour l'usage par défaut. Pour servir d'autres juridictions, installez le ou les modules data-only suivants (ils ne dépendent que de `privacy_consent`) :
+- **Consent request**: sent on a new request
+- **Expiry warning**: available for manual or automated sending
+- **Automated sequences**: configurable email sequences (reminders, renewals)
 
-| Module | Cadre ajouté | Autorité |
-|--------|--------------|----------|
-| `privacy_framework_gdpr` | RGPD / GDPR (Union européenne) | autorité de contrôle nationale / EDPB |
+---
+
+## Dependencies
+
+| Module | Use |
+|--------|-----|
+| `base` | The `res.partner` model, base infrastructure |
+| `mail` | Chatter, activities, email templates |
+| `project` | Extending the `project.project` model |
+| `portal` | Client portal controller and templates |
+| `bluefox_branding` | Branded email and report templates |
+
+| Python dependency | Use |
+|-------------------|-----|
+| `cryptography` | Encrypting passwords and API keys |
+| `dateutil` | Computing reassessment dates (relativedelta) |
+
+### Optional companion modules — regulatory frameworks (v18.0.4.0.0)
+
+Law 25 (Quebec) is built into the main module, and **no companion module is
+required** for default use. To serve other jurisdictions, install one or more of
+the following data-only modules (they depend only on `privacy_consent`):
+
+| Module | Framework added | Authority |
+|--------|-----------------|-----------|
+| `privacy_framework_gdpr` | GDPR (European Union) | national supervisory authority / EDPB |
 | `privacy_framework_uk` | UK GDPR / Data Protection Act 2018 | ICO |
-| `privacy_framework_pipeda` | LPRPDE / PIPEDA (Canada fédéral) | CPVP / OPC |
-| `privacy_framework_nz` | Privacy Act 2020 (Nouvelle-Zélande) | OPC NZ |
+| `privacy_framework_pipeda` | PIPEDA (federal Canada) | OPC |
+| `privacy_framework_nz` | Privacy Act 2020 (New Zealand) | OPC NZ |
 
 ---
 
 ## Licence
 
-Distribué sous **Business Source License 1.1** (BUSL-1.1). Voir le fichier
-[`LICENSE`](LICENSE) pour les paramètres exacts.
+Distributed under the **Business Source License 1.1** (BUSL-1.1). See the
+[`LICENSE`](LICENSE) file for the exact parameters.
 
-- **Permis sans entente** : l'usage en production pour vos propres opérations
-  internes.
-- **Demande une entente écrite** : fournir le module comme produit ou service à
-  des tiers — hébergé, infogéré ou revendu.
-- **Change Date** : le 2029-07-20, cette version bascule automatiquement en
+- **Allowed without an agreement**: production use for your own internal
+  business operations.
+- **Requires a written agreement**: providing the module as a product or
+  service to third parties, whether hosted, managed or resold.
+- **Change Date**: on 2029-07-20, this version converts automatically to
   **LGPL-3.0-or-later**.
-
-```
-This module is licensed under the **Business Source License 1.1** (BUSL-1.1). Production use for your own internal business operations is permitted; providing the module as a product or service to third parties — hosted, managed or resold — requires a separate written agreement. On 2029-07-20 it converts to LGPL-3.0-or-later. See [LICENSE](LICENSE) for the full text.
-```
 
 ## Disclaimer
 
-This module is provided as-is, without warranty of any kind. Use at your own risk. Blue Fox Inc. assumes no liability for any damages arising from the use of this software.
+This module is provided as-is, without warranty of any kind. Use at your own
+risk. Blue Fox Inc. assumes no liability for any damages arising from the use of
+this software.
 
 ---
 
 ## Support
 
-Pour signaler un problème ou suggérer une amélioration, veuillez contacter l'équipe technique ou ouvrir un ticket dans le dépôt.
+To report a problem or suggest an improvement, contact the technical team or
+open a ticket in the repository.
 
 ---
 
-## Historique des versions
+## Version history
 
 | Version | Date | Description |
 |---------|------|-------------|
-| 18.0.4.1.0 | 2026-07 | Portail de consentement **brandé** : les gabarits du portail consomment les variables `--brand-primary` / `--brand-dark` issues de `report_brand_*` au lieu de couleurs codées en dur, avec repli sur les valeurs par défaut |
-| 18.0.4.0.0 | 2026-06 | Moteur **multi-cadres réglementaires** : modèle `privacy.framework` (+ bases légales + droits des personnes), cadre par défaut par société surchargeable par enregistrement, courriels et certificats paramétrés. Loi 25 intégrée + modules compagnons GDPR / UK GDPR / PIPEDA / Privacy Act 2020 (NZ). La Loi 25 reste **inchangée** (rendu identique, chaîne d'intégrité du registre de destruction préservée) |
-| 18.0.3.1.0 | 2026-04 | Registre de destruction a chaine SHA-256 (chaque entree integre l'empreinte de la precedente) + cron de verification d'integrite (8e tache planifiee) |
-| 18.0.3.1.4 | 2026-06 | Synchronisation documentation et métadonnées (licence/LICENSE). Voir l'historique git pour le détail. |
-| 18.0.3.0.1 | 2026-04-11 | Correctifs QA : 17 methodes action_* sans retour XML-RPC, selection secure_wipe manquante, ACL registre (notes editable par Officer), certificat PDF redirige vers rapport QWeb, codes README corriges |
-| 18.0.3.0.0 | 2026-04 | Destruction et anonymisation documentaire : calendrier de conservation, classification documentaire, registre de destruction immuable, campagnes de destruction en lot, evaluations d'anonymisation (Regl. A-2.1), droit a l'effacement, audit de securite complet |
-| 18.0.2.0.0 | 2026-02 | Ajout du manuel d'utilisation complet, integration DocuSeal, politiques de retention, certificats de destruction |
-| 18.0.1.0.0 | 2026-01 | Version initiale |
+| 18.0.4.1.0 | 2026-07 | **Branded** consent portal: the portal templates consume the `--brand-primary` / `--brand-dark` variables from `report_brand_*` instead of hardcoded colours, falling back to the defaults |
+| 18.0.4.0.0 | 2026-06 | **Multi-framework** engine: a `privacy.framework` model (plus legal bases and data subject rights), a per-company default framework overridable per record, parameterised emails and certificates. Law 25 built in, plus GDPR / UK GDPR / PIPEDA / Privacy Act 2020 (NZ) companion modules. Law 25 is **unchanged** (identical rendering, destruction register integrity chain preserved) |
+| 18.0.3.1.0 | 2026-04 | SHA-256 chained destruction register (each entry embeds the previous one's hash) plus an integrity verification cron (the 8th scheduled job) |
+| 18.0.3.1.4 | 2026-06 | Documentation and metadata synchronisation (licence/LICENSE). See the git history for details. |
+| 18.0.3.0.1 | 2026-04-11 | QA fixes: 17 `action_*` methods with no XML-RPC return, a missing `secure_wipe` selection, register ACL (notes editable by the Officer), the PDF certificate redirected to the QWeb report, README codes corrected |
+| 18.0.3.0.0 | 2026-04 | Document destruction and anonymisation: retention calendar, document classification, immutable destruction register, batch destruction campaigns, anonymisation assessments (Reg. A-2.1), right to erasure, full security audit |
+| 18.0.2.0.0 | 2026-02 | Added the complete user manual, DocuSeal integration, retention policies, destruction certificates |
+| 18.0.1.0.0 | 2026-01 | Initial release |
 
 ---
 
-<sub>¹ Le code de ce module a été développé avec l'assistance de [Claude](https://claude.ai) (Anthropic) pour la revue et l'optimisation du code.</sub>
+<sub>¹ This module's code was developed with assistance from [Claude](https://claude.ai) (Anthropic) for code review and optimisation.</sub>

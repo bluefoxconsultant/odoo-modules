@@ -1,102 +1,114 @@
-# Rencontres (bf_meeting)
+# Meetings (bf_meeting)
 
-Module Odoo 18 Community couvrant le cycle complet d'une rencontre : ordre du jour, événement calendrier, compte rendu structuré, décisions, présences, et liaison bidirectionnelle avec les tâches et les matrices de connaissances.
+An Odoo 18 Community module covering the full life of a meeting: agenda,
+calendar event, structured report, decisions, attendance, and two-way links
+with tasks and knowledge matrices.
 
-## Cas d'usage
+## Use case
 
-Permettre à une équipe de projet de planifier, tenir et documenter ses rencontres à partir d'Odoo, sans outil externe : préparation de l'ordre du jour à partir des tâches en cours, envoi par courriel aux participants, prise de notes structurées, production d'un compte rendu PDF brandé, et suivi des décisions comme lignes de matrice de connaissances.
+Letting a project team plan, hold and document its meetings from inside Odoo,
+with no external tool: preparing the agenda from open tasks, emailing it to
+participants, taking structured notes, producing a branded PDF report, and
+tracking decisions as knowledge matrix lines.
 
-## Fonctionnalités
+## Features
 
-- **Ordres du jour (`meeting.agenda`)** — titre, date, projet, participants, sujets planifiés, envoi par courriel aux destinataires
-- **Comptes rendus (`meeting.record`)** — sujets abordés, décisions, notes structurées JSON rendues en HTML sécurisé, rapport PDF, suivi de l'envoi
-- **Décisions (`meeting.decision`)** — décisionnaires, contexte, transfert optionnel vers les matrices de connaissances
-- **Présences (`meeting.attendance`)** — statut (présent / absent / excusé) et rôle par participant
-- **Tâches à discuter** — quatre modes de rattachement d'une `project.task` à une rencontre à venir :
-  - *Épinglée* : lien explicite vers un ordre du jour précis
-  - *Prochaine rencontre client* : apparaît au prochain OdJ admissible du client
-  - *Prochaine rencontre projet* : apparaît au prochain OdJ admissible du projet
-  - *Toutes les rencontres client/projet* : apparaît à chaque OdJ admissible tant que la tâche est ouverte
-- **Résolution dynamique** — les tâches taguées sont calculées à chaque ouverture de l'OdJ (formulaire, PDF, courriel) et disparaissent dès qu'elles sont fermées
-- **Annulation d'un OdJ** — les tâches hard-linkées sans tag soft reçoivent une activité « À faire » due aujourd'hui pour être réassignées ; les tâches taguées basculent automatiquement vers le prochain OdJ admissible
-- **Transfert vers compte rendu** — `action_create_meeting_record` transfère les tâches hard-linkées vers `meeting.record.task_ids` et efface le tag soft
-- **Smart buttons** — prochaine rencontre sur la tâche, comptes rendus et OdJ sur le projet et sur l'événement calendrier, tâches à discuter sur l'OdJ
-- **Courriels** — modèles pour l'envoi de l'ordre du jour et du compte rendu, avec section dédiée aux tâches à discuter
-- **Rapport PDF** — rendu brandé de l'ordre du jour avec section « Éléments d'action à discuter »
-- **Unification OdJ ↔ compte rendu ↔ événement calendrier** — un même `calendar.event` peut porter un OdJ et un compte rendu ; la création d'un compte rendu depuis un événement ayant déjà un OdJ rattache automatiquement les deux (`meeting.agenda.meeting_record_id`) et propage le projet
-- **Drapeau « Besoin d'un OdJ »** — sur `calendar.event`, champ calculé `bf_needs_agenda` (vrai si la rencontre est à venir, sans OdJ et non dispensée) ; bannière d'alerte sur le formulaire et filtre dédié dans la vue de recherche
-- **Opt-out par rencontre** — case à cocher `bf_skip_agenda` sur `calendar.event` pour les rencontres internes courtes ou récurrentes
-- **Rappel automatique avant rencontre** — cron quotidien `_cron_remind_unsent_agenda` qui crée une activité « À faire » due aujourd'hui sur l'organisateur (utilisateur interne uniquement) si la rencontre arrive dans les 7 prochains jours et que l'OdJ n'a pas encore été envoyé ; idempotent via le `summary` de l'activité
-- **Contributions publiques des destinataires** — après l'**envoi** d'un OdJ encore en brouillon et **jusqu'à sa confirmation**, le courriel inclut un lien public tokenisé (`/meeting/agenda/<token>`) permettant aux destinataires (même sans compte Odoo) de **proposer des sujets** et de **laisser des commentaires/notes**. La fenêtre s'ouvre et se ferme automatiquement (`contributions_open ≡ envoyé ET état brouillon`) ; la confirmation referme le lien. Les sujets proposés arrivent en **modération** (`source='contributed'`, `moderation_state='pending'`) et n'entrent ni dans le PDF ni dans le courriel tant que le gestionnaire ne les a pas acceptés ; les commentaires sont postés au chatter et l'organisateur reçoit une activité de relecture
-- **Fenêtre de visibilité des pièces jointes** — une pièce jointe à un OdJ ou à un compte rendu peut n'être visible qu'avant, pendant (± 2 h) ou après la rencontre, ou sur une plage personnalisée (`bf_visibility_window`, `bf_visible_from`, `bf_visible_until`). Le choix d'une fenêtre relative calcule les bornes à partir de la date de la rencontre liée ; une `ir.rule` filtre la lecture pour `group_meeting_user`, alors que `group_meeting_manager` voit toujours tout. Les pièces jointes des autres modèles ne sont pas touchées. ⚠️ **Limite connue** : à traiter comme un confort d'affichage, pas comme un contrôle d'accès. La règle compare à `time.strftime(...)`, or `ir.rule._compute_domain` est mis en cache par `ormcache` sur `(uid, su, model, mode, allowed_company_ids)`, sans composante temporelle : l'horodatage est évalué une fois puis figé jusqu'à invalidation du cache, si bien qu'une pièce jointe peut rester lisible après son `bf_visible_until`. L'implémentation exacte au moment de l'appel existe (`ir_attachment._bf_visibility_domain`) mais n'est pas encore branchée
-- **Tableau de bord** — vue OWL agrégeant les OdJ et comptes rendus à suivre en tuiles KPI et en taux de complétion sur 30 jours, avec horizons réglables par utilisateur (`bf_meeting_dashboard_lookahead_days` / `lookback_days`, plafonnés à +90 / -180 jours) et exclusion possible par contact (`bf_skip_dashboard`)
+- **Agendas (`meeting.agenda`)** — title, date, project, participants, planned topics, email delivery to recipients
+- **Reports (`meeting.record`)** — topics covered, decisions, structured JSON notes rendered as safe HTML, PDF report, send tracking
+- **Decisions (`meeting.decision`)** — decision-makers, context, optional transfer into the knowledge matrices
+- **Attendance (`meeting.attendance`)** — status (present / absent / excused) and role per participant
+- **Tasks to discuss** — four ways of attaching a `project.task` to an upcoming meeting:
+  - *Pinned*: an explicit link to one specific agenda
+  - *Next client meeting*: appears on the client's next eligible agenda
+  - *Next project meeting*: appears on the project's next eligible agenda
+  - *All client/project meetings*: appears on every eligible agenda while the task stays open
+- **Dynamic resolution** — tagged tasks are computed every time the agenda is opened (form, PDF, email) and disappear as soon as they are closed
+- **Cancelling an agenda** — hard-linked tasks with no soft tag get a "To do" activity due today so they can be reassigned; tagged tasks roll over automatically to the next eligible agenda
+- **Transfer to the report** — `action_create_meeting_record` moves hard-linked tasks into `meeting.record.task_ids` and clears the soft tag
+- **Smart buttons** — next meeting on the task, reports and agendas on the project and on the calendar event, tasks to discuss on the agenda
+- **Emails** — templates for sending the agenda and the report, with a dedicated section for tasks to discuss
+- **PDF report** — branded rendering of the agenda with an "Action items to discuss" section
+- **Unifying agenda ↔ report ↔ calendar event** — one `calendar.event` can carry both an agenda and a report; creating a report from an event that already has an agenda links the two automatically (`meeting.agenda.meeting_record_id`) and propagates the project
+- **"Needs an agenda" flag** — on `calendar.event`, a computed `bf_needs_agenda` field (true when the meeting is upcoming, has no agenda and is not exempted); an alert banner on the form and a dedicated filter in the search view
+- **Per-meeting opt-out** — a `bf_skip_agenda` checkbox on `calendar.event` for short or recurring internal meetings
+- **Automatic pre-meeting reminder** — a daily `_cron_remind_unsent_agenda` cron creating a "To do" activity due today on the organiser (internal users only) when the meeting is within the next 7 days and the agenda has not been sent; idempotent through the activity's `summary`
+- **Public contributions from recipients** — after an agenda in draft has been **sent** and **until it is confirmed**, the email includes a public tokenised link (`/meeting/agenda/<token>`) letting recipients (even without an Odoo account) **propose topics** and **leave comments/notes**. The window opens and closes automatically (`contributions_open ≡ sent AND draft state`); confirming closes the link. Proposed topics arrive in **moderation** (`source='contributed'`, `moderation_state='pending'`) and enter neither the PDF nor the email until a manager accepts them; comments are posted to the chatter and the organiser receives a review activity
+- **Attachment visibility window** — an attachment on an agenda or a report can be visible only before, during (± 2 h) or after the meeting, or over a custom range (`bf_visibility_window`, `bf_visible_from`, `bf_visible_until`). Choosing a relative window computes the bounds from the linked meeting's date; an `ir.rule` filters reads for `group_meeting_user`, while `group_meeting_manager` always sees everything. Attachments on other models are untouched. ⚠️ **Known limitation**: treat this as a display convenience, not as access control. The rule compares against `time.strftime(...)`, but `ir.rule._compute_domain` is cached by `ormcache` on `(uid, su, model, mode, allowed_company_ids)`, with no time component: the timestamp is evaluated once and then frozen until the cache is invalidated, so an attachment can stay readable past its `bf_visible_until`. The exact call-time implementation exists (`ir_attachment._bf_visibility_domain`) but is not wired in yet
+- **Dashboard** — an OWL view aggregating agendas and reports to follow up into KPI tiles and a 30-day completion rate, with per-user horizons (`bf_meeting_dashboard_lookahead_days` / `lookback_days`, capped at +90 / -180 days) and optional exclusion per contact (`bf_skip_dashboard`)
 
-## Architecture technique
+## Technical architecture
 
-### Modèles
+### Models
 
-| Modèle | Rôle |
+| Model | Role |
 |---|---|
-| `meeting.agenda` | Ordre du jour (projet, date, sujets, tâches, destinataires, état) |
-| `meeting.agenda.topic` | Sujet planifié dans un ordre du jour (séquence, durée, présentateur) |
-| `meeting.record` | Compte rendu structuré (projet, date, notes JSON, rapport PDF) |
-| `meeting.topic` | Sujet abordé dans un compte rendu (points clés, verbatim) |
-| `meeting.decision` | Décision prise lors d'une rencontre (contexte, décisionnaire) |
-| `meeting.attendance` | Présence d'un participant (statut, rôle) |
-| `project.task` (hérité) | Champs de rattachement à une rencontre (`meeting_id`, `bf_meeting_agenda_id`, `bf_discuss_tag`, `bf_next_agenda_id`) |
-| `project.project` (hérité) | Smart button « Comptes rendus » |
-| `calendar.event` (hérité) | Smart buttons « Comptes rendus » et « Ordre du jour », champs `meeting_agenda_ids/id/count`, `bf_skip_agenda` (opt-out), `bf_needs_agenda` (calculé), création d'un OdJ ou d'un compte rendu depuis l'événement |
-| `project.knowledge.item` (hérité) | Lien Many2many vers les comptes rendus qui référencent l'item |
-| `ir.attachment` (hérité) | Fenêtre de visibilité des pièces jointes de rencontre (`bf_visibility_window`, `bf_visible_from`, `bf_visible_until`, `bf_is_visible_now`) |
-| `res.company` (hérité) | `meeting_logo` — logo affiché sur la bannière sombre des PDF et courriels (repli sur le logo standard de la société) |
-| `res.partner` (hérité) | `bf_skip_dashboard` — exclut les rencontres de ce contact du tableau de bord |
-| `res.users` (hérité) | Horizons personnels du tableau de bord (`bf_meeting_dashboard_lookahead_days`, `bf_meeting_dashboard_lookback_days`) |
-| `meeting.dashboard` / `meeting.dashboard.line` | Tableau de bord des rencontres (vue OWL agrégeant OdJ/comptes rendus à suivre) |
+| `meeting.agenda` | Agenda (project, date, topics, tasks, recipients, state) |
+| `meeting.agenda.topic` | A planned topic in an agenda (sequence, duration, presenter) |
+| `meeting.record` | Structured report (project, date, JSON notes, PDF report) |
+| `meeting.topic` | A topic covered in a report (key points, verbatim) |
+| `meeting.decision` | A decision taken in a meeting (context, decision-maker) |
+| `meeting.attendance` | A participant's attendance (status, role) |
+| `project.task` (inherited) | Meeting attachment fields (`meeting_id`, `bf_meeting_agenda_id`, `bf_discuss_tag`, `bf_next_agenda_id`) |
+| `project.project` (inherited) | "Reports" smart button |
+| `calendar.event` (inherited) | "Reports" and "Agenda" smart buttons, `meeting_agenda_ids/id/count` fields, `bf_skip_agenda` (opt-out), `bf_needs_agenda` (computed), creation of an agenda or a report from the event |
+| `project.knowledge.item` (inherited) | Many2many link to the reports referencing the item |
+| `ir.attachment` (inherited) | Visibility window for meeting attachments (`bf_visibility_window`, `bf_visible_from`, `bf_visible_until`, `bf_is_visible_now`) |
+| `res.company` (inherited) | `meeting_logo` — logo shown on the dark banner of PDFs and emails (falls back to the company's standard logo) |
+| `res.partner` (inherited) | `bf_skip_dashboard` — excludes this contact's meetings from the dashboard |
+| `res.users` (inherited) | Personal dashboard horizons (`bf_meeting_dashboard_lookahead_days`, `bf_meeting_dashboard_lookback_days`) |
+| `meeting.dashboard` / `meeting.dashboard.line` | Meeting dashboard (OWL view aggregating agendas/reports to follow up) |
 
-### Dépendances
+### Dependencies
 
-| Module | Rôle |
+| Module | Role |
 |---|---|
-| `project` | Projets, tâches, rattachement des rencontres |
-| `mail` | Chatter, activités, modèles de courriel |
-| `calendar` | Lien avec les événements calendrier Odoo |
-| `project_knowledge_matrix` | Matrices de connaissances alimentées par les décisions |
-| `bf_onboarding_base` | Panneau d'accueil guidé (étape de configuration) et champs de marque `report_brand_{primary,dark,logo}` sur `res.company` (palette des rapports PDF et des courriels) |
-| `bf_timezone` | Affichage des dates/heures dans le fuseau du destinataire |
+| `project` | Projects, tasks, meeting attachment |
+| `mail` | Chatter, activities, mail templates |
+| `calendar` | Link with Odoo calendar events |
+| `project_knowledge_matrix` | Knowledge matrices fed by decisions |
+| `bf_onboarding_base` | Guided welcome panel (a configuration step) and the `report_brand_{primary,dark,logo}` brand fields on `res.company` (palette for PDF reports and emails) |
+| `bf_timezone` | Displaying dates/times in the recipient's time zone |
 
-Le module de marque blanche `bluefox_branding` n'est **pas** requis : il ne fait qu'exposer et styler les champs `report_brand_*`, qui appartiennent à `bf_onboarding_base` depuis la v18.0.2.0.0 de ce dernier. Sans lui, les rapports et courriels se rendent avec la palette de la société, ou avec les couleurs Odoo par défaut (`#714B67` / `#212529`) si elle n'est pas configurée.
+The white-label module `bluefox_branding` is **not** required: it only exposes
+and styles the `report_brand_*` fields, which have belonged to
+`bf_onboarding_base` since its v18.0.2.0.0. Without it, reports and emails
+render with the company's palette, or with Odoo's default colours
+(`#714B67` / `#212529`) when none is configured.
 
-### Sécurité
+### Security
 
-- Groupe `group_meeting_user` — consulter et modifier les rencontres des projets auxquels l'utilisateur a accès (via `project.message_partner_ids`)
-- Groupe `group_meeting_manager` — accès complet à tous les comptes rendus, ordres du jour, décisions et présences
-- Règles `ir.rule` sur `meeting.record`, `meeting.agenda`, `meeting.topic`, `meeting.decision`, `meeting.agenda.topic`, `meeting.attendance` (une paire utilisateur/gestionnaire par modèle)
-- Règles `ir.rule` sur `ir.attachment` — appliquent la fenêtre de visibilité aux seules pièces jointes de `meeting.record` / `meeting.agenda`, sans toucher aux autres (voir la limite connue de la fenêtre, plus haut)
-- Règles `ir.rule` sur `meeting.dashboard.line` — une règle globale multi-société, plus la paire utilisateur/gestionnaire calquée sur `meeting.record`. ⚠️ La vue SQL agrège **toutes** les rencontres de la base : `get_dashboard_data()` lit en SQL brut, hors ORM, donc ni les ACL ni ces règles ne s'y appliquent et il **réimplémente les mêmes garde-fous à la main**. Toute évolution de l'un doit être répercutée dans l'autre
-- ACL standard déclarées dans `security/ir.model.access.csv`
+- The `group_meeting_user` group — view and edit meetings of the projects the user has access to (through `project.message_partner_ids`)
+- The `group_meeting_manager` group — full access to every report, agenda, decision and attendance record
+- `ir.rule` rules on `meeting.record`, `meeting.agenda`, `meeting.topic`, `meeting.decision`, `meeting.agenda.topic`, `meeting.attendance` (one user/manager pair per model)
+- `ir.rule` rules on `ir.attachment` — apply the visibility window to `meeting.record` / `meeting.agenda` attachments only, leaving others alone (see the known limitation above)
+- `ir.rule` rules on `meeting.dashboard.line` — one global multi-company rule, plus the user/manager pair modelled on `meeting.record`. ⚠️ The SQL view aggregates **every** meeting in the database: `get_dashboard_data()` reads in raw SQL, outside the ORM, so neither the ACLs nor these rules apply there and it **reimplements the same guardrails by hand**. Any change to one must be mirrored in the other
+- Standard ACLs declared in `security/ir.model.access.csv`
 
-### Tâche planifiée
+### Scheduled jobs
 
-| Cron | Modèle | Fréquence | Rôle |
+| Cron | Model | Frequency | Role |
 |---|---|---|---|
-| `ir_cron_remind_unsent_agenda` | `meeting.agenda` | quotidien | Crée une activité « À faire » sur l'OdJ vers l'organisateur si la rencontre arrive dans 7 jours et que l'OdJ n'est pas envoyé |
-| `cron_meeting_dashboard_daily_digest` | `meeting.dashboard` | quotidien | Digest quotidien des rencontres (legacy, livré **désactivé** ; méthode `_cron_send_daily_digest()` conservée pour déclenchement ad hoc) |
+| `ir_cron_remind_unsent_agenda` | `meeting.agenda` | daily | Creates a "To do" activity on the agenda for the organiser when the meeting is within 7 days and the agenda has not been sent |
+| `cron_meeting_dashboard_daily_digest` | `meeting.dashboard` | daily | Daily meeting digest (legacy, shipped **disabled**; the `_cron_send_daily_digest()` method is kept for ad hoc triggering) |
 
-### Rendu HTML sécurisé
+### Safe HTML rendering
 
-Les notes structurées JSON (titre de sujet, points, questions ouvertes) sont rendues en HTML via `markupsafe.escape()` avant concaténation, pour éviter toute injection lorsque le contenu provient d'une source externe (transcription IA, collage utilisateur).
+The structured JSON notes (topic title, points, open questions) are rendered to
+HTML through `markupsafe.escape()` before concatenation, to prevent injection
+when the content comes from an external source (AI transcription, user paste).
 
-### Contributions publiques — sécurité
+### Public contributions — security
 
-Le contrôleur public (`controllers/main.py`, routes `type="http", auth="public", csrf=False`) suit le modèle de `bf_sign` :
+The public controller (`controllers/main.py`, routes `type="http",
+auth="public", csrf=False`) follows the `bf_sign` model:
 
-- **Jeton = capacité** — `secrets.token_urlsafe(32)` (256 bits), `copy=False`, `readonly`, `index=True`, restreint au groupe `group_meeting_user`, donc jamais sérialisé vers une lecture portail/publique. Frappé à l'**envoi**, pas à la création (surface d'exposition minimale).
-- **Aucun IDOR** — l'URL ne porte que le jeton (pas d'`id` d'enregistrement) ; la résolution se fait par jeton via `hmac.compare_digest` (temps constant). Un jeton forgé/expiré renvoie un `404` indiscernable.
-- **Fenêtre re-vérifiée côté serveur** — chaque GET et POST revalide `contributions_open` après résolution : un onglet resté ouvert ne peut pas écrire après la confirmation.
-- **Assainissement** — tout texte libre passe par `markupsafe.escape` avec plafonds stricts (titre ≤ 200, description/commentaire ≤ 4000, nom ≤ 120, courriel ≤ 254). Création de sujet par dictionnaire explicite (`source`/`moderation_state` non pilotables depuis le POST).
-- **Limitation de débit** — deux limiteurs par IP : échecs de jeton (10 / 300 s) et volume de POST (5 / 60 s). L'IP retenue est **celle du pair de la socket**, jamais `X-Real-IP` / `X-Forwarded-For` : ces en-têtes sont forgeables si l'endpoint est joignable en direct, et les lire soi-même rendrait le limiteur contournable. Sous `proxy_mode = True`, werkzeug (ProxyFix) a déjà réécrit `remote_addr` à partir d'un nombre de sauts de confiance.
-- **Liste blanche de lecture** — la page publique ne reçoit que le titre, la date formatée, les objectifs (texte) et les **noms des sujets acceptés**. Aucun contexte, préparation, note, tâche, pièce jointe, participant, chatter ou proposition d'un autre contributeur.
-- **Écritures sous `sudo()`** — l'utilisateur public n'a aucun droit ORM ; toutes les écritures sont explicites avec des dictionnaires sûrs. Les notes sont postées avec `author_id=False` (l'identité du contributeur vit dans le corps, jamais forgée en `res.partner`).
+- **Token = capability** — `secrets.token_urlsafe(32)` (256 bits), `copy=False`, `readonly`, `index=True`, restricted to the `group_meeting_user` group, so never serialised into a portal/public read. Minted on **send**, not on creation (minimal exposure surface).
+- **No IDOR** — the URL carries only the token (no record `id`); resolution happens by token through `hmac.compare_digest` (constant time). A forged/expired token returns an indistinguishable `404`.
+- **The window is re-checked server-side** — every GET and POST revalidates `contributions_open` after resolution: a tab left open cannot write after confirmation.
+- **Sanitisation** — all free text goes through `markupsafe.escape` with strict caps (title ≤ 200, description/comment ≤ 4000, name ≤ 120, email ≤ 254). Topic creation uses an explicit dictionary (`source`/`moderation_state` cannot be driven from the POST).
+- **Rate limiting** — two per-IP limiters: token failures (10 / 300 s) and POST volume (5 / 60 s). The IP used is **the socket peer's**, never `X-Real-IP` / `X-Forwarded-For`: those headers are forgeable if the endpoint is directly reachable, and reading them ourselves would make the limiter bypassable. Under `proxy_mode = True`, werkzeug (ProxyFix) has already rewritten `remote_addr` from a trusted hop count.
+- **Read allowlist** — the public page receives only the title, the formatted date, the objectives (text) and the **names of accepted topics**. No context, preparation, notes, tasks, attachments, participants, chatter, or another contributor's proposal.
+- **Writes under `sudo()`** — the public user has no ORM rights; every write is explicit with safe dictionaries. Notes are posted with `author_id=False` (the contributor's identity lives in the body, never forged into a `res.partner`).
 
 ## Installation
 
@@ -104,12 +116,15 @@ Le contrôleur public (`controllers/main.py`, routes `type="http", auth="public"
 docker compose exec odoo odoo -d <database> -i bf_meeting --stop-after-init --no-http
 ```
 
-Après installation, un groupe « Gestionnaire » est attribué par défaut à `base.user_admin` ; les autres utilisateurs reçoivent le groupe « Utilisateur » via les paramètres du profil.
+After installation, the "Manager" group is assigned by default to
+`base.user_admin`; other users receive the "User" group through the profile
+settings.
 
 ## Licence
 
 LGPL-3
 
-## Remerciements
+## Acknowledgements
 
-Créé et maintenu par Blue Fox Inc. Des assistants de codage IA ont été utilisés comme outils de productivité durant le développement.
+Created and maintained by Blue Fox Inc. AI coding assistants were used as
+productivity tools during development.

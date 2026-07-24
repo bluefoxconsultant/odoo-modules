@@ -1,51 +1,50 @@
-# BF — Nettoyage des abonnés (`bf_follower_cleanup`)
+# BF — Follower cleanup (`bf_follower_cleanup`)
 
-Cron qui retire des abonnés (followers) des chatters toute personne qui n'est
-pas un·e employé·e interne.
+A cron that removes from chatter followers anyone who is not an internal
+employee.
 
-## Fonctionnalités
+## Features
 
-- Tâche planifiée (cron) qui s'exécute **toutes les 5 minutes** et parcourt les
-  `mail.followers` pour retirer les partenaires non rattachés à un·e employé·e.
-- Garde les fils de discussion internes propres (évite la fuite de
-  notifications vers des contacts externes ajoutés par inadvertance).
+- A scheduled job running **every 5 minutes**, walking `mail.followers` to
+  remove partners not attached to an employee.
+- Keeps internal threads clean (avoids leaking notifications to external
+  contacts added by accident).
 
-## Qui est conservé / retiré
+## Who is kept / removed
 
-Un abonné est **conservé** uniquement s'il correspond à un·e utilisateur·rice
-interne, c'est-à-dire un `res.users` avec `share = False` (actif ou archivé).
-Tout autre abonné (contact externe, utilisateur portail/partagé) est retiré au
-prochain passage du cron.
+A follower is **kept** only if it matches an internal user, that is a
+`res.users` with `share = False` (active or archived). Every other follower
+(external contact, portal/shared user) is removed on the cron's next pass.
 
-### Exempter un partenaire
+### Exempting a partner
 
-Le module ne maintient volontairement **aucune liste blanche** de contacts
-externes à conserver. Pour qu'un partenaire reste abonné, il doit posséder un
-compte utilisateur interne (`share = False`). Les contacts purement externes ne
-peuvent donc pas être exemptés ; c'est le comportement attendu.
+The module deliberately maintains **no allowlist** of external contacts to
+keep. For a partner to stay subscribed, they must have an internal user account
+(`share = False`). Purely external contacts therefore cannot be exempted, and
+that is the intended behaviour.
 
-## Paramètres de configuration
+## Configuration parameters
 
-Deux paramètres système (`ir.config_parameter`) règlent le comportement :
+Two system parameters (`ir.config_parameter`) govern the behaviour:
 
-| Clé | Défaut | Rôle |
-|-----|--------|------|
-| `bf_follower_cleanup.always_remove_partner_ids` | *(vide)* | Liste optionnelle d'IDs `res.partner` (séparés par `,` ou `;`) à purger **inconditionnellement**, même s'ils sont rattachés à un·e utilisateur·rice interne — utile pour des comptes d'intégration/service. Laissé vide par défaut. |
-| `bf_follower_cleanup.batch_size` | `5000` | Nombre maximal de lignes d'abonnés traitées par passage du cron. |
+| Key | Default | Purpose |
+|-----|---------|---------|
+| `bf_follower_cleanup.always_remove_partner_ids` | *(empty)* | Optional list of `res.partner` IDs (separated by `,` or `;`) to purge **unconditionally**, even when attached to an internal user — useful for integration/service accounts. Empty by default. |
+| `bf_follower_cleanup.batch_size` | `5000` | Maximum number of follower rows processed per cron pass. |
 
-## Dépendances
+## Dependencies
 
 `mail`.
 
 ## Licence
 
-Distribué sous licence **LGPL-3**. Voir le fichier `LICENSE`.
+Distributed under the **LGPL-3** licence. See the `LICENSE` file.
 
-## Journal des modifications
+## Changelog
 
 ### 18.0.1.0.1
 
-- La valeur par défaut de `always_remove_partner_ids` est désormais **vide**
-  (auparavant un ID de partenaire interne propre à un déploiement).
-- Documentation des paramètres de configuration, de la cadence du cron et du
-  comportement de la liste « toujours retirer » ; ajout du fichier `LICENSE`.
+- The default value of `always_remove_partner_ids` is now **empty** (it used to
+  be an internal partner ID specific to one deployment).
+- Documented the configuration parameters, the cron cadence and the
+  always-remove behaviour; added the `LICENSE` file.

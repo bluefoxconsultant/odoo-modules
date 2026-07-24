@@ -1,18 +1,17 @@
 # bf_invoice_ocr — Invoice OCR Scanner
 
-Module Odoo 18 (CE) qui analyse les factures fournisseurs (vendor bills) au
-format PDF et pré-remplit automatiquement les champs de la facture. L'extraction
-passe par la passerelle **`bf_llm`**, ce qui rend le module agnostique au
-fournisseur : Anthropic en direct, OpenAI (avec rastérisation du PDF), ou un
-serveur local compatible OpenAI.
+An Odoo 18 (CE) module that reads vendor bills in PDF form and prefills the
+invoice fields automatically. Extraction goes through the **`bf_llm`** gateway,
+which keeps the module provider-agnostic: Anthropic directly, OpenAI (with PDF
+rasterisation), or a local OpenAI-compatible server.
 
-## Fonctionnalités
+## Features
 
-- **Bouton « Scanner OCR »** sur chaque facture fournisseur en brouillon
-- **Cron horaire** pour le traitement en lot des nouvelles factures
-- **Matching fournisseur intelligent** en 8 étapes (VAT, nom, courriel, téléphone, historique)
-- **Matching produit** par code, références fournisseur, et description
-- **Onglet OCR** affichant le statut, la confiance et les données brutes
+- **A "Scan OCR" button** on every draft vendor bill
+- **An hourly cron** for batch processing of new bills
+- **Smart vendor matching** in 8 steps (VAT, name, email, phone, history)
+- **Product matching** by code, vendor references and description
+- **An OCR tab** showing status, confidence and the raw data
 
 ## Architecture
 
@@ -21,88 +20,94 @@ account.move (bf_invoice_ocr)
         │
         │ env["bf.llm"].for_feature("ocr").extract(pdf_bytes, OCR_PROMPT)
         ▼
-bf.llm — passerelle LLM agnostique au fournisseur
+bf.llm — provider-agnostic LLM gateway
         │
         ▼
-Fournisseur configuré (Anthropic / OpenAI / serveur local)
-        │  retourne du JSON structuré
+Configured provider (Anthropic / OpenAI / local server)
+        │  returns structured JSON
         ▼
-Odoo applique les résultats (partner, ref, dates, lignes, taxes)
+Odoo applies the results (partner, ref, dates, lines, taxes)
 ```
 
 ## Configuration
 
-1. Installer `bf_llm` et y configurer au moins un fournisseur LLM par défaut :
-   **Paramètres › Technique › LLM Providers**. La clé d'API est chiffrée au repos
-   (Fernet) — voir le README de `bf_llm`.
-2. Optionnel : définir la taxe d'achat par défaut appliquée aux lignes créées par
-   l'OCR (voir « Taxe par défaut » ci-dessous).
+1. Install `bf_llm` and configure at least one default LLM provider there:
+   **Settings › Technical › LLM Providers**. The API key is encrypted at rest
+   (Fernet) — see the `bf_llm` README.
+2. Optional: set the default purchase tax applied to lines created by the OCR
+   (see "Default tax" below).
 
-## Champs ajoutés sur `account.move`
+## Fields added to `account.move`
 
-| Champ | Type | Description |
+| Field | Type | Description |
 |-------|------|-------------|
 | `ocr_state` | Selection | none / pending / done / error |
-| `ocr_scanned_date` | Datetime | Date du dernier scan |
-| `ocr_confidence` | Float | Score de confiance 0-100 |
-| `ocr_raw_response` | Text | Réponse JSON brute du modèle |
-| `ocr_error_message` | Char | Message d'erreur le cas échéant |
+| `ocr_scanned_date` | Datetime | Date of the last scan |
+| `ocr_confidence` | Float | Confidence score 0-100 |
+| `ocr_raw_response` | Text | Raw JSON response from the model |
+| `ocr_error_message` | Char | Error message where applicable |
 
-## Données extraites par l'OCR
+## Data extracted by the OCR
 
-- Nom, courriel, site web, téléphone, numéro de taxe (TPS/TVQ/NEQ/GST/HST) du fournisseur
-- Numéro de facture, dates (facture et échéance), devise
-- Lignes détaillées (description, code produit, quantité, prix unitaire, montant)
-- Sous-total, taxes, total
-- Score de confiance (0-100)
+- Vendor name, email, website, phone, tax number (GST/QST/NEQ/HST)
+- Invoice number, dates (invoice and due), currency
+- Line items (description, product code, quantity, unit price, amount)
+- Subtotal, taxes, total
+- Confidence score (0-100)
 
-Le gabarit de prompt (`OCR_PROMPT`) est fourni par `bf_llm` et conserve les règles
-canadiennes (TPS/TVQ, NEQ) ainsi que les garde-fous anti-injection (le contenu de
-la facture est traité comme une **donnée non fiable**, jamais comme une instruction).
+The prompt template (`OCR_PROMPT`) is supplied by `bf_llm` and keeps the
+Canadian rules (GST/QST, NEQ) as well as the anti-injection guardrails: the
+invoice content is treated as **untrusted data**, never as an instruction.
 
-## Matching fournisseur (8 étapes)
+## Vendor matching (8 steps)
 
-1. **Numéro de taxe (VAT/NEQ)** — recherche dans `vat` et `company_registry`
-2. **Nom exact** — `ilike` avec `supplier_rank > 0`
-3. **Domaine courriel/web** — extrait le domaine, cherche dans `email` et `website` (ignore les fournisseurs génériques : gmail, hotmail, outlook, yahoo)
-4. **Téléphone** — 7 derniers chiffres dans `phone` / `mobile`
-5. **Nom nettoyé** — retire les suffixes légaux (Inc, Ltd, Ltée, Corp, SENC, PBC…)
-6. **Mots significatifs** — normalisation des accents, exclusion des mots bruit (Services, Solutions, Groupe, Canada…), match sur les 2 premiers mots distinctifs
-7. **Historique OCR** — cherche dans les factures précédemment scannées avec le même nom fournisseur
-8. **Fallback** — `is_company=True` sans filtre `supplier_rank`
+1. **Tax number (VAT/NEQ)** — searched in `vat` and `company_registry`
+2. **Exact name** — `ilike` with `supplier_rank > 0`
+3. **Email/web domain** — extracts the domain, searches `email` and `website`
+   (ignores generic providers: gmail, hotmail, outlook, yahoo)
+4. **Phone** — last 7 digits in `phone` / `mobile`
+5. **Cleaned name** — strips legal suffixes (Inc, Ltd, Ltée, Corp, SENC, PBC…)
+6. **Significant words** — accent normalisation, noise words excluded
+   (Services, Solutions, Groupe, Canada…), matched on the first 2 distinctive
+   words
+7. **OCR history** — searches previously scanned bills with the same vendor name
+8. **Fallback** — `is_company=True` with no `supplier_rank` filter
 
-Si aucun match : `partner_id` reste vide (saisie manuelle).
+With no match, `partner_id` is left empty (manual entry).
 
-## Matching produit (3 étapes)
+## Product matching (3 steps)
 
-1. **Code produit** — `default_code` (ilike) ou `barcode` (exact) depuis le champ `product_code` extrait par l'OCR
-2. **Références fournisseur** — `product.supplierinfo` du fournisseur trouvé, par `product_code` puis `product_name`
-3. **Description** — recherche par mots distinctifs (5+ caractères, `purchase_ok=True`), uniquement si match unique (évite les faux positifs)
+1. **Product code** — `default_code` (ilike) or `barcode` (exact) from the
+   `product_code` field extracted by the OCR
+2. **Vendor references** — the matched vendor's `product.supplierinfo`, by
+   `product_code` then `product_name`
+3. **Description** — searched by distinctive words (5+ characters,
+   `purchase_ok=True`), only when the match is unique (avoids false positives)
 
-Si un produit est trouvé : ses taxes fournisseur (`supplier_taxes_id`) sont
-utilisées. Sinon : la taxe d'achat par défaut (voir ci-dessous).
+When a product is found, its vendor taxes (`supplier_taxes_id`) are used.
+Otherwise the default purchase tax applies (see below).
 
-## Taxe par défaut
+## Default tax
 
-La taxe appliquée aux lignes créées par l'OCR (lorsque le produit n'impose pas la
-sienne) est résolue dans cet ordre :
+The tax applied to lines created by the OCR (when the product does not impose
+its own) is resolved in this order:
 
-1. Le paramètre système `bf_invoice_ocr.default_tax_id` (id explicite d'`account.tax`),
-   s'il est défini ;
-2. La taxe d'achat configurée sur la société (`account_purchase_tax_id`) ;
-3. À défaut, la première taxe de type `purchase` de la société.
+1. The `bf_invoice_ocr.default_tax_id` system parameter (an explicit
+   `account.tax` id), when set;
+2. The purchase tax configured on the company (`account_purchase_tax_id`);
+3. Failing that, the company's first `purchase`-type tax.
 
-Si aucune taxe n'est trouvée, les lignes sont créées sans taxe (à compléter
-manuellement). Aucun id de taxe n'est codé en dur dans le module.
+If no tax is found, lines are created without one (to be completed manually). No
+tax id is hardcoded in the module.
 
 ## Installation
 
 ```bash
-# Installer / mettre à jour via votre procédure habituelle de déploiement Odoo, p. ex. :
+# Install / update through your usual Odoo deployment procedure, e.g.:
 odoo -d <database> -i bf_invoice_ocr --stop-after-init
 ```
 
-Dépendances Odoo : `account`, `bf_llm`.
+Odoo dependencies: `account`, `bf_llm`.
 
 ## Licence
 

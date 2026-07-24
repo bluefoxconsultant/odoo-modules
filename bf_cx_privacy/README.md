@@ -1,10 +1,9 @@
-# bf_cx_privacy - pont Expérience client ↔ Vie privée (Loi 25)
+# bf_cx_privacy - Customer Experience to Privacy bridge (Law 25)
 
-S'auto-installe quand `bf_cx` et `privacy_consent` sont installés.
+Auto-installs when both `bf_cx` and `privacy_consent` are installed.
 
-- Finalité « Publication d'un témoignage client » + avis versionné (hash).
-- Mode de consentement « Module Vie privée » (selection_add) : demande
-  formelle par courriel, publication verrouillée tant que le consentement
-  n'est pas ACCORDÉ, révocation/expiration → retrait automatique du
-  témoignage publié.
-- La liste « Ne pas contacter » bloque toutes les sollicitations bf_cx.
+- A "Publishing a client testimonial" purpose plus a versioned notice (hash).
+- A "Privacy module" consent mode (`selection_add`): a formal request by
+  email, publication locked until consent is GRANTED, and
+  withdrawal/expiry automatically pulling the published testimonial.
+- The "Do not contact" list blocks every bf_cx solicitation.

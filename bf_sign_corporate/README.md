@@ -1,43 +1,44 @@
-# Blue Fox — Signature des résolutions corporatives (`bf_sign_corporate`)
+# Blue Fox — Signing corporate resolutions (`bf_sign_corporate`)
 
-Module-pont qui branche le moteur de signature électronique natif
-[`bf_sign`](../bf_sign) sur les résolutions corporatives du module
+A bridge module wiring the native [`bf_sign`](../bf_sign) electronic signature
+engine into the corporate resolutions of
 [`project_knowledge_matrix`](../project_knowledge_matrix).
 
-## Ce que ça fait
+## What it does
 
-- Ajoute une action **« Envoyer pour signature »** sur la résolution corporative
-  (`corporate.resolution`) via le mixin `bf.sign.mixin`, plus un bouton
-  intelligent « Signatures » qui compte les demandes liées.
-- Rend la résolution en PDF brandé (rapport
-  `project_knowledge_matrix.action_report_corporate_resolution`), crée une
-  demande de signature `bf_sign` liée, puis reverse le document signé (+ le
-  certificat de complétion) dans le fil de discussion de la résolution une fois
-  signée par tous.
+- Adds a **"Send for signature"** action on the corporate resolution
+  (`corporate.resolution`) through the `bf.sign.mixin` mixin, plus a
+  "Signatures" smart button counting the linked requests.
+- Renders the resolution as a branded PDF (the
+  `project_knowledge_matrix.action_report_corporate_resolution` report),
+  creates a linked `bf_sign` signature request, then posts the signed document
+  (plus the completion certificate) back into the resolution's thread once
+  everyone has signed.
 
-## Signataires par défaut
+## Default signers
 
-La demande est pré-remplie à partir du registre corporatif :
+The request is prefilled from the corporate register:
 
-- **résolution du conseil** → les administrateurs actifs (`corporate.director`) ;
-- **résolution des actionnaires** → le proposeur (et le secondeur, s'il y a lieu).
+- **board resolution** → the active directors (`corporate.director`);
+- **shareholders' resolution** → the mover (and the seconder, where
+  applicable).
 
-Les signataires restent modifiables sur la demande en brouillon avant l'envoi.
-Si un signataire par défaut n'a pas de courriel, l'action le signale clairement
-en le nommant, plutôt que d'échouer sur une contrainte technique.
+Signers remain editable on the draft request before sending. If a default
+signer has no email address, the action says so clearly and names them, rather
+than failing on a technical constraint.
 
-## Dépendances
+## Dependencies
 
 `bf_sign`, `project_knowledge_matrix`.
 
 ## Licence
 
-Distribué sous **Business Source License 1.1** (BUSL-1.1). Voir le fichier
-[`LICENSE`](LICENSE) pour les paramètres exacts.
+Distributed under the **Business Source License 1.1** (BUSL-1.1). See the
+[`LICENSE`](LICENSE) file for the exact parameters.
 
-- **Permis sans entente** : l'usage en production pour vos propres opérations
-  internes.
-- **Demande une entente écrite** : fournir le module comme produit ou service à
-  des tiers — hébergé, infogéré ou revendu.
-- **Change Date** : le 2029-07-20, cette version bascule automatiquement en
+- **Allowed without an agreement**: production use for your own internal
+  business operations.
+- **Requires a written agreement**: providing the module as a product or
+  service to third parties, whether hosted, managed or resold.
+- **Change Date**: on 2029-07-20, this version converts automatically to
   **LGPL-3.0-or-later**.

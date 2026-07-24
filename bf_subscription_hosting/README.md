@@ -1,55 +1,53 @@
-# Hébergement — pont vers les abonnements (`bf_subscription_hosting`)
+# Hosting — bridge to subscriptions (`bf_subscription_hosting`)
 
-Module-pont entre [`hosting_management`](../hosting_management) et
+A bridge module between [`hosting_management`](../hosting_management) and
 [`bf_subscription`](../bf_subscription).
 
-## Pourquoi
+## Why
 
-Les coûts d'infrastructure récurrents (noms de domaine, renouvellements SSL,
-services) sont souvent saisis **deux fois** : une fois comme domaine
-d'hébergement (`hosting.domain`) et une fois comme abonnement
-(`subscription.subscription`). Ce pont élimine cette double saisie.
+Recurring infrastructure costs (domain names, SSL renewals, services) are often
+entered **twice**: once as a hosting domain (`hosting.domain`) and once as a
+subscription (`subscription.subscription`). This bridge removes that double
+entry.
 
-## Ce que fait le module
+## What the module does
 
-Ajoute un bouton **« Créer un abonnement »** dans l'en-tête de la fiche du
-domaine d'hébergement. Il crée un abonnement **brouillon** pré-rempli à partir
-des données du domaine :
+Adds a **"Create a subscription"** button to the header of the hosting domain
+record. It creates a **draft** subscription prefilled from the domain's data:
 
-| Domaine (`hosting.domain`) | Abonnement (`subscription.subscription`) |
+| Domain (`hosting.domain`) | Subscription (`subscription.subscription`) |
 | --- | --- |
-| `name` | `name` (« Nom de domaine — … ») |
+| `name` | `name` ("Domain name — …") |
 | — | `category` = `domain_name` |
 | `annual_cost` | `cycle_amount`, `cycle` = `annual` |
 | `currency_id` | `currency_id` |
-| `partner_id` | `vendor_id` (à réviser — voir ci-dessous) |
-| `date_expiration` | ancre `start_date` (→ prochain renouvellement) |
+| `partner_id` | `vendor_id` (review it — see below) |
+| `date_expiration` | `start_date` anchor (→ next renewal) |
 | `auto_renew` | `auto_renew` |
 | `registrar` | `external_reference` |
 
-Un champ de liaison est stocké **dans les deux sens**
+A link field is stored in **both directions**
 (`hosting.domain.subscription_id` ↔ `subscription.subscription.hosting_domain_id`)
-afin que le bouton se masque une fois l'abonnement créé — pas de doublon. Un
-bouton intelligent ouvre l'abonnement lié.
+so the button hides once the subscription exists: no duplicates. A smart button
+opens the linked subscription.
 
-**Pas de synchronisation automatique en arrière-plan** : la création est
-volontaire, ponctuelle et l'abonnement reste en **brouillon** pour révision
-avant activation.
+**No automatic background synchronisation**: creation is deliberate, one-off,
+and the subscription stays a **draft** for review before activation.
 
-> Le champ `vendor_id` de l'abonnement (le fournisseur/registraire) est requis.
-> Comme `hosting.domain` ne stocke pas le registraire sous forme de partenaire,
-> il est pré-rempli avec le `partner_id` du domaine (ou la société) ; ajustez-le
-> au besoin avant d'activer l'abonnement.
+> The subscription's `vendor_id` field (the vendor/registrar) is required.
+> Since `hosting.domain` does not store the registrar as a partner, it is
+> prefilled with the domain's `partner_id` (or the company); adjust it as needed
+> before activating the subscription.
 
 ## Installation
 
-S'auto-installe lorsque `hosting_management` **et** `bf_subscription` sont tous
-deux présents (`auto_install: True`).
+Auto-installs when `hosting_management` **and** `bf_subscription` are both
+present (`auto_install: True`).
 
-## Dépendances
+## Dependencies
 
 `hosting_management`, `bf_subscription`.
 
 ## Licence
 
-Distribué sous licence **LGPL-3**. Voir le fichier [`LICENSE`](LICENSE).
+Distributed under the **LGPL-3** licence. See the [`LICENSE`](LICENSE) file.

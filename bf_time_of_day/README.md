@@ -1,62 +1,68 @@
 # BF Time of Day
 
-Plages horaires admin-configurables (Matinée / Midi / Fin de jour / Hors heures…) pour les tâches Odoo et les activités. Chaque plage porte un nom, un pictogramme, une couleur et une heure suggérée. Choisir une plage sur une tâche réécrit l'heure de l'échéance pour pointer sur la plage. Chaque utilisateur peut surcharger l'heure suggérée par sa propre heure (flex time).
+Admin-configurable time slots (Morning / Midday / End of day / After hours…)
+for Odoo tasks and activities. Each slot carries a name, an icon, a colour and
+a suggested time. Choosing a slot on a task rewrites the deadline's time to
+match the slot. Each user can override the suggested time with their own
+(flex time).
 
 ## License
 
-LGPL-3 — voir `LICENSE`.
+LGPL-3 — see `LICENSE`.
 
 ## Features
 
-### Plages horaires admin-configurables
-- Modèle `bf.time.of.day` (`name`, `code`, `sequence`, `color`, `icon`, `default_time`, `active`).
-- 4 presets seed (`noupdate=1`) : **Matinée** (09:00, ☕), **Midi** (12:00, 🌞), **Fin de jour** (16:00, 🕓), **Hors heures** (19:00, 🌙). Renommables, recolorables, supplémentables — l'admin peut en ajouter autant qu'il veut.
-- Menu admin sous *Paramètres → Technique → Plages horaires*. Liste éditable inline avec `widget="color_picker"` et `widget="float_time"` à la minute près.
+### Admin-configurable time slots
+- A `bf.time.of.day` model (`name`, `code`, `sequence`, `color`, `icon`, `default_time`, `active`).
+- 4 seeded presets (`noupdate=1`): **Morning** (09:00, ☕), **Midday** (12:00, 🌞), **End of day** (16:00, 🕓), **After hours** (19:00, 🌙). Renameable, recolourable, extendable — an admin can add as many as they want.
+- Admin menu under *Settings → Technical → Time slots*. Inline-editable list with `widget="color_picker"` and `widget="float_time"` down to the minute.
 
-### Application sur `project.task`
-- Champ `time_of_day_id` (Many2one, indexé, `group_expand` pour afficher les colonnes vides en kanban).
-- À la création / modification : si `date_deadline` est défini ET qu'une plage est choisie, **l'heure** de la deadline est réécrite sur l'heure effective (la **date** est préservée). Conversion explicite UTC ↔ fuseau utilisateur.
-- `default_get` propose la plage la plus proche de l'heure courante locale (wrap-around géré pour *Hors heures*) — un clic épargné sur le cas commun.
-- Champs `time_of_day_color` (related, store=True) et `time_of_day_icon` (related) pour la décoration kanban.
-- Champ `time_of_day_code` (Selection, computed, store=True, indexé) : miroir stable de `time_of_day_id.code`, clé de la barre de progression kanban. Limité aux 4 plages livrées — une plage admin ajoutée hors `morning/midday/eod/after_hours` laisse le champ vide (et n'apparaît pas dans la barre).
+### Applied to `project.task`
+- A `time_of_day_id` field (Many2one, indexed, with `group_expand` so empty columns show in kanban).
+- On create/write: if `date_deadline` is set AND a slot is chosen, the deadline's **time** is rewritten to the effective time (the **date** is preserved). Explicit UTC ↔ user time zone conversion.
+- `default_get` suggests the slot closest to the current local time (wrap-around handled for *After hours*), saving a click in the common case.
+- `time_of_day_color` (related, store=True) and `time_of_day_icon` (related) fields for kanban decoration.
+- A `time_of_day_code` field (Selection, computed, store=True, indexed): a stable mirror of `time_of_day_id.code` and the key for the kanban progress bar. Limited to the 4 shipped slots — an admin-added slot outside `morning/midday/eod/after_hours` leaves the field empty (and does not appear in the bar).
 
-### Application sur `mail.activity`
-- Même champ `time_of_day_id`, **purement informationnel** : `mail.activity.date_deadline` est un `Date` (sans heure), donc rien n'est muté côté donnée — la plage sert au filtrage et à l'affichage.
-- Si l'activité est planifiée depuis une `project.task` qui porte une plage, la plage est **héritée** par défaut (Quick win D).
+### Applied to `mail.activity`
+- The same `time_of_day_id` field, **purely informational**: `mail.activity.date_deadline` is a `Date` (no time), so nothing is mutated in the data — the slot serves filtering and display.
+- If the activity is scheduled from a `project.task` carrying a slot, the slot is **inherited** by default (quick win D).
 
-### Override personnel par utilisateur (flex time)
-- Modèle `bf.time.of.day.user_pref` (`user_id`, `time_of_day_id`, `override_time`) avec contrainte SQL unique `(user_id, time_of_day_id)`.
-- Onglet *Plages horaires* sur la fiche utilisateur (`res.users`) — chacun gère ses propres lignes.
-- Helper `res.users._tod_effective_time(time_of_day)` : retourne `override_time` si défini, sinon `default_time` admin, sinon `False` (aucune mutation).
-- Les presets admin sont des **suggestions** ; l'override personnel gagne.
+### Per-user personal override (flex time)
+- A `bf.time.of.day.user_pref` model (`user_id`, `time_of_day_id`, `override_time`) with a unique SQL constraint on `(user_id, time_of_day_id)`.
+- A *Time slots* tab on the user record (`res.users`) — everyone manages their own lines.
+- A `res.users._tod_effective_time(time_of_day)` helper: returns `override_time` when set, otherwise the admin `default_time`, otherwise `False` (no mutation).
+- Admin presets are **suggestions**; the personal override wins.
 
-### Visibilité kanban (« comme l'état de tâche »)
-- Inheritance de `project.view_task_kanban` : badge coloré `o_tag_color_<n>` après les tags, prefixé par l'icône Font Awesome de la plage.
-- Inheritance de `project.view_task_search_form` : 5 filtres (`Matinée`, `Midi`, `Fin de jour`, `Hors heures`, `Sans plage`) + group-by *Plage horaire*.
-- Saved search `Ma journée par plage` (Quick win C) : tâches de l'utilisateur dont la deadline tombe aujourd'hui, groupées par plage — un click pour voir sa journée.
-- Display name du modèle préfixé en émoji (☕ Matinée, 🌞 Midi…) — le menu déroulant m2o est lisible sans widget custom.
+### Kanban visibility ("like the task state")
+- Inherits `project.view_task_kanban`: a coloured `o_tag_color_<n>` badge after the tags, prefixed by the slot's Font Awesome icon.
+- Inherits `project.view_task_search_form`: 5 filters (`Morning`, `Midday`, `End of day`, `After hours`, `No slot`) plus a *Time slot* group-by.
+- A `My day by slot` saved search (quick win C): the user's tasks whose deadline falls today, grouped by slot — one click to see your day.
+- The model's display name is prefixed with an emoji (☕ Morning, 🌞 Midday…), so the m2o dropdown reads well without a custom widget.
 
-### Vue kanban « all-tasks » : jour en X, plage en Y
-- Le kanban Odoo n'a qu'un seul axe (colonnes). Approximation native d'une grille 2D sur la page `/odoo/all-tasks` :
-  - Inheritance de `project.view_task_kanban_inherit_all_task` (la vue primaire de l'action all-tasks) : la barre de progression stock sur `state` est **remplacée** par une barre sur `time_of_day_code` (segments Matinée / Midi / Fin de jour / Hors heures, cliquables pour filtrer la colonne). Portée limitée à cette vue — les kanbans de projet et « Mes tâches » gardent la barre `state`.
-  - Saved search `Tâches par jour` : groupe les colonnes par jour d'échéance (`date_deadline:day`) **et** restreint aux tâches qui portent une plage (`time_of_day_code != False`). Combinée à la barre ci-dessus → colonnes = jours, barre = plages horaires, sans segment « Autre » parasite.
-  - Couleurs de la barre en **arc de journée** : aube (`info`) → midi (`warning`) → crépuscule (`danger`) → nuit (`muted`).
-  - **Icônes dans la barre** : SCSS scopé (classe `o_bf_tod_progressbar` ajoutée au `<kanban>`) qui injecte une icône Font Awesome en `::before` sur chaque segment (☕ / ☀ / 🕓 / 🌙). Odoo ne rend pas les segments vides ; un segment étroit rogne l'icône proprement — les couleurs prennent le relais. L'infobulle native (`{compte} {plage}`) reste disponible au survol.
+### "All tasks" kanban view: day on X, slot on Y
+- Odoo's kanban has only one axis (columns). A native approximation of a 2D grid on the `/odoo/all-tasks` page:
+  - Inherits `project.view_task_kanban_inherit_all_task` (the primary view of the all-tasks action): the stock progress bar on `state` is **replaced** by a bar on `time_of_day_code` (Morning / Midday / End of day / After hours segments, clickable to filter the column). Scoped to that view only — project kanbans and "My tasks" keep the `state` bar.
+  - A `Tasks by day` saved search: groups the columns by deadline day (`date_deadline:day`) **and** restricts to tasks carrying a slot (`time_of_day_code != False`). Combined with the bar above: columns = days, bar = time slots, with no stray "Other" segment.
+  - Bar colours follow the **arc of the day**: dawn (`info`) → midday (`warning`) → dusk (`danger`) → night (`muted`).
+  - **Icons in the bar**: scoped SCSS (an `o_bf_tod_progressbar` class added to the `<kanban>`) injecting a Font Awesome icon as `::before` on each segment (☕ / ☀ / 🕓 / 🌙). Odoo does not render empty segments; a narrow segment crops the icon cleanly and the colours take over. The native tooltip (`{count} {slot}`) is still available on hover.
 
-### Sécurité
-| Modèle | Lecture | Écriture / création / unlink |
+### Security
+| Model | Read | Write / create / unlink |
 | --- | --- | --- |
-| `bf.time.of.day` (presets) | tous internes (`base.group_user`) | admins seulement (`base.group_system`) |
-| `bf.time.of.day.user_pref` | propre user via `ir.rule` (`user_id == user.id`) | propre user via même règle |
-| `bf.time.of.day.user_pref` | admins voient tout via 2e règle | admins peuvent tout modifier |
+| `bf.time.of.day` (presets) | all internal users (`base.group_user`) | admins only (`base.group_system`) |
+| `bf.time.of.day.user_pref` | own user through an `ir.rule` (`user_id == user.id`) | own user through the same rule |
+| `bf.time.of.day.user_pref` | admins see everything through a 2nd rule | admins can modify everything |
 
-Aucune `ir.rule` sur `project.task` / `mail.activity` — l'ACL stock reste en place. Aucune escalade `sudo()` en dehors du lookup d'override (read-only sur ses propres préférences).
+No `ir.rule` on `project.task` / `mail.activity` — the stock ACL stays in place.
+No `sudo()` escalation outside the override lookup (read-only on one's own
+preferences).
 
 ## Architecture
 
 ```
 bf.time.of.day (preset, admin)
-   ├── used by ──> project.task.time_of_day_id   (mute date_deadline.time, user TZ)
+   ├── used by ──> project.task.time_of_day_id   (mutates date_deadline.time, user TZ)
    ├── used by ──> mail.activity.time_of_day_id  (display + filter, no mutation)
    └── overridden per-user ──> bf.time.of.day.user_pref (user_id, time_of_day_id, override_time)
 
@@ -65,26 +71,26 @@ res.users
    └── _tod_effective_time(tod) → override_time | default_time | False
 ```
 
-## Dépendances
+## Dependencies
 
-- `project` — extension de `project.task` (kanban, form, list, search).
-- `mail` — extension de `mail.activity` (form popup, tree).
-- `bf_onboarding_base` — panneau d'intégration (onboarding).
+- `project` — extends `project.task` (kanban, form, list, search).
+- `mail` — extends `mail.activity` (form popup, tree).
+- `bf_onboarding_base` — onboarding panel.
 
 ## Configuration
 
-- **Presets seed** : Matinée 09:00, Midi 12:00, Fin de jour 16:00, Hors heures 19:00 (`noupdate=1` — modifications admin survivent les upgrades).
-- **Couleurs** : palette Odoo standard (1-11). Les seed utilisent 10 / 3 / 4 / 9.
-- **Icônes** : Font Awesome 4 classe (`fa-coffee`, `fa-sun-o`, etc.). Mappage émoji câblé pour `fa-coffee`, `fa-sun-o`, `fa-clock-o`, `fa-moon-o`, `fa-cutlery`, `fa-bed`, `fa-bolt`, `fa-leaf`, `fa-fire`, `fa-star`. Si l'icône n'est pas mappée, le display name omet l'émoji et garde juste le nom.
+- **Seeded presets**: Morning 09:00, Midday 12:00, End of day 16:00, After hours 19:00 (`noupdate=1`, so admin changes survive upgrades).
+- **Colours**: the standard Odoo palette (1-11). The seeds use 10 / 3 / 4 / 9.
+- **Icons**: Font Awesome 4 classes (`fa-coffee`, `fa-sun-o`, and so on). An emoji mapping is wired for `fa-coffee`, `fa-sun-o`, `fa-clock-o`, `fa-moon-o`, `fa-cutlery`, `fa-bed`, `fa-bolt`, `fa-leaf`, `fa-fire`, `fa-star`. When the icon is not mapped, the display name omits the emoji and keeps just the name.
 
-## Comportement de la deadline
+## Deadline behaviour
 
-| Cas | Effet sur `date_deadline` |
+| Case | Effect on `date_deadline` |
 | --- | --- |
-| `time_of_day_id` non défini | inchangé |
-| `time_of_day_id` défini, `date_deadline` non défini | inchangé |
-| `time_of_day_id` défini, `date_deadline` défini, `default_time` blank et pas d'override | inchangé |
-| `time_of_day_id` défini, `date_deadline` défini, `default_time` ou override défini | **heure** de la deadline réécrite, **date** préservée, fuseau utilisateur respecté |
+| `time_of_day_id` not set | unchanged |
+| `time_of_day_id` set, `date_deadline` not set | unchanged |
+| `time_of_day_id` set, `date_deadline` set, `default_time` blank and no override | unchanged |
+| `time_of_day_id` set, `date_deadline` set, `default_time` or override set | the deadline's **time** is rewritten, the **date** preserved, the user's time zone respected |
 
 ## File Structure
 
@@ -95,45 +101,45 @@ bf_time_of_day/
 ├── README.md
 ├── LICENSE
 ├── data/
-│   ├── bf_time_of_day_data.xml         # 4 presets seed (noupdate=1)
-│   └── bf_time_of_day_filters.xml      # ir.filters "Ma journée par plage" + "Tâches par jour"
+│   ├── bf_time_of_day_data.xml         # 4 seeded presets (noupdate=1)
+│   └── bf_time_of_day_filters.xml      # "My day by slot" + "Tasks by day" ir.filters
 ├── models/
 │   ├── __init__.py
-│   ├── bf_time_of_day.py               # le modèle preset + display_name émoji
-│   ├── bf_time_of_day_user_pref.py     # override per-user
-│   ├── res_users.py                    # one2many + helper _tod_effective_time
+│   ├── bf_time_of_day.py               # the preset model + emoji display_name
+│   ├── bf_time_of_day_user_pref.py     # per-user override
+│   ├── res_users.py                    # one2many + _tod_effective_time helper
 │   ├── project_task.py                 # field + smart default + deadline mutation
-│   └── mail_activity.py                # field + heritage du slot depuis la tâche parente
+│   └── mail_activity.py                # field + slot inheritance from the parent task
 ├── security/
 │   ├── ir.model.access.csv
-│   └── bf_time_of_day_security.xml     # ir.rule sur user_pref
+│   └── bf_time_of_day_security.xml     # ir.rule on user_pref
 ├── static/src/scss/
-│   └── kanban_badge.scss               # styling du chip kanban
+│   └── kanban_badge.scss               # kanban chip styling
 └── views/
     ├── bf_time_of_day_views.xml        # list + form + action
-    ├── res_users_views.xml             # onglet "Plages horaires" sur la fiche user
+    ├── res_users_views.xml             # "Time slots" tab on the user record
     ├── project_task_views.xml          # form + kanban + tree + search inheritance
     ├── mail_activity_views.xml         # form popup + tree inheritance
-    └── menu.xml                        # Settings → Technical → Plages horaires (admin)
+    └── menu.xml                        # Settings → Technical → Time slots (admin)
 ```
 
 ## Changelog
 
 ### 18.0.1.3.1 (2026-05-14)
-- Barre de progression `time_of_day_code` recolorée en tons doux (arc de journée pastel), icône des segments passée en anthracite. Piste (`bg-300`) et segment « Autre » (`bg-200`) ramenés à un gris très doux. Changement purement SCSS, scopé à `o_bf_tod_progressbar`.
+- The `time_of_day_code` progress bar recoloured in soft tones (a pastel arc of the day), segment icons switched to anthracite. The track (`bg-300`) and the "Other" segment (`bg-200`) brought back to a very soft grey. Purely an SCSS change, scoped to `o_bf_tod_progressbar`.
 
 ### 18.0.1.3.0 (2026-05-14)
-- Saved search `Tâches par jour` restreinte à `time_of_day_code != False` (et sortie du bloc `noupdate` pour rester alignée aux upgrades) : la barre de progression n'a plus de segment « Autre » et le compteur de colonne ne compte que les tâches planifiées.
-- Couleurs de la barre `time_of_day_code` du kanban all-tasks en arc de journée (`info` → `warning` → `danger` → `muted`).
-- Icônes Font Awesome dans les segments de la barre via SCSS scopé (`o_bf_tod_progressbar` sur le `<kanban>`).
+- The `Tasks by day` saved search restricted to `time_of_day_code != False` (and moved out of the `noupdate` block so it stays aligned across upgrades): the progress bar no longer has an "Other" segment, and the column counter only counts scheduled tasks.
+- The all-tasks kanban's `time_of_day_code` bar colours follow the arc of the day (`info` → `warning` → `danger` → `muted`).
+- Font Awesome icons in the bar segments through scoped SCSS (`o_bf_tod_progressbar` on the `<kanban>`).
 
 ### 18.0.1.2.0 (2026-05-14)
-- Champ `time_of_day_code` (Selection computed, store=True, indexé) sur `project.task`, miroir stable de `time_of_day_id.code`.
-- Kanban « all-tasks » : barre de progression `state` remplacée par une barre `time_of_day_code` (portée limitée à `project.view_task_kanban_inherit_all_task`).
-- Saved search `Tâches par jour` : colonnes kanban groupées par jour d'échéance. Combinée à la barre de plage horaire → approximation jour-en-X / plage-en-Y demandée (BF #22536).
+- A `time_of_day_code` field (computed Selection, store=True, indexed) on `project.task`, a stable mirror of `time_of_day_id.code`.
+- "All tasks" kanban: the `state` progress bar replaced by a `time_of_day_code` bar (scoped to `project.view_task_kanban_inherit_all_task`).
+- A `Tasks by day` saved search: kanban columns grouped by deadline day. Combined with the time-slot bar, this gives the requested day-on-X / slot-on-Y approximation.
 
 ### 18.0.1.0.0 (2026-05-07)
-- Initial release : modèle preset (admin) + override per-user + extension `project.task` (mutation deadline avec fuseau, smart default, group_expand) + extension `mail.activity` (héritage de la plage depuis la tâche parente, display only) + inheritance kanban / form / tree / search avec badge coloré et icône Font Awesome + saved search « Ma journée par plage ».
+- Initial release: the preset model (admin) + per-user override + `project.task` extension (time-zone-aware deadline mutation, smart default, group_expand) + `mail.activity` extension (slot inherited from the parent task, display only) + kanban / form / tree / search inheritance with a coloured badge and Font Awesome icon + a "My day by slot" saved search.
 
 ## Credits
 

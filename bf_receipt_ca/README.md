@@ -1,49 +1,50 @@
-# Reçus de dons — Canada (`bf_receipt_ca`)
+# Donation receipts — Canada (`bf_receipt_ca`)
 
-Rend les reçus du module **Dons** conformes aux exigences de l'**ARC** et de
-**Revenu Québec**, **en français**. C'est le différenciateur clé face à
-Raiser's Edge (dont les reçus suivent les règles américaines).
+Makes the **Donations** module's receipts compliant with **CRA** and **Revenu
+Québec** requirements, **in French**. This is the key differentiator against
+Raiser's Edge, whose receipts follow US rules.
 
-## Contenu du reçu officiel
+## What the official receipt contains
 
-Tous les éléments obligatoires de l'ARC : mention « Reçu officiel aux fins de
-l'impôt sur le revenu », nom légal + adresse de l'organisme, **numéro
-d'enregistrement (BN/RR)**, **numéro de série unique** (`REÇU-AAAA-NNNNN`,
-réinitialisé chaque année, sans trou), date de délivrance, date/année du don,
-nom + adresse du donateur, **montant du don**, **montant de l'avantage**,
-**montant admissible**, signature autorisée, nom de l'ARC + adresse
-`canada.ca/organismesdebienfaisance`.
+Every element the CRA requires: the "Official receipt for income tax purposes"
+statement, the organisation's legal name and address, the **registration number
+(BN/RR)**, a **unique serial number** (`REÇU-YYYY-NNNNN`, reset each year, with
+no gaps), the issue date, the donation date/year, the donor's name and address,
+the **donation amount**, the **advantage amount**, the **eligible amount**, an
+authorised signature, and the CRA name plus the address
+`canada.ca/organismesdebienfaisance` (the receipt is issued in French, so it
+carries the French CRA URL).
 
-Dons **en nature** : description du bien, **juste valeur marchande**, évaluateur.
+**Gifts in kind**: description of the property, **fair market value**,
+appraiser.
 
-## Particularités
+## Specifics
 
-- Un seul reçu français portant le numéro BN/RR satisfait le fédéral **et** le
-  Québec (reconnaissance automatique au Québec depuis 2016).
-- Champs « lieu de délivrance » et « évaluateur » **configurables** (modernisation
-  ARC 2024).
-- **Annulation / réémission** avec chaîne de remplacement ; les reçus annulés
-  sont conservés (exigence ARC).
+- A single French receipt carrying the BN/RR number satisfies both the federal
+  and the Quebec requirements (automatic recognition in Quebec since 2016).
+- "Place of issue" and "appraiser" fields are **configurable** (2024 CRA
+  modernisation).
+- **Cancellation / reissue** with a replacement chain; cancelled receipts are
+  retained (a CRA requirement).
 
 ## Configuration
 
-Sur la société (Paramètres → Sociétés) : numéro d'enregistrement (BN/RR),
-signataire autorisé, image de signature, options d'affichage.
+On the company (Settings → Companies): registration number (BN/RR), authorised
+signatory, signature image, display options.
 
-Le reçu (PDF) réutilise la mise en page de document brandée de la société
-(`web.external_layout`) et la police **Lexend** (`bf_lexend`).
+The PDF receipt reuses the company's branded document layout
+(`web.external_layout`) and the **Lexend** typeface (`bf_lexend`).
 
-## Courriel de reçu brandé
+## Branded receipt email
 
-Le courriel accompagnant le reçu est **brandé de la même façon que les autres
-modules Blue Fox** : s'il est installé, `bluefox_branding` fournit la mise en
-page transactionnelle `bf_mail_layout` (en-tête avec logo, couleurs et pied de
-page de la société), résolue à l'exécution via
-`donation.tax.receipt.bf_receipt_email_layout()`. Sans `bluefox_branding`, le
-courriel retombe sur la mise en page légère standard d'Odoo — c'est donc une
-**dépendance optionnelle** (non déclarée dans `depends`).
+The email carrying the receipt is **branded the same way as the other Blue Fox
+modules**: when installed, `bluefox_branding` provides the `bf_mail_layout`
+transactional layout (header with logo, company colours and footer), resolved at
+runtime through `donation.tax.receipt.bf_receipt_email_layout()`. Without
+`bluefox_branding`, the email falls back to Odoo's standard light layout, which
+makes it an **optional dependency** (not declared in `depends`).
 
-## Dépendances
+## Dependencies
 
-Requises : `bf_fundraising_core`, `bf_lexend`.
-Optionnelle : `bluefox_branding` (branding du PDF et du courriel). Licence AGPL-3.
+Required: `bf_fundraising_core`, `bf_lexend`.
+Optional: `bluefox_branding` (branding of the PDF and the email). AGPL-3 licence.

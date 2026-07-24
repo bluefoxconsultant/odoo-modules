@@ -1,9 +1,9 @@
-# bf_cx_meeting : feedback post-compte-rendu
+# bf_cx_meeting: post-report feedback
 
-S'auto-installe quand `bf_cx` et `bf_meeting` sont installés. À l'envoi
-d'un compte rendu au client, demande de feedback à 3 émojis (module
-rating) au partenaire du projet. Opt-in (`bf_cx.meeting_feedback`,
-défaut désactivé) et garde-fous de sollicitation appliqués : cooldown
-anti-sursollicitation par contact et drapeau par rencontre
-(`bf_cx_feedback_requested`) pour qu'un renvoi de compte rendu ne
-redéclenche pas de demande.
+Auto-installs when both `bf_cx` and `bf_meeting` are installed. When a
+meeting report is sent to the client, sends a 3-emoji feedback request
+(rating module) to the project partner. Opt-in
+(`bf_cx.meeting_feedback`, off by default) with the solicitation
+guardrails applied: the per-contact anti-oversolicitation cooldown, plus a
+per-meeting flag (`bf_cx_feedback_requested`) so that resending a report
+does not trigger a second request.

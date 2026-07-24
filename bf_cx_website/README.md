@@ -1,11 +1,11 @@
-# bf_cx_website : témoignages publics
+# bf_cx_website: public testimonials
 
-S'auto-installe quand `bf_cx` et `website` sont installés. Publie la
-page publique `/temoignages`, qui rend dynamiquement les témoignages
-en état « Publié » (citation, nom du client, société du client),
-filtrés sur la société du site web courant. Aucun envoi client, aucun
-menu de site ajouté : le propriétaire du site décide où lier l'URL
-`/temoignages`.
+Auto-installs when both `bf_cx` and `website` are installed. Publishes the
+public `/temoignages` page, which dynamically renders testimonials in the
+"Published" state (quote, client name, client company), filtered on the
+current website's company. Nothing is sent to clients and no site menu is
+added: the site owner decides where to link the `/temoignages` URL.
 
-Conformité Loi 25 : un témoignage retiré (état autre que « Publié »)
-disparaît instantanément du site puisque le rendu est dynamique.
+Law 25 compliance: a testimonial that is pulled (any state other than
+"Published") disappears from the site instantly, since rendering is
+dynamic.

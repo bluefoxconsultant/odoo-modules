@@ -1,33 +1,33 @@
-# Levée de fonds — Web & Portail donateur (`bf_fundraising_web`)
+# Fundraising — Web & donor portal (`bf_fundraising_web`)
 
-Service en ligne pour la suite de levée de fonds.
+The online service layer for the fundraising suite.
 
-## Formulaire de don public (`/don`)
+## Public donation form (`/don`)
 
-Un visiteur saisit nom, courriel, adresse, montant et (optionnellement) le fonds
-et la campagne. Le don est créé dans Odoo — la fiche donateur est **appariée par
-courriel ou créée** (marquée « constituant »). Le don est en **brouillon** ; à sa
-**validation** par le personnel, le **reçu officiel** est émis (via
-`bf_receipt_ca`) et **envoyé par courriel** automatiquement.
+A visitor enters their name, email, address, amount and, optionally, the fund
+and campaign. The donation is created in Odoo, and the donor record is
+**matched by email or created** (flagged as a constituent). The donation starts
+as a **draft**; when staff **validate** it, the **official receipt** is issued
+(through `bf_receipt_ca`) and **emailed** automatically.
 
-Le formulaire vit à `/don`. Aucun menu n'est ajouté automatiquement au site :
-chaque organisme ajoute son propre lien/bouton « Faire un don » où il le souhaite
-(un site de consultation, par exemple, ne devrait pas afficher de lien de don).
+The form lives at `/don`. No menu is added to the website automatically: each
+organisation adds its own "Donate" link or button wherever it wants one (a
+consulting site, for instance, should not show a donation link).
 
-> Configuration requise : un **produit de don** doit être défini sur la société
-> (« Produit pour les dons par virement ») pour que le formulaire crée les lignes.
+> Required configuration: a **donation product** must be set on the company
+> ("Product for bank transfer donations") for the form to create the lines.
 
-## Portail donateur
+## Donor portal
 
-Le donateur connecté voit, sous **Mon compte** :
+A signed-in donor sees, under **My account**:
 
-- **Mes dons** — historique de ses dons (numéro, date, campagne, montant, lien
-  vers le reçu) ;
-- **Mes reçus officiels** — téléchargement des reçus PDF conformes ARC + RQ.
+- **My donations** — their giving history (number, date, campaign, amount, link
+  to the receipt);
+- **My official receipts** — download of the CRA + RQ compliant PDF receipts.
 
-L'accès est restreint au donateur (vérification de propriété dans les
-contrôleurs, rendu en `sudo`).
+Access is restricted to the donor (ownership is verified in the controllers,
+rendering runs in `sudo`).
 
-## Dépendances
+## Dependencies
 
-`bf_receipt_ca`, `website`, `portal`. Licence AGPL-3.
+`bf_receipt_ca`, `website`, `portal`. AGPL-3 licence.

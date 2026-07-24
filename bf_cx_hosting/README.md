@@ -1,11 +1,11 @@
-# bf_cx_hosting : CSAT post-maintenance
+# bf_cx_hosting: post-maintenance CSAT
 
-S'auto-installe quand `bf_cx` et `hosting_management` sont installés.
-Quand une maintenance planifiée touchant un service client est marquée
-faite, demande de feedback à 3 émojis (module rating) au client du
-service. Opt-in (`bf_cx.hosting_feedback`, défaut désactivé), garde-fous
-de sollicitation appliqués, partenaires internes exclus. Les
-planifications étant récurrentes, l'indicateur d'envoi est réinitialisé à
-chaque nouvelle occurrence : un envoi possible par cycle de maintenance,
-encadré par le garde-fou anti-sursollicitation. Courriel brandé bilingue
-(hook i18n partagé de `bf_cx`) avec lien de désabonnement.
+Auto-installs when both `bf_cx` and `hosting_management` are installed.
+When a scheduled maintenance touching a client service is marked done,
+sends a 3-emoji feedback request (rating module) to the service's client.
+Opt-in (`bf_cx.hosting_feedback`, off by default), with the solicitation
+guardrails applied and internal partners excluded. Because schedules are
+recurring, the sent flag is reset on each new occurrence: one possible
+request per maintenance cycle, bounded by the anti-oversolicitation
+guardrail. Branded bilingual email (shared i18n hook from `bf_cx`) with an
+unsubscribe link.

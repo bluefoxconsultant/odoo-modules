@@ -1,9 +1,8 @@
-# bf_cx_mass_mailing : exclusion des boucles ouvertes
+# bf_cx_mass_mailing: excluding open loops
 
-S'auto-installe quand `bf_cx` et `mass_mailing` sont installés. Ajoute
-aux envois de masse une case « Exclure les boucles CX ouvertes »
-(décochée par défaut) : à l'envoi, les destinataires dont le contact a
-un feedback à rappeler non traité ou une plainte ouverte sont retirés
-de la liste (appariement par courriel normalisé, listes de diffusion et
-contacts couverts). Aucun envoi nouveau ; sans l'option, comportement
-standard inchangé.
+Auto-installs when both `bf_cx` and `mass_mailing` are installed. Adds an
+"Exclude open CX loops" checkbox to mass mailings (unticked by default):
+on send, recipients whose contact has unhandled feedback awaiting a
+callback, or an open complaint, are dropped from the list (matched on the
+normalised email, covering both mailing lists and contacts). Nothing new
+is sent; without the option, standard behaviour is unchanged.

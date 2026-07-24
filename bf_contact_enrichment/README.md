@@ -1,63 +1,64 @@
-# Enrichissement de contacts (`bf_contact_enrichment`)
+# Contact enrichment (`bf_contact_enrichment`)
 
-Réduit la saisie manuelle des fiches `res.partner` en les enrichissant
-automatiquement à partir de quatre sources. La lecture des cartes d'affaires et
-des signatures courriel passe par la passerelle **`bf_llm`** (fournisseur
-configurable dans *Réglages ▸ Technique ▸ Fournisseurs LLM*) ; l'enrichissement
-par domaine reste sur le bridge Claude (recherche web).
+Cuts down manual data entry on `res.partner` records by enriching them
+automatically from four sources. Reading business cards and email signatures
+goes through the **`bf_llm`** gateway (provider configurable in *Settings ▸
+Technical ▸ LLM Providers*); domain enrichment stays on the Claude bridge (web
+search).
 
-## Fonctionnalités
+## Features
 
-1. **Carte d'affaires (OCR)** — *Contacts ▸ Enrichissement ▸ Numériser une carte*
-   ou le bouton « Numériser une carte » sur une fiche. L'image (JPG/PNG/PDF) est
-   transmise à `bf_llm` (`extract()`, vision), qui lit la carte et renvoie les
-   coordonnées. Le module détecte un contact existant (courriel, nom, domaine)
-   et propose de créer ou de mettre à jour ; la carte est jointe à la fiche.
-2. **Signatures courriel** — deux boutons sur la fiche : « Enrichir maintenant
-   (signatures) » applique directement (remplit les vides, un clic), tandis que
-   « Enrichir (réviser) » ouvre un comparatif champ par champ. Les deux
-   concatènent les derniers courriels entrants (`bf.email`, qui reflète l'IMAP,
-   la passerelle et les chatters) du correspondant et les envoient à `bf_llm`
-   (`chat()`, texte). **En lot** : *Contacts ▸ (liste) ▸ Action ▸ Enrichir
-   depuis les signatures courriel* met les contacts sélectionnés en file ; un
-   cron les traite en arrière-plan par lots (seuil de confiance, jamais
-   d'écrasement). Une passerelle absente ou mal configurée dégrade proprement
-   (popup côté wizard, statut « error » côté cron — jamais d'exception).
-3. **Créer un contact depuis un courriel** — bouton « Créer / enrichir le
-   contact » sur une fiche `bf.email` : retrouve ou crée l'expéditeur puis lance
-   l'enrichissement par signature.
+1. **Business card (OCR)** — *Contacts ▸ Enrichment ▸ Scan a card*, or the
+   "Scan a card" button on a record. The image (JPG/PNG/PDF) is passed to
+   `bf_llm` (`extract()`, vision), which reads the card and returns the contact
+   details. The module detects an existing contact (email, name, domain) and
+   offers to create or update; the card is attached to the record.
+2. **Email signatures** — two buttons on the record: "Enrich now (signatures)"
+   applies directly (fills blanks, one click), while "Enrich (review)" opens a
+   field-by-field comparison. Both concatenate the correspondent's most recent
+   incoming emails (`bf.email`, which mirrors IMAP, the gateway and the
+   chatters) and send them to `bf_llm` (`chat()`, text). **In bulk**: *Contacts
+   ▸ (list) ▸ Action ▸ Enrich from email signatures* queues the selected
+   contacts, and a cron processes them in the background in batches (confidence
+   threshold, never overwriting). A missing or misconfigured gateway degrades
+   cleanly (a popup on the wizard side, an "error" status on the cron side,
+   never an exception).
+3. **Create a contact from an email** — a "Create / enrich the contact" button
+   on a `bf.email` record: finds or creates the sender, then runs signature
+   enrichment.
 4. **Quick wins**
-   - **Import vCard** (`.vcf`) — parseur intégré, sans dépendance externe.
-   - **Détecteur de doublons** — par courriel et par nom normalisé ; ouvre le
-     sous-ensemble pour fusion via l'action native des Contacts.
-   - **Enrichissement par domaine** — bouton « Enrichir (site web) » :
-     recherche web agentique (`/enrich/company`, WebFetch/WebSearch) qui remplit
-     la société. **Seule fonction encore servie par le bridge** : elle exige une
-     navigation web autonome, hors du périmètre de `bf_llm` v1 (requête/réponse
-     en un coup). Une future version de la passerelle pourra l'absorber.
-   - **Score de complétude** — champ calculé + filtre « Contacts incomplets ».
+   - **vCard import** (`.vcf`) — built-in parser, no external dependency.
+   - **Duplicate detector** — by email and by normalised name; opens the subset
+     for merging through the native Contacts action.
+   - **Domain enrichment** — an "Enrich (website)" button: agentic web search
+     (`/enrich/company`, WebFetch/WebSearch) that fills in the company. **The
+     only feature still served by the bridge**: it requires autonomous web
+     browsing, which is outside the scope of `bf_llm` v1 (single
+     request/response). A future gateway version may absorb it.
+   - **Completeness score** — a computed field plus an "Incomplete contacts"
+     filter.
 
-Aucun champ renseigné n'est écrasé par défaut (`_apply_contact_vals` ne remplit
-que les vides, sauf option « Écraser »). Chaque enrichissement est journalisé
-dans le chatter de la fiche.
+No populated field is overwritten by default (`_apply_contact_vals` only fills
+blanks, unless the "Overwrite" option is set). Every enrichment is logged in the
+record's chatter.
 
-## Dépendances
+## Dependencies
 
-`base`, `contacts`, `mail`, `bf_email_management`, `bf_llm`. L'enrichissement par
-domaine requiert en plus le service bridge (socket `bf_claude_chat.bridge_socket`).
+`base`, `contacts`, `mail`, `bf_email_management`, `bf_llm`. Domain enrichment
+additionally requires the bridge service (the `bf_claude_chat.bridge_socket`
+socket).
 
-## Confidentialité
+## Privacy
 
-Les prompts (`CARD_PROMPT`, `SIGNATURE_PROMPT_HEADER`, fournis par `bf_llm`)
-n'extraient que ce qui est réellement présent (jamais de nom de famille deviné
-depuis l'adresse courriel) et ignorent l'historique cité dans les courriels. Le
-contenu lu (cartes, courriels) est traité comme une DONNÉE non fiable, jamais
-comme des instructions.
+The prompts (`CARD_PROMPT`, `SIGNATURE_PROMPT_HEADER`, supplied by `bf_llm`)
+extract only what is actually present (never a surname guessed from the email
+address) and ignore quoted history in emails. The content being read (cards,
+emails) is treated as untrusted DATA, never as instructions.
 
-## Journal des modifications
+## Changelog
 
-- **18.0.1.2.0** — Migration des appels d'IA vers la passerelle `bf_llm` :
-  carte d'affaires → `extract()` (vision), signatures courriel → `chat()`
-  (texte). Ajout de la dépendance `bf_llm`. L'enrichissement par domaine reste
-  sur le bridge (recherche web agentique). Comportement et schémas JSON
-  inchangés ; dégradation propre quand aucun fournisseur n'est configuré.
+- **18.0.1.2.0** — Migrated the AI calls to the `bf_llm` gateway: business card
+  → `extract()` (vision), email signatures → `chat()` (text). Added the
+  `bf_llm` dependency. Domain enrichment stays on the bridge (agentic web
+  search). Behaviour and JSON schemas unchanged; clean degradation when no
+  provider is configured.

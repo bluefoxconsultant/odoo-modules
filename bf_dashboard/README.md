@@ -1,25 +1,24 @@
-# Tableau de bord Blue Fox (`bf_dashboard`)
+# Blue Fox dashboard (`bf_dashboard`)
 
-Tableau de bord unifié qui agrège la facturation, l'hébergement, les matrices
-de connaissances et la vie privée en une seule vue.
+A unified dashboard aggregating billing, hosting, knowledge matrices and
+privacy into a single view.
 
-## Fonctionnalités
+## Features
 
-- Cartes de synthèse agrégeant plusieurs domaines opérationnels
-  (facturation, hébergement, connaissances, consentements vie privée).
-- Point d'entrée unique pour le suivi quotidien.
-- Extensible : d'autres modules peuvent ajouter leurs propres cartes
-  (voir `bf_subscription_dashboard`).
+- Summary cards aggregating several operational domains (billing, hosting,
+  knowledge, privacy consents).
+- A single entry point for daily follow-up.
+- Extensible: other modules can add their own cards (see
+  `bf_subscription_dashboard`).
 
-> Note : à l'installation, le `post_init_hook` `_set_home_action` redéfinit
-> l'action d'accueil des utilisateurs pour ouvrir ce tableau de bord au
-> démarrage de la session.
+> Note: on install, the `_set_home_action` `post_init_hook` redefines users'
+> home action so this dashboard opens at the start of the session.
 
-## Dépendances
+## Dependencies
 
 `base`, `account`, `project`, `mail`, `hosting_management`,
 `project_knowledge_matrix`, `privacy_consent`.
 
 ## Licence
 
-Distribué sous licence **LGPL-3**. Voir le fichier `LICENSE`.
+Distributed under the **LGPL-3** licence. See the `LICENSE` file.

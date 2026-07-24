@@ -1,16 +1,15 @@
-# Abonnements — carte du tableau de bord (`bf_subscription_dashboard`)
+# Subscriptions — dashboard card (`bf_subscription_dashboard`)
 
-Module-pont qui ajoute une carte de synthèse des abonnements (dépense
-mensualisée, renouvellements à venir, abonnements dormants) au tableau de bord
-Blue Fox (`bf_dashboard`).
+A bridge module that adds a subscription summary card (monthly-equivalent
+spend, upcoming renewals, dormant subscriptions) to the Blue Fox dashboard
+(`bf_dashboard`).
 
-S'auto-installe lorsque `bf_subscription` **et** `bf_dashboard` sont tous deux
-présents.
+Auto-installs when `bf_subscription` **and** `bf_dashboard` are both present.
 
-## Dépendances
+## Dependencies
 
 `bf_subscription`, `bf_dashboard`.
 
 ## Licence
 
-Distribué sous licence **LGPL-3**. Voir le fichier `LICENSE`.
+Distributed under the **LGPL-3** licence. See the `LICENSE` file.

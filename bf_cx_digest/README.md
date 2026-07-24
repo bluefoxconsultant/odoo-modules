@@ -1,6 +1,7 @@
-# bf_cx_digest - section digest quotidien
+# bf_cx_digest - daily digest section
 
-S'auto-installe quand `bf_cx` et `daily_todo_digest` sont installés.
-Section « Expérience client » du digest : à rappeler (détracteurs et
-CSAT insatisfaits), plaintes ouvertes (avec retard d'AR signalé) et
-candidats témoignage. Silencieuse quand rien n'est actionnable.
+Auto-installs when both `bf_cx` and `daily_todo_digest` are installed.
+Adds a "Customer experience" section to the digest: items to call back
+(detractors and dissatisfied CSAT), open complaints (with any overdue
+acknowledgement flagged) and testimonial candidates. Stays silent when
+there is nothing actionable.

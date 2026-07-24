@@ -1,412 +1,405 @@
-# Transfert sécurisé — Secure Transfer (`bf_securetransfer`)
+# Secure Transfer (`bf_securetransfer`)
 
-Transfert de fichiers sécurisé « WeTransfer maison », natif Odoo 18 Community :
-téléversement **direct navigateur → S3** (IDrive E2, région `ca-east-1`) par
-URLs présignées (PUT simple + multipart), **liens tokenisés** avec expiration,
-mot de passe et OTP optionnels, **journal d'accès inaltérable** (chaîne de
-hachage, pièce Loi 25), **purge automatique**, **multi-marques** résolues par le
-nom d'hôte, **pages de dépôt personnelles** (`/to/<slug>`), **listes
-d'autorisation anti-piggyback** et **suspension automatique sur signalement
-d'abus**.
+An in-house "WeTransfer" for secure file transfer, native to Odoo 18 Community:
+**direct browser → S3** upload (IDrive E2, `ca-east-1` region) through presigned
+URLs (simple PUT + multipart), **tokenised links** with expiry, optional
+password and OTP, a **tamper-evident access log** (hash chain, a Law 25
+artefact), **automatic purging**, **multi-brand** resolution by hostname,
+**personal drop pages** (`/to/<slug>`), **anti-piggyback allowlists** and
+**automatic suspension on abuse reports**.
 
-- **Version** : `18.0.1.6.2`.
-- **Licence** : **BUSL-1.1** — usage en production permis pour vos propres opérations internes ; fournir le module comme produit ou service à des tiers (hébergé, infogéré ou revendu) demande une entente écrite. Bascule en **LGPL-3.0-or-later** le **2029-07-20**. Voir [`LICENSE`](LICENSE).
-- **Modèle de menaces & non-garanties** : voir [`SECURITY.md`](SECURITY.md).
-- **Multi-paliers** : le système multi-marques permet un palier gratuit limité
-  (marque par défaut, mention « Propulsé par » optionnelle) et un palier payant
-  en marque blanche sur domaine dédié (limites plus élevées). Angle
-  différenciateur = **conformité Loi 25 / résidence des données au Canada**.
-
----
-
-## Fonctionnalités
-
-**Transfert**
-
-- Téléversement **direct navigateur → S3** par URLs présignées : Odoo signe,
-  ne proxy jamais les octets. PUT simple (≤ 64 Mo) et **multipart/resumable**
-  pour les fichiers de plusieurs Go (parts de 16 Mo, presigns par lots,
-  3 parts concurrentes, reprise in-session via `ListParts`).
-- **Intégrité** : à la finalisation, chaque objet est vérifié côté serveur
-  (existence + taille exacte) et son **ETag est épinglé**, puis **revérifié
-  avant chaque téléchargement** — bloque l'attaque « re-PUT d'un maliciel avec
-  un presign encore valide ».
-- **Téléchargement** = redirection 302 vers un GET présigné (TTL 300 s),
-  `attachment` + `octet-stream` forcés (jamais de rendu inline, tue le XSS
-  stocké).
-- **Deux modes d'envoi, deux onglets** : **Fichiers** (défaut) ou **Message
-  seul** (note sécurisée sans fichier — p. ex. transmettre un mot de passe).
-  En mode **Message seul**, le contenu n'apparaît **jamais en clair dans le
-  courriel** : la notification ne porte que le lien, et le message ne se lit
-  que sur la page sécurisée (à durée limitée, journalisée).
-- **Message sécurisé à code (OTP destinataire)** : depuis le backend, un envoi
-  peut **retenir le contenu derrière un code à usage unique** livré par
-  courriel ou par SMS — le message ne s'affiche qu'après preuve d'identité du
-  destinataire. Confirmation d'envoi par code côté expéditeur également
-  disponible.
-- **Ordre des champs pensé anti-friction** : courriel et destinataires **au-
-  dessus** de la zone de dépôt ; le courriel expéditeur est **optionnel au
-  dépôt, requis à l'envoi** (on peut déposer un fichier avant de saisir son
-  courriel sans message d'erreur).
-
-**Marques & pages**
-
-- **Multi-marques** (`secure.transfer.brand`) résolues par le nom d'hôte :
-  domaine, visuels, limites, mention « Propulsé par », listes d'autorisation,
-  facturation. Alignées **par défaut sur le branding maison**
-  (`appointment_brand_*` puis `report_brand_*`, en `getattr` — aucune dépendance
-  dure à bf_branding / bf_onboarding_base).
-- **Pages de dépôt personnelles** `/to/<slug>` : page « Dropbox » où les
-  visiteurs ne peuvent envoyer qu'à **un seul destinataire fixe** (le
-  propriétaire de la page). Destinataire **forcé côté serveur** au create ET au
-  finalize — impossible de rediriger un dépôt ailleurs.
-- **Thème clair/sombre automatique** (`prefers-color-scheme`) ; la marque
-  conserve ses couleurs.
-- **Tableau de bord** (vues graph + pivot) : volume et téléchargements par
-  marque et par état.
-
-**Sécurité & anti-abus**
-
-- **Listes d'autorisation anti-piggyback**, côté expéditeur ET destinataire,
-  par marque **ou** par défaut au niveau du tenant (Paramètres) : adresse
-  complète, `@domaine` ou domaine nu. Empêche qu'un tiers utilise une instance
-  qui n'est pas la sienne, ou relaie des fichiers vers des adresses arbitraires.
-- **Deux flux OTP optionnels** (réglages tenant, OFF par défaut) : **OTP
-  expéditeur** (confirme un code avant l'envoi — anti-usurpation) et **OTP
-  destinataire** (code avant téléchargement — gate Loi 25). Codes 6 chiffres,
-  hashés, TTL 15 min.
-- **Mot de passe** optionnel (passlib pbkdf2_sha512), **jamais** transmis dans
-  le courriel de lien.
-- **Destruction après lecture** (`burn_after_download`) et **notification au
-  téléchargement** (courriel à l'expéditeur au 1er dl) — par marque.
-- **Signalement d'abus → suspension automatique** : le lien s'éteint
-  immédiatement (`state = suspended`) et le reste jusqu'à intervention d'un
-  administrateur ; un courriel détaillé part vers `abuse_email` (à défaut, le
-  courriel de la société), un avis neutre vers les destinataires, une
-  activité vers les gestionnaires. Réactivation = `action_reactivate`.
-- **Anti-abus de base** : courriel expéditeur requis à l'envoi, honeypot,
-  rate-limiting par IP (en mémoire), **quotas quotidiens DB** (transferts/IP,
-  octets/IP, transferts/expéditeur — verrous consultatifs anti-TOCTOU),
-  liste noire d'extensions, sanitation des noms de fichiers, 404 uniformes sur
-  fuzzing de jeton.
-- **En-têtes** durcis + **CSP** stricte (connect-src limité à l'endpoint S3 sur
-  la page d'envoi seulement), `X-Frame-Options: DENY`, nosniff, Referrer-Policy.
-
-**Courriels & Loi 25**
-
-- Courriels **brandés** (lien aux destinataires, accusé à l'expéditeur),
-  visuels partagés avec les pages via `brand._visuals()`.
-- **Langue selon le contact** : si l'adresse correspond à une fiche
-  `res.partner`, le courriel part dans `partner.lang` ; sinon la locale du
-  visiteur. Envoi individualisé par destinataire.
-- **Journal d'accès inaltérable** (`secure.transfer.access.log`, chaîne de
-  hachage clonée de `bf_sign_log`) : chaque évènement (créé, finalisé, envoyé,
-  vue, mot de passe OK/échec, OTP OK/échec, téléchargement, échéance dépassée,
-  intégrité, signalement, suspension, purge…) passe par un point de contrôle
-  unique. Vérifiable par `verify_chain()`. Pièce Loi 25 conservée même après
-  purge des objets.
+- **Version**: `18.0.1.6.2`.
+- **Licence**: **BUSL-1.1** — production use allowed for your own internal business operations; providing the module as a product or service to third parties (hosted, managed or resold) requires a written agreement. Converts to **LGPL-3.0-or-later** on **2029-07-20**. See [`LICENSE`](LICENSE).
+- **Threat model & non-guarantees**: see [`SECURITY.md`](SECURITY.md).
+- **Multiple tiers**: the multi-brand system supports a limited free tier
+  (default brand, optional "Powered by" mention) and a paid white-label tier on
+  a dedicated domain (higher limits). The differentiator is **Law 25 compliance
+  and data residency in Canada**.
 
 ---
 
-## Aperçu du flux
+## Features
 
-Un visiteur ouvre la page publique d'envoi (`/secrets`, ou `/to/<slug>` pour un
-dépôt personnel), choisit **Fichiers** ou **Message seul**, remplit son courriel
-et (hors dépôt perso) les destinataires, dépose ses fichiers, et obtient un lien
-`https://<domaine de marque>/s/<jeton>`. Les octets vont **directement du
-navigateur au bucket S3**. À la finalisation, chaque fichier est vérifié
-(existence, taille, **épinglage ETag**), les courriels brandés partent (lien aux
-destinataires dans leur langue, accusé à l'expéditeur — **jamais le mot de
-passe**), et le transfert vit jusqu'à son échéance, où la purge S3 supprime les
-objets **en conservant métadonnées et journal**.
+**Transfer**
 
-Cycle de vie : `draft` → (upload par fichier) → `active` → `expired` (date /
-budget de téléchargements / burn) → purge S3 (`deleted`, méta + journal gardés)
-→ GC dur après `log_retention_days`. États additionnels : `cancelled`
-(brouillons moissonnés) et `suspended` (kill-switch d'abus).
+- **Direct browser → S3** upload through presigned URLs: Odoo signs, and never
+  proxies the bytes. Simple PUT (≤ 64 MB) and **multipart/resumable** for
+  multi-gigabyte files (16 MB parts, batched presigns, 3 concurrent parts,
+  in-session resume through `ListParts`).
+- **Integrity**: at finalisation each object is verified server-side (existence
+  + exact size) and its **ETag is pinned**, then **re-verified before every
+  download** — blocking the "re-PUT malware with a still-valid presign" attack.
+- **Download** = a 302 redirect to a presigned GET (300 s TTL), with
+  `attachment` + `octet-stream` forced (never inline rendering, which kills
+  stored XSS).
+- **Two sending modes, two tabs**: **Files** (default) or **Message only** (a
+  secure note with no file — for instance to pass on a password). In **Message
+  only** mode the content **never appears in clear text in the email**: the
+  notification carries only the link, and the message can be read only on the
+  secure page (time-limited, logged).
+- **Code-protected secure message (recipient OTP)**: from the backend, a send
+  can **hold the content behind a one-time code** delivered by email or SMS —
+  the message is shown only after the recipient proves their identity. Sender-
+  side send confirmation by code is available too.
+- **Field order designed against friction**: email and recipients sit **above**
+  the drop zone; the sender's email is **optional at drop time, required at send
+  time** (you can drop a file before typing your email without an error).
+
+**Brands & pages**
+
+- **Multi-brand** (`secure.transfer.brand`) resolution by hostname: domain,
+  visuals, limits, "Powered by" mention, allowlists, billing. Aligned **by
+  default on the in-house branding** (`appointment_brand_*` then
+  `report_brand_*`, through `getattr` — no hard dependency on bf_branding /
+  bf_onboarding_base).
+- **Personal drop pages** `/to/<slug>`: a "Dropbox" page where visitors can only
+  send to **one fixed recipient** (the page's owner). The recipient is **forced
+  server-side** at create AND at finalize — a drop cannot be redirected
+  elsewhere.
+- **Automatic light/dark theme** (`prefers-color-scheme`); the brand keeps its
+  colours.
+- **Dashboard** (graph + pivot views): volume and downloads by brand and by
+  state.
+
+**Security & anti-abuse**
+
+- **Anti-piggyback allowlists**, on both the sender and the recipient side, per
+  brand **or** as a tenant-wide default (Settings): full address, `@domain` or
+  bare domain. Prevents a third party using an instance that is not theirs, or
+  relaying files to arbitrary addresses.
+- **Two optional OTP flows** (tenant settings, OFF by default): a **sender OTP**
+  (confirms a code before sending — anti-impersonation) and a **recipient OTP**
+  (a code before download — a Law 25 gate). 6-digit codes, hashed, 15-minute
+  TTL.
+- **Optional password** (passlib pbkdf2_sha512), **never** sent in the link
+  email.
+- **Burn after download** (`burn_after_download`) and **download notification**
+  (an email to the sender on the first download) — per brand.
+- **Abuse report → automatic suspension**: the link goes dark immediately
+  (`state = suspended`) and stays that way until an administrator intervenes; a
+  detailed email goes to `abuse_email` (failing that, the company's email), a
+  neutral notice to the recipients, and an activity to the managers.
+  Reactivation is `action_reactivate`.
+- **Baseline anti-abuse**: sender email required at send time, honeypot, per-IP
+  rate limiting (in memory), **daily DB quotas** (transfers/IP, bytes/IP,
+  transfers/sender — advisory locks against TOCTOU), an extension deny-list,
+  filename sanitisation, and uniform 404s on token fuzzing.
+- **Hardened headers** plus a strict **CSP** (connect-src limited to the S3
+  endpoint, on the send page only), `X-Frame-Options: DENY`, nosniff,
+  Referrer-Policy.
+
+**Emails & Law 25**
+
+- **Branded emails** (the link to recipients, a receipt to the sender), with
+  visuals shared with the pages through `brand._visuals()`.
+- **Language follows the contact**: if the address matches a `res.partner`
+  record, the email goes out in `partner.lang`; otherwise in the visitor's
+  locale. Sent individually per recipient.
+- **A tamper-evident access log** (`secure.transfer.access.log`, a hash chain
+  cloned from `bf_sign_log`): every event (created, finalised, sent, viewed,
+  password OK/failed, OTP OK/failed, download, past expiry, integrity, report,
+  suspension, purge, and so on) goes through a single control point. Verifiable
+  with `verify_chain()`. A Law 25 artefact retained even after the objects are
+  purged.
+
+---
+
+## Flow overview
+
+A visitor opens the public send page (`/secrets`, or `/to/<slug>` for a personal
+drop), chooses **Files** or **Message only**, fills in their email and (outside
+a personal drop) the recipients, drops their files, and gets a
+`https://<brand domain>/s/<token>` link. The bytes go **straight from the
+browser to the S3 bucket**. At finalisation each file is verified (existence,
+size, **ETag pinning**), the branded emails go out (the link to recipients in
+their language, a receipt to the sender — **never the password**), and the
+transfer lives until its expiry, when the S3 purge deletes the objects **while
+keeping the metadata and the log**.
+
+Life cycle: `draft` → (per-file upload) → `active` → `expired` (date / download
+budget / burn) → S3 purge (`deleted`, metadata + log kept) → hard GC after
+`log_retention_days`. Additional states: `cancelled` (harvested drafts) and
+`suspended` (the abuse kill switch).
 
 ---
 
 ## Architecture
 
-### Modèles
+### Models
 
-| Modèle | Rôle |
+| Model | Role |
 |---|---|
-| `secure.transfer` (`mail.thread`) | Le transfert : jetons (`upload_token` éphémère + `token` de partage), état, expéditeur/destinataires, message, mot de passe, OTP, échéance, compteurs, `burn_after_download`/`notify_on_download`. |
-| `secure.transfer.file` | Un fichier : nom sanitisé, taille (`Float` — jamais `Integer`, débordement > 2,1 Go), extension (deny-list), `s3_key` **opaque** (uuid, aucune PII), ETag épinglé, état, champs multipart (`s3_upload_id`, `part_size`, `parts_total`). |
-| `secure.transfer.brand` | Marque : `domain`, `slug` + `fixed_recipient` (page de dépôt), visuels, limites, `tier`, `sender_allowlist`/`recipient_allowlist`, `powered_by`, facturation. |
-| `secure.transfer.access.log` | Journal append-only hash-chaîné (Loi 25). Écriture bloquée hors point de contrôle ; suppression uniquement par le GC hebdo. |
-| `res.config.settings` | Réglages tenant (params `ir.config_parameter`). |
-| `reveal.link.wizard` | Assistant « Révéler le lien » (jetons stockés en clair, `groups=manager`). |
+| `secure.transfer` (`mail.thread`) | The transfer: tokens (an ephemeral `upload_token` plus a sharing `token`), state, sender/recipients, message, password, OTP, expiry, counters, `burn_after_download`/`notify_on_download`. |
+| `secure.transfer.file` | A file: sanitised name, size (`Float` — never `Integer`, which overflows past 2.1 GB), extension (deny-list), an **opaque** `s3_key` (uuid, no PII), pinned ETag, state, multipart fields (`s3_upload_id`, `part_size`, `parts_total`). |
+| `secure.transfer.brand` | A brand: `domain`, `slug` + `fixed_recipient` (drop page), visuals, limits, `tier`, `sender_allowlist`/`recipient_allowlist`, `powered_by`, billing. |
+| `secure.transfer.access.log` | The append-only hash-chained log (Law 25). Writes blocked outside the control point; deletion only by the weekly GC. |
+| `res.config.settings` | Tenant settings (`ir.config_parameter` params). |
+| `reveal.link.wizard` | The "Reveal link" wizard (tokens stored in clear, `groups=manager`). |
 
-### Arborescence
+### Tree
 
 ```
 bf_securetransfer/
-├── __manifest__.py            # depends [web, mail, portal] ; external_dependencies boto3
-├── hooks.py                   # post_init_hook : traductions courriel en_CA (jsonb)
+├── __manifest__.py            # depends [web, mail, portal]; external_dependencies boto3
+├── hooks.py                   # post_init_hook: en_CA email translations (jsonb)
 ├── README.md / SECURITY.md
-├── controllers/main.py        # pages publiques (/secrets, /to/<slug>, /s/<token>…)
-├── controllers/upload_api.py  # API JSON d'upload (create/presign/multipart/finalize/confirm)
-├── models/s3.py               # SEUL fichier boto3 (lazy) : client, presign, head, multipart, CORS
+├── controllers/main.py        # public pages (/secrets, /to/<slug>, /s/<token>…)
+├── controllers/upload_api.py  # upload JSON API (create/presign/multipart/finalize/confirm)
+├── models/s3.py               # the ONLY boto3 file (lazy): client, presign, head, multipart, CORS
 ├── models/secure_transfer.py  / _file.py / _brand.py / _access_log.py / res_config_settings.py
 ├── wizards/reveal_link_wizard.py
-├── security/  data/  views/   # ACL+groupes ; séquence, marque défaut, crons, 3 templates ; vues backend + QWeb publiques
-├── static/src/js/st_upload.js # JS pur : drag-drop, XHR PUT progress, chunking, resume, onglets, drop mode
+├── security/  data/  views/   # ACLs + groups; sequence, default brand, crons, 3 templates; backend views + public QWeb
+├── static/src/js/st_upload.js # plain JS: drag-drop, XHR PUT progress, chunking, resume, tabs, drop mode
 ├── static/src/{js/st_download.js, css/st_public.css}
 ├── migrations/18.0.1.1.0/post-migrate.py
 ├── i18n/ (pot + fr_CA + en_CA)
-└── tests/ (lifecycle, access_log, host_resolution)   # 63 tests, S3 entièrement mocké
+└── tests/ (lifecycle, access_log, host_resolution)   # 63 tests, S3 fully mocked
 ```
 
 ### Routes
 
-| Route | Type | Rôle |
+| Route | Type | Role |
 |---|---|---|
-| `GET /secrets` | http | Page d'envoi brandée (Host → marque). |
-| `GET /to/<slug>` | http | Page de dépôt personnelle (destinataire fixe). |
-| `POST /secrets/api/create` | json | Brouillon → `{upload_token, limits}`. Courriel optionnel ; `drop_slug` pour un dépôt perso. |
-| `POST /secrets/api/<ut>/presign` | json | Enregistre un fichier → PUT simple ou plan multipart. |
-| `POST …/multipart/{initiate,sign,complete,abort,status}` | json | Cycle multipart (complete reconstruit depuis `ListParts`, jamais les ETags client). |
-| `POST …/remove` | json | Retire un fichier pré-finalize. |
-| `POST …/finalize` | json | Vérifie, active, envoie les courriels → `{share_url}`. |
-| `POST …/confirm` et `…/confirm/resend` | json | Confirmation OTP expéditeur. |
-| `GET /s/<token>` | http | Page de téléchargement / gate mot de passe / gate OTP / page neutre. |
-| `POST /s/<token>/unlock` | http | Soumission du mot de passe (flag de session). |
-| `POST /s/<token>/otp-request` et `/otp-verify` | http | Gate OTP destinataire. |
-| `GET /s/<token>/dl/<file_id>` | http | Revérif ETag → 302 vers GET présigné. |
-| `POST /s/<token>/report` | http | Signalement d'abus → suspension auto + courriels + activité. |
+| `GET /secrets` | http | Branded send page (Host → brand). |
+| `GET /to/<slug>` | http | Personal drop page (fixed recipient). |
+| `POST /secrets/api/create` | json | Draft → `{upload_token, limits}`. Email optional; `drop_slug` for a personal drop. |
+| `POST /secrets/api/<ut>/presign` | json | Registers a file → simple PUT or a multipart plan. |
+| `POST …/multipart/{initiate,sign,complete,abort,status}` | json | The multipart cycle (complete rebuilds from `ListParts`, never client ETags). |
+| `POST …/remove` | json | Removes a file before finalize. |
+| `POST …/finalize` | json | Verifies, activates, sends the emails → `{share_url}`. |
+| `POST …/confirm` and `…/confirm/resend` | json | Sender OTP confirmation. |
+| `GET /s/<token>` | http | Download page / password gate / OTP gate / neutral page. |
+| `POST /s/<token>/unlock` | http | Password submission (session flag). |
+| `POST /s/<token>/otp-request` and `/otp-verify` | http | Recipient OTP gate. |
+| `GET /s/<token>/dl/<file_id>` | http | ETag re-check → 302 to a presigned GET. |
+| `POST /s/<token>/report` | http | Abuse report → automatic suspension + emails + activity. |
 
 ---
 
-## Dépendances
+## Dependencies
 
-- **Modules Odoo** : `web`, `mail`, `portal` (pas `website` : pages publiques
-  autonomes, le routeur website ne doit jamais détourner un Host de marque).
-- **Python** : `boto3` + `botocore` (épinglés dans les Dockerfiles des tenants —
-  nouvelle couche pip finale, ne pas toucher la couche pyHanko). L'import est
-  paresseux : sans boto3, le module s'installe mais toute opération S3 lève une
-  erreur explicite.
+- **Odoo modules**: `web`, `mail`, `portal` (not `website`: the public pages are
+  standalone, and the website router must never hijack a brand Host).
+- **Python**: `boto3` + `botocore` (pinned in the tenants' Dockerfiles — a new
+  final pip layer, do not touch the pyHanko layer). The import is lazy: without
+  boto3 the module installs, but any S3 operation raises an explicit error.
 
 ---
 
-## Mise en route (opérateur)
+## Getting started (operator)
 
-### 1. Clés d'accès S3 — `odoo.conf` ou environnement, jamais en base
+### 1. S3 access keys — `odoo.conf` or the environment, never the database
 
-Les clés voyagent **hors base de données** (un dump ou un refresh staging
-emporterait les clés de production). Par ordre de priorité :
+The keys travel **outside the database** (a dump or a staging refresh would
+carry production keys away). In order of precedence:
 
 ```ini
-# variables d'environnement (prioritaires)
+# environment variables (take precedence)
 BF_SECURETRANSFER_S3_ACCESS_KEY=…
 BF_SECURETRANSFER_S3_SECRET_KEY=…
 
-# ou bloc odoo.conf
+# or an odoo.conf block
 bf_securetransfer_s3_access_key = …
 bf_securetransfer_s3_secret_key = …
 ```
 
-Le bucket peut être **partagé entre plusieurs instances** ou dédié. Chaque
-instance est isolée par son **préfixe de clé** `s3_key_prefix` (p. ex.
-`transfers-prod`, `transfers-staging`) : c'est ce préfixe — et non le nom du
-bucket — qui garantit qu'une purge ou un balayage d'orphelins d'une instance ne
-touche jamais les objets d'une autre. **Rendre `s3_key_prefix` unique par
-instance.** **Verrou d'objets (object lock) désactivé** — sinon la purge est
-impossible. Après avoir cloné une base de production vers un environnement de
-test, videz les tables `secure_transfer_*` (héritées du dump) et repointez
-`s3_key_prefix` + `public_base_url` sur les valeurs de test, afin que le test
-n'agisse jamais sur les objets de production.
+The bucket can be **shared between several instances** or dedicated. Each
+instance is isolated by its **key prefix** `s3_key_prefix` (for example
+`transfers-prod`, `transfers-staging`): it is that prefix — not the bucket name
+— that guarantees one instance's purge or orphan sweep never touches another's
+objects. **Make `s3_key_prefix` unique per instance.** **Object lock must be
+off** — otherwise purging is impossible. After cloning a production database
+into a test environment, empty the `secure_transfer_*` tables (inherited from
+the dump) and repoint `s3_key_prefix` + `public_base_url` at the test values, so
+the test never acts on production objects.
 
-### 2. Paramètres (Paramètres → Transfert sécurisé)
+### 2. Settings (Settings → Secure Transfer)
 
-Non-secrets, stockés en `ir.config_parameter` (préfixe `bf_securetransfer.`) :
+Non-secret, stored in `ir.config_parameter` (`bf_securetransfer.` prefix):
 
-| Paramètre | Défaut | Rôle |
+| Setting | Default | Role |
 |---|---|---|
-| `s3_endpoint_url`, `s3_region`, `s3_bucket` | — / `ca-east-1` / — | Point d'accès IDrive E2 |
-| `s3_key_prefix` | — | Préfixe d'isolation par instance (unique !) |
-| `s3_path_style` | `1` | Adressage path-style |
-| `cors_origins` | — | Origines autorisées à téléverser (jamais `*`) |
-| `public_base_url` | — | URL publique quand la marque n'a pas de domaine (à définir explicitement plutôt que de compter sur `web.base.url`) |
-| `public_upload_enabled` | `1` | Interrupteur de la page d'envoi (les liens de téléchargement restent servis) |
-| `presign_put_ttl` / `presign_part_ttl` / `presign_get_ttl` | 900 / 3600 / 300 s | Durées de vie des URLs présignées |
-| `multipart_threshold_mb` / `part_size_mb` / `mpu_sign_batch_max` | 64 / 16 / 20 | Bascule multipart, taille de part, lot de presigns |
-| `default_free_max_transfer_mb` / `default_paid_max_transfer_mb` | 2048 / 20480 | Plafonds par palier |
-| `default_max_files` | 25 | Fichiers par transfert |
-| `default_free_max_retention_days` / `default_paid_max_retention_days` | 7 / 90 | Rétention par palier |
-| `draft_ttl_hours` | 24 | Moisson des brouillons abandonnés |
-| `log_retention_days` | 365 | Rétention du journal après purge |
-| `rate_create_per_hour`, `quota_daily_transfers_per_ip`, `quota_daily_bytes_per_ip_mb`, `quota_daily_transfers_per_sender` | 10 / 25 / 10240 / 5 | Anti-abus |
-| `default_sender_allowlist` / `default_recipient_allowlist` | — | Listes d'autorisation par défaut du tenant (une marque peut surcharger) |
-| `require_sender_otp` / `require_recipient_otp` | `0` / `0` | Active les gates OTP expéditeur / destinataire |
-| `abuse_email` | — (courriel société) | Destinataire des avis d'abus |
+| `s3_endpoint_url`, `s3_region`, `s3_bucket` | — / `ca-east-1` / — | IDrive E2 endpoint |
+| `s3_key_prefix` | — | Per-instance isolation prefix (unique!) |
+| `s3_path_style` | `1` | Path-style addressing |
+| `cors_origins` | — | Origins allowed to upload (never `*`) |
+| `public_base_url` | — | Public URL when the brand has no domain (set it explicitly rather than relying on `web.base.url`) |
+| `public_upload_enabled` | `1` | Kill switch for the send page (download links keep being served) |
+| `presign_put_ttl` / `presign_part_ttl` / `presign_get_ttl` | 900 / 3600 / 300 s | Presigned URL lifetimes |
+| `multipart_threshold_mb` / `part_size_mb` / `mpu_sign_batch_max` | 64 / 16 / 20 | Multipart switchover, part size, presign batch |
+| `default_free_max_transfer_mb` / `default_paid_max_transfer_mb` | 2048 / 20480 | Per-tier caps |
+| `default_max_files` | 25 | Files per transfer |
+| `default_free_max_retention_days` / `default_paid_max_retention_days` | 7 / 90 | Per-tier retention |
+| `draft_ttl_hours` | 24 | Harvesting of abandoned drafts |
+| `log_retention_days` | 365 | Log retention after purge |
+| `rate_create_per_hour`, `quota_daily_transfers_per_ip`, `quota_daily_bytes_per_ip_mb`, `quota_daily_transfers_per_sender` | 10 / 25 / 10240 / 5 | Anti-abuse |
+| `default_sender_allowlist` / `default_recipient_allowlist` | — | Tenant default allowlists (a brand can override) |
+| `require_sender_otp` / `require_recipient_otp` | `0` / `0` | Enables the sender / recipient OTP gates |
+| `abuse_email` | — (company email) | Recipient of abuse notices |
 
-### 3. Action « Configurer le bucket S3 »
+### 3. The "Configure the S3 bucket" action
 
-Bouton dans Paramètres → Transfert sécurisé, **idempotent**, à relancer après
-tout changement d'origines CORS :
+A button in Settings → Secure Transfer, **idempotent**, to re-run after any
+change to the CORS origins:
 
-- applique la politique **CORS** : origines explicites du paramètre
-  `cors_origins` **plus** l'union des domaines de marques actives, méthode
-  **PUT seulement**, `ExposeHeaders: ETag` (**obligatoire** — sans lui le
-  multipart échoue silencieusement côté navigateur), `MaxAge 3600` ;
-- tente les règles de cycle de vie (`AbortIncompleteMultipartUpload` 2 j +
-  `Expiration` 45 j) — filet derrière la purge ; si IDrive E2 refuse, l'échec
-  est consigné et les crons restent le mécanisme primaire ;
-- exécute les **sondes** : `GetBucketLocation == ca-east-1` (preuve de
-  résidence), object lock OFF, aller-retour put/head/get/delete,
-  `Content-Length` signé appliqué, `DeleteObjects` par lot, cycle multipart
-  complet. Le rapport s'affiche à l'écran.
+- applies the **CORS** policy: explicit origins from the `cors_origins` setting
+  **plus** the union of active brand domains, **PUT only**,
+  `ExposeHeaders: ETag` (**mandatory** — without it multipart fails silently in
+  the browser), `MaxAge 3600`;
+- attempts the lifecycle rules (`AbortIncompleteMultipartUpload` 2 d +
+  `Expiration` 45 d) — a safety net behind the purge; if IDrive E2 refuses, the
+  failure is logged and the crons remain the primary mechanism;
+- runs the **probes**: `GetBucketLocation == ca-east-1` (proof of residency),
+  object lock OFF, a put/head/get/delete round trip, signed `Content-Length`
+  enforced, batched `DeleteObjects`, a full multipart cycle. The report is shown
+  on screen.
 
-### 4. CORS requis (rappel)
+### 4. CORS required (a reminder)
 
-Le téléversement direct exige que **chaque origine publique** (page d'envoi)
-figure dans `cors_origins` ou parmi les domaines de marques actives :
-`https://secret.example.com`, l'origine staging pour la QA, et chaque futur
-domaine de marque. Les téléchargements sont des navigations 302 → pas de CORS.
+Direct upload requires **every public origin** (the send page) to appear in
+`cors_origins` or among the active brand domains:
+`https://secret.example.com`, the staging origin for QA, and every future brand
+domain. Downloads are 302 navigations, so no CORS.
 
-### 5. Reverse proxy (host public)
+### 5. Reverse proxy (public host)
 
-Placez chaque domaine public (p. ex. `secret.example.com`) derrière un reverse
-proxy qui transmet à l'instance Odoo. Points importants de la configuration :
+Put each public domain (for example `secret.example.com`) behind a reverse proxy
+forwarding to the Odoo instance. The configuration points that matter:
 
-- `client_max_body_size 16m` — seul du JSON transite par Odoo, les octets vont
-  direct au bucket ;
-- location `/websocket` → port 8072 (miroir du host Odoo principal) ;
-- **redirection 302** de `/web/login`, `/web/database`, `/odoo`, `/xmlrpc`
-  vers l'instance principale — le host de marque n'expose que le produit ;
-- **⚠️ durcissement obligatoire** : le proxy DOIT **écraser** `X-Forwarded-Host`
-  (`$host`) et `X-Real-IP`/`X-Forwarded-For` (`$remote_addr`), jamais relayer la
-  valeur client — sinon un visiteur usurpe son IP (contourne les rate-limits) et
-  sélectionne une marque payante (limites élevées + courriels sous la marque
-  d'un client). Même faiblesse héritée de bf_sign/bf_policy : le contrôle est au
-  proxy, pas dans le code ;
-- `X-Content-Type-Options: nosniff` + `Referrer-Policy`.
+- `client_max_body_size 16m` — only JSON goes through Odoo, the bytes go
+  straight to the bucket;
+- a `/websocket` location → port 8072 (mirroring the main Odoo host);
+- a **302 redirect** of `/web/login`, `/web/database`, `/odoo`, `/xmlrpc` to the
+  main instance — the brand host exposes only the product;
+- **⚠️ mandatory hardening**: the proxy MUST **overwrite** `X-Forwarded-Host`
+  (`$host`) and `X-Real-IP`/`X-Forwarded-For` (`$remote_addr`), never relay the
+  client value — otherwise a visitor spoofs their IP (bypassing the rate limits)
+  and selects a paid brand (high limits plus emails under a client's brand). The
+  same weakness is inherited from bf_sign/bf_policy: the control lives at the
+  proxy, not in the code;
+- `X-Content-Type-Options: nosniff` plus `Referrer-Policy`.
 
-### 6. Marques
+### 6. Brands
 
-Configuration → Marques. La marque **Défaut** (sans domaine) sert tout hôte
-inconnu ; ses visuels retombent sur le branding de la société. Une marque
-payante : domaine nu (`secret.client.com`), logo/favicon/couleurs, palier
-`paid`, limites propres (0 = défaut de la configuration), `powered_by` décoché le
-cas échéant, `sender_allowlist`/`recipient_allowlist` pour verrouiller l'usage.
+Configuration → Brands. The **Default** brand (with no domain) serves every
+unknown host; its visuals fall back to the company branding. A paid brand: bare
+domain (`secret.client.com`), logo/favicon/colours, `paid` tier, its own limits
+(0 = the configuration default), `powered_by` unticked where relevant,
+`sender_allowlist`/`recipient_allowlist` to lock down usage.
 
-### 6b. Page de dépôt personnelle (`/to/<slug>`)
+### 6b. Personal drop page (`/to/<slug>`)
 
-Sur la fiche marque, renseigner **Identifiant de page (slug)** (p. ex.
-`depot`) et **Destinataire unique** (l'adresse qui recevra tout) — un nom
-d'affichage optionnel. La marque devient une page de dépôt servie à
-`/to/<slug>` : le champ destinataire est masqué et **forcé côté serveur**. Idéal
-pour un lien « Envoyez-moi un fichier » (signature courriel, site). Rien à
-configurer côté proxy si la page vit sous un domaine déjà servi (p. ex.
-`https://exemple.com/to/depot`).
+On the brand record, fill in the **Page identifier (slug)** (for example `drop`)
+and the **Single recipient** (the address that will receive everything), plus an
+optional display name. The brand becomes a drop page served at `/to/<slug>`: the
+recipient field is hidden and **forced server-side**. Ideal for a "Send me a
+file" link (email signature, website). Nothing to configure on the proxy if the
+page lives under a domain that is already served (for example
+`https://example.com/to/drop`).
 
-### 7. Onboarding d'un domaine de marque payant
+### 7. Onboarding a paid brand domain
 
-1. **DNS du client** : `CNAME secrets.client.com → <domaine de l'instance>`,
-   **DNS-only**. Vérifier : `getent hosts secrets.client.com`.
-2. **Reverse proxy + certificat TLS** pour le nouveau domaine, avec le même
-   durcissement d'en-têtes qu'à l'étape 5.
-3. **Fiche marque** : domaine nu, palier **Payant**, visuels, « Propulsé par »
-   décoché, limites élevées, `sender_allowlist` (p. ex. `@client.com`),
-   `partner_id`, puis bouton **« Configurer le domaine (CORS) »**.
-4. Surveiller le certificat du nouveau domaine.
+1. **The client's DNS**: `CNAME secrets.client.com → <the instance's domain>`,
+   **DNS-only**. Check with `getent hosts secrets.client.com`.
+2. **Reverse proxy + TLS certificate** for the new domain, with the same header
+   hardening as in step 5.
+3. **Brand record**: bare domain, **Paid** tier, visuals, "Powered by"
+   unticked, high limits, `sender_allowlist` (for example `@client.com`),
+   `partner_id`, then the **"Configure the domain (CORS)"** button.
+4. Monitor the new domain's certificate.
 
-### 8. Facturation du palier payant
+### 8. Billing the paid tier
 
-Chaque marque payante porte les champs `billing_active` / `billing_ref` /
-`price_year`. La facturation elle-même relève de votre outillage : un simple
-registre de coûts avec refacturation à la demande, ou une facturation
-**récurrente automatique** via `sale.subscription` (Enterprise) ou l'OCA
-`contract`.
+Each paid brand carries `billing_active` / `billing_ref` / `price_year` fields.
+Billing itself is up to your own tooling: a simple cost register with rebilling
+on request, or **automatic recurring** billing through `sale.subscription`
+(Enterprise) or the OCA `contract` module.
 
 ---
 
-## Exploitation
+## Operations
 
-- **Crons** : purge quotidienne 03:15 (expirés → suppression S3 par lots,
-  métadonnées + journal conservés), GC horaire des brouillons abandonnés
-  (abort multipart + suppression des objets), GC hebdomadaire des journaux
-  hors rétention (seul chemin qui supprime des entrées de journal).
-- **Échecs de purge** : compteur par transfert ; ≥ 5 échecs → activité admin.
-  Endpoint S3 injoignable : le cron abandonne proprement et rattrape au run
-  suivant.
-- **Backups** : les buckets sont **exclus par design** (contenu éphémère — les
-  sauvegarder contredirait la promesse de rétention). Consigné « no backup
-  expected — by design » dans audit-backup-coverage.
-- **Surveillance** : suivez le certificat TLS de chaque domaine public
-  (renouvellement automatique recommandé).
-- **Journal d'accès** : menu Journal d'accès — pièce Loi 25 ; l'intégrité de la
-  chaîne se vérifie par `verify_chain()`.
+- **Crons**: a daily purge at 03:15 (expired → batched S3 deletion, metadata +
+  log kept), an hourly GC of abandoned drafts (multipart abort + object
+  deletion), a weekly GC of logs past retention (the only path that deletes log
+  entries).
+- **Purge failures**: a per-transfer counter; ≥ 5 failures → an admin activity.
+  If the S3 endpoint is unreachable, the cron gives up cleanly and catches up on
+  the next run.
+- **Backups**: the buckets are **excluded by design** (ephemeral content —
+  backing them up would contradict the retention promise). Recorded as "no
+  backup expected — by design" in the backup coverage audit.
+- **Monitoring**: track the TLS certificate of each public domain (automatic
+  renewal recommended).
+- **Access log**: the Access log menu — a Law 25 artefact; chain integrity is
+  checked with `verify_chain()`.
 
 ## Tests
 
 `63 tests` (`tests/test_lifecycle.py`, `test_access_log.py`,
-`test_host_resolution.py`). **Toute** interaction S3 est mockée sur
-`odoo.addons.bf_securetransfer.models.s3` : la suite tourne sans boto3 et sans
-endpoint joignable. Lancer sur staging :
+`test_host_resolution.py`). **Every** S3 interaction is mocked on
+`odoo.addons.bf_securetransfer.models.s3`: the suite runs without boto3 and
+without a reachable endpoint. To run it on staging:
 
 ```
 docker exec odoo-staging odoo -d staging -u bf_securetransfer \
     --test-enable --test-tags /bf_securetransfer --stop-after-init
 ```
 
-## Déploiement
+## Deployment
 
-Installez / mettez à jour via votre procédure habituelle de déploiement Odoo :
+Install / update through your usual Odoo deployment procedure:
 
 ```bash
 odoo -d <database> -u bf_securetransfer --stop-after-init
 ```
 
-La migration de `sender_email` vers *nullable* est appliquée automatiquement par
-Odoo au `-u`.
+The migration making `sender_email` nullable is applied automatically by Odoo on
+`-u`.
 
 ---
 
-## Feuille de route
+## Roadmap
 
-**Phase 2 — livrée** : burn-after-download, notify-on-download, domaines perso
-payants (CORS auto, runbook), tableau de bord, câblage facturation, OTP
-expéditeur + destinataire, listes d'autorisation, pages de dépôt perso, mode
-message seul, thème clair/sombre, langue courriel selon contact.
+**Phase 2 — delivered**: burn-after-download, notify-on-download, paid custom
+domains (automatic CORS, runbook), dashboard, billing wiring, sender +
+recipient OTP, allowlists, personal drop pages, message-only mode, light/dark
+theme, email language following the contact.
 
-**Phase 3 — à venir** : ClamAV (champ `scanned` déjà livré, la route dl le
-respecte), ZIP « tout télécharger » (exclu au MVP : proxy multi-Go), chiffrement
-applicatif zéro-connaissance (clés S3 opaques prêtes ; incompatible ClamAV —
-décision de positionnement), UI de reprise multipart cross-session, facturation
-récurrente automatique.
+**Phase 3 — upcoming**: ClamAV (the `scanned` field already ships, and the
+download route honours it), a "download all" ZIP (excluded at MVP: proxying
+multiple gigabytes), zero-knowledge application-level encryption (opaque S3 keys
+are ready; incompatible with ClamAV — a positioning decision), a cross-session
+multipart resume UI, automatic recurring billing.
 
-**Réserve Loi 25** (à documenter dans l'EFVP produit) : IDrive est un processeur
-**américain** (CLOUD Act). « Hébergé au Canada » est défendable ; « à l'abri de
-tout accès étranger » ne l'est pas avant la Phase 3 (chiffrement zéro-
-connaissance).
+**Law 25 caveat** (to be documented in the product's privacy impact
+assessment): IDrive is a **US** processor (CLOUD Act). "Hosted in Canada" is
+defensible; "beyond the reach of any foreign access" is not, until Phase 3
+(zero-knowledge encryption).
 
 ---
 
-## Journal des versions
+## Version log
 
-| Version | Faits saillants |
+| Version | Highlights |
 |---|---|
-| `18.0.1.6.1` | **Localisation** : traduction en_CA complète du module (champs, aides, messages, assistant d'envoi, pages publiques) et du courriel « message sécurisé ». Correctif du hook de traduction des courriels (les termes contenant du balisage sont désormais appliqués correctement). |
-| `18.0.1.6.0` | Mode **Message seul** : le corps n'est **plus jamais inclus en clair** dans le courriel de notification — celle-ci ne porte que le lien, et le message se lit uniquement sur la page sécurisée (comportement aligné sur les envois à code). |
-| `18.0.1.3.0`–`1.5.0` | **Message sécurisé à code destinataire** (OTP livré par courriel ou SMS) + **assistant d'envoi backend** ; confirmation d'envoi par code côté expéditeur ; **pages de dépôt personnelles** auto-provisionnées à la création d'un utilisateur interne ; publication d'une marque de dépôt par son seul **slug** ; durcissement de l'échappement `LIKE` sur la résolution d'hôte. _(Publication de rattrapage : versions intermédiaires regroupées.)_ |
-| `18.0.1.2.1` | Correctif : les listes d'autorisation par défaut (`res.config.settings`) passent de `Text` à `Char` — un champ `Text` sur les paramètres faisait planter toute la page Paramètres (`_get_classified_fields`). Séparateur = virgules. |
-| `18.0.1.2.0` | Pages de dépôt perso `/to/<slug>` (destinataire forcé) ; onglets Fichiers/Message seul ; courriel expéditeur optionnel au dépôt / requis à l'envoi ; correctif d'ordre des champs. |
-| `18.0.1.1.0` | Langue des courriels selon le contact Odoo (`partner.lang`) ; traductions en_CA rendues durables par hook de migration. |
-| `18.0.1.0.x` | Phase 2 : burn-after-download, notify-on-download, domaines perso payants, tableau de bord, facturation, OTP expéditeur/destinataire, listes d'autorisation anti-piggyback, suspension auto sur abus + avis courriel. |
-| `18.0.1.0.0` | MVP : upload direct S3 (simple + multipart), liens tokenisés, expiration/mot de passe, journal Loi 25 hash-chaîné, multi-marques, purge/crons. |
+| `18.0.1.6.1` | **Localisation**: full en_CA translation of the module (fields, help, messages, send wizard, public pages) and of the "secure message" email. Fixed the email translation hook (terms containing markup are now applied correctly). |
+| `18.0.1.6.0` | **Message only** mode: the body is **never again included in clear text** in the notification email — it carries only the link, and the message is read solely on the secure page (behaviour aligned with code-protected sends). |
+| `18.0.1.3.0`–`1.5.0` | **Code-protected secure message for the recipient** (OTP delivered by email or SMS) plus a **backend send wizard**; sender-side send confirmation by code; **personal drop pages** auto-provisioned when an internal user is created; publishing a drop brand by its **slug** alone; hardened `LIKE` escaping in host resolution. _(Catch-up release: intermediate versions grouped.)_ |
+| `18.0.1.2.1` | Fix: the default allowlists (`res.config.settings`) moved from `Text` to `Char` — a `Text` field on the settings crashed the whole Settings page (`_get_classified_fields`). The separator is commas. |
+| `18.0.1.2.0` | Personal drop pages `/to/<slug>` (forced recipient); Files/Message-only tabs; sender email optional at drop time / required at send time; field order fix. |
+| `18.0.1.1.0` | Email language following the Odoo contact (`partner.lang`); en_CA translations made durable through a migration hook. |
+| `18.0.1.0.x` | Phase 2: burn-after-download, notify-on-download, paid custom domains, dashboard, billing, sender/recipient OTP, anti-piggyback allowlists, automatic suspension on abuse plus email notice. |
+| `18.0.1.0.0` | MVP: direct S3 upload (simple + multipart), tokenised links, expiry/password, hash-chained Law 25 log, multi-brand, purge/crons. |
 
 ## Licence
 
-Distribué sous **Business Source License 1.1** (BUSL-1.1). Voir le fichier
-[`LICENSE`](LICENSE) pour les paramètres exacts.
+Distributed under the **Business Source License 1.1** (BUSL-1.1). See the
+[`LICENSE`](LICENSE) file for the exact parameters.
 
-- **Permis sans entente** : l'usage en production pour vos propres opérations
-  internes.
-- **Demande une entente écrite** : fournir le module comme produit ou service à
-  des tiers — hébergé, infogéré ou revendu.
-- **Change Date** : le 2029-07-20, cette version bascule automatiquement en
+- **Allowed without an agreement**: production use for your own internal
+  business operations.
+- **Requires a written agreement**: providing the module as a product or
+  service to third parties, whether hosted, managed or resold.
+- **Change Date**: on 2029-07-20, this version converts automatically to
   **LGPL-3.0-or-later**.

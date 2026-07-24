@@ -1,6 +1,6 @@
-# bf_cx_dashboard - tuile Expérience client
+# bf_cx_dashboard - Customer Experience tile
 
-S'auto-installe quand `bf_cx` et `bf_dashboard` sont installés. Tuile
-NPS (fenêtre honnête, n affiché, score masqué sous 10 réponses) avec
-« à rappeler » (détracteurs ET CSAT insatisfaits), plaintes ouvertes et
-candidats témoignage.
+Auto-installs when both `bf_cx` and `bf_dashboard` are installed. Adds an
+NPS tile (honest window, n displayed, score hidden below 10 responses)
+together with "to call back" (detractors AND dissatisfied CSAT), open
+complaints and testimonial candidates.

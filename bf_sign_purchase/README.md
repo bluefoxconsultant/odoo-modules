@@ -1,29 +1,28 @@
-# Blue Fox — Signature pour les achats (`bf_sign_purchase`)
+# Blue Fox — Signature for Purchasing (`bf_sign_purchase`)
 
-Module passerelle qui branche les bons de commande d'achat sur la signature
-électronique `bf_sign`.
+A bridge module wiring purchase orders into `bf_sign` electronic signature.
 
-## Ce que ça fait
+## What it does
 
-- Ajoute une action « Envoyer pour signature » sur `purchase.order` (via le
-  mixin `bf.sign.mixin`).
-- Rend le bon de commande / la demande de prix en PDF
-  (`purchase.action_report_purchase_order`), crée une demande de signature
-  `bf_sign` liée, puis reverse le document signé dans le fil du bon de commande
-  une fois signé.
+- Adds a "Send for signature" action on `purchase.order` (through the
+  `bf.sign.mixin` mixin).
+- Renders the purchase order / request for quotation as a PDF
+  (`purchase.action_report_purchase_order`), creates a linked `bf_sign`
+  signature request, then posts the signed document back into the order's
+  thread once signed.
 
-## Dépendances
+## Dependencies
 
 `bf_sign`, `purchase`.
 
 ## Licence
 
-Distribué sous **Business Source License 1.1** (BUSL-1.1). Voir le fichier
-[`LICENSE`](LICENSE) pour les paramètres exacts.
+Distributed under the **Business Source License 1.1** (BUSL-1.1). See the
+[`LICENSE`](LICENSE) file for the exact parameters.
 
-- **Permis sans entente** : l'usage en production pour vos propres opérations
-  internes.
-- **Demande une entente écrite** : fournir le module comme produit ou service à
-  des tiers — hébergé, infogéré ou revendu.
-- **Change Date** : le 2029-07-20, cette version bascule automatiquement en
+- **Allowed without an agreement**: production use for your own internal
+  business operations.
+- **Requires a written agreement**: providing the module as a product or
+  service to third parties, whether hosted, managed or resold.
+- **Change Date**: on 2029-07-20, this version converts automatically to
   **LGPL-3.0-or-later**.

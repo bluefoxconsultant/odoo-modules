@@ -1,7 +1,7 @@
-# bf_cx_sign : feedback post-signature
+# bf_cx_sign: post-signature feedback
 
-S'auto-installe quand `bf_cx` et `bf_sign` sont installés. Quand une
-demande de signature est complétée (document scellé), demande de
-feedback à 3 émojis (module rating) au signataire principal. Opt-in
-(`bf_cx.sign_feedback`, défaut désactivé), une seule demande par dossier
-de signature, garde-fous de sollicitation appliqués.
+Auto-installs when both `bf_cx` and `bf_sign` are installed. When a
+signature request is completed (document sealed), sends a 3-emoji feedback
+request (rating module) to the main signer. Opt-in
+(`bf_cx.sign_feedback`, off by default), one request per signature
+request, with the solicitation guardrails applied.

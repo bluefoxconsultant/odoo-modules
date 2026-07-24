@@ -1,171 +1,191 @@
-# Banque d'heures (`bf_hour_bank`)
+# Hour bank (`bf_hour_bank`)
 
-Module Odoo 18 pour le suivi automatisé des banques d'heures client.
+An Odoo 18 module for automated tracking of client hour banks.
 
-## Fonctionnalités
+## Features
 
-- **Configuration par client** : projets inclus, filtres sociétés/partenaires/produits, destinataires du rapport
-- **Calcul automatique du solde** : débits (feuilles de temps) + crédits (factures) + ajustements manuels
-- **Ajustements manuels** : crédits ou débits hors factures/feuilles de temps (refacturations, corrections, JV)
-- **Rapport PDF** : Blue Fox branded avec bannière, tableau des entrées (crédits en vert), sommaire par projet, synthèse mensuelle
-- **Rapport Excel** : 4 onglets (Feuilles de temps, Sommaire par projet, Synthèse par mois, À facturer)
-- **Envoi par courriel** : wizard avec PDF + Excel en pièces jointes, email balisé Blue Fox
-- **Prévisualisation** : aperçu PDF directement depuis le wizard d'envoi
-- **Envoi automatique** : cron configurable (hebdomadaire, aux deux semaines, mensuel) avec rapport balisé envoyé aux destinataires
-- **Paliers de notification** : alertes courriel proactives quand la consommation franchit un seuil (heures non facturées, % d'un budget alloué, ou solde sous un plancher) avec XLSX joint
-- **Portail client** : page `/my/hour-banks` accessible aux utilisateurs portail, avec téléchargement PDF/Excel en libre-service
+- **Per-client configuration**: included projects, company/partner/product filters, report recipients
+- **Automatic balance calculation**: debits (timesheets) + credits (invoices) + manual adjustments
+- **Manual adjustments**: credits or debits outside invoices and timesheets (rebilling, corrections, journal entries)
+- **PDF report**: Blue Fox branded, with banner, entry table (credits in green), per-project summary and monthly summary
+- **Excel report**: 4 sheets (Timesheets, Per-project summary, Monthly summary, To be invoiced)
+- **Email delivery**: a wizard with the PDF and Excel attached, in a Blue Fox branded email
+- **Preview**: PDF preview directly from the sending wizard
+- **Automatic sending**: configurable cron (weekly, fortnightly, monthly) sending a branded report to the recipients
+- **Notification thresholds**: proactive email alerts when consumption crosses a threshold (unbilled hours, % of an allocated budget, or balance below a floor) with the XLSX attached
+- **Client portal**: a `/my/hour-banks` page for portal users, with self-service PDF/Excel download
 
-## Dépendances
+## Dependencies
 
 - `project`, `account`, `hr_timesheet`, `mail`, `portal`
-- `bluefox_branding` (en-tête et palette de marque des rapports)
-- `bf_onboarding_base` (panneau d'accueil guidé)
-- `openpyxl` (Python, pour génération Excel)
+- `bluefox_branding` (report header and brand palette)
+- `bf_onboarding_base` (guided welcome panel)
+- `openpyxl` (Python, for Excel generation)
 
-## Logique de calcul
+## Calculation logic
 
 ```
-Débits   = feuilles de temps des projets configurés (account.analytic.line)
-Crédits  = lignes de factures client postées (account.move.line)
-           filtrées par société + partenaire + produit (optionnels)
-Ajust.   = entrées manuelles (positif = crédit, négatif = débit)
+Debits      = timesheets on the configured projects (account.analytic.line)
+Credits     = posted customer invoice lines (account.move.line)
+              filtered by company + partner + product (all optional)
+Adjustments = manual entries (positive = credit, negative = debit)
 
-Solde = Σ crédits + Σ ajustements - Σ débits
+Balance = Σ credits + Σ adjustments - Σ debits
 ```
 
-Les entrées sont affichées par date décroissante (plus récentes en premier) dans le PDF, Excel et portail.
+Entries are shown newest first in the PDF, the Excel file and the portal.
 
-### Filtres de facturation
+### Billing filters
 
-Trois niveaux de filtrage indépendants sont disponibles dans l'onglet Facturation :
+Three independent levels of filtering are available in the Billing tab:
 
-#### Filtre sociétés
+#### Company filter
 
-| Mode | Comportement |
-|------|-------------|
-| **Toutes les sociétés** (défaut) | Aucun filtrage par société |
-| **Inclure seulement** | Seules les factures des sociétés sélectionnées comptent |
-| **Exclure** | Toutes les factures sauf celles des sociétés sélectionnées |
+| Mode | Behaviour |
+|------|-----------|
+| **All companies** (default) | No filtering by company |
+| **Include only** | Only invoices from the selected companies count |
+| **Exclude** | Every invoice except those from the selected companies |
 
-#### Filtre partenaires de facturation
+#### Billing partner filter
 
-Champ optionnel permettant de cibler des partenaires spécifiques au lieu du `commercial_partner_id` automatique. Utile quand un même client commercial a plusieurs contacts de facturation (ex. : changement de société interne). Si vide, le comportement par défaut (toutes les factures du partenaire commercial) est conservé.
+An optional field to target specific partners instead of the automatic
+`commercial_partner_id`. Useful when one commercial client has several billing
+contacts (for example, an internal reorganisation). Left empty, the default
+behaviour (every invoice of the commercial partner) is kept.
 
-#### Filtre produits
+#### Product filter
 
-| Mode | Comportement |
-|------|-------------|
-| **Toutes les lignes** (défaut) | Toutes les lignes de facture du client sont incluses |
-| **Inclure seulement** | Seules les lignes avec les produits listés comptent |
-| **Exclure** | Toutes les lignes sauf celles avec les produits listés |
+| Mode | Behaviour |
+|------|-----------|
+| **All lines** (default) | Every invoice line of the client is included |
+| **Include only** | Only lines carrying the listed products count |
+| **Exclude** | Every line except those carrying the listed products |
 
-### Colonnes du rapport
+### Report columns
 
-| Colonne | Description |
-|---------|-------------|
-| Date | Date de l'opération |
-| Nb d'heures | Heures (négatif = débit, positif = crédit) |
-| Solde cumulatif | Balance cumulative à cette date |
-| Description | Nom de la ligne de temps ou numéro de facture |
-| Projet | Nom du projet ou "Heures facturées" / "Ajustement" |
-| Tâche | Nom de la tâche (feuilles de temps uniquement) |
+| Column | Description |
+|--------|-------------|
+| Date | Date of the operation |
+| Hours | Hours (negative = debit, positive = credit) |
+| Running balance | Cumulative balance at that date |
+| Description | Timesheet line name or invoice number |
+| Project | Project name, or "Billed hours" / "Adjustment" |
+| Task | Task name (timesheets only) |
 
 ## Structure
 
 ```
 bf_hour_bank/
 ├── models/
-│   ├── hour_bank_client.py            # Configuration + génération rapports + paliers
-│   ├── hour_bank_adjustment.py        # Ajustements manuels
-│   ├── hour_bank_threshold_line.py    # Configuration des paliers
-│   └── hour_bank_threshold_event.py   # Historique append-only des alertes
+│   ├── hour_bank_client.py            # Configuration + report generation + thresholds
+│   ├── hour_bank_adjustment.py        # Manual adjustments
+│   ├── hour_bank_threshold_line.py    # Threshold configuration
+│   └── hour_bank_threshold_event.py   # Append-only alert history
 ├── wizard/
-│   └── hour_bank_send_wizard.py       # Envoi par courriel (branded)
+│   └── hour_bank_send_wizard.py       # Email delivery (branded)
 ├── controllers/
-│   └── portal.py                      # Portail client (/my/hour-banks)
+│   └── portal.py                      # Client portal (/my/hour-banks)
 ├── report/
-│   ├── hour_bank_paperformat.xml      # Format papier US Letter
-│   └── hour_bank_report_templates.xml # Template QWeb PDF
+│   ├── hour_bank_paperformat.xml      # US Letter paper format
+│   └── hour_bank_report_templates.xml # QWeb PDF template
 ├── views/
-│   ├── hour_bank_client_views.xml     # Formulaire, liste, recherche
-│   ├── hour_bank_threshold_views.xml  # Vues pour hour.bank.threshold.event
-│   ├── hour_bank_portal_templates.xml # Pages portail
-│   └── menu_views.xml                 # Menu racine de l'application
+│   ├── hour_bank_client_views.xml     # Form, list, search
+│   ├── hour_bank_threshold_views.xml  # Views for hour.bank.threshold.event
+│   ├── hour_bank_portal_templates.xml # Portal pages
+│   └── menu_views.xml                 # Application root menu
 ├── data/
 │   ├── hour_bank_mail_template.xml
-│   └── hour_bank_cron.xml             # Crons : rapports périodiques + paliers
+│   └── hour_bank_cron.xml             # Crons: periodic reports + thresholds
 ├── security/
-│   ├── hour_bank_security.xml         # Règles d'accès (interne + portail)
+│   ├── hour_bank_security.xml         # Access rules (internal + portal)
 │   └── ir.model.access.csv
 ├── tests/
-│   └── test_thresholds.py             # 10 tests unitaires des paliers
+│   └── test_thresholds.py             # 10 unit tests on the thresholds
 └── i18n/
     └── fr_CA.po
 ```
 
-## Accès
+## Access
 
-### Backend (interne)
-- **Banque d'heures > Clients** (application dédiée, avec sa propre icône)
-- Lecture : `project.group_project_user`
-- Gestion complète : `project.group_project_manager`
+### Backend (internal)
+- **Hour bank > Clients** (a dedicated application, with its own icon)
+- Read: `project.group_project_user`
+- Full management: `project.group_project_manager`
 
-### Portail client
-- **Mon compte > Banque d'heures** (`/my/hour-banks`)
-- Accès : `base.group_portal` (restreint au `commercial_partner_id` du client)
-- Routes disponibles :
-  - `/my/hour-banks` — liste des banques d'heures
-  - `/my/hour-banks/<id>` — détail avec tableau, solde, sommaire par projet
-  - `/my/hour-banks/<id>/pdf` — téléchargement PDF
-  - `/my/hour-banks/<id>/xlsx` — téléchargement Excel
+### Client portal
+- **My account > Hour bank** (`/my/hour-banks`)
+- Access: `base.group_portal` (restricted to the client's `commercial_partner_id`)
+- Available routes:
+  - `/my/hour-banks` — list of hour banks
+  - `/my/hour-banks/<id>` — detail with table, balance, per-project summary
+  - `/my/hour-banks/<id>/pdf` — PDF download
+  - `/my/hour-banks/<id>/xlsx` — Excel download
 
-## Envoi automatique (cron)
+## Automatic sending (cron)
 
-Le cron `Banque d'heures : Envoi automatique des rapports` s'exécute quotidiennement à 08h00 et envoie les rapports selon la fréquence configurée :
+The `Hour bank: automatic report sending` cron runs daily at 08:00 and sends
+reports according to the configured frequency:
 
-| Fréquence | Déclenchement |
-|-----------|-------------|
-| Hebdomadaire | Chaque lundi |
-| Aux deux semaines | Lundis des semaines ISO paires |
-| Mensuel | 1er du mois |
+| Frequency | Trigger |
+|-----------|---------|
+| Weekly | Every Monday |
+| Fortnightly | Mondays of even ISO weeks |
+| Monthly | 1st of the month |
 
-## Paliers de notification
+## Notification thresholds
 
-Onglet **Paliers** sur la fiche de banque. Trois modes mutuellement exclusifs, désactivés par défaut.
+A **Thresholds** tab on the bank record. Three mutually exclusive modes,
+disabled by default.
 
 ### Modes
 
-| Mode | Mesure | Réarmement |
-|------|--------|------------|
-| **Heures non facturées** | Somme des débits depuis la dernière facture postée du client | Nouvelle facture postée |
-| **% du budget alloué** | `heures non facturées / budget alloué × 100` | Modification de `Budget alloué (h)` sur la banque |
-| **Solde résiduel sous seuil** | Solde courant cumulatif | Remontée du solde au-dessus de `seuil + 0.5h` (hystérésis) |
+| Mode | Measure | Rearming |
+|------|---------|----------|
+| **Unbilled hours** | Sum of debits since the client's last posted invoice | A new posted invoice |
+| **% of allocated budget** | `unbilled hours / allocated budget × 100` | A change to `Allocated budget (h)` on the bank |
+| **Remaining balance below a floor** | Current cumulative balance | The balance rising back above `floor + 0.5h` (hysteresis) |
 
 ### Configuration
 
-1. Choisir le **Mode de palier**
-2. Si `% du budget` : renseigner **Budget alloué (h)**
-3. Ajouter une ou plusieurs lignes de **Paliers à surveiller** (champ `value` — heures ou pourcentage selon mode)
-4. **Destinataires des alertes** : laisser vide pour réutiliser les destinataires du rapport périodique, ou renseigner un Many2many distinct pour des destinataires d'alerte spécifiques
-5. **Notifier les followers internes** (défaut activé) : poste aussi un `message_notify` sur le chatter pour avertir les followers internes de la banque
+1. Choose the **Threshold mode**
+2. For `% of budget`: fill in **Allocated budget (h)**
+3. Add one or more **Thresholds to watch** lines (the `value` field — hours or
+   percentage depending on the mode)
+4. **Alert recipients**: leave empty to reuse the periodic report's recipients,
+   or set a distinct Many2many for specific alert recipients
+5. **Notify internal followers** (on by default): also posts a `message_notify`
+   on the chatter so the bank's internal followers are warned
 
-### Déclenchement
+### Triggering
 
-- Cron **`Banque d'heures : Vérifier les paliers de notification`** quotidien à 08h30 UTC
-- Bouton manuel **« Vérifier les paliers maintenant »** dans l'en-tête du formulaire
-- Pour chaque ligne active : si la mesure courante atteint le seuil ET que la ligne est armée (clé de période différente du dernier déclenchement), un courriel branded est envoyé avec le XLSX en pièce jointe
+- The **`Hour bank: check notification thresholds`** cron, daily at 08:30 UTC
+- A manual **"Check thresholds now"** button in the form header
+- For each active line: if the current measure reaches the threshold AND the
+  line is armed (a period key different from the last trigger), a branded email
+  is sent with the XLSX attached
 
 ### Audit
 
-Chaque déclenchement crée un enregistrement `hour.bank.threshold.event` (append-only) avec snapshot du mode, valeur du palier, valeur mesurée, clé de période, destinataires, pièce jointe XLSX et lien vers le message chatter. Smart button **« Alertes envoyées »** sur le formulaire ouvre la liste filtrée.
+Every trigger creates an append-only `hour.bank.threshold.event` record with a
+snapshot of the mode, the threshold value, the measured value, the period key,
+the recipients, the XLSX attachment and a link to the chatter message. An
+**"Alerts sent"** smart button on the form opens the filtered list.
 
-### Comportement à la mise en place
+### Behaviour when switching thresholds on
 
-Si vous activez les paliers sur une banque déjà au-delà de plusieurs seuils, **tous les paliers crossés se déclenchent à la prochaine vérification** (la cascade est correcte logiquement mais peut être bruyante). Pour éviter ça lors d'une configuration mid-mandat : ajouter d'abord les paliers en `active=False`, ou prévoir d'absorber le batch initial dans le cron du lendemain.
+If you enable thresholds on a bank that is already past several of them,
+**every crossed threshold fires on the next check**. The cascade is logically
+correct but can be noisy. To avoid it when configuring mid-engagement: add the
+thresholds with `active=False` first, or plan to absorb the initial batch in the
+next day's cron.
 
-### Effet à l'installation/mise à jour
+### Effect on install/update
 
-L'installation ou la mise à jour du module **ne crée aucun rappel, aucune activité, aucun courriel** sur les banques existantes : le `threshold_mode` défaut est `disabled` et le cron filtre déjà sur `threshold_mode != 'disabled'`. Pour activer la fonctionnalité, l'opérateur doit configurer chaque banque manuellement.
+Installing or updating the module **creates no reminder, no activity and no
+email** on existing banks: the default `threshold_mode` is `disabled`, and the
+cron already filters on `threshold_mode != 'disabled'`. To switch the feature
+on, the operator has to configure each bank manually.
 
 ## Installation
 

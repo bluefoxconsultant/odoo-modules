@@ -1,63 +1,62 @@
-# Blue Fox — Regroupement de tâches (`bf_project_merge`)
+# Blue Fox — Merging tasks (`bf_project_merge`)
 
-Un assistant Odoo **« Regrouper les tâches »** qui consolide réellement plusieurs
-tâches en une seule : au lieu d'archiver les doublons en y laissant tout leur
-contenu, il **déplace** ce contenu vers la tâche conservée, puis archive le reste.
+An Odoo **"Merge tasks"** wizard that genuinely consolidates several tasks into
+one: instead of archiving duplicates with all their content still inside, it
+**moves** that content onto the task you keep, then archives the rest.
 
-## Le problème
+## The problem
 
-Un regroupement qui se contente de mettre `active = False` sur les tâches
-sources laisse derrière lui toute la matière utile — la conversation du chatter,
-les activités, les heures, les dépendances. Sur la tâche conservée, on ne voit
-plus rien de cet historique. Ce module corrige cela.
+A merge that simply sets `active = False` on the source tasks leaves behind
+everything useful: the chatter conversation, the activities, the hours, the
+dependencies. On the surviving task, none of that history is visible any more.
+This module fixes that.
 
-## Utilisation
+## Usage
 
-1. Dans une vue **liste** de tâches, cochez deux tâches ou plus.
-2. Menu **Actions ⚙️ → Regrouper les tâches**.
-3. Choisissez la destination :
-   - **Vers une tâche existante** — l'une des tâches sélectionnées est conservée ;
-   - **Vers une nouvelle tâche** — une tâche neuve est créée (titre + projet).
-4. **Regrouper**. Le contenu est déplacé vers la tâche conservée et les autres
-   tâches sont archivées.
+1. In a task **list** view, tick two or more tasks.
+2. Menu **Actions ⚙️ → Merge tasks**.
+3. Choose the destination:
+   - **Into an existing task** — one of the selected tasks is kept;
+   - **Into a new task** — a fresh task is created (title + project).
+4. **Merge**. The content moves to the surviving task and the others are
+   archived.
 
-## Ce qui est déplacé vers la tâche conservée
+## What moves to the surviving task
 
-| Élément | Modèle | Comportement |
+| Item | Model | Behaviour |
 |---|---|---|
-| Messages, notes, courriels | `mail.message` | Déplacés — **sauf** les messages système `notification` (changements d'étape, suivi de champs), laissés sur la tâche d'origine comme trace. |
-| Activités planifiées | `mail.activity` | Déplacées. |
-| Suiveurs | `mail.followers` | Ré-abonnés via `message_subscribe` (sans doublon). |
-| Pièces jointes de la tâche | `ir.attachment` (`res_model='project.task'`) | Re-pointées vers la tâche conservée. |
-| Pièces jointes du chatter | `ir.attachment` liées à un message | Suivent leur message déplacé (aucune action distincte). |
-| Évaluations | `rating.rating` | Re-pointées. |
-| Événements de calendrier reliés | `calendar.event` | Re-pointés. |
-| Feuilles de temps | `account.analytic.line` | Re-pointées (`task_id`, et `project_id` aligné sur la destination). |
-| Dépendances | `project.task` (`depend_on_ids` / `dependent_ids`) | La tâche conservée hérite des prédécesseurs ; les successeurs pointent désormais sur elle (les liens vers la tâche archivée sont retirés). |
-| Sous-tâches | `project.task` (`parent_id`) | Rattachées à la tâche conservée. |
+| Messages, notes, emails | `mail.message` | Moved — **except** `notification` system messages (stage changes, field tracking), left on the original task as a trace. |
+| Scheduled activities | `mail.activity` | Moved. |
+| Followers | `mail.followers` | Re-subscribed through `message_subscribe` (no duplicates). |
+| Task attachments | `ir.attachment` (`res_model='project.task'`) | Re-pointed at the surviving task. |
+| Chatter attachments | `ir.attachment` linked to a message | Follow their moved message (no separate action). |
+| Ratings | `rating.rating` | Re-pointed. |
+| Linked calendar events | `calendar.event` | Re-pointed. |
+| Timesheets | `account.analytic.line` | Re-pointed (`task_id`, with `project_id` aligned on the destination). |
+| Dependencies | `project.task` (`depend_on_ids` / `dependent_ids`) | The surviving task inherits the predecessors; successors now point at it (links to the archived task are removed). |
+| Sub-tasks | `project.task` (`parent_id`) | Re-parented onto the surviving task. |
 
-Les éléments rattachés à un `mail.message` (valeurs de suivi, notifications,
-réactions, mises en favori) suivent automatiquement le message déplacé.
+Items attached to a `mail.message` (tracking values, notifications, reactions,
+starred flags) follow the moved message automatically.
 
-## Sécurité
+## Security
 
-L'assistant est réservé aux **utilisateurs du module Projet**
-(`project.group_project_user`). Avant tout déplacement, le module vérifie que
-l'utilisateur a le droit de **modifier** chacune des tâches sélectionnées
-(`check_access('write')`) ; les déplacements de sous-enregistrements s'effectuent
-ensuite en `sudo`, la tâche servant de frontière de confiance.
+The wizard is restricted to **Project module users**
+(`project.group_project_user`). Before anything moves, the module verifies that
+the user may **write** on each of the selected tasks (`check_access('write')`);
+sub-record moves then run in `sudo`, with the task as the trust boundary.
 
-## Dépendances
+## Dependencies
 
-`project` uniquement. `hr_timesheet`, les dépendances de tâches, `rating` et
-`calendar` sont exploités **s'ils sont présents**, jamais requis.
+`project` only. `hr_timesheet`, task dependencies, `rating` and `calendar` are
+used **when present**, never required.
 
-## Antériorité
+## Prior art
 
-Ce module remplit le même besoin que le module communautaire OCA
-[`project_merge`](https://github.com/OCA/project) (Onestein), mais il est écrit
-de façon indépendante par Blue Fox et ajoute la réattribution complète du
-contenu (conversation, heures, dépendances, etc.).
+This module serves the same need as the OCA community module
+[`project_merge`](https://github.com/OCA/project) (Onestein), but it is written
+independently by Blue Fox and adds full content reassignment (conversation,
+hours, dependencies, and so on).
 
 ## Licence
 

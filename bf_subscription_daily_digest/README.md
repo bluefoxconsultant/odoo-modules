@@ -1,22 +1,22 @@
-# Abonnements — section du digest quotidien (`bf_subscription_daily_digest`)
+# Subscriptions — daily digest section (`bf_subscription_daily_digest`)
 
-Module-pont qui injecte une section **« Renouvellements à venir »** dans le
-courriel du digest quotidien (`daily_todo_digest`).
+A bridge module that injects an **"Upcoming renewals"** section into the daily
+digest email (`daily_todo_digest`).
 
-S'auto-installe lorsque `bf_subscription` **et** `daily_todo_digest` sont tous
-deux présents.
+Auto-installs when `bf_subscription` **and** `daily_todo_digest` are both
+present.
 
-Cette section quotidienne est un simple aperçu, distinct du récapitulatif
-complet d'abonnements (`subscription.digest`) embarqué dans `bf_subscription` :
-ce dernier reste le canal officiel pour le rapport détaillé (sommaire de
-dépense, dormants, coût par client géré, envoi périodique), tandis que ce
-module-pont se contente de glisser un rappel des renouvellements imminents dans
-le courriel du digest quotidien déjà existant.
+This daily section is a simple heads-up, distinct from the full subscription
+recap (`subscription.digest`) shipped inside `bf_subscription`: that one stays
+the official channel for the detailed report (spend summary, dormant
+subscriptions, cost per managed client, periodic send), while this bridge just
+slips a reminder of imminent renewals into the daily digest email you already
+receive.
 
-## Dépendances
+## Dependencies
 
 `bf_subscription`, `daily_todo_digest`.
 
 ## Licence
 
-Distribué sous licence **LGPL-3**. Voir le fichier `LICENSE`.
+Distributed under the **LGPL-3** licence. See the `LICENSE` file.

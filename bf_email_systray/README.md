@@ -1,17 +1,17 @@
-# Boîte de réception bf.email — barre Odoo (`bf_email_systray`)
+# bf.email inbox — Odoo systray (`bf_email_systray`)
 
-Bouton dans la barre système (systray) d'Odoo qui ouvre la Boîte de réception
-`bf.email`, avec un compteur (lus + non lus).
+A button in Odoo's systray that opens the `bf.email` inbox, with a counter
+(read + unread).
 
-## Fonctionnalités
+## Features
 
-- Icône systray d'accès rapide à la boîte de réception `bf.email`.
-- Compteur en direct des messages (lus et non lus).
+- Systray icon giving quick access to the `bf.email` inbox.
+- Live message counter (read and unread).
 
-## Dépendances
+## Dependencies
 
 `web`, `bf_email_management`.
 
 ## Licence
 
-Distribué sous licence **LGPL-3**. Voir le fichier `LICENSE`.
+Distributed under the **LGPL-3** licence. See the `LICENSE` file.

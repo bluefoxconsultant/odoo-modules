@@ -1,19 +1,19 @@
 # BF Calendar — Nextcloud Talk button (`bf_calendar_nc_talk`)
 
-Ajoute un bouton **« + Nextcloud Talk »** à côté de « + Réunion Odoo » sur les
-événements du calendrier.
+Adds a **"+ Nextcloud Talk"** button next to "+ Odoo Meeting" on calendar
+events.
 
-## Fonctionnalités
+## Features
 
-- Crée une conversation Nextcloud Talk publique via l'API OCS (Spreed).
-- Écrit l'URL de la salle dans le champ `videocall_location` de l'événement,
-  de sorte que les invitations et rappels pointent vers la visioconférence.
-- Configuration de l'instance Nextcloud cible via les paramètres système.
+- Creates a public Nextcloud Talk conversation through the OCS (Spreed) API.
+- Writes the room URL into the event's `videocall_location` field, so that
+  invitations and reminders point at the video call.
+- Target Nextcloud instance is configured through system parameters.
 
-## Dépendances
+## Dependencies
 
 `calendar`.
 
 ## Licence
 
-Distribué sous licence **LGPL-3**. Voir le fichier `LICENSE`.
+Distributed under the **LGPL-3** licence. See the `LICENSE` file.

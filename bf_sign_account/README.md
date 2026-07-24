@@ -1,29 +1,29 @@
-# Blue Fox — Signature pour la comptabilité (`bf_sign_account`)
+# Blue Fox — Signature for Accounting (`bf_sign_account`)
 
-Module-pont qui ajoute **« Envoyer pour signature »** sur les pièces comptables
-(`account.move` : factures clients et factures fournisseurs) via le mixin
-`bf.sign.mixin` de [`bf_sign`](../bf_sign).
+A bridge module adding **"Send for signature"** on accounting documents
+(`account.move`: customer invoices and vendor bills) through the
+`bf.sign.mixin` mixin from [`bf_sign`](../bf_sign).
 
-La facture est rendue en PDF (rapport standard `account.account_invoices`), une
-demande de signature `bf_sign` liée est créée, puis le document signé est
-reversé dans le fil de discussion de la pièce une fois signé par tous les
-signataires.
+The invoice is rendered as a PDF (the standard `account.account_invoices`
+report), a linked `bf_sign` signature request is created, then the signed
+document is posted back into the document's thread once every signer has
+signed.
 
-Le bouton d'en-tête est masqué sur les écritures comptables pures
-(`move_type == 'entry'`) ; il n'apparaît que sur les factures et avoirs.
+The header button is hidden on pure journal entries (`move_type == 'entry'`);
+it only appears on invoices and credit notes.
 
-## Dépendances
+## Dependencies
 
 `bf_sign`, `account`.
 
 ## Licence
 
-Distribué sous **Business Source License 1.1** (BUSL-1.1). Voir le fichier
-[`LICENSE`](LICENSE) pour les paramètres exacts.
+Distributed under the **Business Source License 1.1** (BUSL-1.1). See the
+[`LICENSE`](LICENSE) file for the exact parameters.
 
-- **Permis sans entente** : l'usage en production pour vos propres opérations
-  internes.
-- **Demande une entente écrite** : fournir le module comme produit ou service à
-  des tiers — hébergé, infogéré ou revendu.
-- **Change Date** : le 2029-07-20, cette version bascule automatiquement en
+- **Allowed without an agreement**: production use for your own internal
+  business operations.
+- **Requires a written agreement**: providing the module as a product or
+  service to third parties, whether hosted, managed or resold.
+- **Change Date**: on 2029-07-20, this version converts automatically to
   **LGPL-3.0-or-later**.

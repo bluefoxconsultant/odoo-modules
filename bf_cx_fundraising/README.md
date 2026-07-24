@@ -1,10 +1,9 @@
-# bf_cx_fundraising : sondage expérience donateur
+# bf_cx_fundraising: donor experience survey
 
-S'auto-installe quand `bf_cx` et `bf_fundraising_core` sont installés.
-Fonctionnalité produit pour les OBNL utilisateurs de la suite de
-collecte de fonds (pas pour Blue Fox lui-même). À la validation d'un
-don, envoie le sondage du programme désigné (`bf_cx.donor_program_id`,
-vide = désactivé) au donateur. Une fois par don, garde-fous de
-sollicitation appliqués. Un donateur peut donner souvent : la cadence
-minimale du programme est la protection principale (90 jours
-recommandés).
+Auto-installs when both `bf_cx` and `bf_fundraising_core` are installed.
+A product feature for non-profits using the fundraising suite (not for
+Blue Fox itself). When a donation is validated, sends the designated
+program's survey (`bf_cx.donor_program_id`, empty = disabled) to the
+donor. Once per donation, with the solicitation guardrails applied. A
+donor may give often, so the program's minimum pacing is the main
+protection here (90 days recommended).

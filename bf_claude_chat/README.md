@@ -1,166 +1,183 @@
-# TentaClaude - Module Odoo 18
+# TentaClaude - Odoo 18 module
 
-Module Odoo permettant de clavarder avec Claude AI directement dans l'interface Odoo, via un panneau lateral integre et une page plein ecran.
+An Odoo module for chatting with Claude AI directly inside the Odoo interface,
+through an integrated side panel and a full-screen page.
 
 ## Architecture
 
 ```
 bf_claude_chat/
 ├── controllers/
-│   └── main.py              # Endpoints JSON-RPC (/claude-chat/*)
+│   └── main.py              # JSON-RPC endpoints (/claude-chat/*)
 ├── models/
-│   ├── claude_chat_session.py   # Modele claude.chat.session
-│   ├── claude_chat_message.py   # Modele claude.chat.message
-│   └── res_config_settings.py   # Parametres (Settings > TentaClaude)
+│   ├── claude_chat_session.py   # claude.chat.session model
+│   ├── claude_chat_message.py   # claude.chat.message model
+│   └── res_config_settings.py   # Settings (Settings > TentaClaude)
 ├── security/
-│   ├── security.xml             # Regles d'acces (own sessions, admin all)
-│   └── ir.model.access.csv      # ACL modeles
+│   ├── security.xml             # Access rules (own sessions, admin all)
+│   └── ir.model.access.csv      # Model ACLs
 ├── static/src/
 │   ├── js/
-│   │   ├── claude_chat.js       # Composant OWL - page plein ecran
-│   │   └── claude_systray.js    # Composant OWL - panneau lateral systray
+│   │   ├── claude_chat.js       # OWL component - full-screen page
+│   │   └── claude_systray.js    # OWL component - systray side panel
 │   ├── scss/
-│   │   └── claude_chat.scss     # Styles (side panel, bulles, animations)
+│   │   └── claude_chat.scss     # Styles (side panel, bubbles, animations)
 │   └── xml/
-│       └── claude_chat.xml      # Templates OWL (ChatAction + SystrayItem)
+│       └── claude_chat.xml      # OWL templates (ChatAction + SystrayItem)
 ├── views/
-│   ├── menu.xml                 # Menu principal + admin (All Sessions)
-│   └── res_config_settings.xml  # Page Settings
+│   ├── menu.xml                 # Main menu + admin (All Sessions)
+│   └── res_config_settings.xml  # Settings page
 └── migrations/
     ├── 18.0.1.0.0/
     │   └── pre-migrate.py
     └── 18.0.1.4.0/
-        └── pre-migrate.py       # Ajout res_model/res_id + index
+        └── pre-migrate.py       # Adds res_model/res_id + index
 ```
 
-## Composants principaux
+## Main components
 
-### Panneau lateral (systray)
+### Side panel (systray)
 
-- Bouton "Claude" dans la barre de navigation Odoo
-- S'ouvre en panneau lateral droit (50% largeur ecran, min 420px, max 800px)
-- Overlay semi-transparent, fermeture par Escape / clic overlay / bouton X
-- **Portal pattern** : l'overlay est deplace vers `<body>` via JS pour echapper au stacking context de la navbar et s'afficher au-dessus de tous les elements Odoo (chatter, statusbar, modals)
-- Animation slide-in depuis la droite
-- Liste des sessions a gauche, zone de chat a droite
-- Badge de contexte affichant la page courante avec nom "pretty" (ex: "Tache #1234 - Nom")
-- **Filtrage par enregistrement** : le systray montre uniquement les conversations liees a la fiche courante (res_model + res_id). La page plein ecran continue d'afficher toutes les conversations.
+- A "Claude" button in the Odoo navigation bar
+- Opens as a right-hand side panel (50% of screen width, min 420px, max 800px)
+- Semi-transparent overlay, closed with Escape / clicking the overlay / the X button
+- **Portal pattern**: the overlay is moved to `<body>` in JS to escape the navbar's stacking context and display above every Odoo element (chatter, statusbar, modals)
+- Slide-in animation from the right
+- Session list on the left, chat area on the right
+- A context badge showing the current page with a pretty name (e.g. "Task #1234 - Name")
+- **Per-record filtering**: the systray shows only the conversations linked to the current record (res_model + res_id). The full-screen page still shows every conversation.
 
-### Page plein ecran
+### Full-screen page
 
-- Accessible via le menu principal "TentaClaude" ou le bouton expand du panneau
-- Sidebar de sessions (280px) + zone de chat centree (max 900px)
-- Renommage de session par double-clic ou icone crayon
-- Archivage de session (soft delete via champ `active`)
+- Reached through the main "TentaClaude" menu or the panel's expand button
+- Session sidebar (280px) plus a centred chat area (max 900px)
+- Session renaming by double-click or the pencil icon
+- Session archiving (soft delete through the `active` field)
 
-### Capture de contexte
+### Context capture
 
-Lorsque le panneau s'ouvre ou qu'un nouveau chat est cree, le module capture le contexte de la page Odoo courante via 3 strategies en cascade :
+When the panel opens or a new chat is created, the module captures the current
+Odoo page's context through 3 cascading strategies:
 
-1. **Router state** : `router.current` (model, resModel, resId, res_id, id, view_type)
-2. **URL hash** : parsing de `window.location.hash` via URLSearchParams
-3. **Action service** : `actionService.currentController.action.res_model`
+1. **Router state**: `router.current` (model, resModel, resId, res_id, id, view_type)
+2. **URL hash**: parsing `window.location.hash` through URLSearchParams
+3. **Action service**: `actionService.currentController.action.res_model`
 
-Le nom d'affichage est extrait depuis :
-1. Breadcrumb actif (`.o_breadcrumb .active`)
-2. Titre du control panel (`.o_control_panel .breadcrumb-item.active`)
-3. Titre du document (moins le suffixe " - Odoo")
+The display name is taken from:
+1. The active breadcrumb (`.o_breadcrumb .active`)
+2. The control panel title (`.o_control_panel .breadcrumb-item.active`)
+3. The document title (minus the " - Odoo" suffix)
 
-Le contexte est transmis au bridge comme `<page-context>` avec model, res_id, display_name, view_type et url.
+The context is passed to the bridge as `<page-context>` with model, res_id,
+display_name, view_type and url.
 
-### Partage vers tache
-
-- Bouton "Share to task" dans l'en-tete du chat
-- Recherche de taches par nom (debounce 300ms)
-- Poste la conversation complete dans le chatter de la tache (note interne)
-- Formatage HTML avec bulles colorees reproduisant le style du chat
-
-## Modeles Odoo
+## Odoo models
 
 ### claude.chat.session
 
-| Champ | Type | Description |
+| Field | Type | Description |
 |-------|------|-------------|
-| name | Char | Titre de la session (auto-genere par le bridge) |
-| claude_session_id | Char | ID de session Claude Code (multi-turn) |
-| res_model | Char (indexed) | Modele Odoo lie (ex: project.task) |
-| res_id | Integer (indexed) | ID de l'enregistrement lie |
-| user_id | Many2one(res.users) | Proprietaire |
-| message_ids | One2many | Messages de la session |
-| message_count | Integer (computed) | Nombre de messages |
-| active | Boolean | Archivage soft |
+| name | Char | Session title (auto-generated by the bridge) |
+| claude_session_id | Char | Claude Code session ID (multi-turn) |
+| res_model | Char (indexed) | Linked Odoo model (e.g. project.task) |
+| res_id | Integer (indexed) | Linked record ID |
+| user_id | Many2one(res.users) | Owner |
+| message_ids | One2many | Session messages |
+| message_count | Integer (computed) | Message count |
+| active | Boolean | Soft archiving |
 
 ### claude.chat.message
 
-| Champ | Type | Description |
+| Field | Type | Description |
 |-------|------|-------------|
-| session_id | Many2one(claude.chat.session) | Session parente |
-| role | Selection (user/assistant) | Role du message |
-| content | Text | Contenu (markdown pour assistant, texte brut pour user) |
+| session_id | Many2one(claude.chat.session) | Parent session |
+| role | Selection (user/assistant) | Message role |
+| content | Text | Content (markdown for the assistant, plain text for the user) |
 
-## Endpoints JSON-RPC
+## JSON-RPC endpoints
 
-Tous les endpoints sont en `type="json"`, `auth="user"`, `methods=["POST"]`.
+Every endpoint is `type="json"`, `auth="user"`, `methods=["POST"]`.
 
 | Route | Description |
 |-------|-------------|
-| `/claude-chat/send` | Envoie un message, retourne la reponse Claude |
-| `/claude-chat/sessions` | Liste les sessions (filtrable par res_model/res_id) |
-| `/claude-chat/messages` | Messages d'une session |
-| `/claude-chat/rename-session` | Renomme une session |
-| `/claude-chat/delete-session` | Archive une session |
-| `/claude-chat/search-tasks` | Recherche de taches (pour Share) |
-| `/claude-chat/share-to-task` | Poste la conversation dans le chatter |
+| `/claude-chat/send` | Sends a message, returns Claude's reply |
+| `/claude-chat/sessions` | Lists sessions (filterable by res_model/res_id) |
+| `/claude-chat/messages` | A session's messages |
+| `/claude-chat/rename-session` | Renames a session |
+| `/claude-chat/delete-session` | Archives a session |
+| `/claude-chat/search-tasks` | Task search (for Share) |
+| `/claude-chat/share-to-task` | Posts the conversation into the chatter |
 
-## Communication avec le bridge
+## Talking to the bridge
 
-Le module communique avec le service bridge TentaClaude via **Unix socket** (`/run/claude-bridge/bridge.sock` par defaut). Le controller construit une requete HTTP brute sur le socket, envoie le message avec le contexte utilisateur et page, et recoit la reponse Claude.
+The module talks to the TentaClaude bridge service over a **Unix socket**
+(`/run/claude-bridge/bridge.sock` by default). The controller builds a raw HTTP
+request on the socket, sends the message together with the user and page
+context, and receives Claude's reply.
 
-Le titre intelligent est genere en arriere-plan via un thread daemon qui appelle `/generate-title` sur le bridge apres le premier echange.
+The smart title is generated in the background by a daemon thread calling
+`/generate-title` on the bridge after the first exchange.
 
 ## Configuration (Settings > TentaClaude)
 
-| Parametre | Defaut | Description |
-|-----------|--------|-------------|
-| Enable Claude AI | True | Active/desactive le chatbot |
-| Model | sonnet | Modele Claude (sonnet/opus/haiku) |
-| Max Turns | 25 | Cycles d'outils max par message |
-| Response Timeout | 660s | Delai max pour une reponse (bridge 600s + 60s buffer) |
-| API Key | (vide) | Cle Anthropic optionnelle (sinon Max plan) |
-| Bridge Socket | /run/claude-bridge/bridge.sock | Chemin du socket Unix |
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Enable Claude AI | True | Turns the chatbot on/off |
+| Model | sonnet | Claude model (sonnet/opus/haiku) |
+| Max Turns | 25 | Maximum tool cycles per message |
+| Response Timeout | 660s | Maximum delay for a reply (bridge 600s + 60s buffer) |
+| API Key | (empty) | Optional Anthropic key (otherwise the Max plan) |
+| Bridge Socket | /run/claude-bridge/bridge.sock | Unix socket path |
 
-## Securite
+## Security
 
-- Chaque utilisateur ne voit que ses propres sessions et messages (ir.rule)
-- Les administrateurs (`base.group_system`) voient toutes les sessions
-- Les utilisateurs ne peuvent pas supprimer les messages (perm_unlink=0)
-- Le contenu des sessions de renommage est sanitise (HTML strip, max 120 chars)
-- Le contexte de page est limite en taille (model 64, display_name 200, url 500)
+- Each user sees only their own sessions and messages (`ir.rule`)
+- Administrators (`base.group_system`) see every session
+- Users cannot delete messages (`perm_unlink=0`)
+- Renaming content is sanitised (HTML stripped, max 120 chars)
+- The page context is size-limited (model 64, display_name 200, url 500)
 
-## Note technique : Overlay Portal Pattern
+## Technical note: the overlay portal pattern
 
-### Probleme
+### The problem
 
-Le composant systray est rendu a l'interieur de `.o_main_navbar`, qui possede `position: fixed` et un `z-index` (via Bootstrap). En CSS, un element positionne avec un z-index cree un **stacking context** : tous ses descendants sont confines a ce contexte pour le z-ordering, meme s'ils ont `position: fixed` et un z-index maximal.
+The systray component is rendered inside `.o_main_navbar`, which has
+`position: fixed` and a `z-index` (through Bootstrap). In CSS, a positioned
+element with a z-index creates a **stacking context**: all its descendants are
+confined to that context for z-ordering, even with `position: fixed` and a
+maximal z-index.
 
-Consequence : le panneau lateral et son overlay, bien qu'ayant `z-index: 2147483647`, ne pouvaient pas s'afficher au-dessus d'elements situes en dehors de la navbar (comme la barre chatter "Envoyer un message" / "Note" / "Activites", ou le statusbar du formulaire), car ceux-ci participent a un stacking context different (celui de `.o_action_manager` ou du root).
+The consequence: the side panel and its overlay, despite carrying
+`z-index: 2147483647`, could not display above elements outside the navbar
+(such as the chatter's "Send message" / "Log note" / "Activities" bar, or the
+form statusbar), because those participate in a different stacking context
+(that of `.o_action_manager` or the root).
 
-### Approches ecartees
+### Approaches ruled out
 
-1. **Booster le z-index de la navbar** (`z-index: 2147483646 !important`) : ne resout pas le probleme fondamental. Le stacking context de la navbar est au-dessus de tout le reste, mais l'overlay est DANS ce contexte, pas au-dessus.
+1. **Raising the navbar's z-index** (`z-index: 2147483646 !important`): does not
+   address the underlying problem. The navbar's stacking context sits above
+   everything else, but the overlay is INSIDE that context, not above it.
 
-2. **`z-index: auto` sur la navbar** : supprimerait le stacking context, mais `position: fixed` + z-index est requis par Bootstrap/Odoo pour que la navbar reste visible au-dessus du contenu lors du scroll.
+2. **`z-index: auto` on the navbar**: would remove the stacking context, but
+   `position: fixed` + z-index is required by Bootstrap/Odoo for the navbar to
+   stay visible above the content while scrolling.
 
-3. **CSS `body:has(.bf-panel-overlay)` pour abaisser les z-index** des barres problematiques : fragile, depend de la structure CSS interne d'Odoo qui change entre versions.
+3. **CSS `body:has(.bf-panel-overlay)` to lower the z-index** of the offending
+   bars: fragile, and dependent on Odoo's internal CSS structure, which changes
+   between versions.
 
-### Solution : portal vers `<body>`
+### The solution: a portal to `<body>`
 
-Le pattern portal deplace le noeud DOM de l'overlay de son emplacement OWL (dans la navbar) vers `document.body` (root du document). Dans le root stacking context, le `z-index: 2147483647` s'applique directement et l'overlay se positionne au-dessus de tous les autres elements.
+The portal pattern moves the overlay's DOM node from its OWL location (inside
+the navbar) to `document.body` (the document root). In the root stacking
+context, `z-index: 2147483647` applies directly and the overlay sits above
+every other element.
 
-**Implementation avec les hooks de cycle de vie OWL :**
+**Implementation using OWL lifecycle hooks:**
 
 ```
-DOM apres rendu OWL :            DOM apres portal :
+DOM after OWL render:            DOM after the portal:
 
 <nav .o_main_navbar>              <nav .o_main_navbar>
   <div .o_menu_systray>             <div .o_menu_systray>
@@ -174,19 +191,22 @@ DOM apres rendu OWL :            DOM apres portal :
                                   </div>
 ```
 
-Le defi est de concilier ce deplacement avec le DOM virtuel d'OWL, qui s'attend a trouver les elements la ou il les a rendus. Le pattern utilise 4 hooks :
+The challenge is reconciling that move with OWL's virtual DOM, which expects to
+find elements where it rendered them. The pattern uses 4 hooks:
 
-| Hook | Action | Raison |
+| Hook | Action | Reason |
 |------|--------|--------|
-| `onMounted` | Portal vers `<body>` | Apres le premier rendu, deplacer l'overlay |
-| `onWillPatch` | Restaurer dans la navbar | Avant que OWL patche le DOM, remettre l'element a sa place d'origine pour que le diff fonctionne |
-| `onPatched` | Portal vers `<body>` | Apres le patch, re-deplacer l'overlay |
-| `onWillUnmount` | Restaurer dans la navbar | Avant la destruction du composant, remettre l'element pour qu'OWL puisse le supprimer proprement |
+| `onMounted` | Portal to `<body>` | After the first render, move the overlay |
+| `onWillPatch` | Restore into the navbar | Before OWL patches the DOM, put the element back where it belongs so the diff works |
+| `onPatched` | Portal to `<body>` | After the patch, move the overlay again |
+| `onWillUnmount` | Restore into the navbar | Before the component is destroyed, put the element back so OWL can remove it cleanly |
 
-Un `Comment` node (`<!-- bf-overlay-anchor -->`) sert de placeholder pour marquer la position originale dans le DOM OWL, permettant la restauration precise avant chaque patch.
+A `Comment` node (`<!-- bf-overlay-anchor -->`) acts as a placeholder marking
+the original position in the OWL DOM, allowing precise restoration before every
+patch.
 
 ```javascript
-// Hooks OWL dans setup()
+// OWL hooks in setup()
 const _portalToBody = () => {
     const el = this.overlayRef.el;
     if (el && el.parentNode !== document.body) {
@@ -212,22 +232,24 @@ onPatched(_portalToBody);
 onWillUnmount(_restoreFromPortal);
 ```
 
-### Pourquoi pas un composant Dialog/Popover d'Odoo ?
+### Why not an Odoo Dialog/Popover component?
 
-Les composants `Dialog` et `Popover` d'Odoo 18 utilisent un mecanisme de portal similaire (rendu dans `.o_dialog_container` au niveau du body). Cependant :
-- `Dialog` impose une structure modale (header/body/footer) inadaptee a un panneau lateral
-- `Popover` est concu pour des elements ancres a un bouton, pas pour un panneau plein hauteur
-- Les deux ajoutent des dependances a des composants internes d'Odoo dont l'API peut changer
+Odoo 18's `Dialog` and `Popover` components use a similar portal mechanism
+(rendered into `.o_dialog_container` at body level). However:
+- `Dialog` imposes a modal structure (header/body/footer) unsuited to a side panel
+- `Popover` is designed for elements anchored to a button, not a full-height panel
+- Both add dependencies on Odoo internal components whose API can change
 
-Le portal manuel est plus leger et ne depend que de l'API OWL stable (`useRef`, `onMounted`, `onPatched`, `onWillPatch`, `onWillUnmount`).
+The manual portal is lighter and depends only on the stable OWL API (`useRef`,
+`onMounted`, `onPatched`, `onWillPatch`, `onWillUnmount`).
 
-## Deploiement
+## Deployment
 
-Mise a jour :
+To update:
 ```bash
-# Via XML-RPC (button_immediate_upgrade sur ir.module.module)
-# Ou via restart container avec flag -u :
+# Through XML-RPC (button_immediate_upgrade on ir.module.module)
+# Or by restarting the container with the -u flag:
 docker exec <container> odoo -c /etc/odoo/odoo.conf -d <db> -u bf_claude_chat --stop-after-init
 ```
 
-Apres mise a jour, forcer le rechargement des assets navigateur : `Ctrl+Shift+R`.
+After updating, force a browser asset reload: `Ctrl+Shift+R`.

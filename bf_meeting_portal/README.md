@@ -1,148 +1,145 @@
-# Rencontres — Portail client (`bf_meeting_portal`)
+# Meetings — Client portal (`bf_meeting_portal`)
 
-Donne au client, dans son portail Odoo, un accès en lecture aux comptes rendus de
-rencontre de [`bf_meeting`](../bf_meeting) **qui lui ont déjà été envoyés par
-courriel**, sous `/my/meetings`.
+Gives the client read access, inside their Odoo portal, to the
+[`bf_meeting`](../bf_meeting) meeting reports **that were already emailed to
+them**, under `/my/meetings`.
 
-## Cas d'usage
+## Use case
 
-Le client a reçu un compte rendu par courriel il y a trois semaines et ne le
-retrouve plus. Plutôt que de le lui réexpédier, il le reconsulte lui-même.
+The client received a report by email three weeks ago and cannot find it any
+more. Rather than resending it, they look it up themselves.
 
-## Principe : une archive, pas une divulgation
+## Principle: an archive, not a disclosure
 
-Le portail ne publie rien de neuf. Un compte rendu n'y apparaît que si :
+The portal publishes nothing new. A report only appears there when:
 
 - `report_state == 'sent'`,
-- `report_sent_date` est renseignée, **et**
-- le partenaire figure dans `report_recipient_ids`.
+- `report_sent_date` is set, **and**
+- the partner is in `report_recipient_ids`.
 
-⚠️ **L'état seul ne prouve rien.** `report_state` est un champ ordinaire : la vue
-kanban de `bf_meeting` est groupée dessus sans `records_draggable="0"`, donc
-glisser une carte dans la colonne « Envoyé » émet un `write` nu ; les scripts
-d'import et les écritures XML-RPC le posent aussi directement. Sur la base
-d'origine, 118 des 202 comptes rendus « envoyés » n'avaient ainsi aucune
-`report_sent_date`.
+⚠️ **State alone proves nothing.** `report_state` is an ordinary field: the
+`bf_meeting` kanban view is grouped on it without `records_draggable="0"`, so
+dragging a card into the "Sent" column emits a bare `write`; import scripts and
+XML-RPC writes set it directly too. On the originating database, 118 of the 202
+"sent" reports had no `report_sent_date` at all.
 
-`report_sent_date`, elle, n'est écrite que par `action_send_report_direct`, dans
-le même `write()` que l'état, et cette méthode refuse de s'exécuter sans
-destinataires et met un courriel en file. L'exiger rend l'invariant vrai au lieu
-de le promettre — et sur les données d'origine, cela n'a retiré aucun compte
-rendu légitime.
+`report_sent_date`, on the other hand, is only written by
+`action_send_report_direct`, in the same `write()` as the state, and that method
+refuses to run without recipients and queues an email. Requiring it makes the
+invariant true instead of promised — and on the original data it removed no
+legitimate report.
 
-⚠️ **Point de vigilance à l'intégration.** Cet invariant tient tant que rien
-n'écrit `report_sent_date` à cru. Si vous avez des scripts, des automatisations
-ou des outils externes qui manipulent `meeting.record` par l'ORM ou XML-RPC,
-faites-leur appeler `action_send_report_direct` plutôt que d'écrire les champs
-directement. Le `readonly=True` du champ ne protège pas : c'est une contrainte
-de vue, l'ORM et XML-RPC écrivent quand même.
+⚠️ **Integration caveat.** This invariant holds as long as nothing writes
+`report_sent_date` raw. If you have scripts, automations or external tools
+manipulating `meeting.record` through the ORM or XML-RPC, have them call
+`action_send_report_direct` rather than writing the fields directly. The field's
+`readonly=True` offers no protection: it is a view constraint, and the ORM and
+XML-RPC write anyway.
 
-Le partenaire visé est l'utilisateur du portail **ou sa société**
-(`commercial_partner_id`) : les contacts d'une même organisation voient ce qui a
-été adressé à l'organisation, mais pas ce qui a été adressé nommément à un
-collègue.
+The partner considered is the portal user **or their company**
+(`commercial_partner_id`): contacts within one organisation see what was
+addressed to the organisation, but not what was addressed to a colleague by
+name.
 
-⚠️ **Le critère n'est pas « participant ».** L'envoi d'un compte rendu dans
-`bf_meeting` n'a délibérément aucun repli sur la liste des participants, pour
-éviter des envois accidentels au client. Brancher la visibilité du portail sur la
-présence rouvrirait ce risque : quelqu'un assiste à une rencontre et pourrait lire
-un compte rendu que personne n'a choisi de lui transmettre.
+⚠️ **The criterion is not "attendee".** Sending a report in `bf_meeting`
+deliberately has no fallback on the attendee list, to avoid accidental sends to
+the client. Wiring portal visibility to attendance would reopen exactly that
+risk: someone attends a meeting and could read a report nobody chose to send
+them.
 
-## Les ordres du jour ne sont volontairement pas exposés
+## Agendas are deliberately not exposed
 
-Ils l'étaient dans la 1.x. Ils ont été retirés en 2.0.0 : **aucun champ de
-`bf_meeting` ne prouve qu'un ordre du jour a été expédié.**
+They were, in 1.x. They were removed in 2.0.0, because **no field in
+`bf_meeting` proves that an agenda was ever sent.**
 
-- `sent_date` ne le prouve pas. `action_send_agenda_wizard` l'estampe à la simple
-  **ouverture** du composeur, pour ouvrir la fenêtre de contributions, et rien ne
-  l'efface si l'assistant est abandonné.
-- L'état non plus. `action_confirm()` n'envoie que si `auto_send_on_confirm`, dont
-  le défaut est `False` ; `action_start_meeting()` confirme un brouillon
-  automatiquement ; `action_create_meeting_record()` écrit `done` sans condition.
-  `confirmed`/`done` est donc atteignable sans le moindre courriel.
-- Le fil de discussion non plus : les `mail.mail` sont purgés après envoi, et sur
-  des données réelles ni `message_type`, ni `notification_ids`, ni `partner_ids`
-  ne distinguaient l'envoi de l'abandon.
+- `sent_date` does not prove it. `action_send_agenda_wizard` stamps it on merely
+  **opening** the composer, in order to open the contributions window, and
+  nothing clears it if the wizard is abandoned.
+- Nor does the state. `action_confirm()` only sends when `auto_send_on_confirm`
+  is set, and its default is `False`; `action_start_meeting()` confirms a draft
+  automatically; `action_create_meeting_record()` writes `done`
+  unconditionally. So `confirmed`/`done` is reachable without a single email.
+- Nor does the chatter: `mail.mail` records are purged after sending, and on
+  real data neither `message_type`, nor `notification_ids`, nor `partner_ids`
+  distinguished a send from an abandonment.
 
-Combinés, ces trois points rendaient visible d'un client participant un ordre du
-jour interne jamais expédié — et comme un brouillon a rarement de
-`recipient_ids`, par la branche de repli sur `participant_ids`, la plus large.
-Plutôt que d'inventer un critère approximatif sur un contenu confidentiel, les
-ordres du jour sortent du portail. Ils y reviendront quand `bf_meeting` portera
-un marqueur d'envoi fiable.
+Together, those three points made an internal, never-sent agenda visible to an
+attending client — and since a draft rarely has `recipient_ids`, it surfaced
+through the widest fallback branch, `participant_ids`. Rather than inventing an
+approximate criterion over confidential content, agendas are out of the portal.
+They will return once `bf_meeting` carries a reliable sent marker.
 
-## Ce qui est exposé, et ce qui ne l'est jamais
+## What is exposed, and what never is
 
-Affiché : résumé, sujets et leurs points, décisions (avec décideur et élément lié),
-éléments d'action (assigné, échéance), questions ouvertes, livrables, présences.
-La page tire ces sections de `meeting.record._get_report_data()`, la méthode qui
-alimente le rapport client, pour rester à parité avec lui.
+Displayed: summary, topics and their points, decisions (with decision-maker and
+linked item), action items (assignee, deadline), open questions, deliverables,
+attendance. The page draws these sections from
+`meeting.record._get_report_data()`, the method feeding the client report, so it
+stays at parity with it.
 
-**PDF** : le rapport attaché au courriel du compte rendu
-(`report_template_ids` -> `action_report_meeting_record`). Il est **regénéré à la
-lecture**, pas repris de la pièce jointe archivée : il reflète donc les
-corrections apportées au compte rendu depuis l'envoi. C'est le même rapport, pas
-le même octet.
+**PDF**: the report attached to the meeting report email
+(`report_template_ids` → `action_report_meeting_record`). It is **regenerated on
+read**, not taken from the archived attachment, so it reflects corrections made
+to the report since it was sent. Same report, not the same bytes.
 
-**Jamais transmis au gabarit** : `verbatim`, `verbatim_html` (transcription
-brute), `review_notes`, ni les notes en direct. `structured_notes_json` n'est pas
-exposé tel quel ; seules en sont extraites les sections que le rapport client rend
-déjà. Les pièces jointes ne sont pas exposées.
+**Never passed to the template**: `verbatim`, `verbatim_html` (raw
+transcription), `review_notes`, or the live notes. `structured_notes_json` is
+not exposed as such; only the sections the client report already renders are
+extracted from it. Attachments are not exposed.
 
-## Sécurité
+## Security
 
-**Aucun droit ORM n'est accordé au groupe portail** — ni `ir.model.access`, ni
-`ir.rule`. C'est délibéré : accorder l'ACL sur `meeting.record` ouvrirait
-`/web/dataset/call_kw` et permettrait à un utilisateur portail authentifié de lire
-la transcription brute par RPC, hors des gabarits.
+**No ORM rights are granted to the portal group** — neither `ir.model.access`
+nor `ir.rule`. That is deliberate: granting ACL on `meeting.record` would open
+`/web/dataset/call_kw` and let an authenticated portal user read the raw
+transcription over RPC, outside the templates.
 
-Le contrôleur est donc la seule porte d'entrée. Il applique le domaine de
-visibilité dans la recherche elle-même — `search([('id','=',id)] + domaine)`,
-jamais un `browse()` sur un identifiant fourni par le client — puis passe en
-`sudo()` pour lire les données. Les gabarits ne reçoivent que des **dictionnaires
-en liste blanche**, jamais l'enregistrement : un champ interne reste inatteignable
-même si un gabarit est modifié plus tard par distraction.
+The controller is therefore the only door. It applies the visibility domain
+inside the search itself — `search([('id','=',id)] + domain)`, never a
+`browse()` on a client-supplied id — then switches to `sudo()` to read the data.
+Templates receive only **whitelisted dictionaries**, never the record: an
+internal field stays unreachable even if a template is carelessly edited later.
 
-`report_state`, `report_sent_date` et `report_recipient_ids` passent en
-`copy=False` (voir `models/meeting_record.py`). Sans cela, dupliquer un compte
-rendu envoyé produisait une copie marquée « envoyé », destinataires intacts, que
-le portail aurait montrée alors qu'aucun courriel n'était jamais parti pour elle.
+`report_state`, `report_sent_date` and `report_recipient_ids` are set
+`copy=False` (see `models/meeting_record.py`). Without that, duplicating a sent
+report produced a copy marked "sent", recipients intact, which the portal would
+have shown even though no email ever went out for it.
 
-Toutes les routes sont en `auth='user'`. Les enregistrements archivés sont exclus.
+All routes are `auth='user'`. Archived records are excluded.
 
 ## Structure
 
 ```
-controllers/portal.py                 domaine de visibilité, listes blanches, routes
-models/meeting_record.py              copy=False sur les champs de visibilité
-views/meeting_portal_templates.xml    entrée d'accueil, fil d'Ariane, liste, détail
-static/src/img/portal_icon.svg        icône de la carte (64x64 intrinsèque)
+controllers/portal.py                 visibility domain, whitelists, routes
+models/meeting_record.py              copy=False on the visibility fields
+views/meeting_portal_templates.xml    home entry, breadcrumb, list, detail
+static/src/img/portal_icon.svg        card icon (64x64 intrinsic)
 ```
 
-Routes : `/my/meetings`, `/my/meetings/record/<id>` et
+Routes: `/my/meetings`, `/my/meetings/record/<id>` and
 `/my/meetings/record/<id>/pdf`.
 
-L'entrée d'accueil déclare `placeholder_count` : `portal.portal_docs_entry` rend
-ses cartes en `d-none` par défaut, une carte sans compteur reste donc invisible.
-Le compteur est alimenté par `_prepare_home_portal_values`.
+The home entry declares `placeholder_count`: `portal.portal_docs_entry` renders
+its cards `d-none` by default, so a card with no counter stays invisible. The
+counter is fed by `_prepare_home_portal_values`.
 
-## Dépendances
+## Dependencies
 
-- `bf_meeting` — le modèle `meeting.record`
-- `portal` — `CustomerPortal` et les gabarits d'accueil
+- `bf_meeting` — the `meeting.record` model
+- `portal` — `CustomerPortal` and the home templates
 
 ## Installation
 
 ```bash
-odoo -d <base> -i bf_meeting_portal --stop-after-init
+odoo -d <database> -i bf_meeting_portal --stop-after-init
 ```
 
-Le module déclarant des contrôleurs, redémarrez le service ensuite pour que les
-routes soient servies.
+Since the module declares controllers, restart the service afterwards so the
+routes are served.
 
-Aucune configuration n'est requise. La portée dépend entièrement de
-`report_recipient_ids` : sur une base dont l'historique a été envoyé sans
-renseigner ce champ, le portail ne couvrira que les envois à venir.
+No configuration is required. The scope depends entirely on
+`report_recipient_ids`: on a database whose history was sent without populating
+that field, the portal will only cover future sends.
 
 ## Licence
 
