@@ -1,141 +1,140 @@
-# Sécurité — `bf_securetransfer`
+# Security — `bf_securetransfer`
 
-## Signaler une vulnérabilité
+## Reporting a vulnerability
 
-Merci de signaler toute vulnérabilité de manière responsable à
-**security@bluefoxconsultant.com**, sans divulgation publique préalable.
+Please report any vulnerability responsibly to
+**security@bluefoxconsultant.com**, without prior public disclosure.
 
-## Périmètre
+## Scope
 
-Le module expose des **routes publiques non authentifiées** :
+The module exposes **unauthenticated public routes**:
 
-- `GET /secrets` — page d'envoi brandée (Host → marque)
-- `POST /secrets/api/create` + `/secrets/api/<upload_token>/…` — API JSON
-  d'upload (presign, multipart, remove, finalize)
-- `GET /s/<token>` — page de téléchargement ; `POST /s/<token>/unlock` — mot de
-  passe ; `GET /s/<token>/dl/<file>` — 302 vers un GET présigné ;
-  `POST /s/<token>/report` — signalement d'abus
+- `GET /secrets` — branded send page (Host → brand)
+- `POST /secrets/api/create` + `/secrets/api/<upload_token>/…` — upload JSON API
+  (presign, multipart, remove, finalize)
+- `GET /s/<token>` — download page; `POST /s/<token>/unlock` — password;
+  `GET /s/<token>/dl/<file>` — 302 to a presigned GET;
+  `POST /s/<token>/report` — abuse report
 
-Aucun contenu de fichier ne transite par Odoo : les octets vont directement du
-navigateur au bucket S3 (URLs présignées) et en reviennent par redirection 302.
+No file content passes through Odoo: the bytes go straight from the browser to
+the S3 bucket (presigned URLs) and come back through a 302 redirect.
 
-## Modèle de menaces et mitigations
+## Threat model and mitigations
 
-### Capacités et jetons
+### Capabilities and tokens
 
-- **Deux jetons distincts** par transfert (défense en profondeur) :
-  `upload_token` (phase brouillon seulement, **révoqué à la finalisation**) et
-  `token` (lien `/s/`, **inerte avant l'activation**). UUID v4, comparaison en
-  **temps constant** (`hmac.compare_digest`), 404 **uniformes** (un jeton
-  inconnu, expiré ou en brouillon renvoie la même page neutre, sans
-  métadonnée).
-- Les jetons sont stockés en clair mais **réservés aux gestionnaires**
-  (`groups=manager`) ; la révélation d'un lien passe par un assistant dédié et
-  est **inscrite au journal**.
-- **ACL** : le public n'a **aucun** accès modèle — tout passe par `sudo()`
-  derrière la vérification de jeton dans les contrôleurs.
+- **Two distinct tokens** per transfer (defence in depth): `upload_token` (draft
+  phase only, **revoked at finalisation**) and `token` (the `/s/` link,
+  **inert before activation**). UUID v4, compared in **constant time**
+  (`hmac.compare_digest`), with **uniform** 404s (an unknown, expired or draft
+  token returns the same neutral page, with no metadata).
+- Tokens are stored in clear but **restricted to managers** (`groups=manager`);
+  revealing a link goes through a dedicated wizard and is **written to the log**.
+- **ACLs**: the public has **no** model access — everything goes through
+  `sudo()` behind the token check in the controllers.
 
-### Téléversement direct S3
+### Direct S3 upload
 
-- **URLs présignées à portée minimale** : PUT simple avec `Content-Length`
-  signé (TTL 900 s), parts multipart signées **par lots ≤ 20 à la demande**
-  (anti presign-farming, TTL 3600 s). La clé S3 est **opaque, générée serveur**
-  (`<préfixe-tenant>/<uuid>/<uuid>` — aucun nom de fichier ni PII dans la clé ;
-  le préfixe par tenant isole les instances sur un bucket partagé).
-- **CORS restrictif** : origines explicites (jamais `*`), méthode PUT
-  seulement, `ExposeHeaders: ETag`.
-- **Complete multipart côté serveur** : la liste des parts est reconstruite via
-  `ListParts` — jamais de confiance aux ETags fournis par le client.
+- **Minimally scoped presigned URLs**: a simple PUT with a signed
+  `Content-Length` (900 s TTL), and multipart parts signed **in batches of ≤ 20
+  on demand** (anti presign-farming, 3600 s TTL). The S3 key is **opaque and
+  server-generated** (`<tenant-prefix>/<uuid>/<uuid>` — no filename and no PII
+  in the key; the per-tenant prefix isolates instances on a shared bucket).
+- **Restrictive CORS**: explicit origins (never `*`), PUT method only,
+  `ExposeHeaders: ETag`.
+- **Server-side multipart completion**: the part list is rebuilt through
+  `ListParts` — client-supplied ETags are never trusted.
 
-### Intégrité des fichiers
+### File integrity
 
-- À la finalisation : `HEAD` de chaque objet (existence + **taille exacte**) et
-  **épinglage de l'ETag**.
-- Avant **chaque** téléchargement : re-`HEAD` + comparaison d'ETag. Un re-PUT
-  malveillant après finalisation (avec un presign encore valide) est donc
-  bloqué : téléchargement refusé + événement `integrity_mismatch` journalisé.
-- Téléchargement par 302 vers un GET présigné (TTL 300 s) avec
-  `ResponseContentDisposition: attachment` + `ResponseContentType:
-  application/octet-stream` **forcés** — jamais de rendu inline : neutralise le
-  XSS stocké via fichier HTML/SVG.
-- Pas de SHA-256 côté client au MVP (WebCrypto ne streame pas — impossible sur
-  20 Go) ; champ `checksum` réservé. Hook antivirus prévu (champ `scanned` —
-  la route de téléchargement n'autorise déjà que `none`/`clean`).
+- At finalisation: a `HEAD` of each object (existence plus **exact size**) and
+  **ETag pinning**.
+- Before **every** download: a re-`HEAD` plus an ETag comparison. A malicious
+  re-PUT after finalisation (with a still-valid presign) is therefore blocked:
+  the download is refused and an `integrity_mismatch` event is logged.
+- Download through a 302 to a presigned GET (300 s TTL) with
+  `ResponseContentDisposition: attachment` plus `ResponseContentType:
+  application/octet-stream` **forced** — never inline rendering, which
+  neutralises stored XSS through an HTML/SVG file.
+- No client-side SHA-256 at MVP (WebCrypto does not stream — impossible over
+  20 GB); the `checksum` field is reserved. An antivirus hook is planned (the
+  `scanned` field — the download route already allows only `none`/`clean`).
 
-### Anti-abus (page publique)
+### Anti-abuse (public page)
 
-- **Courriel expéditeur requis** (pas de captcha au MVP).
-- **Honeypot** `website_url` : rempli → faux succès silencieux, rien n'est
-  créé.
-- **Rate-limits burst** en mémoire par IP (création 10/h, API upload 120/min,
-  échecs de jeton 20/5 min, mot de passe 8/15 min par IP+transfert, abus
-  5/jour). *Limite connue : état par worker — un déploiement multi-worker
-  multiplie le plafond effectif ; durcissement fort = limitation en amont
-  (NPM/WAF).*
-- **Quotas quotidiens en base** (fiables multi-worker, sous verrou
-  `FOR UPDATE`) : 25 transferts et 10 Go déclarés par IP/jour, 5 transferts
-  par courriel expéditeur/jour.
-- **Liste noire d'extensions** (exécutables, scripts…), extension obligatoire,
-  nom de fichier assaini (chemins, caractères de contrôle, RTL-override,
-  ≤ 255) ; mimetype déterminé **côté serveur**.
-- **Kill-switch** : `public_upload_enabled` (page d'envoi) et état `suspended`
-  par transfert (abus signalé).
+- **Sender email required** (no captcha at MVP).
+- A `website_url` **honeypot**: filled in → a silent false success, nothing is
+  created.
+- **In-memory burst rate limits** per IP (creation 10/h, upload API 120/min,
+  token failures 20/5 min, password 8/15 min per IP+transfer, abuse 5/day).
+  *Known limitation: the state is per worker — a multi-worker deployment
+  multiplies the effective ceiling; strong hardening means rate limiting
+  upstream (NPM/WAF).*
+- **Daily database quotas** (reliable across workers, under a `FOR UPDATE`
+  lock): 25 transfers and 10 GB declared per IP per day, 5 transfers per sender
+  email per day.
+- **An extension deny-list** (executables, scripts and so on), a mandatory
+  extension, a sanitised filename (paths, control characters, RTL override,
+  ≤ 255); the mimetype is determined **server-side**.
+- **Kill switches**: `public_upload_enabled` (the send page) and the
+  `suspended` state per transfer (abuse reported).
 
-### Mot de passe
+### Password
 
-- Haché **pbkdf2_sha512** (passlib, dépendance cœur d'Odoo) ; le hash est
-  réservé au groupe système. Le mot de passe **ne figure jamais** dans les
-  courriels — canal séparé assumé.
-- Gate serveur (session) ; échecs journalisés (`password_fail`) et plafonnés.
+- Hashed with **pbkdf2_sha512** (passlib, an Odoo core dependency); the hash is
+  restricted to the system group. The password **never appears** in the emails —
+  a separate channel is assumed.
+- A server-side gate (session); failures are logged (`password_fail`) and
+  capped.
 
-### Journal d'accès (Loi 25)
+### Access log (Law 25)
 
-- **Append-only, chaîné par hachage** (patron `bf_sign_log`) : chaque entrée
-  référence l'empreinte de la précédente ; `write()`/`unlink()` bloqués au
-  niveau ORM, ACL lecture seule y compris pour les gestionnaires. Toute
-  altération rompt la chaîne (`verify_chain()`).
-- Le journal note le **nom du fichier au moment de l'événement** : la preuve
-  survit à la purge des objets.
-- Fidélité assumée : l'événement `download` atteste un **téléchargement
-  initié** (302 émis), pas la réception complète des octets.
-- Cycle de vie : la purge supprime les objets S3 mais **conserve métadonnées et
-  journal** (jamais de `unlink`, règle maison) ; seul le GC hebdomadaire
-  supprime les enregistrements après `log_retention_days` (365 j).
+- **Append-only, hash-chained** (the `bf_sign_log` pattern): each entry
+  references the previous one's hash; `write()`/`unlink()` are blocked at ORM
+  level, with a read-only ACL even for managers. Any tampering breaks the chain
+  (`verify_chain()`).
+- The log records the **filename as of the event**: the evidence survives the
+  purge of the objects.
+- An assumed fidelity limit: the `download` event attests a **download
+  initiated** (a 302 emitted), not the complete receipt of the bytes.
+- Life cycle: the purge deletes the S3 objects but **keeps the metadata and the
+  log** (never an `unlink`, a house rule); only the weekly GC deletes records
+  after `log_retention_days` (365 days).
 
-### Pages publiques et en-têtes
+### Public pages and headers
 
-- Pages QWeb **autonomes** (sans layout portal/website) ; en-têtes de sécurité
-  sur chaque réponse : **CSP** (avec le host S3 ajouté au `connect-src` de la
-  page d'envoi — seul ajout), `X-Frame-Options: DENY`,
+- **Standalone** QWeb pages (no portal/website layout); security headers on
+  every response: **CSP** (with the S3 host added to the send page's
+  `connect-src` — the only addition), `X-Frame-Options: DENY`,
   `X-Content-Type-Options: nosniff`, `Referrer-Policy`.
-- Le host de marque n'expose que le produit : `/web/login`, `/web/database`,
-  `/odoo`, `/xmlrpc` redirigés 302 vers l'instance principale (config NPM).
-- Contenu utilisateur (message, noms de fichiers) rendu **échappé uniquement**
-  (`t-esc`) ; réponses d'erreur JSON génériques, sans détail interne.
+- The brand host exposes only the product: `/web/login`, `/web/database`,
+  `/odoo` and `/xmlrpc` are 302-redirected to the main instance (NPM config).
+- User content (message, filenames) is rendered **escaped only** (`t-esc`);
+  JSON error responses are generic, with no internal detail.
 
-### Secrets et rayon d'explosion
+### Secrets and blast radius
 
-- Clés S3 **hors base** (env / `odoo.conf`) — un dump de base ou un refresh
-  staging n'emporte jamais les clés de production.
-- **Isolation par préfixe de clé (`s3_key_prefix`)** : sur un bucket partagé,
-  chaque instance n'écrit, ne purge et ne balaie que sous son propre préfixe.
-  Object lock OFF (sinon la purge est impossible). Le refresh staging purge les
-  enregistrements hérités et repointe le préfixe pour que le staging ne puisse
-  pas agir sur les objets prod. Pour une isolation plus forte, un bucket +
-  une clé scopée par tenant restent possibles.
+- S3 keys **outside the database** (env / `odoo.conf`) — a database dump or a
+  staging refresh never carries production keys away.
+- **Isolation through the key prefix (`s3_key_prefix`)**: on a shared bucket,
+  each instance writes, purges and sweeps only under its own prefix. Object lock
+  is OFF (otherwise purging is impossible). The staging refresh purges the
+  inherited records and repoints the prefix so staging cannot act on production
+  objects. For stronger isolation, a bucket plus a scoped key per tenant remain
+  possible.
 
-## Non-garanties
+## Non-guarantees
 
-- La chaîne de hachage du journal est **sans secret** : elle détecte une
-  altération mais ne résiste pas à un acteur ayant l'écriture en base (qui
-  pourrait recalculer la chaîne). Pas d'ancrage externe (RFC 3161) au MVP.
-- Si votre fournisseur S3 est de propriété **américaine** (p. ex. IDrive E2),
-  les données peuvent résider au Canada (région vérifiée par sonde) mais le
-  CLOUD Act s'applique — « hébergé au Canada » est défendable, « à l'abri de
-  tout accès étranger » ne l'est pas (réserve à documenter ; chiffrement
-  applicatif = Phase 3).
-- Le lien `/s/<token>` est une **capacité** : quiconque le détient (transfert
-  de courriel, épaule, historique) accède aux fichiers, sous réserve du mot de
-  passe. Le mot de passe optionnel est la mitigation offerte.
-- Chiffrement en transit (TLS) et au repos côté fournisseur ; **pas de
-  chiffrement zéro-connaissance** au MVP.
+- The log's hash chain is **secretless**: it detects tampering but does not
+  resist an actor with database write access (who could recompute the chain).
+  There is no external anchoring (RFC 3161) at MVP.
+- If your S3 provider is **US-owned** (for example IDrive E2), the data may
+  reside in Canada (the region is verified by a probe) but the CLOUD Act
+  applies — "hosted in Canada" is defensible, "beyond the reach of any foreign
+  access" is not (a caveat to document; application-level encryption is
+  Phase 3).
+- The `/s/<token>` link is a **capability**: anyone holding it (a forwarded
+  email, someone looking over a shoulder, browser history) reaches the files,
+  subject to the password. The optional password is the mitigation on offer.
+- Encryption in transit (TLS) and at rest on the provider's side; **no
+  zero-knowledge encryption** at MVP.

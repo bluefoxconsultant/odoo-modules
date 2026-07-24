@@ -1,282 +1,280 @@
-# Journal des modifications — `bf_sign`
+# Changelog — `bf_sign`
 
-Le versionnage suit la convention Odoo `18.0.MAJOR.MINOR.PATCH`.
+Versioning follows the Odoo `18.0.MAJOR.MINOR.PATCH` convention.
 
-## 18.0.3.13.2 — Retrait de l'option « signature avancée (AES) »
+## 18.0.3.13.2 — Removing the "advanced signature (AES)" option
 
-- **Le choix « LibreSign — signature avancée (AES) » est retiré** de
-  `signature_method`. L'option était sélectionnable dans le formulaire mais
-  n'avait **aucune implémentation** : la demande passait par le pipeline SES
-  ordinaire quel que soit le choix. « Avancée » ayant un sens précis dans le
-  vocabulaire de la signature électronique, l'écart entre ce que l'interface
-  promettait et ce que le module livre était un enjeu de représentation.
-- Le champ demeure (structure inchangée, valeur unique `native_ses`) et devient
-  **lecture seule** : il indique le niveau de signature obtenu au lieu de faire
-  choisir entre deux paliers dont un seul existe.
-- **Migration** `18.0.3.13.2/pre-migrate.py` : ramène à `native_ses` toute
-  demande portant encore `libresign_aes`.
-- Docs : le manifeste et le README ne présentent plus le champ comme
-  « préparant un palier AES via LibreSign ».
+- **The "LibreSign — advanced signature (AES)" choice is removed** from
+  `signature_method`. The option was selectable in the form but had **no
+  implementation**: the request went through the ordinary SES pipeline whatever
+  the choice. Since "advanced" has a precise meaning in electronic signature
+  vocabulary, the gap between what the UI promised and what the module delivers
+  was a misrepresentation problem.
+- The field remains (unchanged structure, a single `native_ses` value) and
+  becomes **read-only**: it states the signature level obtained instead of
+  offering a choice between two tiers of which only one exists.
+- **Migration** `18.0.3.13.2/pre-migrate.py`: resets to `native_ses` any request
+  still carrying `libresign_aes`.
+- Docs: the manifest and the README no longer present the field as "preparing an
+  AES tier through LibreSign".
 
-## 18.0.3.13.1 — Dépendances Python réellement déclarées
+## 18.0.3.13.1 — Python dependencies actually declared
 
-- `external_dependencies` déclarait seulement `PIL`, `reportlab` et `PyPDF2`.
-  Le scellement PAdES (`pyhanko`, `pyhanko_certvalidator`, `asn1crypto`,
-  `cryptography`) et le client d'horodatage (`requests`) étaient importés sans
-  être déclarés : un hôte auquel il manquait ces paquets installait le module
-  sans avertissement et échouait au moment de signer. Tous sont maintenant
-  déclarés, donc l'absence est détectée à l'installation.
+- `external_dependencies` declared only `PIL`, `reportlab` and `PyPDF2`. The
+  PAdES sealing (`pyhanko`, `pyhanko_certvalidator`, `asn1crypto`,
+  `cryptography`) and the timestamping client (`requests`) were imported without
+  being declared: a host missing those packages installed the module without
+  warning and failed at signing time. All are now declared, so a missing package
+  is detected at installation.
 
-## 18.0.3.13.0 — Passage sous Business Source License 1.1
+## 18.0.3.13.0 — Moving to the Business Source License 1.1
 
-- La licence passe de **LGPL-3** à **BUSL-1.1**. L'usage en production pour vos
-  **propres opérations internes** reste permis sans entente ; fournir le module
-  comme produit ou service à des tiers (hébergé, infogéré ou revendu) demande
-  une entente écrite avec Blue Fox Inc. Le **2029-07-20**, cette version bascule
-  automatiquement en **LGPL-3.0-or-later**. Voir `LICENSE`.
-- `THIRD-PARTY.md` : attribution des polices embarquées sous SIL OFL (*Caveat*,
-  *Dancing Script*, *Great Vibes*), qui restent sous leur propre licence et ne
-  sont pas couvertes par la BUSL.
+- The licence moves from **LGPL-3** to **BUSL-1.1**. Production use for your
+  **own internal business operations** remains allowed without an agreement;
+  providing the module as a product or service to third parties (hosted, managed
+  or resold) requires a written agreement with Blue Fox Inc. On **2029-07-20**,
+  this version converts automatically to **LGPL-3.0-or-later**. See `LICENSE`.
+- `THIRD-PARTY.md`: attribution for the embedded SIL OFL typefaces (*Caveat*,
+  *Dancing Script*, *Great Vibes*), which stay under their own licence and are
+  not covered by the BUSL.
 
-## 18.0.3.12.0 — Titre convivial + polices de signature embarquées
+## 18.0.3.12.0 — A friendly title plus embedded signature fonts
 
-- **Champ « Titre »** sur la demande : un nom convivial pour repérer un document
-  dans la liste (la référence `SIGN-AAAA-NNNN` reste la clé unique). Affiché en
-  colonne de liste, en en-tête de fiche, en kanban, cherchable, et repris dans le
-  `display_name` (« Titre (SIGN-2026-0001) ») et sur la page de signature.
-- **Polices de signature embarquées (SIL OFL)** : les styles « Manuscrit /
-  Cursif / Élégant » pointaient vers des polices système absentes de la plupart
-  des appareils, donc se ressemblaient tous. Trois vraies polices sont maintenant
-  **auto-hébergées** dans le module — *Caveat*, *Dancing Script*, *Great Vibes* —
-  et appliquées au nom tapé comme aux initiales tapées, avec rendu identique sur
-  tous les appareils. Le canevas attend le chargement de la police avant de
-  dessiner. Licences OFL incluses dans `static/fonts/`.
+- **A "Title" field** on the request: a friendly name for spotting a document in
+  the list (the `SIGN-YYYY-NNNN` reference remains the unique key). Shown as a
+  list column, in the record header, in kanban, searchable, and reused in the
+  `display_name` ("Title (SIGN-2026-0001)") and on the signing page.
+- **Embedded signature fonts (SIL OFL)**: the "Handwritten / Cursive / Elegant"
+  styles pointed at system fonts absent from most devices, so they all looked
+  alike. Three real fonts are now **self-hosted** in the module — *Caveat*,
+  *Dancing Script*, *Great Vibes* — and applied to both the typed name and the
+  typed initials, rendering identically on every device. The canvas waits for
+  the font to load before drawing. The OFL licences are included in
+  `static/fonts/`.
 
-## 18.0.3.11.0 — Téléverser une image de signature/paraphe
+## 18.0.3.11.0 — Uploading a signature/initials image
 
-- **Troisième mode « Téléverser »** sur les pavés de signature et de paraphe, en
-  plus de « Dessiner » et « Saisir » : le signataire peut choisir un fichier
-  **PNG ou JPG** (p. ex. une signature numérisée). L'image est ajustée et centrée
-  dans la zone, puis traitée comme les autres modes.
-- **Aucun changement au pipeline ni au format de stockage** : l'image téléversée
-  est dessinée sur le canevas et réencodée en PNG (`canvas.toDataURL`), donc elle
-  passe par les mêmes validations (PNG, taille max), la même apposition et la même
-  piste de vérification. Un JPG est converti en PNG automatiquement, côté client.
+- **A third "Upload" mode** on the signature and initials fields, alongside
+  "Draw" and "Type": the signer can pick a **PNG or JPG** file (a scanned
+  signature, for instance). The image is fitted and centred in the zone, then
+  handled like the other modes.
+- **No change to the pipeline or the storage format**: the uploaded image is
+  drawn on the canvas and re-encoded as PNG (`canvas.toDataURL`), so it goes
+  through the same validation (PNG, maximum size), the same stamping and the
+  same audit trail. A JPG is converted to PNG automatically, client-side.
 
-## 18.0.3.10.0 — Paraphe au clavier + valeurs tirées du signataire
+## 18.0.3.10.0 — Typed initials plus values derived from the signer
 
-- **Paraphe saisissable au clavier.** Le pavé « Votre paraphe » offre maintenant
-  le même choix **Dessiner / Saisir** que la signature : on peut taper ses
-  initiales (avec un style manuscrit/cursif/élégant) au lieu de devoir les
-  dessiner, ce qui était malcommode au trackpad.
-- **Valeurs prédéterminées à partir du nom du signataire.** En mode « Saisir »,
-  le champ du paraphe est pré-rempli avec les initiales déduites du nom du
-  signataire (« Marie Tremblay » → « MT »), et le nom tapé de la signature
-  reste pré-rempli avec le nom complet. Les deux demeurent modifiables.
-- Aucun changement au pipeline d'apposition ni à la piste de vérification : un
-  paraphe tapé produit la même image PNG qu'un paraphe dessiné.
+- **Initials can be typed.** The "Your initials" field now offers the same
+  **Draw / Type** choice as the signature: you can type your initials (in a
+  handwritten/cursive/elegant style) instead of having to draw them, which was
+  awkward on a trackpad.
+- **Values predetermined from the signer's name.** In "Type" mode, the initials
+  field is prefilled with the initials derived from the signer's name ("Marie
+  Tremblay" → "MT"), and the signature's typed name stays prefilled with the
+  full name. Both remain editable.
+- No change to the stamping pipeline or the audit trail: typed initials produce
+  the same PNG image as drawn initials.
 
-## 18.0.3.8.3 — Logo sur fond foncé dans les en-têtes
+## 18.0.3.8.3 — A logo for dark backgrounds in the headers
 
-- Les en-têtes foncés (courriels brandés + pages publiques de signature) utilisent
-  le **logo sur fond foncé** de la société (`report_brand_logo`, nouveau champ
-  `bluefox_branding`) lorsqu'il est défini — typiquement la version blanche du logo
-  — sinon le logo standard. Évite un logo foncé invisible sur la bande foncée.
-  (Les 3 gabarits courriel `noupdate` sont recréés via migration pour appliquer
-  le changement.)
+- The dark headers (branded emails plus public signing pages) use the company's
+  **dark-background logo** (`report_brand_logo`, a new `bluefox_branding` field)
+  when it is set — typically the white version of the logo — otherwise the
+  standard logo. This avoids a dark logo being invisible on the dark band. (The
+  3 `noupdate` email templates are recreated through a migration to apply the
+  change.)
 
-## 18.0.3.8.1 — Société par défaut = société principale du créateur
+## 18.0.3.8.1 — The default company is the creator's main company
 
-- La demande de signature prend par défaut la **société principale** du créateur
-  (au lieu de la société active du sélecteur multi-société), pour que le document
-  soit toujours brandé (couleurs + logo) par l'organisation primaire même si une
-  autre société est sélectionnée. Le champ reste modifiable en brouillon.
+- The signature request defaults to the creator's **main company** (rather than
+  the active company from the multi-company selector), so the document is always
+  branded (colours plus logo) by the primary organisation even when another
+  company is selected. The field stays editable while in draft.
 
-## 18.0.3.8.0 — Durcissement (audit pré-publication)
+## 18.0.3.8.0 — Hardening (pre-publication audit)
 
-### Sécurité
-- **Le jeton de signature ne transite plus par un message persistant** :
-  l'invitation est envoyée en courriel autonome (sans lien document,
-  auto-supprimé), de sorte qu'un utilisateur de signature ne peut plus récupérer
-  le jeton d'un signataire depuis le corps d'un `mail.message` et signer à sa
-  place. Restaure la garantie « pas de signature pour autrui » de la 18.0.3.4.0.
-- **Règles d'enregistrement** sur signataires / pavés / journal : un utilisateur
-  ne voit que ceux des demandes qu'il peut voir (plus de lecture des signataires,
-  pavés et pistes de vérification d'autres créateurs ou sociétés).
-- **Reversement au record source restreint** : à la finalisation, le document
-  signé n'est reversé que si le créateur de la demande a réellement l'accès en
-  écriture au record source (plus d'écriture `sudo` vers un `res_model` / `res_id`
-  arbitraire).
-- **Plafond de renvois OTP** (anti-bombardement de courriels) en plus du délai de
-  30 s entre envois.
+### Security
+- **The signing token no longer travels through a persistent message**: the
+  invitation is sent as a standalone email (with no document link, auto-deleted),
+  so a signature user can no longer retrieve a signer's token from a
+  `mail.message` body and sign in their place. This restores the "no signing on
+  someone else's behalf" guarantee from 18.0.3.4.0.
+- **Record rules** on signers / fields / log: a user only sees those of the
+  requests they can see (no more reading the signers, fields and audit trails of
+  other creators or companies).
+- **Posting back to the source record restricted**: at finalisation, the signed
+  document is posted back only if the request's creator genuinely has write
+  access to the source record (no more `sudo` writes to an arbitrary
+  `res_model` / `res_id`).
+- **A cap on OTP resends** (anti email bombing) on top of the 30 s delay between
+  sends.
 
-## 18.0.3.7.0 — Raffinements d'expérience
+## 18.0.3.7.0 — Experience refinements
 
-### Courriels
-- **Titre de l'en-tête à droite du logo** (et non en dessous), aligné sur les
-  autres courriels Blue Fox — invitation, complétion, refus et code OTP.
+### Emails
+- **The header title sits to the right of the logo** (rather than below it),
+  aligned with the other Blue Fox emails — invitation, completion, refusal and
+  OTP code.
 
-### Sécurité — révélation du lien
-- **« Copier le lien » en deux temps** : la révélation d'un lien de signataire
-  affiche d'abord un **avertissement** ; le lien n'est exposé — et la révélation
-  inscrite dans la piste de vérification — **qu'après confirmation** explicite du
-  gestionnaire (annuler ne révèle ni ne journalise rien).
+### Security — revealing the link
+- **"Copy link" in two steps**: revealing a signer's link first shows a
+  **warning**; the link is exposed — and the reveal written to the audit trail —
+  **only after** the manager explicitly confirms (cancelling reveals nothing and
+  logs nothing).
 
-### Signature
-- **Signature tapée** en option sur la page de signature : le signataire peut
-  **saisir son nom** (plusieurs styles) au lieu de le dessiner — le tracé reste
-  l'option par défaut.
+### Signing
+- **A typed signature** as an option on the signing page: the signer can **type
+  their name** (in several styles) instead of drawing it — drawing remains the
+  default.
 
-## 18.0.3.6.0 — Vérification par code (OTP) au moment de la signature
+## 18.0.3.6.0 — Code verification (OTP) at signing time
 
-- **OTP courriel optionnel** (désactivé par défaut, activable globalement ou par
-  demande) : le signataire saisit un code à 6 chiffres envoyé à son courriel
-  **avant** de consulter et signer — preuve du contrôle de la boîte au moment de
-  la signature. Code à durée de vie limitée, plafond de tentatives, routes
-  `/document` et `/submit` bloquées tant que non vérifié. La méthode d'identité
-  consignée devient `email_otp`.
+- **An optional email OTP** (off by default, enabled globally or per request):
+  the signer enters a 6-digit code sent to their email **before** viewing and
+  signing — proof of inbox control at the moment of signing. A time-limited
+  code, an attempt cap, and the `/document` and `/submit` routes blocked until
+  verified. The identity method recorded becomes `email_otp`.
 
-## 18.0.3.5.0 — Envoi pour signature depuis d'autres modules
+## 18.0.3.5.0 — Sending for signature from other modules
 
-- **Mixin `bf.sign.mixin`** : bouton « Envoyer pour signature » + bouton
-  statistique sur n'importe quel modèle, avec points de personnalisation
-  (rapport, signataires, nom de fichier).
-- **Fabrique `bf.sign.request.create_from_record`** : rend un record en PDF et
-  crée une demande **liée** (`res_model` / `res_id`).
-- **Reversement au record source** : à la signature complète, le document signé +
-  le certificat sont copiés sur le record source et une note est publiée au fil
-  (aucun changement d'état).
-- **Modules-pont** : `bf_sign_sale` (devis / commandes) et `bf_sign_purchase`
-  (bons de commande).
+- **The `bf.sign.mixin` mixin**: a "Send for signature" button plus a smart
+  button on any model, with customisation points (report, signers, filename).
+- **The `bf.sign.request.create_from_record` factory**: renders a record as a
+  PDF and creates a **linked** request (`res_model` / `res_id`).
+- **Posting back to the source record**: on full signature, the signed document
+  plus the certificate are copied onto the source record and a note is published
+  in the thread (no state change).
+- **Bridge modules**: `bf_sign_sale` (quotations / orders) and
+  `bf_sign_purchase` (purchase orders).
 
-## 18.0.3.4.0 — Intégrité du lien de signataire
+## 18.0.3.4.0 — Integrity of the signer's link
 
-- **Le lien / jeton de signature n'est plus exposé au demandeur** : `access_token`
-  et `signing_url` réservés aux gestionnaires — un utilisateur ne peut plus copier
-  le lien d'un signataire et signer à sa place. L'invitation reste envoyée
-  normalement (rendu sous `sudo`).
-- **Révélation « bris de glace »** par un gestionnaire, **inscrite dans la piste
-  de vérification** (événement `link_revealed`).
+- **The signing link / token is no longer exposed to the requester**:
+  `access_token` and `signing_url` are restricted to managers — a user can no
+  longer copy a signer's link and sign in their place. The invitation is still
+  sent normally (rendered under `sudo`).
+- **A "break glass" reveal** by a manager, **written to the audit trail** (the
+  `link_revealed` event).
 
-## 18.0.3.3.0 — Clé de chiffrement par l'interface & corrections
+## 18.0.3.3.0 — The encryption key through the UI, plus fixes
 
 ### Configuration
-- **Clé Fernet en libre-service** : un administrateur peut **générer ou importer**
-  la clé de chiffrement du certificat de scellement depuis *Paramètres* (stockée
-  en base) ; une clé définie dans `odoo.conf` / l'environnement garde la priorité.
-  Compromis documenté dans `SECURITY.md`.
+- **A self-service Fernet key**: an administrator can **generate or import** the
+  sealing certificate's encryption key from *Settings* (stored in the database);
+  a key set in `odoo.conf` / the environment keeps precedence. The trade-off is
+  documented in `SECURITY.md`.
 
-### Courriels
-- **Titre d'action** ajouté à l'en-tête des courriels (invitation / complétion /
-  refus).
+### Emails
+- **An action title** added to the email headers (invitation / completion /
+  refusal).
 
-### Performance (widget de placement)
-- **Rastérisation du PDF découplée du rechargement des données** + cache des
-  pages : changer de type de pavé / enregistrer / appliquer un modèle ne re-rend
-  plus tout le document.
+### Performance (the placement widget)
+- **PDF rasterisation decoupled from data reloading** plus a page cache:
+  changing a field type, saving, or applying a template no longer re-renders the
+  whole document.
 
-### Page de signature publique
-- **Correctif d'affichage du document** : Odoo livrant pdf.js en build **ESM**,
-  son chargement en script classique échouait silencieusement → chargement via
-  `import()` dynamique.
+### Public signing page
+- **A document display fix**: since Odoo ships pdf.js as an **ESM** build,
+  loading it as a classic script failed silently → loaded through a dynamic
+  `import()`.
 
-## 18.0.3.2.1 — Correctif de plantage OWL
+## 18.0.3.2.1 — An OWL crash fix
 
-- Correction d'un plantage du widget de placement (`ctx.String is not a
-  function`) : `String(...)` n'est pas exposé dans le contexte des gabarits OWL.
+- Fixed a crash in the placement widget (`ctx.String is not a function`):
+  `String(...)` is not exposed in the OWL template context.
 
-## 18.0.3.2.0 — Marqueurs de placement côté signataire & verrouillage structurel
+## 18.0.3.2.0 — Placement markers on the signer's side, plus structural locking
 
-### Expérience de signature
-- **Aperçu rendu du document** sur la page de signature (PDF.js → image par page)
-  remplaçant l'`<iframe>` brut, avec **marqueurs de placement numérotés** : chaque
-  pavé du signataire (signature, paraphe, texte, date) apparaît à sa position
-  exacte sur le document, avec un **identifiant clair** (badge numéroté en ordre
-  de lecture : page, puis haut→bas, gauche→droite).
-- **Référence croisée** : les en-têtes des cartes « Votre signature / paraphe »
-  et chaque champ à remplir portent le même numéro que le marqueur correspondant.
-  Toucher un marqueur amène au champ/à la carte associé(e).
-- **Miroir en direct** : la signature/le paraphe dessiné(e) et les valeurs
-  texte/date saisies s'affichent dans les marqueurs au fil de la saisie (le
-  marqueur passe au vert une fois rempli). Repli `<noscript>`/erreur vers un lien
-  d'ouverture du PDF.
+### Signing experience
+- **A rendered preview of the document** on the signing page (PDF.js → one image
+  per page) replacing the raw `<iframe>`, with **numbered placement markers**:
+  each of the signer's fields (signature, initials, text, date) appears at its
+  exact position on the document, with a **clear identifier** (a numbered badge
+  in reading order: page, then top→bottom, left→right).
+- **Cross-referencing**: the headers of the "Your signature / initials" cards and
+  each field to fill carry the same number as the matching marker. Touching a
+  marker takes you to the associated field or card.
+- **A live mirror**: the drawn signature/initials and the typed text/date values
+  appear in the markers as you type (the marker turns green once filled). A
+  `<noscript>`/error fallback offers a link to open the PDF.
 
-### Intégrité — verrouillage structurel
-- **Destinataires et pavés gelés hors brouillon** : une fois la demande envoyée
-  (ou signée), il n'est plus possible d'ajouter, modifier, déplacer ou retirer un
-  **signataire** ou un **pavé** — appliqué au niveau du modèle
-  (`create`/`write`/`unlink`) sur `bf.sign.signer` et `bf.sign.field`, avec une
-  *allowlist* des champs que le flux de signature doit encore écrire
-  (`filled_value`, images, consentement, état…). Échappatoire : « Remettre en
-  brouillon ». Reflété dans le formulaire (lecture seule + bandeau) et le widget
-  de disposition (placement désactivé hors brouillon).
+### Integrity — structural locking
+- **Recipients and fields frozen outside draft**: once the request is sent (or
+  signed), it is no longer possible to add, modify, move or remove a **signer**
+  or a **field** — enforced at model level (`create`/`write`/`unlink`) on
+  `bf.sign.signer` and `bf.sign.field`, with an *allowlist* of the fields the
+  signing flow still needs to write (`filled_value`, images, consent, state, and
+  so on). The escape hatch is "Reset to draft". Reflected in the form (read-only
+  plus a banner) and in the layout widget (placement disabled outside draft).
 
-## 18.0.3.1.0 — Correctifs du widget & modèles de pavés
+## 18.0.3.1.0 — Widget fixes plus field templates
 
-- **Affichage du document de fond corrigé** dans le widget de placement (rendu
-  hors-écran → image, plus de problème de synchronisation du canvas) et
-  compression verticale corrigée.
-- **Modèles de pavés réutilisables** (`bf.sign.field.template`) mémorisant la
-  disposition **par rang de signataire** ; barre « Modèle » (appliquer /
-  enregistrer) dans le widget.
+- **The background document's display fixed** in the placement widget
+  (off-screen render → image, no more canvas synchronisation problem) and
+  vertical compression fixed.
+- **Reusable field templates** (`bf.sign.field.template`) storing the layout
+  **per signer rank**; a "Template" bar (apply / save) in the widget.
 
-## 18.0.3.0.0 — Sceau numérique PAdES
+## 18.0.3.0.0 — The PAdES digital seal
 
-- **Sceau numérique** (pyHanko) : signature cryptographique invisible
-  « organisation » sur le document final → un lecteur PDF (Adobe…) affiche
-  « signé / non modifié » (type DocuSeal). Certificat X.509 auto-signé généré
-  depuis les réglages, **chiffré par Fernet** dans `ir.config_parameter` (clé hors
-  base via `odoo.conf` / environnement). Vérification d'intégrité étendue au sceau.
+- **A digital seal** (pyHanko): an invisible cryptographic "organisation"
+  signature on the final document → a PDF reader (Adobe and others) shows
+  "signed / not modified" (DocuSeal style). A self-signed X.509 certificate
+  generated from the settings, **Fernet-encrypted** in `ir.config_parameter`
+  (with the key outside the database through `odoo.conf` / the environment).
+  Integrity verification extended to the seal.
 
-## 18.0.2.1.0 — Durcissement & finition du palier 1
+## 18.0.2.1.0 — Hardening and finishing of tier 1
 
-### Sécurité
-- **Validation des entrées** : les images de signature/paraphe sont validées
-  (format PNG, taille plafonnée, intégrité via Pillow) **avant** que le
-  signataire ne soit marqué signé, et le document téléversé est validé (PDF,
-  taille, non chiffré, lisible) à l'envoi. Plafonds configurables
-  (`bf_sign.max_signature_kb`, `bf_sign.max_document_mb`).
-- **Garde anti-double-finalisation** : verrou de ligne (`SELECT … FOR UPDATE`) +
-  relecture de l'état en tête de `_finalize`, pour sérialiser deux soumissions
-  « dernier signataire » concurrentes (pas de pièces jointes ni de courriel en
-  double).
+### Security
+- **Input validation**: signature/initials images are validated (PNG format,
+  size capped, integrity through Pillow) **before** the signer is marked signed,
+  and the uploaded document is validated (PDF, size, unencrypted, readable) at
+  send time. The caps are configurable (`bf_sign.max_signature_kb`,
+  `bf_sign.max_document_mb`).
+- **A double-finalisation guard**: a row lock (`SELECT … FOR UPDATE`) plus
+  re-reading the state at the top of `_finalize`, to serialise two concurrent
+  "last signer" submissions (no duplicate attachments and no duplicate email).
 
-### Intégrité & preuve
-- **Réancrage RFC 3161** : le jeton d'horodatage couvre désormais le **contenu
-  signé** (nouvelle empreinte `hash_stamped`) et est obtenu **avant** le rendu du
-  certificat, de sorte que le certificat **affiche réellement** l'horodatage et
-  l'heure attestée (`tsa_gentime`). Délai d'attente TSA ramené à 10 s.
-- **Vérification d'intégrité en un clic** (`action_verify_integrity`) : recalcul
-  de la chaîne du journal, de l'empreinte du document scellé et concordance du
-  jeton RFC 3161 ; résultat affiché et consigné au chatter.
+### Integrity & evidence
+- **RFC 3161 re-anchoring**: the timestamp token now covers the **signed
+  content** (a new `hash_stamped` hash) and is obtained **before** the
+  certificate is rendered, so the certificate **actually shows** the timestamp
+  and the attested time (`tsa_gentime`). The TSA timeout is brought down to
+  10 s.
+- **One-click integrity verification** (`action_verify_integrity`): recomputes
+  the log chain, the sealed document's hash and the RFC 3161 token's match; the
+  result is displayed and recorded in the chatter.
 
-### Fonctionnalités
-- **Flux de refus** : route publique `/sign/<id>/<token>/refuse`, bouton et motif
-  sur la page de signature, page de confirmation, courriel d'avis au demandeur.
+### Features
+- **A refusal flow**: the public `/sign/<id>/<token>/refuse` route, a button and
+  a reason on the signing page, a confirmation page, and a notice email to the
+  requester.
 
 ### UX
-- **Widget de placement** plus robuste : erreurs PDF.js surfacées, bouton
-  « Recharger », garde empêchant le placement tant que le formulaire a des
-  modifications non enregistrées (les pavés étant écrits immédiatement).
+- **A more robust placement widget**: PDF.js errors surfaced, a "Reload" button,
+  and a guard preventing placement while the form has unsaved changes (since the
+  fields are written immediately).
 
 ### Publication
-- `external_dependencies` Python déclarées au manifeste (`PIL`, `reportlab`,
+- Python `external_dependencies` declared in the manifest (`PIL`, `reportlab`,
   `PyPDF2`).
-- Description du manifeste corrigée (multi-signataires).
-- Suite de tests (`tests/`) couvrant cycle de vie, validation, signature
-  parallèle/séquentielle, idempotence de finalisation, immuabilité du journal,
-  refus, expiration et vérification d'intégrité.
-- Ajout de `README.md`, `CHANGELOG.md`, `SECURITY.md`.
+- The manifest description corrected (multiple signers).
+- A test suite (`tests/`) covering the life cycle, validation, parallel and
+  sequential signing, finalisation idempotence, log immutability, refusal,
+  expiry and integrity verification.
+- `README.md`, `CHANGELOG.md` and `SECURITY.md` added.
 
-## 18.0.2.0.x — Multi-signataires & placement
+## 18.0.2.0.x — Multiple signers and placement
 
-- Multi-signataires (parallèle / séquentiel) via `bf.sign.signer`.
-- Placement visuel des pavés (`bf.sign.field`) par glisser-déposer (widget OWL +
-  PDF.js) et moteur d'estampage (reportlab + PyPDF2).
-- Certificat de complétion brandé, empreintes SHA-256, piste append-only
-  chaînée, horodatage RFC 3161 optionnel.
+- Multiple signers (parallel / sequential) through `bf.sign.signer`.
+- Visual field placement (`bf.sign.field`) by drag and drop (OWL widget plus
+  PDF.js) and a stamping engine (reportlab plus PyPDF2).
+- A branded completion certificate, SHA-256 hashes, a chained append-only trail,
+  optional RFC 3161 timestamping.
 
-## 18.0.1.0.0 — Palier 1 initial (SES)
+## 18.0.1.0.0 — Initial tier 1 (SES)
 
-- Modèles `bf.sign.request` / `bf.sign.log`, contrôleur public tokenisé,
-  signature dessinée, certificat QWeb, journal immuable.
+- The `bf.sign.request` / `bf.sign.log` models, a tokenised public controller,
+  a drawn signature, a QWeb certificate, an immutable log.

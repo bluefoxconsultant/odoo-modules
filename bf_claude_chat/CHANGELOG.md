@@ -2,155 +2,172 @@
 
 ## v18.0.1.4.1 - 2026-03-20
 
-### Correction de l'overlay cache derriere le chatter (portal pattern)
+### Fixing the overlay hidden behind the chatter (portal pattern)
 
-**Probleme** : Le panneau lateral TentaClaude s'affichait derriere la barre chatter d'Odoo
-("Envoyer un message", "Note", "Activites") et le statusbar du formulaire. Malgre un
-`z-index: 2147483647` sur l'overlay, celui-ci etait confine au stacking context de la navbar
-(`position: fixed` + z-index cree un stacking context CSS isole).
+**The problem**: the TentaClaude side panel displayed behind Odoo's chatter bar
+("Send message", "Log note", "Activities") and the form statusbar. Despite a
+`z-index: 2147483647` on the overlay, it was confined to the navbar's stacking
+context (`position: fixed` plus a z-index creates an isolated CSS stacking
+context).
 
-L'approche precedente (booster le z-index de `.o_main_navbar` a 2147483646 via `:has()`)
-ne resolvait pas le probleme fondamental : un descendant `position: fixed` ne peut pas
-echapper au stacking context de son ancetre.
+The previous approach (raising `.o_main_navbar`'s z-index to 2147483646 through
+`:has()`) did not address the underlying problem: a `position: fixed` descendant
+cannot escape its ancestor's stacking context.
 
-**Solution** : Implementation d'un pattern portal OWL qui deplace le noeud DOM de l'overlay
-vers `document.body` apres chaque rendu, et le restaure avant chaque patch pour compatibilite
-avec le DOM virtuel d'OWL.
+**The solution**: an OWL portal pattern that moves the overlay's DOM node to
+`document.body` after every render, and restores it before every patch for
+compatibility with OWL's virtual DOM.
 
-- `onMounted` / `onPatched` : deplace `.bf-panel-overlay` vers `<body>`, insere un `Comment`
-  node (`<!-- bf-overlay-anchor -->`) comme placeholder
-- `onWillPatch` / `onWillUnmount` : restaure l'overlay a sa position originale pour que le
-  diff OWL fonctionne correctement
-- Suppression du hack CSS `.o_main_navbar:has(.bf-panel-overlay) { z-index: 2147483646 }`
+- `onMounted` / `onPatched`: moves `.bf-panel-overlay` to `<body>`, inserting a
+  `Comment` node (`<!-- bf-overlay-anchor -->`) as a placeholder
+- `onWillPatch` / `onWillUnmount`: restores the overlay to its original position
+  so the OWL diff works correctly
+- Removal of the `.o_main_navbar:has(.bf-panel-overlay) { z-index: 2147483646 }`
+  CSS hack
 
-L'overlay participe maintenant au root stacking context, garantissant qu'il s'affiche
-au-dessus de tous les elements Odoo sans aucune dependance a la structure CSS interne d'Odoo.
+The overlay now participates in the root stacking context, guaranteeing it
+displays above every Odoo element with no dependency whatsoever on Odoo's
+internal CSS structure.
 
-Voir la section "Note technique : Overlay Portal Pattern" du README pour les details.
+See the README's "Technical note: the overlay portal pattern" section for the
+details.
 
-### Fichiers modifies
+### Files changed
 
-| Fichier | Changements |
-|---------|-------------|
-| `static/src/js/claude_systray.js` | Import hooks OWL (onMounted, onPatched, onWillPatch, onWillUnmount), ajout portal pattern, t-ref overlay |
-| `static/src/xml/claude_chat.xml` | Ajout `t-ref="panelOverlay"` sur `.bf-panel-overlay` |
-| `static/src/scss/claude_chat.scss` | Suppression hack z-index navbar, commentaire mis a jour |
-| `README.md` | Section technique "Overlay Portal Pattern" + mise a jour description panneau |
+| File | Changes |
+|------|---------|
+| `static/src/js/claude_systray.js` | OWL hook imports (onMounted, onPatched, onWillPatch, onWillUnmount), portal pattern added, overlay t-ref |
+| `static/src/xml/claude_chat.xml` | `t-ref="panelOverlay"` added on `.bf-panel-overlay` |
+| `static/src/scss/claude_chat.scss` | Navbar z-index hack removed, comment updated |
+| `README.md` | "Overlay portal pattern" technical section plus an updated panel description |
 
 ---
 
 ## v18.0.1.4.0 - 2026-03-18
 
-### Sessions filtrees par enregistrement courant
+### Sessions filtered by the current record
 
-**Probleme** : Cliquer TentaClaude dans la barre de widgets montrait TOUTES les conversations.
-On veut voir seulement celles liees a l'enregistrement courant (fiche qu'on regarde).
+**The problem**: clicking TentaClaude in the systray showed EVERY conversation.
+What you want is only the ones tied to the current record (the one you are
+looking at).
 
-**Solution** :
-- Ajout `res_model` (Char, indexed) et `res_id` (Integer, indexed) au modele `claude.chat.session`
-- Migration DB (`pre-migrate.py`) : colonnes + index composite
-- Stockage du contexte a la creation de session (model + res_id de la fiche Odoo)
-- Filtrage `list_sessions` par `res_model`/`res_id` (backward-compatible : sans params = toutes)
-- Le systray recharge les sessions a chaque ouverture (le contexte de page peut changer)
-- Rafraichissement post-envoi avec le meme filtre
-- Empty state : "No chats for this record" quand filtre actif et 0 resultats
-- La page plein ecran reste inchangee (affiche toutes les conversations)
+**The solution**:
+- Added `res_model` (Char, indexed) and `res_id` (Integer, indexed) to the
+  `claude.chat.session` model
+- A DB migration (`pre-migrate.py`): columns plus a composite index
+- The context is stored when a session is created (the Odoo record's model plus
+  res_id)
+- `list_sessions` filters on `res_model`/`res_id` (backward-compatible: with no
+  params, everything)
+- The systray reloads the sessions on each opening (the page context can change)
+- Post-send refresh with the same filter
+- Empty state: "No chats for this record" when the filter is active and there
+  are 0 results
+- The full-screen page is unchanged (it shows every conversation)
 
-### Correction des timeouts sur requetes complexes
+### Fixing timeouts on complex requests
 
-**Probleme** : Les requetes complexes (matrice 95+ items, cross-ref NC, multi-tool) depassaient les limites de temps.
+**The problem**: complex requests (a 95+ item matrix, NC cross-referencing,
+multi-tool) exceeded the time limits.
 
-**Causes et corrections** :
-1. `max_turns` fallback dans le controller = 10 (vs 25 dans le bridge) -- **corrige a 25**
-2. `CLAUDE_TIMEOUT` = 300s -- **augmente a 600s** (bridge) / 660s (controller, +60s buffer socket)
-3. MCP per-tool timeout = 30s -- **augmente a 120s** (bf + pme configs)
-4. Aucun timeout XML-RPC -- **ajout `TimeoutTransport` (60s)** dans `clients/odoo_client.py`
-5. Timeout NC par defaut = 15s -- **augmente a 30s** dans `clients/nextcloud_client.py`
+**Causes and fixes**:
+1. The `max_turns` fallback in the controller was 10 (versus 25 in the bridge) — **fixed to 25**
+2. `CLAUDE_TIMEOUT` was 300 s — **raised to 600 s** (bridge) / 660 s (controller, a 60 s socket buffer)
+3. The MCP per-tool timeout was 30 s — **raised to 120 s** (bf and pme configs)
+4. There was no XML-RPC timeout — **added `TimeoutTransport` (60 s)** in `clients/odoo_client.py`
+5. The default NC timeout was 15 s — **raised to 30 s** in `clients/nextcloud_client.py`
 
-### Correction du rendu HTML dans share_to_task
+### Fixing HTML rendering in share_to_task
 
-**Probleme** : Les tags HTML s'affichaient en texte brut dans le chatter Odoo lors du partage.
+**The problem**: HTML tags displayed as plain text in the Odoo chatter when
+sharing.
 
-**Solution** : Ajout de `body_is_html=True` dans `task.message_post()` (share_to_task).
+**The solution**: added `body_is_html=True` to `task.message_post()`
+(share_to_task).
 
-### Amelioration detection HTML dans le bridge
+### Better HTML detection in the bridge
 
-**Probleme** : `_has_html()` ne detectait que les block tags, ratant le HTML inline abondant.
+**The problem**: `_has_html()` only detected block tags, missing the abundant
+inline HTML.
 
-**Solution** : Detection elargie -- block tags OU (>2 occurrences de `<` + au moins un tag HTML).
+**The solution**: broadened detection — block tags OR (more than 2 occurrences
+of `<` plus at least one HTML tag).
 
-### Fichiers modifies
+### Files changed
 
-| Fichier | Changements |
-|---------|-------------|
+| File | Changes |
+|------|---------|
 | `__manifest__.py` | Version 18.0.1.3.0 -> 18.0.1.4.0 |
-| `models/claude_chat_session.py` | Ajout res_model + res_id |
-| `models/res_config_settings.py` | Timeout defaut 300 -> 660 |
+| `models/claude_chat_session.py` | res_model + res_id added |
+| `models/res_config_settings.py` | Default timeout 300 -> 660 |
 | `controllers/main.py` | Context storage, filtered sessions, max_turns fix, share HTML fix, timeout |
-| `static/src/js/claude_systray.js` | Filtrage sessions, reload a chaque ouverture, empty state contexte |
-| `static/src/xml/claude_chat.xml` | Empty state "No chats for this record" |
-| `migrations/18.0.1.4.0/pre-migrate.py` | Nouveau : colonnes + index |
-| `bridge/server.py` | TIMEOUT 600, _has_html() elargi |
+| `static/src/js/claude_systray.js` | Session filtering, reload on each opening, context empty state |
+| `static/src/xml/claude_chat.xml` | "No chats for this record" empty state |
+| `migrations/18.0.1.4.0/pre-migrate.py` | New: columns plus index |
+| `bridge/server.py` | TIMEOUT 600, broader _has_html() |
 | `bridge/claude-chatbot-bridge.service` | CLAUDE_TIMEOUT=600 |
 | `bridge/mcp_config_bf.json` | timeout 120 |
 | `bridge/mcp_config_pme.json` | timeout 120 |
-| `clients/odoo_client.py` | TimeoutTransport (60s) |
-| `clients/nextcloud_client.py` | timeout 30s |
+| `clients/odoo_client.py` | TimeoutTransport (60 s) |
+| `clients/nextcloud_client.py` | timeout 30 s |
 
 ---
 
 ## v18.0.1.3.0 - 2026-03-05
 
-### Panneau lateral (remplacement du dropdown)
+### A side panel (replacing the dropdown)
 
-**Probleme** : Le widget systray utilisait le composant `<Dropdown>` d'Odoo, qui ouvrait
-un petit popup de 480px. Trop petit pour une utilisation confortable, et le dropdown
-se fermait au moindre clic en dehors.
+**The problem**: the systray widget used Odoo's `<Dropdown>` component, which
+opened a small 480 px popup. Too small for comfortable use, and the dropdown
+closed at the slightest click outside it.
 
-**Solution** : Remplacement complet par un panneau lateral fixe qui glisse depuis la droite.
+**The solution**: a complete replacement by a fixed side panel sliding in from
+the right.
 
-- Largeur : 50% du viewport (min 420px, max 800px), hauteur 100vh
-- Overlay semi-transparent (rgba 0,0,0,0.15) derriere le panneau
-- Fermeture par : touche Escape, clic sur l'overlay, bouton X
-- Animation CSS `translateX` pour le slide-in (0.2s ease-out)
-- Suppression de la dependance au composant `Dropdown` d'Odoo
-- Import OWL `useEffect` pour gerer le listener Escape
+- Width: 50% of the viewport (min 420 px, max 800 px), height 100vh
+- A semi-transparent overlay (rgba 0,0,0,0.15) behind the panel
+- Closed by: the Escape key, a click on the overlay, the X button
+- A `translateX` CSS animation for the slide-in (0.2 s ease-out)
+- The dependency on Odoo's `Dropdown` component removed
+- OWL `useEffect` imported to manage the Escape listener
 
-### Correction du z-index
+### Fixing the z-index
 
-**Probleme** : La barre du chatter Odoo ("Envoyer Message", "Note", "Activites") se
-positionnait par-dessus le panneau TentaClaude, bloquant la vue.
+**The problem**: Odoo's chatter bar ("Send message", "Log note", "Activities")
+positioned itself over the TentaClaude panel, blocking the view.
 
-**Solution** : z-index monte a 100000 (vs ~1060 pour les elements Odoo les plus hauts).
+**The solution**: the z-index raised to 100000 (versus ~1060 for Odoo's highest
+elements).
 
-### Amelioration de la capture de contexte
+### Better context capture
 
-**Probleme** : `router.current` ne retourne pas toujours `model` et `resId` dans Odoo 18,
-selon le type de vue et la navigation. Le contexte de page n'etait donc pas toujours
-detecte, et le badge de contexte n'apparaissait pas.
+**The problem**: `router.current` does not always return `model` and `resId` in
+Odoo 18, depending on the view type and the navigation. The page context was
+therefore not always detected, and the context badge did not appear.
 
-**Solution** : 3 strategies en cascade pour capturer le contexte :
+**The solution**: 3 cascading strategies for capturing the context:
 
-1. `router.current` - proprietes `model`, `resModel`, `resId`, `res_id`, `id`
-2. Parsing du hash URL via `URLSearchParams(window.location.hash)`
-3. `actionService.currentController.action.res_model` via le service action d'Odoo
+1. `router.current` — the `model`, `resModel`, `resId`, `res_id`, `id` properties
+2. Parsing the URL hash through `URLSearchParams(window.location.hash)`
+3. `actionService.currentController.action.res_model` through Odoo's action service
 
-Le display_name est extrait depuis (en ordre de priorite) :
+The display_name is taken from (in order of precedence):
 1. `.o_breadcrumb .active`
 2. `.o_control_panel .breadcrumb-item.active`
-3. `document.title` (moins " - Odoo")
+3. `document.title` (minus " - Odoo")
 
-Le contexte est desormais re-capture a chaque ouverture du panneau ET a chaque "New Chat".
+The context is now re-captured every time the panel opens AND on every "New
+Chat".
 
-### Noms de contexte "pretty"
+### "Pretty" context names
 
-**Probleme** : Le badge de contexte affichait le nom brut du modele (`project.task`) ou
-seulement le display_name, sans indication claire du type d'enregistrement.
+**The problem**: the context badge showed the raw model name (`project.task`) or
+just the display_name, with no clear indication of the record type.
 
-**Solution** : Ajout d'un mapping `MODEL_LABELS` pour les modeles courants :
+**The solution**: a `MODEL_LABELS` mapping for the common models:
 
-| Modele | Label |
-|--------|-------|
+| Model | Label |
+|-------|-------|
 | project.task | Tache |
 | project.project | Projet |
 | helpdesk.ticket | Ticket |
@@ -160,26 +177,26 @@ seulement le display_name, sans indication claire du type d'enregistrement.
 | crm.lead | Opportunite |
 | knowledge.article | Article |
 
-Le badge affiche maintenant : "Tache #1234 - Nom de la tache"
+The badge now shows: "Tache #1234 - The task's name"
 
-### URL dans le contexte bridge
+### The URL in the bridge context
 
-**Probleme** : L'URL complete de la page n'etait pas transmise au bridge, ce qui limitait
-la capacite de Claude a referencer la page exacte.
+**The problem**: the page's full URL was not passed to the bridge, which limited
+Claude's ability to reference the exact page.
 
-**Solution** :
-- Le JS capture `window.location.href` et l'inclut dans le payload context
-- Le controller Odoo transmet `url` (max 500 chars) au bridge
-- Le bridge inclut `url:` dans les tags `<page-context>` du prompt dynamique
-- Condition relaxee : le contexte est transmis si `model` OU `displayName` est disponible
-  (avant, seul `model` etait requis)
+**The solution**:
+- The JS captures `window.location.href` and includes it in the context payload
+- The Odoo controller passes `url` (max 500 chars) to the bridge
+- The bridge includes `url:` in the dynamic prompt's `<page-context>` tags
+- A relaxed condition: the context is passed when `model` OR `displayName` is
+  available (previously only `model` was required)
 
-### Fichiers modifies
+### Files changed
 
-| Fichier | Changements |
-|---------|-------------|
-| `static/src/js/claude_systray.js` | Reecrit : side panel, capture contexte multi-strategie, MODEL_LABELS, useEffect |
-| `static/src/xml/claude_chat.xml` | Template systray reecrit : side panel au lieu de Dropdown |
-| `static/src/scss/claude_chat.scss` | Styles side panel (overlay, animation, z-index 100000), remplacement classes systray |
-| `controllers/main.py` | Ajout champ `url` dans le contexte bridge |
+| File | Changes |
+|------|---------|
+| `static/src/js/claude_systray.js` | Rewritten: side panel, multi-strategy context capture, MODEL_LABELS, useEffect |
+| `static/src/xml/claude_chat.xml` | Systray template rewritten: side panel instead of Dropdown |
+| `static/src/scss/claude_chat.scss` | Side panel styles (overlay, animation, z-index 100000), systray classes replaced |
+| `controllers/main.py` | `url` field added to the bridge context |
 | `__manifest__.py` | Version bump 18.0.1.2.0 -> 18.0.1.3.0 |
