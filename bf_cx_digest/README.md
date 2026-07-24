@@ -1,4 +1,4 @@
-# bf_cx_digest — section digest quotidien
+# bf_cx_digest - section digest quotidien
 
 S'auto-installe quand `bf_cx` et `daily_todo_digest` sont installés.
 Section « Expérience client » du digest : à rappeler (détracteurs et

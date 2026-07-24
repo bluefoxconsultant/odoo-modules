@@ -1,5 +1,5 @@
 {
-    "name": "Expérience client — pont Helpdesk",
+    "name": "Expérience client - pont Helpdesk",
     "summary": "Crée des tickets helpdesk depuis les plaintes et les détracteurs",
     "version": "18.0.1.1.0",
     "category": "Marketing/Customer Experience",

@@ -4,7 +4,7 @@
         <!-- Default NPS survey: 0-10 scale + verbatim + testimonial opt-in.
              Token access: answers are generated per contact by the waves. -->
         <record id="survey_nps_default" model="survey.survey">
-            <field name="title">Sondage NPS — Votre avis compte</field>
+            <field name="title">Sondage NPS : votre avis compte</field>
             <field name="access_mode">token</field>
             <field name="users_login_required" eval="False"/>
             <field name="questions_layout">one_page</field>

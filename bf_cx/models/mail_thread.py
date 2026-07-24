@@ -3,8 +3,8 @@
 The core rating module defines rating_send_request() on mail.thread itself:
 project task ratings (stage change + periodic cron) and any other module
 using the standard mechanism all funnel through here. Hooking it makes the
-anti-oversolicitation guard truly global — without it, enabling project
-ratings could email the same client on top of an NPS wave the same day —
+anti-oversolicitation guard truly global - without it, enabling project
+ratings could email the same client on top of an NPS wave the same day -
 and stamps bf_cx_last_solicited so every channel sees every other channel.
 """
 import logging
@@ -25,9 +25,10 @@ class MailThread(models.AbstractModel):
             partner = self._rating_get_partner()
         except Exception:  # noqa: BLE001 - models without partner semantics
             partner = None
-        if partner and param_is_true(
+        guarded = partner and param_is_true(
             self.env, "bf_cx.guard_rating_requests", default=True
-        ):
+        )
+        if guarded:
             allowed, blocked = partner._bf_cx_split_solicitable()
             if blocked:
                 self.message_post(
@@ -39,7 +40,11 @@ class MailThread(models.AbstractModel):
                     % partner.display_name
                 )
                 return None
-            partner._bf_cx_mark_solicited()
-        return super().rating_send_request(
+        res = super().rating_send_request(
             template, lang=lang, force_send=force_send
         )
+        # Stamp only AFTER a successful send: a template render error must
+        # not freeze the contact for 30 days without any email going out.
+        if guarded:
+            partner._bf_cx_mark_solicited()
+        return res

@@ -1,8 +1,8 @@
 """Partner smart button, feedback history and solicitation cooldown.
 
 World-class CX programs cap how often a given contact is solicited
-(over-surveying kills response rates and goodwill). Every outbound ask —
-wave invitation, post-meeting rating, post-loss survey — goes through
+(over-surveying kills response rates and goodwill). Every outbound ask -
+wave invitation, post-meeting rating, post-loss survey - goes through
 _bf_cx_split_solicitable() and stamps _bf_cx_mark_solicited().
 """
 from datetime import timedelta
@@ -19,6 +19,13 @@ class ResPartner(models.Model):
     bf_cx_feedback_count = fields.Integer(
         compute="_compute_bf_cx_feedback_count"
     )
+    bf_cx_unsubscribe_url = fields.Char(
+        compute="_compute_bf_cx_unsubscribe_url",
+        string="Lien de désabonnement CX",
+        help="Lien signé (HMAC) inclus au pied des courriels de demande "
+             "d'avis. Aboutit sur mail.blacklist, que tous les garde-fous "
+             "du module respectent.",
+    )
     bf_cx_last_solicited = fields.Datetime(
         string="Dernière sollicitation CX",
         copy=False,
@@ -26,6 +33,18 @@ class ResPartner(models.Model):
              "(vague, post-rencontre, post-perte). Sert au garde-fou "
              "anti-sursollicitation.",
     )
+
+    def _compute_bf_cx_unsubscribe_url(self):
+        from odoo.tools import hmac as _hmac
+
+        for partner in self:
+            token = _hmac(
+                self.env(su=True), "bf_cx_unsubscribe", str(partner.id)
+            )
+            partner.bf_cx_unsubscribe_url = "/cx/unsubscribe/%s/%s" % (
+                partner.id,
+                token,
+            )
 
     def _bf_cx_split_solicitable(self, days=None):
         """Split into (allowed, blocked) according to the outbound guards.
@@ -54,8 +73,8 @@ class ResPartner(models.Model):
                     lambda p: p.email_normalized in blacklisted
                 )
 
-        # Active dunning (Blue Fox invoice follow-up module, runtime-detected:
-        # no dependency). Blocked from 2nd reminder onwards.
+        # Active dunning (Blue Fox invoice follow-up module, runtime-
+        # detected: no dependency). Blocked from 2nd reminder onwards.
         Move = (
             self.env["account.move"] if "account.move" in self.env else None
         )
@@ -124,7 +143,7 @@ class ResPartner(models.Model):
         self.ensure_one()
         return {
             "type": "ir.actions.act_window",
-            "name": _("Feedbacks — %s") % self.display_name,
+            "name": _("Feedbacks - %s") % self.display_name,
             "res_model": "bf.cx.feedback",
             "view_mode": "list,kanban,form,graph,pivot",
             "domain": [("partner_id", "=", self.id)],

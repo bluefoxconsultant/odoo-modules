@@ -105,6 +105,8 @@
                     <group name="comment_group" string="Commentaire">
                         <field name="comment" nolabel="1" colspan="2"
                                placeholder="Verbatim du répondant…"/>
+                        <field name="theme_ids" widget="many2many_tags"
+                               options="{'color_field': 'color'}" colspan="2"/>
                     </group>
                     <group>
                         <group name="origin" string="Origine">
@@ -176,6 +178,7 @@
                     <filter string="Programme" name="group_program" context="{'group_by': 'program_id'}"/>
                     <filter string="Contact" name="group_partner" context="{'group_by': 'partner_id'}"/>
                     <filter string="Mois" name="group_month" context="{'group_by': 'date:month'}"/>
+                    <filter string="Thème" name="group_theme" context="{'group_by': 'theme_ids'}"/>
                 </group>
             </search>
         </field>

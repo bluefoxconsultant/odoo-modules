@@ -1,7 +1,7 @@
 """Solicitation guard on the bf_helpdesk closing CSAT.
 
 bf_helpdesk (when present) emails a CSAT survey at ticket closure through
-its own _send_csat_invite() — outside the bf_cx guards. This override adds
+its own _send_csat_invite() - outside the bf_cx guards. This override adds
 the cooldown/DNC check and stamps the solicitation. Defensive: this bridge
 only depends on helpdesk_mgmt, so on a tenant without bf_helpdesk the
 method simply has no super and no caller.

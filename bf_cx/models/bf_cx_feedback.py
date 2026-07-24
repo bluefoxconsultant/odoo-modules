@@ -8,6 +8,8 @@ a dissatisfied rating schedules a follow-up activity for the account owner.
 import logging
 from datetime import timedelta
 
+import pytz
+
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
 
@@ -89,6 +91,13 @@ class BfCxFeedback(models.Model):
         store=True,
     )
     comment = fields.Text(string="Commentaire")
+    theme_ids = fields.Many2many(
+        "bf.cx.theme",
+        string="Thèmes",
+        help="Causes récurrentes (délais, communication, prix, qualité…) : "
+             "l'axe d'agrégation de la boucle externe. À revoir "
+             "périodiquement dans le pivot.",
+    )
     program_id = fields.Many2one(
         "bf.cx.program", string="Programme", ondelete="set null", index=True
     )
@@ -177,7 +186,7 @@ class BfCxFeedback(models.Model):
         kind_labels = dict(self._fields["kind"]._description_selection(self.env))
         for rec in self:
             who = rec.partner_id.name or _("Anonyme")
-            rec.display_name = "%s — %s (%s)" % (
+            rec.display_name = "%s - %s (%s)" % (
                 kind_labels.get(rec.kind, rec.kind),
                 who,
                 rec.date or "",
@@ -250,7 +259,7 @@ class BfCxFeedback(models.Model):
         """Internal assignee for automatic activities, or None.
 
         Runs sudo from public flows: env.user may be the public user (sudo
-        does not change the current user) — an activity assigned to it
+        does not change the current user) - an activity assigned to it
         would be invisible to everyone.
         """
         self.ensure_one()
@@ -265,7 +274,7 @@ class BfCxFeedback(models.Model):
         if not user or user.share:
             _logger.warning(
                 "bf_cx: no internal user to assign the automatic activity "
-                "for feedback %s — skipped",
+                "for feedback %s - skipped",
                 self.id,
             )
             return None
@@ -275,7 +284,7 @@ class BfCxFeedback(models.Model):
         """Schedule a follow-up for detractors / dissatisfied ratings.
 
         Called by the ingestion paths (survey completion, rating consumption)
-        — deliberately NOT by create(), so manual data entry never spams
+        - deliberately NOT by create(), so manual data entry never spams
         activities. Bridge modules extend this (e.g. auto helpdesk ticket).
         """
         if not param_is_true(self.env, "bf_cx.auto_activity", default=True):
@@ -300,13 +309,13 @@ class BfCxFeedback(models.Model):
                         max=int(rec.score_max),
                     )
                 elif (rec.comment or "").strip():
-                    # Anonymous pulse answer: no one to call back — examine
+                    # Anonymous pulse answer: no one to call back - examine
                     # the verbatim instead of promising a recontact.
                     summary = _("Verbatim anonyme à examiner")
                     note = _(
                         "Note de %(score)s/%(max)s reçue anonymement (lien "
                         "pulse). Lire le commentaire et en tirer les leçons "
-                        "— aucun recontact possible.",
+                        "- aucun recontact possible.",
                         score=rec.score,
                         max=int(rec.score_max),
                     )
@@ -392,7 +401,7 @@ class BfCxFeedback(models.Model):
         else:
             testimonial = self.env["bf.cx.testimonial"].create(
                 {
-                    "name": _("Témoignage — %s")
+                    "name": _("Témoignage - %s")
                     % (self.partner_id.display_name or self.date),
                     "partner_id": self.partner_id.id,
                     "body": self.comment or "",
@@ -428,18 +437,29 @@ class BfCxFeedback(models.Model):
             return 365
 
     @api.model
-    def _nps_summary(self, extra_domain=None, days=None):
+    def _nps_summary(self, extra_domain=None, days=None, date_from=None,
+                     date_to=None):
         """Single source of truth for NPS aggregates (dashboard, digest,
         program). Returns promoter/passive/detractor counts, n, the score
-        (None when n is too small to be honest) and a display string."""
-        if days is None:
-            days = self._nps_window_days()
-        since = fields.Date.context_today(self) - timedelta(days=days)
+        (None when n is too small to be honest) and a display string.
+        Window: explicit date_from/date_to bounds, else a rolling ``days``
+        window (default: the configured honest window)."""
+        if date_from or date_to:
+            bounds = []
+            if date_from:
+                bounds.append(("date", ">=", date_from))
+            if date_to:
+                bounds.append(("date", "<=", date_to))
+            days = 0
+        else:
+            if days is None:
+                days = self._nps_window_days()
+            since = fields.Date.context_today(self) - timedelta(days=days)
+            bounds = [("date", ">=", since)]
         domain = [
             ("kind", "=", "nps"),
             ("nps_bucket", "!=", False),
-            ("date", ">=", since),
-        ] + (extra_domain or [])
+        ] + bounds + (extra_domain or [])
         buckets = {"promoter": 0, "passive": 0, "detractor": 0}
         for bucket, count in self.sudo()._read_group(
             domain, ["nps_bucket"], ["__count"]
@@ -456,11 +476,155 @@ class BfCxFeedback(models.Model):
         elif scored:
             display = _("n insuffisant")
         else:
-            display = "—"
+            display = "n/d"
         return {
             "days": days,
             "n": scored,
             "score": score,
             "display": display,
             **buckets,
+        }
+
+    # ── Dashboard data (OWL client action) ──────────────────────────────────
+
+    @api.model
+    def get_cx_dashboard_data(self, date_from, date_to):
+        """Aggregates for the CX dashboard, scoped to [date_from, date_to].
+
+        Runs with the CURRENT user's rights (record rules apply: company
+        scoping, internal-360 hidden from operators). Read-only. Datetime
+        bounds are built in the user's timezone so a late-evening record
+        lands in the right local day.
+        """
+        company = self.env.company
+        base = [("company_id", "=", company.id)]
+        period = base + [("date", ">=", date_from), ("date", "<=", date_to)]
+
+        # Local-day bounds → naive UTC for the Datetime domains.
+        tz = pytz.timezone(self.env.user.tz or "UTC")
+        dt_from = fields.Datetime.to_string(
+            tz.localize(
+                fields.Datetime.to_datetime("%s 00:00:00" % date_from)
+            ).astimezone(pytz.UTC).replace(tzinfo=None)
+        )
+        dt_to = fields.Datetime.to_string(
+            tz.localize(
+                fields.Datetime.to_datetime("%s 23:59:59" % date_to)
+            ).astimezone(pytz.UTC).replace(tzinfo=None)
+        )
+
+        nps = self._nps_summary(
+            extra_domain=base, date_from=date_from, date_to=date_to
+        )
+
+        # General satisfaction: average CSAT (email ratings & co), on /5.
+        csat_rows = self._read_group(
+            period + [("kind", "=", "csat")],
+            [],
+            ["score:avg", "score_max:avg", "__count"],
+        )
+        csat_avg, csat_max, csat_n = csat_rows[0] if csat_rows else (0, 0, 0)
+        csat_display = (
+            "%.1f / 5" % (csat_avg * 5.0 / (csat_max or 5.0))
+            if csat_n
+            else "n/d"
+        )
+
+        Complaint = self.env["bf.cx.complaint"]
+        complaint_period = [
+            ("company_id", "=", company.id),
+            ("date_received", ">=", dt_from),
+            ("date_received", "<=", dt_to),
+        ]
+        complaints_received = Complaint.search_count(complaint_period)
+        complaints_open = Complaint.search_count(
+            [
+                ("company_id", "=", company.id),
+                ("state", "not in", ("resolved", "closed")),
+            ]
+        )
+        ack_rows = Complaint._read_group(
+            complaint_period + [("date_acknowledged", "!=", False)],
+            [],
+            ["ack_delay_hours:avg"],
+        )
+        ack_avg = ack_rows[0][0] if ack_rows and ack_rows[0][0] else 0.0
+
+        # Response rate: tokenized answers created in the period on the
+        # programs' surveys (wave invitations, post-loss, onboarding…).
+        surveys = self.env["bf.cx.program"].search([]).survey_id
+        Input = self.env["survey.user_input"]
+        input_domain = [
+            ("survey_id", "in", surveys.ids),
+            ("test_entry", "=", False),
+            ("create_date", ">=", dt_from),
+            ("create_date", "<=", dt_to),
+        ]
+        invited = Input.search_count(input_domain)
+        completed = Input.search_count(input_domain + [("state", "=", "done")])
+
+        # Monthly trend: NPS buckets + complaints, grouped by month. The
+        # keys must be normalized to YYYY-MM: `date` (a Date field) groups
+        # to a date, `date_received` (Datetime) groups to a timestamp, so a
+        # raw str() would never merge the two for the same month.
+        def _month_key(value):
+            return str(value)[:7]
+
+        months = {}
+        for bucket_month, bucket, count in self._read_group(
+            period + [("kind", "=", "nps"), ("nps_bucket", "!=", False)],
+            ["date:month", "nps_bucket"],
+            ["__count"],
+        ):
+            entry = months.setdefault(
+                _month_key(bucket_month),
+                {"promoter": 0, "passive": 0, "detractor": 0, "complaints": 0},
+            )
+            entry[bucket] = count
+        for complaint_month, count in Complaint._read_group(
+            complaint_period, ["date_received:month"], ["__count"]
+        ):
+            entry = months.setdefault(
+                _month_key(complaint_month),
+                {"promoter": 0, "passive": 0, "detractor": 0, "complaints": 0},
+            )
+            entry["complaints"] = count
+
+        themes = [
+            {"name": theme.name if theme else _("Sans thème"), "count": count}
+            for theme, count in self._read_group(
+                period + [("theme_ids", "!=", False)],
+                ["theme_ids"],
+                ["__count"],
+            )
+        ]
+        themes.sort(key=lambda t: -t["count"])
+
+        return {
+            "company": company.name,
+            "nps": nps,
+            "csat": {
+                "display": csat_display,
+                "n": csat_n,
+            },
+            "complaints": {
+                "received": complaints_received,
+                "open": complaints_open,
+                "ack_avg_hours": round(ack_avg, 1),
+            },
+            "response": {
+                "invited": invited,
+                "completed": completed,
+                "rate": round(completed * 100.0 / invited, 1)
+                if invited
+                else 0.0,
+            },
+            "followup_todo": self.search_count(
+                base + [("needs_followup", "=", True), ("state", "!=", "done")]
+            ),
+            "months": [
+                {"label": label, **values}
+                for label, values in sorted(months.items())
+            ],
+            "themes": themes[:8],
         }

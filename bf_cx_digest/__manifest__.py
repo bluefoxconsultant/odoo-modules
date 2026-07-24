@@ -1,5 +1,5 @@
 {
-    "name": "Expérience client — digest quotidien",
+    "name": "Expérience client - digest quotidien",
     "summary": "Section Expérience client (détracteurs, plaintes, NPS) dans le digest quotidien",
     "version": "18.0.1.1.0",
     "category": "Marketing/Customer Experience",

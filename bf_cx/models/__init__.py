@@ -1,3 +1,4 @@
+from . import bf_cx_theme
 from . import bf_cx_program
 from . import bf_cx_wave
 from . import bf_cx_feedback

@@ -1,7 +1,8 @@
 {
     "name": "Expérience client",
     "summary": "Mesure de l'expérience client : NPS, feedback continu, plaintes et témoignages",
-    "version": "18.0.1.2.1",
+    "version": "18.0.1.3.0",
+    "post_init_hook": "post_init_hook",
     "category": "Marketing/Customer Experience",
     "author": "Blue Fox Inc.",
     "website": "https://bluefoxconsultant.com",
@@ -35,13 +36,14 @@ Programme d'écoute client intégré à Odoo, sans licence externe :
 **Témoignages**
   - Recueil de candidats-témoignages depuis les sondages
   - Suivi du consentement (verbal, écrit, ou via le module Vie privée /
-    Loi 25 quand privacy_consent est installé — module bf_cx_privacy)
+    Loi 25 quand privacy_consent est installé - module bf_cx_privacy)
 
 **Feedback interne (360)**
   - Programmes de type interne appuyés sur les mêmes sondages, entrées
     réservées aux gestionnaires du module
 """,
     "depends": [
+        "bf_onboarding_base",
         "mail",
         "survey",
         "rating",
@@ -67,4 +69,11 @@ Programme d'écoute client intégré à Odoo, sans licence externe :
         "views/res_config_settings_views.xml",
         "views/bf_cx_menus.xml",
     ],
+    "assets": {
+        "web.assets_backend": [
+            "bf_cx/static/src/js/cx_dashboard.js",
+            "bf_cx/static/src/xml/cx_dashboard.xml",
+            "bf_cx/static/src/scss/cx_dashboard.scss",
+        ],
+    },
 }

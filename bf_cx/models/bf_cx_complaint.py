@@ -2,16 +2,22 @@
 
 Thin, self-sufficient complaint log: severity, acknowledgement deadline,
 root cause and corrective action (closed loop). When helpdesk_mgmt is
-installed the bf_cx_helpdesk bridge adds the ticket link — the core
+installed the bf_cx_helpdesk bridge adds the ticket link - the core
 deliberately has no reference to helpdesk models so it loads on any tenant.
 """
 import logging
+import secrets
 from datetime import timedelta
 
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
+
+# Confirmation codes shown to complainants: unambiguous alphabet (no 0/O,
+# 1/I/L, 2/Z, 5/S, 8/B, Q). The sequential PLT number stays INTERNAL: a
+# sequence leaks the complaint volume and biases the complainant.
+CONFIRMATION_ALPHABET = "ACDEFGHJKMNPRTUVWXY34679"
 
 
 class BfCxComplaint(models.Model):
@@ -22,10 +28,21 @@ class BfCxComplaint(models.Model):
     _rec_name = "number"
 
     number = fields.Char(
-        string="Numéro",
+        string="Numéro (interne)",
         readonly=True,
         copy=False,
         default="/",
+        help="Séquence interne. Ne JAMAIS la communiquer au plaignant : "
+             "elle révèle le volume de plaintes reçues. Utiliser le code "
+             "de confirmation.",
+    )
+    confirmation_code = fields.Char(
+        string="Code de confirmation",
+        readonly=True,
+        copy=False,
+        index=True,
+        help="Référence non séquentielle communiquée au plaignant dans "
+             "l'accusé de réception.",
     )
     name = fields.Char(string="Objet", required=True, tracking=True)
     partner_id = fields.Many2one(
@@ -81,7 +98,7 @@ class BfCxComplaint(models.Model):
         string="Délai d'AR (h)",
         compute="_compute_delays",
         store=True,
-        help="Heures entre la réception et l'accusé de réception — "
+        help="Heures entre la réception et l'accusé de réception - "
              "indicateur ISO 10002.",
     )
     resolution_delay_days = fields.Float(
@@ -98,6 +115,12 @@ class BfCxComplaint(models.Model):
     )
     description = fields.Html(string="Description", required=True)
     resolution = fields.Html(string="Résolution")
+    theme_ids = fields.Many2many(
+        "bf.cx.theme",
+        string="Thèmes",
+        help="Causes récurrentes : même référentiel que les feedbacks, "
+             "pour l'agrégation de la boucle externe.",
+    )
     root_cause = fields.Text(string="Cause fondamentale")
     corrective_action = fields.Text(
         string="Action corrective",
@@ -161,6 +184,18 @@ class BfCxComplaint(models.Model):
 
     # ── ORM ──────────────────────────────────────────────────────────────────
 
+    def _generate_confirmation_code(self):
+        """5-char unambiguous code, collision-checked (24^5 ≈ 8M combos)."""
+        for _attempt in range(20):
+            code = "".join(
+                secrets.choice(CONFIRMATION_ALPHABET) for _i in range(5)
+            )
+            if not self.sudo().search_count(
+                [("confirmation_code", "=", code)]
+            ):
+                return code
+        return secrets.token_hex(4).upper()
+
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
@@ -169,13 +204,15 @@ class BfCxComplaint(models.Model):
                     self.env["ir.sequence"].next_by_code("bf.cx.complaint")
                     or "/"
                 )
+            if not vals.get("confirmation_code"):
+                vals["confirmation_code"] = self._generate_confirmation_code()
         return super().create(vals_list)
 
     @api.depends("number", "name")
     def _compute_display_name(self):
         for rec in self:
             rec.display_name = (
-                "%s — %s" % (rec.number, rec.name)
+                "%s - %s" % (rec.number, rec.name)
                 if rec.number and rec.number != "/"
                 else (rec.name or "")
             )
@@ -195,7 +232,7 @@ class BfCxComplaint(models.Model):
             else:
                 body = _(
                     "Accusé de réception consigné par %s (aucune adresse "
-                    "courriel — transmis hors système)."
+                    "courriel - transmis hors système)."
                 ) % self.env.user.display_name
             rec.write(
                 {
@@ -259,7 +296,7 @@ class BfCxComplaint(models.Model):
             [("state", "=", "received"), ("ack_deadline", "<", soon)]
         )
         for rec in overdue:
-            summary = _("Accusé de réception en retard — %s") % rec.number
+            summary = _("Accusé de réception en retard - %s") % rec.number
             existing = self.env["mail.activity"].search_count(
                 [
                     ("res_model", "=", self._name),

@@ -8,6 +8,17 @@
               groups="bf_cx.group_bf_cx_user"
               sequence="47"/>
 
+    <record id="action_cx_dashboard" model="ir.actions.client">
+        <field name="name">Tableau de bord CX</field>
+        <field name="tag">bf_cx.dashboard</field>
+    </record>
+
+    <menuitem id="menu_cx_dashboard"
+              name="Tableau de bord"
+              parent="menu_cx_root"
+              action="action_cx_dashboard"
+              sequence="5"/>
+
     <menuitem id="menu_cx_feedback"
               name="Feedbacks"
               parent="menu_cx_root"

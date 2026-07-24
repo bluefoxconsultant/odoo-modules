@@ -1,4 +1,4 @@
-# bf_cx_helpdesk — pont Expérience client ↔ Helpdesk
+# bf_cx_helpdesk - pont Expérience client ↔ Helpdesk
 
 S'auto-installe quand `bf_cx` et `helpdesk_mgmt` (OCA) sont installés.
 

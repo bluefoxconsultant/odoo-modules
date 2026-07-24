@@ -3,7 +3,7 @@
 Same extension pattern as the other sections of bf.dashboard: add a key in
 get_dashboard_data() and compute it in a defensive helper (the dashboard
 must never break because one section fails). The NPS math itself lives in
-bf.cx.feedback._nps_summary() — single source of truth with the digest and
+bf.cx.feedback._nps_summary() - single source of truth with the digest and
 the programs (honest window, score hidden under 10 answers).
 """
 import logging

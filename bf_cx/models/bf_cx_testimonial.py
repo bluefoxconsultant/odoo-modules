@@ -47,7 +47,7 @@ class BfCxTestimonial(models.Model):
         tracking=True,
     )
     # The 'privacy' mode (formal privacy.consent flow) is ADDED by the
-    # bf_cx_privacy bridge via selection_add — the core must not
+    # bf_cx_privacy bridge via selection_add - the core must not
     # offer a mode whose proof mechanism is not installed.
     consent_mode = fields.Selection(
         [
@@ -129,7 +129,7 @@ class BfCxTestimonial(models.Model):
             rec.write({"state": "retired"})
             rec.message_post(
                 body=_(
-                    "Témoignage retiré — retirer toute utilisation en cours "
+                    "Témoignage retiré - retirer toute utilisation en cours "
                     "(%s)."
                 )
                 % (rec.where_used or _("aucun emplacement consigné"))

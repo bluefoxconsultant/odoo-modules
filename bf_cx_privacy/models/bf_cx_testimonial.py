@@ -1,6 +1,6 @@
 """Formal Loi 25 consent flow for testimonials (privacy_consent bridge).
 
-Adds the 'privacy' consent mode (selection_add — the core only offers
+Adds the 'privacy' consent mode (selection_add - the core only offers
 verbal/written), the request/check buttons, and hard locks: a testimonial in
 privacy mode can only be declared consented or published with a GRANTED
 privacy.consent linked.
@@ -46,7 +46,7 @@ class BfCxTestimonial(models.Model):
         for rec in self:
             if not rec.partner_id.email:
                 raise UserError(
-                    _("%s n'a pas d'adresse courriel — impossible d'envoyer la "
+                    _("%s n'a pas d'adresse courriel - impossible d'envoyer la "
                       "demande de consentement.")
                     % rec.partner_id.display_name
                 )
@@ -131,7 +131,7 @@ class BfCxTestimonial(models.Model):
                 rec.write({"state": "declined"})
             rec.message_post(
                 body=_(
-                    "Consentement Loi 25 « %s » — le témoignage ne peut plus "
+                    "Consentement Loi 25 « %s » - le témoignage ne peut plus "
                     "être utilisé."
                 )
                 % status

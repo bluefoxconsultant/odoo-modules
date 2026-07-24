@@ -1,7 +1,7 @@
 """Withdrawal propagation.
 
 The notice sent to the client promises the testimonial will be pulled if
-consent is withdrawn — that promise must not depend on someone remembering
+consent is withdrawn - that promise must not depend on someone remembering
 to click "Vérifier le consentement". Any consent leaving 'granted' (or a
 pending one refused) retires the linked testimonials automatically. Covers
 the expiry cron too (it writes status='expired').

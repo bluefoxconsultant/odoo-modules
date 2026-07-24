@@ -124,7 +124,7 @@ class DailyDigestConfig(models.Model):
             f"<h3 style=\"font-family:'Lexend','Segoe UI',Arial,sans-serif;"
             f"font-size:16px;font-weight:600;color:{dark};margin:24px 0 8px 0;\">"
             f"💬 {_esc(_('Expérience client'))}"
-            f"<span style=\"font-weight:400;font-size:13px;color:#6B7280;\"> — "
+            f"<span style=\"font-weight:400;font-size:13px;color:#6B7280;\"> - "
             f"{_esc(nps_text)}</span></h3>"
             f"<table role=\"presentation\" width=\"100%\" "
             f"style=\"border:1px solid #e5e7eb;border-radius:8px;"

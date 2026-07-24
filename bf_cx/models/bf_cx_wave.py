@@ -218,7 +218,7 @@ class BfCxWave(models.Model):
                 body_lines.append(
                     _("Reportés par les garde-fous (sollicitation récente, "
                       "liste à ne pas contacter, recouvrement ou courriel "
-                      "bloqué) — le cron retentera : %s")
+                      "bloqué) - le cron retentera : %s")
                     % ", ".join(cooled.mapped("display_name"))
                 )
             if program.program_type != "internal":
@@ -254,7 +254,7 @@ class BfCxWave(models.Model):
             for answer in pending:
                 template.send_mail(answer.id, force_send=False)
             # A reminder is a real touch: it must count in the solicitation
-            # budget (no cooldown CHECK though — blocking the single
+            # budget (no cooldown CHECK though - blocking the single
             # reminder would defeat it).
             if program.program_type != "internal":
                 pending.partner_id._bf_cx_mark_solicited()
@@ -276,7 +276,7 @@ class BfCxWave(models.Model):
         self.ensure_one()
         return {
             "type": "ir.actions.act_window",
-            "name": _("Feedbacks — %s") % self.name,
+            "name": _("Feedbacks - %s") % self.name,
             "res_model": "bf.cx.feedback",
             "view_mode": "list,kanban,form,graph,pivot",
             "domain": [("wave_id", "=", self.id)],

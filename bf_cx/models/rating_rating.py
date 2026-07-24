@@ -87,7 +87,7 @@ class RatingRating(models.Model):
             record = self.env[self.res_model].sudo().browse(self.res_id).exists()
         project = False
         company = self.env.company
-        # String comparison only — no registry reference, so this stays safe
+        # String comparison only - no registry reference, so this stays safe
         # on tenants without the corresponding modules.
         source = "meeting" if self.res_model == "meeting.record" else "rating"
         if record is not None and record:

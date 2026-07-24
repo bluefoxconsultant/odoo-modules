@@ -267,7 +267,7 @@ class BfCxProgram(models.Model):
         self.ensure_one()
         return {
             "type": "ir.actions.act_window",
-            "name": _("Vagues — %s") % self.name,
+            "name": _("Vagues - %s") % self.name,
             "res_model": "bf.cx.wave",
             "view_mode": "list,form",
             "domain": [("program_id", "=", self.id)],
@@ -278,7 +278,7 @@ class BfCxProgram(models.Model):
         self.ensure_one()
         return {
             "type": "ir.actions.act_window",
-            "name": _("Feedbacks — %s") % self.name,
+            "name": _("Feedbacks - %s") % self.name,
             "res_model": "bf.cx.feedback",
             "view_mode": "list,kanban,form,graph,pivot",
             "domain": [("program_id", "=", self.id)],

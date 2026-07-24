@@ -55,7 +55,7 @@ class BfCxFeedback(models.Model):
                 comment
             )
         vals = {
-            "name": _("Suivi détracteur — %s")
+            "name": _("Suivi détracteur - %s")
             % (self.partner_id.display_name or fields.Date.to_string(self.date)),
             "description": description,
             "partner_id": self.partner_id.id,

@@ -3,7 +3,7 @@
 survey.user_input._mark_done() is the canonical completion hook (called by
 the public /survey/submit controller). It can fire more than once for the
 same answer (time limit + one-page + live sessions), so ingestion takes a
-row lock and checks for an existing feedback before creating one — same
+row lock and checks for an existing feedback before creating one - same
 serialization pattern as bf_survey_upload.
 
 Runs as the public user on website submissions: everything goes through

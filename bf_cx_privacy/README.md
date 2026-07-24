@@ -1,4 +1,4 @@
-# bf_cx_privacy — pont Expérience client ↔ Vie privée (Loi 25)
+# bf_cx_privacy - pont Expérience client ↔ Vie privée (Loi 25)
 
 S'auto-installe quand `bf_cx` et `privacy_consent` sont installés.
 

@@ -1,5 +1,5 @@
 {
-    "name": "Expérience client — pont Vie privée (Loi 25)",
+    "name": "Expérience client - pont Vie privée (Loi 25)",
     "summary": "Consentement formel des témoignages via le module Vie privée",
     "version": "18.0.1.1.0",
     "category": "Marketing/Customer Experience",

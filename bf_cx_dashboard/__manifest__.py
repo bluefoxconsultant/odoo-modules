@@ -1,5 +1,5 @@
 {
-    "name": "Expérience client — tuile tableau de bord",
+    "name": "Expérience client - tuile tableau de bord",
     "summary": "Tuile NPS et détracteurs à traiter sur le tableau de bord Blue Fox",
     "version": "18.0.1.1.0",
     "category": "Marketing/Customer Experience",

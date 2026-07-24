@@ -9,3 +9,5 @@ access_cx_complaint_user,bf.cx.complaint.user,model_bf_cx_complaint,group_bf_cx_
 access_cx_complaint_manager,bf.cx.complaint.manager,model_bf_cx_complaint,group_bf_cx_manager,1,1,1,1
 access_cx_testimonial_user,bf.cx.testimonial.user,model_bf_cx_testimonial,group_bf_cx_user,1,1,1,0
 access_cx_testimonial_manager,bf.cx.testimonial.manager,model_bf_cx_testimonial,group_bf_cx_manager,1,1,1,1
+access_cx_theme_user,bf.cx.theme.user,model_bf_cx_theme,group_bf_cx_user,1,1,1,0
+access_cx_theme_manager,bf.cx.theme.manager,model_bf_cx_theme,group_bf_cx_manager,1,1,1,1

@@ -68,7 +68,7 @@ class ResConfigSettings(models.TransientModel):
         config_parameter="bf_cx.testimonial_activity",
         default=True,
         help="Créer une activité (échéance 5 j) quand un répondant accepte "
-             "d'être cité — un opt-in est périssable.",
+             "d'être cité - un opt-in est périssable.",
     )
     bf_cx_complaint_ack_days = fields.Integer(
         string="Délai d'accusé de réception (jours)",

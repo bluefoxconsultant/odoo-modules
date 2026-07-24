@@ -11,6 +11,10 @@
                          help="Quand une opportunité est marquée perdue, envoyer le sondage de ce programme au contact (une fois par opportunité, garde-fou anti-sursollicitation appliqué).">
                     <field name="bf_cx_loss_program_id"/>
                 </setting>
+                <setting string="Enrôlement NPS au gagné (CRM)"
+                         help="À la signature, ajouter le client à la prochaine vague brouillon de ce programme. Aucun envoi immédiat : la vague part manuellement.">
+                    <field name="bf_cx_won_program_id"/>
+                </setting>
             </xpath>
         </field>
     </record>

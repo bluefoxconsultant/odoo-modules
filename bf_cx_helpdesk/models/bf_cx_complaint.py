@@ -51,7 +51,7 @@ class BfCxComplaint(models.Model):
             raise_if_not_found=False,
         )
         vals = {
-            "name": _("Plainte %s — %s") % (self.number, self.name),
+            "name": _("Plainte %s - %s") % (self.number, self.name),
             "description": self.description or "<p>%s</p>" % (self.name or ""),
             "priority": {
                 "low": "0",
@@ -74,7 +74,7 @@ class BfCxComplaint(models.Model):
         if team:
             vals["team_id"] = team.id
             # Set the initial stage explicitly so the stage email template
-            # (acknowledgement) fires — the compute alone does not trigger
+            # (acknowledgement) fires - the compute alone does not trigger
             # _track_template on create in every path.
             stage = team._get_applicable_stages()[:1]
             if stage:

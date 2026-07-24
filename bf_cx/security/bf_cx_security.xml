@@ -33,7 +33,7 @@
 
     <data noupdate="1">
         <!-- Multi-company scoping: GLOBAL rules (no groups). Group rules
-             OR together while global rules AND — a company rule carrying a
+             OR together while global rules AND - a company rule carrying a
              group would be bypassed by any other group rule. -->
         <record id="rule_cx_program_company" model="ir.rule">
             <field name="name">Programmes : multi-société</field>

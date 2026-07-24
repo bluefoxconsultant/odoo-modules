@@ -49,13 +49,24 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | `bf_chatter_timesheet` | Blue Fox — Feuille de temps depuis le chatter | 18.0.1.2.0 | LGPL-3 | Checkbox in the chatter composer to log a timesheet entry alongside an internal note. |
 | `bf_claude_chat` | TentaClaude | 18.0.1.5.1 | LGPL-3 | Chat with Claude AI directly inside Odoo |
 | `bf_contact_enrichment` | Enrichissement de contacts | 18.0.1.2.0 | LGPL-3 | Business cards (OCR), email signatures, vCard import, duplicate detection and completeness scoring, powered by Claude |
-| `bf_cx` | Expérience client | 18.0.1.2.1 | LGPL-3 | Customer experience measurement: NPS programs, continuous feedback, complaints and consent-tracked testimonials |
-| `bf_cx_crm` | Expérience client — sondage post-perte CRM | 18.0.1.0.0 | LGPL-3 | Automatic win/loss survey when a CRM opportunity is marked lost |
-| `bf_cx_dashboard` | Expérience client — tuile tableau de bord | 18.0.1.1.0 | LGPL-3 | NPS tile with pending detractors and open complaints on the Blue Fox dashboard |
-| `bf_cx_digest` | Expérience client — digest quotidien | 18.0.1.1.0 | LGPL-3 | Customer-experience section (follow-ups, complaints, NPS) in the daily digest |
-| `bf_cx_helpdesk` | Expérience client — pont Helpdesk | 18.0.1.1.0 | LGPL-3 | Helpdesk tickets from complaints and detractor feedback, with a dedicated Complaints team |
-| `bf_cx_meeting` | Expérience client — feedback post-rencontre | 18.0.1.0.0 | LGPL-3 | Three-smiley feedback request after a meeting report is sent to the client |
-| `bf_cx_privacy` | Expérience client — pont Vie privée (Loi 25) | 18.0.1.1.0 | LGPL-3 | Formal Law 25 consent flow for testimonials through the privacy module |
+| `bf_cx` | Expérience client | 18.0.1.3.0 | LGPL-3 | Customer experience measurement: NPS programs, continuous feedback, complaints and consent-tracked testimonials |
+| `bf_cx_appointment` | Expérience client : feedback post-rendez-vous | 18.0.1.1.0 | LGPL-3 | Three-smiley feedback request when an appointment is completed (opt-in) |
+| `bf_cx_crm` | Expérience client - sondage post-perte CRM | 18.0.1.1.0 | LGPL-3 | Automatic win/loss survey when a CRM opportunity is marked lost |
+| `bf_cx_dashboard` | Expérience client - tuile tableau de bord | 18.0.1.1.0 | LGPL-3 | NPS tile with pending detractors and open complaints on the Blue Fox dashboard |
+| `bf_cx_digest` | Expérience client - digest quotidien | 18.0.1.1.0 | LGPL-3 | Customer-experience section (follow-ups, complaints, NPS) in the daily digest |
+| `bf_cx_fundraising` | Expérience client : sondage donateur | 18.0.1.0.1 | LGPL-3 | Donor experience survey after a donation is confirmed (fundraising suite) |
+| `bf_cx_gamification` | Expérience client : XP Fox Quest | 18.0.1.0.0 | LGPL-3 | Fox Quest XP for closed-loop follow-ups and resolved complaints |
+| `bf_cx_helpdesk` | Expérience client - pont Helpdesk | 18.0.1.1.0 | LGPL-3 | Helpdesk tickets from complaints and detractor feedback, with a dedicated Complaints team |
+| `bf_cx_hosting` | Expérience client : CSAT post-maintenance | 18.0.1.1.0 | LGPL-3 | CSAT request after a completed planned maintenance (opt-in) |
+| `bf_cx_mass_mailing` | Expérience client : exclusion des boucles ouvertes (mailing) | 18.0.1.0.0 | LGPL-3 | Option to exclude open-CX-loop contacts from a mass mailing |
+| `bf_cx_meeting` | Expérience client - feedback post-rencontre | 18.0.1.2.0 | LGPL-3 | Three-smiley feedback request after a meeting report is sent to the client |
+| `bf_cx_onboarding` | Expérience client : panneau de mise en route | 18.0.1.0.0 | LGPL-3 | Onboarding panel to set up the Customer Experience module |
+| `bf_cx_portal` | Expérience client : feedback au portail | 18.0.1.0.0 | LGPL-3 | Clients view their feedback and submit a comment from the portal |
+| `bf_cx_privacy` | Expérience client - pont Vie privée (Loi 25) | 18.0.1.1.0 | LGPL-3 | Formal Law 25 consent flow for testimonials through the privacy module |
+| `bf_cx_sign` | Expérience client : feedback post-signature | 18.0.1.1.0 | LGPL-3 | Three-smiley feedback request when a signature is completed (opt-in) |
+| `bf_cx_sms` | Expérience client : invitation de sondage par SMS | 18.0.1.0.0 | LGPL-3 | Survey link sent by SMS to contacts without an email address |
+| `bf_cx_subscription` | Expérience client : revenu récurrent à risque | 18.0.1.0.0 | LGPL-3 | Recurring revenue at risk on the Customer Experience dashboard tile |
+| `bf_cx_website` | Expérience client : témoignages sur le site web | 18.0.1.1.0 | LGPL-3 | Public /temoignages page rendered dynamically from published testimonials |
 | `bf_dark_mode` | Blue Fox Dark Mode | 18.0.1.1.0 | LGPL-3 | Dark mode for Odoo using the Blue Fox palette |
 | `bf_dashboard` | Tableau de bord Blue Fox | 18.0.1.0.0 | LGPL-3 | Unified dashboard aggregating billing, hosting, knowledge and privacy |
 | `bf_default_all_companies` | BF Default All Companies | 18.0.1.0.0 | LGPL-3 | Pre-selects every allowed company in the multi-company switcher on first login |

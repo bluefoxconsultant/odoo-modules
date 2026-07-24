@@ -30,7 +30,7 @@
                             <field name="bf_cx_testimonial_activity"/>
                         </setting>
                         <setting string="Fenêtre NPS"
-                                 help="Fenêtre glissante du score affiché (tableau de bord, digest, programmes). Le score est masqué sous 10 réponses — en deçà, la marge d'erreur dépasse ±20 points.">
+                                 help="Fenêtre glissante du score affiché (tableau de bord, digest, programmes). Le score est masqué sous 10 réponses - en deçà, la marge d'erreur dépasse ±20 points.">
                             <field name="bf_cx_nps_window_days"/>
                         </setting>
                     </block>
