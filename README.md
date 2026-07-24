@@ -49,6 +49,13 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | `bf_chatter_timesheet` | Blue Fox — Feuille de temps depuis le chatter | 18.0.1.2.0 | LGPL-3 | Checkbox in the chatter composer to log a timesheet entry alongside an internal note. |
 | `bf_claude_chat` | TentaClaude | 18.0.1.5.1 | LGPL-3 | Chat with Claude AI directly inside Odoo |
 | `bf_contact_enrichment` | Enrichissement de contacts | 18.0.1.2.0 | LGPL-3 | Business cards (OCR), email signatures, vCard import, duplicate detection and completeness scoring, powered by Claude |
+| `bf_cx` | Expérience client | 18.0.1.2.1 | LGPL-3 | Customer experience measurement: NPS programs, continuous feedback, complaints and consent-tracked testimonials |
+| `bf_cx_crm` | Expérience client — sondage post-perte CRM | 18.0.1.0.0 | LGPL-3 | Automatic win/loss survey when a CRM opportunity is marked lost |
+| `bf_cx_dashboard` | Expérience client — tuile tableau de bord | 18.0.1.1.0 | LGPL-3 | NPS tile with pending detractors and open complaints on the Blue Fox dashboard |
+| `bf_cx_digest` | Expérience client — digest quotidien | 18.0.1.1.0 | LGPL-3 | Customer-experience section (follow-ups, complaints, NPS) in the daily digest |
+| `bf_cx_helpdesk` | Expérience client — pont Helpdesk | 18.0.1.1.0 | LGPL-3 | Helpdesk tickets from complaints and detractor feedback, with a dedicated Complaints team |
+| `bf_cx_meeting` | Expérience client — feedback post-rencontre | 18.0.1.0.0 | LGPL-3 | Three-smiley feedback request after a meeting report is sent to the client |
+| `bf_cx_privacy` | Expérience client — pont Vie privée (Loi 25) | 18.0.1.1.0 | LGPL-3 | Formal Law 25 consent flow for testimonials through the privacy module |
 | `bf_dark_mode` | Blue Fox Dark Mode | 18.0.1.1.0 | LGPL-3 | Dark mode for Odoo using the Blue Fox palette |
 | `bf_dashboard` | Tableau de bord Blue Fox | 18.0.1.0.0 | LGPL-3 | Unified dashboard aggregating billing, hosting, knowledge and privacy |
 | `bf_default_all_companies` | BF Default All Companies | 18.0.1.0.0 | LGPL-3 | Pre-selects every allowed company in the multi-company switcher on first login |
