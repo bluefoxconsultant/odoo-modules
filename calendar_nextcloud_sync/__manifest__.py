@@ -2,9 +2,9 @@
 {
     "name": "Calendar Nextcloud Sync",
     "summary": "Bidirectional calendar synchronization between Odoo and Nextcloud (CalDAV/n8n) and Google Calendar (API v3/OAuth2)",
-    "version": "18.0.2.7.0",
+    "version": "18.0.2.8.0",
     "category": "Calendar",
-    "website": "https://bluefox.ca",
+    "website": "https://bluefoxconsultant.com",
     "author": "Blue Fox Inc.",
     "license": "LGPL-3",
     "application": False,

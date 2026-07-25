@@ -50,6 +50,12 @@ class GoogleCalendarBackend(models.AbstractModel):
     _name = "calendar.google.backend"
     _description = "Google Calendar API Backend"
 
+    # 2026-07-25 (tache #23886) — nombre d'echecs consecutifs sur un meme
+    # evenement Google avant de cesser de le reessayer a chaque passe.
+    # 3 laisse la place a un echec transitoire (verrou, timeout) sans laisser
+    # un evenement durablement invalide inonder les journaux pendant des jours.
+    _QUARANTINE_THRESHOLD = 3
+
     # === Service builder ===
 
     @api.model
@@ -153,24 +159,59 @@ class GoogleCalendarBackend(models.AbstractModel):
         updated = 0
         deleted = 0
         errors = 0
+        quarantined = 0
         CalendarEvent = self.env["calendar.event"]
+        # 2026-07-25 (tache #23886) — mise en quarantaine.
+        # Sans ce garde-fou, un evenement qui ne passe pas la validation Odoo
+        # (contrainte resource_booking par exemple) est reessaye a CHAQUE passe,
+        # toutes les 7 minutes, indefiniment. Constate en juillet : deux
+        # rendez-vous ont produit ~12 erreurs/heure pendant 4 a 9 jours, noyant
+        # les vraies erreurs de synchronisation dans le bruit.
+        # On memorise les uid en echec dans le champ texte du config et on les
+        # saute, en journalisant UN avertissement au lieu d'une erreur en boucle.
+        quarantine = config._get_pull_quarantine()
         for item in events_fetched:
+            gid = item.get("id")
+            if gid and quarantine.get(gid, 0) >= self._QUARANTINE_THRESHOLD:
+                quarantined += 1
+                continue
             try:
                 with self.env.cr.savepoint():
                     result = self._upsert_event(CalendarEvent, item, config)
                     self.env.flush_all()
                 if result == "created":
                     created += 1
-                elif result == "updated":
+                elif result in ("updated", "updated-archived"):
                     updated += 1
                 elif result == "deleted":
                     deleted += 1
+                if gid:
+                    quarantine.pop(gid, None)  # succes : on oublie les echecs passes
             except Exception as e:
-                _logger.exception(
-                    "Failed to upsert Google event %s for config %s: %s",
-                    item.get("id"), config.name, e,
-                )
+                n = quarantine.get(gid, 0) + 1 if gid else 0
+                if gid:
+                    quarantine[gid] = n
+                if n >= self._QUARANTINE_THRESHOLD:
+                    _logger.warning(
+                        "Google event %s mis en QUARANTAINE pour la config %s "
+                        "apres %d echecs consecutifs. Dernier motif : %s. "
+                        "Il ne sera plus reessaye tant qu'il n'aura pas change "
+                        "cote Google ou que la quarantaine n'aura pas ete videe.",
+                        gid, config.name, n, e,
+                    )
+                else:
+                    _logger.exception(
+                        "Failed to upsert Google event %s for config %s "
+                        "(echec %d/%d avant quarantaine): %s",
+                        gid, config.name, n, self._QUARANTINE_THRESHOLD, e,
+                    )
                 errors += 1
+        config._set_pull_quarantine(quarantine)
+        if quarantined:
+            _logger.info(
+                "Google pull %s : %d evenement(s) ignore(s) car en quarantaine.",
+                config.name, quarantined,
+            )
 
         if next_sync_token:
             config.caldav_sync_token = next_sync_token
@@ -241,13 +282,28 @@ class GoogleCalendarBackend(models.AbstractModel):
         if partner_ids:
             vals["partner_ids"] = [(6, 0, list(partner_ids))]
 
-        existing = CalendarEvent.search(
+        # 2026-07-25 (tache #23886) — rapprochement robuste.
+        # Deux defauts corriges ici :
+        #  1) la recherche ignorait les evenements ARCHIVES (active_test par
+        #     defaut). Un doublon archive a la main etait donc recree au pull
+        #     suivant, annulant le nettoyage.
+        #  2) la recherche etait limitee a x_nc_calendar_id = config.id. Le meme
+        #     uid rattache a une autre config produisait un second
+        #     enregistrement. C'est l'origine des 338 x_nc_uid en double
+        #     constates en production : deux enregistrements distincts portant
+        #     le meme uid, crees a un mois d'intervalle par deux passes du puller.
+        Ev = CalendarEvent.with_context(active_test=False)
+        existing = Ev.search(
             [
                 ("x_nc_uid", "=", gid),
                 ("x_nc_calendar_id", "=", config.id),
             ],
             limit=1,
         )
+        if not existing:
+            # Repli : meme uid, toutes configs confondues. Mieux vaut mettre a
+            # jour l'enregistrement existant que d'en creer un deuxieme.
+            existing = Ev.search([("x_nc_uid", "=", gid)], limit=1)
         ctx = {
             "skip_nc_sync": True,
             "skip_google_sync": True,
@@ -257,8 +313,13 @@ class GoogleCalendarBackend(models.AbstractModel):
             "dont_notify": True,
         }
         if existing:
-            existing.with_context(**ctx).write(vals)
-            return "updated"
+            # Un enregistrement archive l'a ete deliberement (doublon retire a
+            # la main). On le met a jour sans le reactiver, sinon on
+            # ressusciterait le doublon que le menage venait d'eliminer.
+            write_vals = dict(vals)
+            write_vals.pop("active", None)
+            existing.with_context(**ctx).write(write_vals)
+            return "updated" if existing.active else "updated-archived"
         CalendarEvent.with_context(**ctx).create(vals)
         return "created"
 

@@ -1,5 +1,6 @@
 # License LGPL-3.0 or later (https://www.gnu.org/licenses/lgpl).
 
+import json
 import logging
 import re
 import uuid
@@ -541,6 +542,53 @@ class NextcloudCalendarSyncConfig(models.Model):
                 "last_sync_message": message or "",
             }
         )
+
+    # === Puller quarantine ===
+    # Stored in ir.config_parameter rather than in a model field: this avoids a
+    # schema migration, hence a module upgrade and production downtime.
+    # Format: {"<google_event_id>": <consecutive_failure_count>}.
+
+    def _quarantine_param_key(self):
+        self.ensure_one()
+        return "calendar_nextcloud_sync.pull_quarantine.%s" % self.id
+
+    def _get_pull_quarantine(self):
+        """Return {uid: consecutive_failures} for this config."""
+        self.ensure_one()
+        raw = self.env["ir.config_parameter"].sudo().get_param(
+            self._quarantine_param_key(), "{}"
+        )
+        try:
+            data = json.loads(raw)
+            return data if isinstance(data, dict) else {}
+        except (ValueError, TypeError):
+            _logger.warning(
+                "Unreadable quarantine for config %s, resetting.", self.name
+            )
+            return {}
+
+    def _set_pull_quarantine(self, data):
+        """Persist the quarantine. Size is bounded so the system parameter
+        cannot grow without limit."""
+        self.ensure_one()
+        data = {k: v for k, v in (data or {}).items() if v}
+        if len(data) > 200:
+            data = dict(
+                sorted(data.items(), key=lambda kv: kv[1], reverse=True)[:200]
+            )
+        self.env["ir.config_parameter"].sudo().set_param(
+            self._quarantine_param_key(), json.dumps(data)
+        )
+
+    def action_clear_pull_quarantine(self):
+        """Empty the quarantine: skipped events are retried on the next pass.
+        Use once the cause of the failures has been fixed."""
+        for config in self:
+            self.env["ir.config_parameter"].sudo().set_param(
+                config._quarantine_param_key(), "{}"
+            )
+            _logger.info("Quarantine cleared for config %s.", config.name)
+        return True
 
     # === Unified dispatch ===
 
