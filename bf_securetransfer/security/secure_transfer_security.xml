@@ -50,5 +50,41 @@
             <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
         </record>
 
+
+        <!-- === Children and brand: same isolation as the transfer (2026-07-31) ===
+
+             The rule above only covered secure.transfer itself. The file rows,
+             the access log and the brand had NO rule at all, so a user of
+             company B could read company A's filenames, S3 keys, download
+             audit trail (with IPs) and brand configuration — while the parent
+             transfer was correctly hidden. Measured on a two-company instance
+             on 2026-07-31.
+
+             Files and log rows carry no company_id of their own: they inherit
+             it from the transfer, which avoids a new column, a migration, and
+             any chance of the two values drifting apart.
+
+             These rules do NOT affect the public pages: every controller path
+             resolves its transfer through sudo() behind a token, so recipients
+             are unaffected. -->
+
+        <record id="rule_secure_transfer_file_company" model="ir.rule">
+            <field name="name">Fichiers transférés : multi-société</field>
+            <field name="model_id" ref="model_secure_transfer_file"/>
+            <field name="domain_force">['|', ('transfer_id.company_id', '=', False), ('transfer_id.company_id', 'in', company_ids)]</field>
+        </record>
+
+        <record id="rule_secure_transfer_access_log_company" model="ir.rule">
+            <field name="name">Journal d'accès : multi-société</field>
+            <field name="model_id" ref="model_secure_transfer_access_log"/>
+            <field name="domain_force">['|', ('transfer_id.company_id', '=', False), ('transfer_id.company_id', 'in', company_ids)]</field>
+        </record>
+
+        <record id="rule_secure_transfer_brand_company" model="ir.rule">
+            <field name="name">Marques : multi-société</field>
+            <field name="model_id" ref="model_secure_transfer_brand"/>
+            <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+        </record>
+
     </data>
 </odoo>

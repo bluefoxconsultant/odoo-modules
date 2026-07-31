@@ -185,5 +185,35 @@
             <field name="global" eval="True"/>
             <field name="domain_force">[('company_id', 'in', company_ids + [False])]</field>
         </record>
+
+        <!-- === Cloisonnement des enregistrements rattachés (2026-07-31) ===
+
+             Ces deux modèles n'ont pas de champ société et n'avaient AUCUNE
+             règle : ils échappaient donc au cloisonnement qui protège leur
+             parent. Mesuré le 2026-07-31 sur une instance à deux sociétés — un
+             gestionnaire vie privée voyait les preuves et les versions d'avis
+             de l'autre société, alors que les consentements eux-mêmes lui
+             étaient bien masqués. La preuve porte l'IP, l'agent utilisateur et
+             un instantané nominatif : elle doit suivre exactement la
+             visibilité du consentement dont elle dépend.
+
+             Le cloisonnement passe par le parent plutôt que par un nouveau
+             champ société : pas de colonne à ajouter, pas de migration, et
+             aucun risque de voir le champ diverger de celui du parent. -->
+
+        <record id="rule_consent_evidence_company" model="ir.rule">
+            <field name="name">Preuve de consentement : Règle de société</field>
+            <field name="model_id" ref="model_privacy_consent_evidence"/>
+            <field name="global" eval="True"/>
+            <field name="domain_force">[('consent_id.company_id', 'in', company_ids + [False])]</field>
+        </record>
+
+        <record id="rule_notice_version_company" model="ir.rule">
+            <field name="name">Version d'avis : Règle de société</field>
+            <field name="model_id" ref="model_privacy_notice_version"/>
+            <field name="global" eval="True"/>
+            <field name="domain_force">[('notice_id.company_id', 'in', company_ids + [False])]</field>
+        </record>
+
     </data>
 </odoo>
