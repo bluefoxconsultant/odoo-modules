@@ -1,12 +1,17 @@
 import hashlib
 import hmac
-import json
 import logging
+import time
 
 from odoo import http
 from odoo.http import request
 
 _logger = logging.getLogger(__name__)
+
+# Tolérance sur l'horodatage porté par la signature, en secondes. Au-delà, la
+# requête est refusée : sans cette borne, une requête signée interceptée reste
+# rejouable indéfiniment.
+SIGNATURE_TOLERANCE = 300
 
 
 class DocuSealWebhookController(http.Controller):
@@ -14,12 +19,12 @@ class DocuSealWebhookController(http.Controller):
 
     @http.route(
         "/privacy/docuseal/webhook",
-        type="json",
-        auth="none",
+        type="http",
+        auth="public",
         methods=["POST"],
         csrf=False,
     )
-    def docuseal_webhook(self):
+    def docuseal_webhook(self, **kw):
         """Traiter les notifications webhook DocuSeal.
 
         DocuSeal envoie des webhooks pour :
@@ -30,27 +35,39 @@ class DocuSealWebhookController(http.Controller):
         - form.started
         - form.viewed
         - form.completed
+
+        ⚠ La route était en ``type="json"`` et lisait ``request.jsonrequest``,
+        retiré d'Odoo depuis la 17.0 : l'attribut n'existait plus, l'exception
+        était avalée et la route répondait invariablement « Invalid JSON ».
+        DocuSeal poste un corps JSON simple, pas une enveloppe JSON-RPC, donc
+        la route est en ``type="http"`` et le corps est lu par
+        ``request.get_json_data()``.
         """
+        # Les octets bruts, avant toute analyse : c'est sur eux que porte la
+        # signature (voir _verify_webhook_signature).
+        raw_body = request.httprequest.get_data()
         try:
-            data = request.jsonrequest
+            data = request.get_json_data()
         except Exception:
             _logger.error("JSON invalide dans le webhook DocuSeal")
-            return {"status": "error", "message": "Invalid JSON"}
+            return self._response(400, "error", "Invalid JSON")
+        if not isinstance(data, dict):
+            return self._response(400, "error", "Invalid JSON")
 
-        _logger.info("Webhook DocuSeal reçu : %s", data.get("event_type"))
-
-        # Vérifier la signature du webhook si le secret est configuré
-        if not self._verify_webhook_signature(data):
-            _logger.warning("Échec de la vérification de la signature du webhook DocuSeal")
-            return {"status": "error", "message": "Invalid signature"}
+        Config = request.env["privacy.docuseal.config"].sudo()
+        config = Config.search([("active", "=", True)], limit=1)
+        if not self._verify_webhook_signature(raw_body, config):
+            return self._response(401, "error", "Invalid signature")
 
         event_type = data.get("event_type", "")
-        submission_data = data.get("data", {})
-        submission_id = str(submission_data.get("id") or submission_data.get("submission_id", ""))
+        _logger.info("Webhook DocuSeal reçu : %s", event_type)
+        submission_data = data.get("data", {}) or {}
+        submission_id = str(submission_data.get("id")
+                            or submission_data.get("submission_id", ""))
 
         if not submission_id:
             _logger.warning("ID de soumission manquant dans le webhook DocuSeal")
-            return {"status": "error", "message": "Missing submission ID"}
+            return self._response(400, "error", "Missing submission ID")
 
         # Trouver le consentement associé
         Consent = request.env["privacy.consent"].sudo()
@@ -59,8 +76,9 @@ class DocuSealWebhookController(http.Controller):
         ], limit=1)
 
         if not consent:
-            _logger.info("Aucun consentement trouvé pour la soumission DocuSeal %s", submission_id)
-            return {"status": "ok", "message": "Submission not tracked"}
+            _logger.info("Aucun consentement trouvé pour la soumission DocuSeal %s",
+                         submission_id)
+            return self._response(200, "ok", "Submission not tracked")
 
         # Traiter selon le type d'événement
         if event_type == "submission.completed":
@@ -70,43 +88,73 @@ class DocuSealWebhookController(http.Controller):
         elif event_type == "form.completed":
             self._handle_form_completed(consent, submission_data)
 
-        return {"status": "ok"}
+        return self._response(200, "ok")
 
-    def _verify_webhook_signature(self, data):
-        """Vérifier la signature du webhook DocuSeal."""
-        # Obtenir la signature des en-têtes
-        signature = request.httprequest.headers.get("X-DocuSeal-Signature", "")
-        if not signature:
-            # Aucune signature fournie - autoriser si aucun secret configuré
-            Config = request.env["privacy.docuseal.config"].sudo()
-            config = Config.search([("active", "=", True)], limit=1)
-            if config and config.webhook_secret_encrypted:
-                return False
-            return True
+    @staticmethod
+    def _response(status, state, message=None):
+        payload = {"status": state}
+        if message:
+            payload["message"] = message
+        return request.make_json_response(payload, status=status)
 
-        # Obtenir le secret configuré
-        Config = request.env["privacy.docuseal.config"].sudo()
-        config = Config.search([("active", "=", True)], limit=1)
-        if not config or not config.webhook_secret_encrypted:
-            return True
+    def _verify_webhook_signature(self, raw_body, config):
+        """Vérifier la signature DocuSeal — HMAC-SHA256 sur les octets bruts.
 
-        secret = config._decrypt_value(config.webhook_secret_encrypted)
+        Format documenté par DocuSeal : l'en-tête ``X-Docuseal-Signature`` vaut
+        ``<horodatage>.<signature>`` et le contenu signé est
+        ``<horodatage>.<corps brut>``, la clé étant le secret ``whsec_…`` de
+        l'onglet HMAC de la page webhook.
+
+        ⚠ Deux défauts corrigés ici. L'implémentation précédente hachait une
+        **re-sérialisation** du JSON analysé (`json.dumps` du dict), ce qui ne
+        peut pas correspondre aux octets émis dès que l'ordre des clés ou
+        l'échappement diffère — la vérification n'aurait donc jamais pu réussir
+        contre un vrai envoi. Et elle **acceptait** les requêtes non signées
+        quand aucun secret n'était configuré : quiconque connaissait un
+        identifiant de soumission pouvait faire passer un consentement pour
+        complété. Sans secret, on refuse désormais.
+        """
+        secret = ""
+        if config and config.webhook_secret_encrypted:
+            secret = config._decrypt_value(config.webhook_secret_encrypted) or ""
         if not secret:
-            return True
+            _logger.warning(
+                "Webhook DocuSeal refusé : aucun secret de webhook n'est "
+                "configuré. Renseignez-le sur la configuration DocuSeal active "
+                "(onglet HMAC de la page webhook DocuSeal, valeur whsec_…).")
+            return False
 
-        # Calculer la signature attendue
-        payload = json.dumps(data, separators=(",", ":"))
+        header = request.httprequest.headers.get("X-Docuseal-Signature", "")
+        timestamp, _sep, signature = header.partition(".")
+        if not timestamp or not signature:
+            _logger.warning("Webhook DocuSeal refusé : en-tête de signature "
+                            "absent ou mal formé.")
+            return False
+        try:
+            age = abs(time.time() - int(timestamp))
+        except (TypeError, ValueError):
+            _logger.warning("Webhook DocuSeal refusé : horodatage de signature "
+                            "illisible.")
+            return False
+        if age > SIGNATURE_TOLERANCE:
+            _logger.warning("Webhook DocuSeal refusé : signature datée de %ss.",
+                            int(age))
+            return False
+
         expected = hmac.new(
             secret.encode(),
-            payload.encode(),
-            hashlib.sha256
+            timestamp.encode() + b"." + raw_body,
+            hashlib.sha256,
         ).hexdigest()
-
-        return hmac.compare_digest(signature, expected)
+        if not hmac.compare_digest(signature, expected):
+            _logger.warning("Webhook DocuSeal refusé : signature invalide.")
+            return False
+        return True
 
     def _handle_submission_completed(self, consent, submission_data):
         """Traiter l'événement submission.completed."""
-        _logger.info("Traitement de submission.completed pour le consentement %s", consent.id)
+        _logger.info("Traitement de submission.completed pour le consentement %s",
+                     consent.id)
 
         # Obtenir les documents signés
         documents = []
@@ -127,7 +175,8 @@ class DocuSealWebhookController(http.Controller):
 
     def _handle_submission_expired(self, consent, submission_data):
         """Traiter l'événement submission.expired."""
-        _logger.info("Traitement de submission.expired pour le consentement %s", consent.id)
+        _logger.info("Traitement de submission.expired pour le consentement %s",
+                     consent.id)
 
         consent.write({
             "docuseal_status": "expired",
@@ -139,9 +188,11 @@ class DocuSealWebhookController(http.Controller):
 
     def _handle_form_completed(self, consent, submission_data):
         """Traiter l'événement form.completed (complétion partielle)."""
-        _logger.info("Traitement de form.completed pour le consentement %s", consent.id)
+        _logger.info("Traitement de form.completed pour le consentement %s",
+                     consent.id)
 
         consent.message_post(
-            body="Le signataire a complété le formulaire. En attente de la finalisation de la soumission.",
+            body="Le signataire a complété le formulaire. En attente de la "
+                 "finalisation de la soumission.",
             message_type="notification",
         )
