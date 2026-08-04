@@ -93,6 +93,10 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | `bf_nextcloud_browser` | Nextcloud File Browser | 18.0.3.3.0 | LGPL-3 | Embedded + standalone Nextcloud WebDAV file browser on projects/tasks: folder tree, modal preview, drag-and-drop upload/move, configurable share presets, open-in-Nextcloud for office files, Knowledge Matrix linking, systray launcher |
 | `bf_no_gateway_bounce` | BF No Gateway Bounce | 18.0.1.0.0 | LGPL-3 | Never auto-reply MAILER-DAEMON bounces to people who write to Blue Fox |
 | `bf_onboarding_base` | Blue Fox Onboarding Foundation | 18.0.2.0.0 | LGPL-3 | Shared helpers for Blue Fox per-module onboarding panels. |
+| `bf_outreach` | Campagnes de démarchage | 18.0.1.2.0 | LGPL-3 | Track call, email and letter outreach campaigns, with a follow-up cadence per channel |
+| `bf_outreach_appointment` | Démarchage — rendez-vous | 18.0.1.0.0 | LGPL-3 | A confirmed booking logs a meeting and advances the outreach target on its own |
+| `bf_outreach_call` | Démarchage — appels journalisés | 18.0.1.0.0 | LGPL-3 | Reconciles the calls actually placed with the outreach targets, duration included |
+| `bf_outreach_email` | Démarchage — réponses courriel | 18.0.1.0.0 | LGPL-3 | Recognises replies from outreach targets in the received-email archive |
 | `bf_persona` | Persona des contacts | 18.0.2.1.0 | LGPL-3 | Active relationship intelligence: composer hint with auto-cc, monthly auto-seed from email signals, weekly degradation detector with optional ntfy alert, kanban dashboard |
 | `bf_project_merge` | Blue Fox — Regroupement de tâches | 18.0.1.0.0 | LGPL-3 | Merge tasks by reassigning their content (messages, activities, hours, dependencies) to the kept task, then archive the rest. |
 | `bf_receipt_ca` | Reçus de dons — Canada (ARC + Revenu Québec) | 18.0.1.0.4 | AGPL-3 | CRA + Revenu Québec compliant official donation receipts, in French — eligible amount, advantage, in-kind gifts, void/reissue |
