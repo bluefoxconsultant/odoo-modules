@@ -8,7 +8,7 @@ artefact), **automatic purging**, **multi-brand** resolution by hostname,
 **personal drop pages** (`/to/<slug>`), **anti-piggyback allowlists** and
 **automatic suspension on abuse reports**.
 
-- **Version**: `18.0.1.6.2`.
+- **Version**: `18.0.1.16.1`.
 - **Licence**: **BUSL-1.1** — production use allowed for your own internal business operations; providing the module as a product or service to third parties (hosted, managed or resold) requires a written agreement. Converts to **LGPL-3.0-or-later** on **2029-07-20**. See [`LICENSE`](LICENSE).
 - **Threat model & non-guarantees**: see [`SECURITY.md`](SECURITY.md).
 - **Multiple tiers**: the multi-brand system supports a limited free tier
@@ -70,7 +70,19 @@ artefact), **automatic purging**, **multi-brand** resolution by hostname,
 - **Two optional OTP flows** (tenant settings, OFF by default): a **sender OTP**
   (confirms a code before sending — anti-impersonation) and a **recipient OTP**
   (a code before download — a Law 25 gate). 6-digit codes, hashed, 15-minute
-  TTL.
+  TTL. The recipient code can be required from **three** places: the
+  instance-wide setting (every send), a **checkbox on the public form** (the
+  sender decides for their own send), and a backend button that **arms the gate
+  after the fact** on a transfer already out — without recalling the e-mails
+  that have already been delivered.
+- **The share link does not survive in the record's log.** The link e-mails are
+  stored on the transfer (`mail.mail` inherits `mail.message`), so the raw token
+  used to sit in clear in the chatter — around both the manager-only `token`
+  field and the journaled reveal wizard. The token is now masked as soon as the
+  queue has delivered the mail, **unless** a recipient code guards the content
+  (the link alone then opens nothing). The predicate is re-evaluated on every
+  sweep, so turning the instance-wide setting off masks the older messages too.
+  A mail still queued is never touched — it would go out with a dead link.
 - **Optional password** (passlib pbkdf2_sha512), **never** sent in the link
   email.
 - **Burn after download** (`burn_after_download`) and **download notification**
@@ -101,6 +113,18 @@ artefact), **automatic purging**, **multi-brand** resolution by hostname,
   suspension, purge, and so on) goes through a single control point. Verifiable
   with `verify_chain()`. A Law 25 artefact retained even after the objects are
   purged.
+- **Access certificate (PDF)** — the log made defensible: the integrity verdict
+  is **recomputed at print time**, file sizes are the ones **confirmed by the
+  server** (not the ones the uploader declared) along with their ETag, all
+  timestamps are explicit UTC, and the document ships **the recipe to recompute
+  the chain yourself** (SHA-256 of the previous hash plus the canonical
+  payload). Without that recipe a certificate *asks* for trust instead of
+  producing it. ⚠️ **Who printed a downloaded file remains untraceable** — that
+  only exists in an online viewer with no download. Do not promise it.
+- **Download watermark** (`watermark_downloads`, per brand, OFF by default):
+  each PDF is stamped with the recipient's name and the download timestamp.
+  Odoo then serves the bytes itself instead of redirecting to storage;
+  non-PDF files keep the direct redirect.
 
 ---
 
@@ -336,8 +360,10 @@ on request, or **automatic recurring** billing through `sale.subscription`
 
 ## Tests
 
-`63 tests` (`tests/test_lifecycle.py`, `test_access_log.py`,
-`test_host_resolution.py`). **Every** S3 interaction is mocked on
+`401 tests` across 15 files (lifecycle, S3 gateway, multipart, the public HTTP
+routes, email/i18n, wizards, crons, operator actions, ACL surface, brand
+provisioning, download gates, chatter link retention). **Every** S3 interaction
+is mocked on
 `odoo.addons.bf_securetransfer.models.s3`: the suite runs without boto3 and
 without a reachable endpoint. To run it on staging:
 
@@ -383,6 +409,11 @@ defensible; "beyond the reach of any foreign access" is not, until Phase 3
 
 | Version | Highlights |
 |---|---|
+| `18.0.1.16.x` | **The public pages became translatable — they never had been.** Odoo skips translation for an *entire* view whose arch starts with a doctype (`tools/translate.py`, `avoid_pattern`), so the three standalone pages exported **zero** translatable terms and an English visitor got a fully French page whatever the `.po` said, silently. The doctype is now injected at render time. Catalogue regenerated from a fresh export (694 terms). Also: the retroactive recipient-code action is now **manager-gated in Python** — a method without a leading underscore is an RPC surface, and the user group is read-only on `secure.transfer`. |
+| `18.0.1.15.0` | **The share link no longer survives in the transfer's log.** The token is masked in the retained message bodies once the queue has delivered the mail, unless a recipient code guards the content; hourly sweep plus a post-send hook, and a migration that catches up on history. **Recipient code armable after the fact** from the backend (refused in link-only mode — nobody could receive the code), journaled. **Public form completed**: require-a-code, download budget and download notice existed only in the backend; the form now shows the instance-wide requirement as ticked and locked instead of absent. |
+| `18.0.1.12.0`–`1.14.0` | **Coverage campaign — from 90 to ~400 tests**, with fixes the tests themselves surfaced: log-integrity appends now serialise through a `FOR UPDATE` on the parent row (an advisory lock could not work — Odoo runs in `REPEATABLE READ`, so every concurrent append read the same stale tail); `mpu_sign` accepted a string and iterated it character by character; orphan retention ignored archived brands, which could let the provider delete an object before its promised date. Retention guard extended to every ORM path, not just the public one. _(Catch-up release: intermediate versions grouped.)_ |
+| `18.0.1.9.x`–`1.11.0` | **Access certificate (PDF)** and a **base review — 9 fixes**: the instance-wide recipient-code setting did not drive the e-mail template choice, so the gate held the files while the message body and the attachment listing still travelled in clear; the abuse notice went out as a single mail with every recipient in `To:` (third-party-triggerable disclosure); `_resolve_for_host` passed the `Host` as a LIKE pattern (`=ilike` does not escape `%`/`_`); "resend a code" reset the failure counter, so the attempt ceiling bounded nothing; a self-counting quota made a limit of 5 worth 4. _(Catch-up release.)_ |
+| `18.0.1.7.x`–`1.8.0` | **Download watermark** promoted from a private downstream layer into the base (`watermark_downloads` per brand, with a migration that carries the setting over). SMS fixes (the provider answers **403 to urllib's default User-Agent** — the channel had never worked, silently) and S3 lifecycle fixes (the two rules were sent in a single call, so neither was applied). _(Catch-up release.)_ |
 | `18.0.1.6.1` | **Localisation**: full en_CA translation of the module (fields, help, messages, send wizard, public pages) and of the "secure message" email. Fixed the email translation hook (terms containing markup are now applied correctly). |
 | `18.0.1.6.0` | **Message only** mode: the body is **never again included in clear text** in the notification email — it carries only the link, and the message is read solely on the secure page (behaviour aligned with code-protected sends). |
 | `18.0.1.3.0`–`1.5.0` | **Code-protected secure message for the recipient** (OTP delivered by email or SMS) plus a **backend send wizard**; sender-side send confirmation by code; **personal drop pages** auto-provisioned when an internal user is created; publishing a drop brand by its **slug** alone; hardened `LIKE` escaping in host resolution. _(Catch-up release: intermediate versions grouped.)_ |

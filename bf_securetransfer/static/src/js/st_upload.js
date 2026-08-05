@@ -19,6 +19,11 @@
  *   #st-expiry        <select> (options injected from limits.expiry_choices)
  *   #st-password      optional password field
  *   #st-password-row  wrapper hidden when the brand disallows passwords
+ *   #st-burn          destroy-after-download checkbox (brand-gated)
+ *   #st-recipient-otp require-a-recipient-code checkbox (ticked + disabled
+ *                     when the instance requires it for every transfer)
+ *   #st-max-downloads download budget, 0 = unlimited
+ *   #st-notify        notify the sender on the first download
  *   input[name="website_url"]                   honeypot (hidden)
  *   #st-finalize      submit button
  *   #st-success       success panel (hidden) with #st-share-url + #st-copy
@@ -960,9 +965,15 @@
         }
         var btn = el("st-finalize");
         if (btn && !state.finalized) {
-            btn.textContent = mode === "message"
-                ? (S.send_message || "Envoyer le message")
-                : (S.send || "Envoyer");
+            if (mode === "message") {
+                btn.textContent = S.send_message || "Envoyer le message";
+            } else {
+                // Drop page: the file goes straight to the owner — "send",
+                // not "get the link".
+                btn.textContent = cfg.drop_mode
+                    ? (S.send_drop || S.send || "Envoyer")
+                    : (S.send || "Envoyer");
+            }
         }
         clearError();
         updateFinalizeState();
@@ -1024,6 +1035,21 @@
         var burn = el("st-burn");
         if (LIMITS.allow_burn && burn && burn.checked) {
             params.burn_after_download = true;
+        }
+        // Recipient code. Read even when the box is disabled (instance-wide
+        // requirement): a disabled input submits nothing, and the gate the
+        // sender was shown must be pinned on the transfer itself.
+        var otp = el("st-recipient-otp");
+        if (otp && otp.checked) {
+            params.force_recipient_otp = true;
+        }
+        var budget = el("st-max-downloads");
+        if (budget) {
+            params.max_downloads = parseInt(budget.value, 10) || 0;
+        }
+        var notify = el("st-notify");
+        if (notify) {
+            params.notify_on_download = notify.checked;
         }
         if (button) {
             button.disabled = true;

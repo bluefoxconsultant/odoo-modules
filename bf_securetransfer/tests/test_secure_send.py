@@ -107,7 +107,7 @@ class TestSecureSend(TransactionCase):
 
         with patch(SMS_MOD + ".configured", return_value=True), \
                 patch(SMS_MOD + ".send", side_effect=fake_send):
-            otp_hash, expiry = t.send_recipient_otp(addr)
+            otp_hash, expiry = t._send_recipient_otp(addr)
         self.assertTrue(otp_hash)
         self.assertEqual(len(calls), 1)
         self.assertEqual(calls[0][0], "5145551234")
@@ -122,14 +122,14 @@ class TestSecureSend(TransactionCase):
                         recipient_sms_map='{"%s": "5145551234"}' % addr)
         with patch(SMS_MOD + ".configured", return_value=True), \
                 patch(SMS_MOD + ".send", return_value=False):
-            otp_hash, expiry = t.send_recipient_otp(addr)
+            otp_hash, expiry = t._send_recipient_otp(addr)
         self.assertTrue(otp_hash)
         self.assertTrue(any("courriel" in (n or "")
                             for n in t.access_log_ids.mapped("note")))
 
     def test_send_recipient_otp_rejects_stranger(self):
         t = self._draft(force_recipient_otp=True)
-        self.assertEqual(t.send_recipient_otp("nobody@example.com"), (None, None))
+        self.assertEqual(t._send_recipient_otp("nobody@example.com"), (None, None))
 
     # ------------------------------------------------------------------ wizard
     def test_wizard_default_brand(self):

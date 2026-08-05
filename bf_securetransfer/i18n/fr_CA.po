@@ -2069,8 +2069,8 @@ msgstr "Hôte nu (sans schéma ni port) sur lequel cette marque est servie, p. e
 #: model:ir.model.fields,help:bf_securetransfer.field_res_config_settings__st_public_upload_enabled
 msgid ""
 "Interrupteur général de la page publique /secrets. Décocher pour fermer le "
-"service sans désinstaller (p. ex. tests internes)."
-msgstr "Interrupteur général de la page publique /secrets. Décocher pour fermer le service sans désinstaller (p. ex. tests internes)."
+"service sans désinstaller (p. ex. dogfood BF)."
+msgstr "Interrupteur général de la page publique /secrets. Décocher pour fermer le service sans désinstaller (p. ex. dogfood BF)."
 
 #. module: bf_securetransfer
 #: model_terms:ir.ui.view,arch_db:bf_securetransfer.res_config_settings_view_form
@@ -2585,14 +2585,14 @@ msgstr "Réactivé après revue (signalement écarté)"
 
 #. module: bf_securetransfer
 #: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_brand__billing_ref
-msgid "Réf. abonnement"
-msgstr "Réf. abonnement"
+msgid "Réf. abonnement (BF)"
+msgstr "Réf. abonnement (BF)"
 
 #. module: bf_securetransfer
 #: model:ir.model.fields,help:bf_securetransfer.field_secure_transfer_brand__billing_ref
 msgid ""
-"Référence de l'abonnement récurrent émis pour ce client."
-msgstr "Référence de l'abonnement récurrent émis pour ce client."
+"Référence de l'abonnement bf_subscription émis par Blue Fox pour ce client."
+msgstr "Référence de l'abonnement bf_subscription émis par Blue Fox pour ce client."
 
 #. module: bf_securetransfer
 #: model_terms:ir.ui.view,arch_db:bf_securetransfer.res_config_settings_view_form

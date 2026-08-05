@@ -72,11 +72,17 @@ class TestBrandHostResolution(TransactionCase):
         self.other.active = False
         self.assertFalse(self.Brand._resolve_for_host("envoi.client.test"))
 
-    def test_wildcard_host_does_not_match(self):
-        # LIKE metacharacters in the (attacker-controllable) Host are escaped,
-        # so a wildcard Host cannot pattern-match a brand.
+    def test_wildcard_host_does_not_resolve(self):
+        """A Host header is attacker-controlled and "=ilike" treats it as a
+        LIKE pattern. Anything carrying a metacharacter must resolve to
+        nothing — otherwise "Host: %" hands over the first branded tenant,
+        including its email_from."""
+        self.assertFalse(self.Brand._resolve_for_host("%"))
         self.assertFalse(self.Brand._resolve_for_host("%.example.test"))
         self.assertFalse(self.Brand._resolve_for_host("secret.example.tes_"))
+        # the legitimate host still resolves
+        self.assertEqual(
+            self.Brand._resolve_for_host("envoi.client.test"), self.other)
 
     # ------------------------------------------------------------------ fallback
     def test_from_request_falls_back_to_default(self):

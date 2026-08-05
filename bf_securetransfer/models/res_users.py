@@ -3,7 +3,7 @@
 When ``bf_securetransfer.autoprovision_user_pages`` is on, creating an internal
 user provisions a personal secure-transfer drop page (/to/<slug>) sending to
 that employee's e-mail, and later renames / re-points / archives it as the user
-changes. It is OFF by default so a shared install keeps manual
+changes. It is OFF by default so a shared install (e.g. Blue Fox) keeps manual
 brands; a single-person install turns it on.
 
 Service / API / bot accounts never get a page (login heuristics + the explicit
@@ -115,7 +115,7 @@ class ResUsers(models.Model):
                 else:
                     Brand.create({
                         "name": label,
-                        # Person-based slug (e.g. « jean-tremblay »), not the
+                        # Person-based slug (e.g. « jane-doe »), not the
                         # « envoi-de-fichiers-… » brand label.
                         "slug": Brand._st_unique_slug(
                             user.name or email.split("@")[0]),

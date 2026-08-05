@@ -128,9 +128,12 @@ class TestSecureTransferLifecycle(TransactionCase):
 
     # ------------------------------------------------------------ drop page
     def _drop_brand(self, **overrides):
+        # The slug is UNIQUE across brands, so it must not collide with one a
+        # tenant actually publishes — a personal page did, and every drop-page
+        # test errored out on a real database instead of running.
         vals = {
             "name": "Dépôt test",
-            "slug": "depot",
+            "slug": "depot-test-unitaire",
             "fixed_recipient": "depot@example.com",
             "fixed_recipient_name": "Depot",
             "company_id": self.brand.company_id.id,
@@ -140,7 +143,8 @@ class TestSecureTransferLifecycle(TransactionCase):
 
     def test_drop_page_resolve_slug(self):
         brand = self._drop_brand()
-        found = self.env["secure.transfer.brand"]._resolve_for_slug("Depot")
+        found = self.env["secure.transfer.brand"]._resolve_for_slug(
+            "Depot-Test-Unitaire")
         self.assertEqual(found, brand)  # case-insensitive
         self.assertFalse(
             self.env["secure.transfer.brand"]._resolve_for_slug("nope"))
@@ -183,6 +187,25 @@ class TestSecureTransferLifecycle(TransactionCase):
         # free tier caps retention at 7 days -> 30 is not a valid choice
         with self.assertRaises(UserError):
             self._create(retention_days=30)
+
+    def test_orm_rejects_retention_not_offered(self):
+        """Le contrôle de rétention doit tenir HORS du chemin public.
+
+        ⚠ Il ne vivait que dans `api_create()` : l'assistant d'envoi interne, le
+        `write` de finalisation et tout appel ORM/XML-RPC pouvaient poser une
+        durée que la marque n'offre pas — et que la règle de cycle de vie du seau
+        S3, écrite d'après le maximum de la marque, ne tiendrait pas.
+        """
+        transfer = self._create()
+        with self.assertRaises(ValidationError):
+            transfer.write({"retention_days": 30})
+
+    def test_orm_accepts_offered_retention(self):
+        """Le durcissement ne doit pas refuser une durée légitime."""
+        transfer = self._create()
+        choices = transfer.brand_id._effective_limits()["expiry_choices"]
+        transfer.write({"retention_days": choices[0]})
+        self.assertEqual(transfer.retention_days, choices[0])
 
     def test_api_create_sender_quota(self):
         self.env["ir.config_parameter"].sudo().set_param(
@@ -348,6 +371,152 @@ class TestSecureTransferLifecycle(TransactionCase):
         with self.assertRaises(UserError):
             t._register_download(f, "203.0.113.99", "dl-agent")
 
+    def _burning_multi_file_transfer(self, count=2):
+        """Active burn-after-download transfer carrying `count` files."""
+        # burn is not an api_create val — the upload API sets it at finalize
+        t = self._create()
+        t.burn_after_download = True
+        for i in range(count):
+            t._register_file("doc%d.pdf" % i, 4096)
+        with patch(S3_MOD + ".head_object", side_effect=self._head_for(t)):
+            t.action_finalize()
+        return t
+
+    def test_burn_waits_for_every_file(self):
+        """A browser fetches one file per request: burning on the first
+        download strands the rest of the transfer behind a dead link."""
+        t = self._burning_multi_file_transfer(2)
+        first, second = t.file_ids[0], t.file_ids[1]
+        t._register_download(first, "203.0.113.99", "dl-agent")
+        # still alive — the recipient does not have the second file yet
+        self.assertEqual(t.state, "active")
+        self.assertEqual(t._is_available(), (True, ""))
+        t._register_download(second, "203.0.113.99", "dl-agent")
+        self.assertEqual(t.state, "expired")
+        self.assertIn("expired", t.access_log_ids.mapped("action"))
+
+    def test_burn_single_file_still_immediate(self):
+        t = self._burning_multi_file_transfer(1)
+        t._register_download(t.file_ids, "203.0.113.99", "dl-agent")
+        self.assertEqual(t.state, "expired")
+
+    def test_burn_ignores_undownloadable_files(self):
+        """An infected or errored file was never offered — it must not hold
+        the burn open forever."""
+        t = self._burning_multi_file_transfer(2)
+        good, bad = t.file_ids[0], t.file_ids[1]
+        bad.scanned = "infected"
+        t._register_download(good, "203.0.113.99", "dl-agent")
+        self.assertEqual(t.state, "expired")
+
+    def test_burn_repeat_download_does_not_burn_early(self):
+        """Re-fetching the same file (a retried/interrupted download) must not
+        count as having collected the other one."""
+        t = self._burning_multi_file_transfer(2)
+        first = t.file_ids[0]
+        t._register_download(first, "203.0.113.99", "dl-agent")
+        t._register_download(first, "203.0.113.99", "dl-agent")
+        self.assertEqual(t.state, "active")
+        self.assertEqual(first.download_count, 2)
+
+    # ------------------------------------------------------------------ filename handling
+    def test_non_latin_filename_keeps_its_extension(self):
+        """secure_filename drops non-ASCII then strips "._", so "документ.pdf"
+        collapsed to "pdf" — no dot left — and a legitimate file was refused
+        for "having no extension"."""
+        t = self._create()
+        for name in ("документ.pdf", "报告.pdf", "Rapport-Été.pdf"):
+            f = t._register_file(name, 4096)
+            self.assertEqual(f.extension, "pdf", "refused/mis-parsed: %s" % name)
+            self.assertEqual(f.filename, name, "display name must keep Unicode")
+
+    def test_non_latin_filename_still_hits_the_deny_list(self):
+        """Reading the extension from the raw name must not open a hole: it
+        actually closes one, since the deny-list now sees the true suffix
+        instead of an empty string."""
+        t = self._create()
+        with self.assertRaises(UserError) as ctx:
+            t._register_file("рисунок.php", 4096)
+        # refused BY RULE (format not allowed), not incidentally
+        self.assertIn("php", str(ctx.exception))
+
+    def test_filename_without_extension_still_refused(self):
+        t = self._create()
+        with self.assertRaises(UserError):
+            t._register_file("facture", 4096)
+
+    # ------------------------------------------------------------------ recipient OTP gate
+    def _sent_bodies(self, transfer):
+        """Bodies of the link notifications queued for a transfer."""
+        return self.env["mail.mail"].sudo().search(
+            [("email_to", "in", transfer._recipient_list())]).mapped("body_html")
+
+    def test_instance_wide_otp_holds_the_message_out_of_the_email(self):
+        """The instance-wide setting must pick the same template the
+        per-transfer flag does. Testing only the flag left the message body
+        and the filename listing in the recipient's inbox — the gate held the
+        files, but the notification had already given away the content."""
+        icp = self.env["ir.config_parameter"].sudo()
+        icp.set_param("bf_securetransfer.require_recipient_otp", "1")
+        self.addCleanup(
+            icp.set_param, "bf_securetransfer.require_recipient_otp", "0")
+        t = self._create(message="Le NIP du dossier est 4417")
+        t._register_file("contrat-secret.pdf", 4096)
+        with patch(S3_MOD + ".head_object", side_effect=self._head_for(t)), \
+                patch("odoo.addons.mail.models.mail_mail.MailMail.send",
+                      lambda self, *a, **k: True):
+            t.action_finalize()
+        self.assertTrue(t._recipient_otp_required())
+        bodies = "".join(self._sent_bodies(t))
+        self.assertTrue(bodies, "no notification was queued")
+        self.assertNotIn("4417", bodies)
+        self.assertNotIn("contrat-secret.pdf", bodies)
+
+    def test_without_otp_the_link_email_still_carries_the_message(self):
+        """Guard against over-correcting: with no gate, the ordinary link
+        template is still the one used."""
+        t = self._create(message="Bonjour, voici les documents")
+        t._register_file("rapport.pdf", 4096)
+        with patch(S3_MOD + ".head_object", side_effect=self._head_for(t)), \
+                patch("odoo.addons.mail.models.mail_mail.MailMail.send",
+                      lambda self, *a, **k: True):
+            t.action_finalize()
+        self.assertFalse(t._recipient_otp_required())
+        bodies = "".join(self._sent_bodies(t))
+        self.assertIn("rapport.pdf", bodies)
+
+    # ------------------------------------------------------------------ quotas
+    def test_sender_quota_does_not_count_the_transfer_being_finalized(self):
+        """At finalize the transfer is already in the DB, so counting it
+        against its own quota made the Nth send fail — AFTER the upload."""
+        icp = self.env["ir.config_parameter"].sudo()
+        icp.set_param("bf_securetransfer.quota_daily_transfers_per_sender", "2")
+        self.addCleanup(
+            icp.set_param,
+            "bf_securetransfer.quota_daily_transfers_per_sender", "500")
+        # 1st transfer of the day: creates and finalizes cleanly
+        first = self._active_transfer()
+        self.assertEqual(first.state, "active")
+        # 2nd: the quota is 2, so this one must go through as well
+        second = self._create()
+        second._register_file("doc.pdf", 4096)
+        with patch(S3_MOD + ".head_object", side_effect=self._head_for(second)):
+            second.action_finalize()
+        self.assertEqual(second.state, "active")
+
+    def test_sender_quota_still_refuses_past_the_budget(self):
+        """The exclusion must not disarm the quota — the 3rd of a budget of 2
+        is still refused."""
+        icp = self.env["ir.config_parameter"].sudo()
+        icp.set_param("bf_securetransfer.quota_daily_transfers_per_sender", "2")
+        self.addCleanup(
+            icp.set_param,
+            "bf_securetransfer.quota_daily_transfers_per_sender", "500")
+        self._active_transfer()
+        self._active_transfer()
+        with self.assertRaises(UserError):
+            self._create()
+
     # ------------------------------------------------------------------ cron expiry + purge
     def test_cron_purge_expired(self):
         t = self._active_transfer()
@@ -411,6 +580,37 @@ class TestSecureTransferLifecycle(TransactionCase):
             self.assertTrue(t.sender_confirmed)
             self.assertFalse(t.sudo().sender_otp_hash)
 
+    def test_resend_does_not_refill_the_attempt_budget(self):
+        """"Renvoyer un code" used to reset sender_otp_fails, so seven wrong
+        guesses plus one resend restored the full budget and the 8-attempt
+        ceiling bounded nothing."""
+        self.env["ir.config_parameter"].sudo().set_param(
+            "bf_securetransfer.require_sender_otp", "1")
+        t = self._create()
+        t._register_file("a.pdf", 4096)
+        with patch(S3_MOD + ".head_object", side_effect=self._head_for(t)), \
+                patch.object(type(t), "_otp_email", lambda *a, **k: None):
+            res = t.action_finalize()
+            self.assertEqual(res.get("otp_required"), "sender",
+                             "finalize did not enter the sender-OTP path")
+            self.assertTrue(t.sudo().sender_otp_hash)
+            # NB: plain try/except, NOT assertRaises — Odoo's assertRaises
+            # rolls the block back to a savepoint, which would discard the
+            # very counter this test is about.
+            for _i in range(3):
+                try:
+                    t.confirm_sender_otp("000000")
+                    self.fail("a wrong code must be refused")
+                except UserError as exc:
+                    self.assertIn("invalide", str(exc).lower())
+            self.assertEqual(t.sudo().sender_otp_fails, 3)
+            # the resend path must PRESERVE the counter…
+            t._send_sender_otp(reset_fails=False)
+            self.assertEqual(t.sudo().sender_otp_fails, 3)
+            # …while a genuine new send still starts clean
+            t._send_sender_otp()
+            self.assertEqual(t.sudo().sender_otp_fails, 0)
+
     def test_sender_otp_off_by_default(self):
         t = self._create()
         t._register_file("a.pdf", 4096)
@@ -426,10 +626,10 @@ class TestSecureTransferLifecycle(TransactionCase):
         self.assertTrue(t._is_recipient_email("DEST@Example.com"))  # normalized
         self.assertFalse(t._is_recipient_email("stranger@example.com"))
         with patch.object(type(t), "_otp_email", lambda *a, **k: None):
-            h, exp = t.send_recipient_otp("dest@example.com")
+            h, exp = t._send_recipient_otp("dest@example.com")
             self.assertTrue(h)
             self.assertTrue(exp)
-            h2, exp2 = t.send_recipient_otp("stranger@example.com")
+            h2, exp2 = t._send_recipient_otp("stranger@example.com")
             self.assertIsNone(h2)
             self.assertIsNone(exp2)
 
@@ -444,10 +644,13 @@ class TestSecureTransferLifecycle(TransactionCase):
     def test_abuse_report_suspends_and_notifies(self):
         t = self._active_with_file()
         self.assertTrue(t._is_available()[0])
-        self.env["ir.config_parameter"].sudo().set_param(
-            "bf_securetransfer.abuse_email", "abus@example.com")
         Mail = self.env["mail.mail"].sudo()
         before = Mail.search_count([])
+        # The desk address is a tenant parameter (it falls back to the
+        # company e-mail): pin it so the assertion below is about routing,
+        # not about whichever default the instance happens to carry.
+        self.env["ir.config_parameter"].sudo().set_param(
+            "bf_securetransfer.abuse_email", "abuse@example.com")
         t._suspend_for_abuse(ip="203.0.113.1")
         # Stub send() so the auto_delete mails persist for counting.
         with patch("odoo.addons.mail.models.mail_mail.MailMail.send",
@@ -459,9 +662,31 @@ class TestSecureTransferLifecycle(TransactionCase):
         self.assertEqual(t._is_available()[1], "suspended")
         # two emails: abuse desk + recipients
         self.assertGreaterEqual(Mail.search_count([]) - before, 2)
-        self.assertTrue(Mail.search_count([("email_to", "=", "abus@example.com")]))
+        self.assertTrue(Mail.search_count([("email_to", "=", "abuse@example.com")]))
         # 'suspended' is in the log
         self.assertIn("suspended", t.access_log_ids.mapped("action"))
+
+    def test_abuse_notice_is_one_mail_per_recipient(self):
+        """A single mail carrying the whole recipient list in To: would show
+        every recipient to every other — triggerable by any anonymous link
+        holder clicking "report abuse"."""
+        t = self._create(recipient_emails="a@x.test, b@y.test, c@z.test")
+        t._register_file("doc.pdf", 4096)
+        with patch(S3_MOD + ".head_object", side_effect=self._head_for(t)):
+            t.action_finalize()
+        Mail = self.env["mail.mail"].sudo()
+        t._suspend_for_abuse(ip="203.0.113.1")
+        with patch("odoo.addons.mail.models.mail_mail.MailMail.send",
+                   lambda self, *a, **k: True):
+            t._send_abuse_notice(reason="malware", ip="203.0.113.1")
+        notices = Mail.search([("subject", "like", "Transfert suspendu%")])
+        self.assertEqual(len(notices), 3)
+        self.assertEqual(
+            sorted(notices.mapped("email_to")),
+            ["a@x.test", "b@y.test", "c@z.test"])
+        # no notice may name more than its own addressee
+        for mail in notices:
+            self.assertNotIn(",", mail.email_to or "")
 
     def test_abuse_suspend_idempotent_and_reactivate(self):
         t = self._active_with_file()

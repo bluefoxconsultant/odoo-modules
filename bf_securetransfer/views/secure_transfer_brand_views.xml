@@ -66,10 +66,12 @@
                         </group>
                         <group string="Options">
                             <field name="allow_password"/>
+                            <field name="allow_recipient_otp"/>
                             <field name="notify_on_download"
                                    help="Aviser l'expéditeur par courriel au premier téléchargement de ses fichiers."/>
                             <field name="allow_burn"
                                    help="Offrir à l'expéditeur l'option « détruire après le premier téléchargement »."/>
+                            <field name="watermark_downloads"/>
                         </group>
                     </group>
                     <group string="Facturation (palier payant)" invisible="tier != 'paid'">

@@ -168,6 +168,14 @@ class SecureTransferFile(models.Model):
         the download always forces application/octet-stream."""
         return mimetypes.guess_type(filename or "")[0] or "application/octet-stream"
 
+    def _is_pdf(self):
+        """Whether this file can be watermarked. The declared mimetype is
+        client-supplied, so the extension is kept as a second chance."""
+        self.ensure_one()
+        if (self.mimetype or "").lower() == "application/pdf":
+            return True
+        return (self.filename or "").lower().endswith(".pdf")
+
     # ------------------------------------------------------------------ simple PUT
     def presign_simple(self):
         """Presigned simple PUT for this file → ``{"url", "headers"}``.

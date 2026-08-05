@@ -480,6 +480,30 @@ class SecureTransferUploadApi(Controller):
         # Burn-after-download: only honored when the brand allows it.
         if limits.get("allow_burn"):
             updates["burn_after_download"] = bool(params.get("burn_after_download"))
+        # Recipient code: the sender may ARM the gate, never disarm it. When
+        # the instance requires it for everyone, the per-transfer flag adds
+        # nothing (_recipient_otp_required ORs the two) and a client sending
+        # false must not read as an opt-out.
+        if params.get("force_recipient_otp") and (
+                limits.get("allow_recipient_otp")
+                or limits.get("recipient_otp_forced")):
+            # Pinned on the transfer even when the instance already forces it:
+            # the sender was promised a gate, and turning the instance setting
+            # off later must not retroactively open what they sent.
+            updates["force_recipient_otp"] = True
+        # Download budget: a ceiling the sender sets, 0 = unlimited. Capped so
+        # a client cannot turn the field into an unbounded counter.
+        if "max_downloads" in params:
+            try:
+                budget = int(params.get("max_downloads") or 0)
+            except (TypeError, ValueError):
+                budget = 0
+            updates["max_downloads"] = min(
+                max(0, budget), limits.get("max_download_budget") or 0)
+        # Download notice to the sender: the brand's policy is the default,
+        # the sender gets the last word on their own transfer.
+        if "notify_on_download" in params:
+            updates["notify_on_download"] = bool(params.get("notify_on_download"))
         if updates:
             transfer.write(updates)
         password = params.get("password")

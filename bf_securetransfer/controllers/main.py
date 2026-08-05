@@ -26,7 +26,7 @@ import re
 import threading
 import time
 from collections import defaultdict
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 from markupsafe import Markup
 
@@ -49,19 +49,16 @@ _TOKEN_RE = re.compile(r"^[0-9a-f]{32}$")
 # ── Client identification ─────────────────────────────────────────────────────
 
 def _client_ip():
-    """Return the real client IP, honoring X-Real-IP / X-Forwarded-For.
+    """Best-effort client IP for rate limiting — socket peer only.
 
-    Odoo's proxy_mode applies ProxyFix at the WSGI layer, but that rewrite only
-    fires when the raw REMOTE_ADDR matches a trusted proxy. Reading the headers
-    ourselves (first hop only) keeps the rate-limit buckets per-client instead
-    of per-proxy, mirroring bf_sign.
+    This deployment runs Odoo with ``proxy_mode = True``, so werkzeug's ProxyFix
+    has already rewritten ``remote_addr`` to the real client from a trusted number
+    of proxy hops. We must NOT parse X-Forwarded-For / X-Real-IP ourselves: those
+    headers are attacker-controlled when the endpoint is reached directly, which
+    would let a client rotate its rate-limit / OTP / password-fail bucket on every
+    request and defeat the limiter. Mirrors bf_meeting.
     """
     try:
-        env = request.httprequest.environ
-        for key in ("HTTP_X_REAL_IP", "HTTP_X_FORWARDED_FOR"):
-            value = env.get(key, "")
-            if value:
-                return value.split(",")[0].strip()
         return request.httprequest.remote_addr or "unknown"
     except Exception:
         return "unknown"
@@ -72,6 +69,15 @@ def _user_agent():
         return request.httprequest.headers.get("User-Agent", "")[:512]
     except Exception:
         return ""
+
+
+def _content_disposition(filename):
+    """RFC 6266 attachment header, with an ASCII fallback for the filename."""
+    name = filename or "document.pdf"
+    ascii_fallback = name.encode("ascii", "ignore").decode() or "document.pdf"
+    return 'attachment; filename="%s"; filename*=UTF-8\'\'%s' % (
+        ascii_fallback, quote(name),
+    )
 
 
 # ── In-memory rate limiting ───────────────────────────────────────────────────
@@ -135,6 +141,12 @@ _REPORT_MAX = 5
 # Recipient OTP verification attempts, keyed by (IP, transfer).
 _otp_fail_limiter = _SlidingWindowLimiter(900)
 _OTP_FAIL_MAX = 8
+# Cap SUCCESSFUL OTP sends (not just failures) to stop a link holder from
+# looping /otp-request into an email/SMS flood (SMS has real per-message cost).
+# Mirrors bf_sign's OTP_MAX_SENDS + cooldown.
+_otp_send_limiter = _SlidingWindowLimiter(900)
+_OTP_SEND_MAX = 10
+_otp_cooldown_limiter = _SlidingWindowLimiter(30)
 
 # Upload plumbing (register/presign/multipart/remove): 120/min/IP across the
 # whole set — anti presign-farming (plan §Table des routes).
@@ -289,6 +301,27 @@ def _apply_locale():
     return lang
 
 
+# ── Page rendering ────────────────────────────────────────────────────────────
+
+# ⚠ The doctype is injected HERE, not written in the templates. Odoo skips the
+# translation of a whole view whose arch starts with a doctype
+# (`tools/translate.py`: `avoid_pattern` is tested on the root node's own text,
+# and `process()` returns before visiting a single child). With the doctype in
+# the arch, the three public pages exported ZERO translatable terms and stayed
+# French for an en_CA visitor no matter what the .po file said — silently, since
+# nothing errors out. Keep it out of the arch.
+DOCTYPE = Markup("<!DOCTYPE html>")
+
+
+def _render_page(template, values):
+    """Render a standalone public page (adds the doctype the arch cannot hold).
+
+    Every public page goes through here; a direct ``request.render`` would ship
+    a doctype-less document and put the browser in quirks mode.
+    """
+    return request.render(template, dict(values, doctype=DOCTYPE))
+
+
 # ── Client-side extension mirror ──────────────────────────────────────────────
 
 # The authoritative deny-list check lives in secure.transfer.file
@@ -365,10 +398,13 @@ _UI_STRINGS = {
         "copied": "Lien copié !",
         "finalizing": "Vérification des fichiers…",
         "send": "Obtenir le lien",
+        # Drop page (fixed recipient): the file goes straight to the page
+        # owner, so the button says "send" rather than "get the link".
+        "send_drop": "Envoyer les fichiers",
         "send_message": "Envoyer le message",
         # Distinct from "message_required" above, which is the VALIDATION
         # ERROR. These two are the field LABEL in each tab; reusing the same
-        # key would silently replace the error text with "Message *".
+        # key silently replaced the error text with "Message *".
         "message_label_required": "Message *",
         "message_label_optional": "Message (optionnel)",
         "otp_resent": "Un nouveau code vous a été envoyé.",
@@ -408,6 +444,7 @@ _UI_STRINGS = {
         "copied": "Link copied!",
         "finalizing": "Verifying files…",
         "send": "Get the link",
+        "send_drop": "Send files",
         "send_message": "Send the message",
         "message_label_required": "Message *",
         "message_label_optional": "Message (optional)",
@@ -488,7 +525,7 @@ class SecureTransferController(Controller):
         brand = env["secure.transfer.brand"].sudo()._from_request()
         visuals = brand._visuals()
         if not _upload_enabled(env):
-            response = request.render("bf_securetransfer.page_unavailable", {
+            response = _render_page("bf_securetransfer.page_unavailable", {
                 "brand": brand, "visuals": visuals, "locale": locale,
                 "message": _("Le service de transfert est temporairement indisponible."),
             })
@@ -500,7 +537,7 @@ class SecureTransferController(Controller):
         # is entirely server-built — no user-controlled content.
         config_json = Markup(
             json.dumps(config, ensure_ascii=False).replace("</", "<\\/"))
-        response = request.render("bf_securetransfer.page_upload", {
+        response = _render_page("bf_securetransfer.page_upload", {
             "brand": brand,
             "visuals": visuals,
             "limits": limits,
@@ -527,7 +564,7 @@ class SecureTransferController(Controller):
             return request.not_found()
         visuals = brand._visuals()
         if not _upload_enabled(env):
-            response = request.render("bf_securetransfer.page_unavailable", {
+            response = _render_page("bf_securetransfer.page_unavailable", {
                 "brand": brand, "visuals": visuals, "locale": locale,
                 "message": _("Le service de transfert est temporairement indisponible."),
             })
@@ -535,10 +572,14 @@ class SecureTransferController(Controller):
         limits = brand._effective_limits()
         config = _st_config(env, limits, locale)
         config["drop_slug"] = brand.slug
+        drop_mode = bool(brand.fixed_recipient)
+        # A drop page delivers straight to the page owner (fixed recipient);
+        # tell the JS so the send button and success panel say "sent directly"
+        # instead of "here is a link to forward".
+        config["drop_mode"] = drop_mode
         config_json = Markup(
             json.dumps(config, ensure_ascii=False).replace("</", "<\\/"))
-        drop_mode = bool(brand.fixed_recipient)
-        response = request.render("bf_securetransfer.page_upload", {
+        response = _render_page("bf_securetransfer.page_upload", {
             "brand": brand,
             "visuals": visuals,
             "limits": limits,
@@ -565,7 +606,7 @@ class SecureTransferController(Controller):
         available, reason = transfer._is_available()
         if not available:
             transfer._log("expired_hit", ip=ip, ua=ua, note=reason)
-            response = request.render("bf_securetransfer.page_unavailable", {
+            response = _render_page("bf_securetransfer.page_unavailable", {
                 "brand": brand, "visuals": visuals, "locale": locale,
                 "message": False,
             })
@@ -575,7 +616,7 @@ class SecureTransferController(Controller):
         ) if transfer.expiry_date else ""
         if transfer.has_password \
                 and not request.session.get("st_unlock_%d" % transfer.id):
-            response = request.render("bf_securetransfer.page_download", {
+            response = _render_page("bf_securetransfer.page_download", {
                 "brand": brand, "visuals": visuals, "transfer": transfer,
                 "files": transfer.file_ids.browse(), "token": token,
                 "locked": True, "pw_error": kw.get("pw_error"),
@@ -587,7 +628,7 @@ class SecureTransferController(Controller):
         # password, before the message body and files are ever rendered.
         if transfer._recipient_otp_required() \
                 and not request.session.get("st_otp_ok_%d" % transfer.id):
-            response = request.render("bf_securetransfer.page_download", {
+            response = _render_page("bf_securetransfer.page_download", {
                 "brand": brand, "visuals": visuals, "transfer": transfer,
                 "files": transfer.file_ids.browse(), "token": token,
                 "locked": False, "pw_error": False,
@@ -600,7 +641,7 @@ class SecureTransferController(Controller):
             return _apply_security_headers(response, img_host=visuals.get("logo_host"))
         transfer._log("view", ip=ip, ua=ua)
         files = transfer._downloadable_files()
-        response = request.render("bf_securetransfer.page_download", {
+        response = _render_page("bf_securetransfer.page_download", {
             "brand": brand, "visuals": visuals, "transfer": transfer,
             "files": files, "token": token, "locked": False,
             "pw_error": False, "reported": kw.get("reported"),
@@ -620,17 +661,26 @@ class SecureTransferController(Controller):
         if not transfer._recipient_otp_required() or not transfer._is_available()[0]:
             return request.redirect("/s/%s" % token, code=303)
         ip, ua = _client_ip(), _user_agent()
-        if not _otp_fail_limiter.check("%s:%s" % (ip, transfer.id), _OTP_FAIL_MAX):
+        key = "%s:%s" % (ip, transfer.id)
+        if not _otp_fail_limiter.check(key, _OTP_FAIL_MAX):
+            return request.redirect("/s/%s?otp_error=2" % token, code=303)
+        # Throttle successful sends: a per-transfer cooldown (30s) and a total
+        # cap (10 / 15 min) so a valid link can't be looped into a mail/SMS bomb.
+        if not _otp_cooldown_limiter.check(key, 1) \
+                or not _otp_send_limiter.check(key, _OTP_SEND_MAX):
             return request.redirect("/s/%s?otp_error=2" % token, code=303)
         # A blank email is a "resend" from the verify stage — reuse the address
         # already confirmed as a recipient in this session.
         email = (post.get("email") or "").strip()
         if not email:
             email = (request.session.get("st_otp_chal_%d" % transfer.id) or {}).get("email", "")
-        otp_hash, expiry = transfer.send_recipient_otp(email, ip=ip, ua=ua)
+        otp_hash, expiry = transfer._send_recipient_otp(email, ip=ip, ua=ua)
         if not otp_hash:
-            _otp_fail_limiter.hit("%s:%s" % (ip, transfer.id))
+            _otp_fail_limiter.hit(key)
             return request.redirect("/s/%s?otp_error=1" % token, code=303)
+        # Count this successful send against the cooldown + total-send caps.
+        _otp_cooldown_limiter.hit(key)
+        _otp_send_limiter.hit(key)
         request.session["st_otp_chal_%d" % transfer.id] = {
             "hash": otp_hash,
             "expiry": fields.Datetime.to_string(expiry),
@@ -707,12 +757,18 @@ class SecureTransferController(Controller):
         if transfer is None or transfer.state in ("draft", "cancelled"):
             return request.not_found()
         brand = transfer.brand_id
-        visuals = brand._visuals()
+        # Only the error pages below need the visuals; the nominal path ends
+        # in a 302 to S3 or in stamped bytes and renders no template at all.
+        # Resolving them up-front billed a filestore read plus an attachment
+        # search, per image, on EVERY download.
+        def _v():
+            return brand._visuals()
         ip, ua = _client_ip(), _user_agent()
         available, reason = transfer._is_available()
         if not available:
             transfer._log("expired_hit", ip=ip, ua=ua, note=reason)
-            response = request.render("bf_securetransfer.page_unavailable", {
+            visuals = _v()
+            response = _render_page("bf_securetransfer.page_unavailable", {
                 "brand": brand, "visuals": visuals, "locale": locale,
                 "message": False,
             })
@@ -736,7 +792,8 @@ class SecureTransferController(Controller):
         except Exception:
             _logger.exception(
                 "bf_securetransfer: S3 HEAD failed for %s", transfer.name)
-            response = request.render("bf_securetransfer.page_unavailable", {
+            visuals = _v()
+            response = _render_page("bf_securetransfer.page_unavailable", {
                 "brand": brand, "visuals": visuals, "locale": locale,
                 "message": _("Le téléchargement est temporairement indisponible. "
                              "Réessayez plus tard."),
@@ -749,7 +806,8 @@ class SecureTransferController(Controller):
                 "bf_securetransfer: integrity mismatch on %s / file #%s "
                 "(stored etag %s, live %s)", transfer.name, rec_file.id,
                 rec_file.etag, head and head.get("etag"))
-            response = request.render("bf_securetransfer.page_unavailable", {
+            visuals = _v()
+            response = _render_page("bf_securetransfer.page_unavailable", {
                 "brand": brand, "visuals": visuals, "locale": locale,
                 "message": _("Ce fichier n'est plus disponible : son intégrité "
                              "n'a pas pu être vérifiée."),
@@ -760,7 +818,8 @@ class SecureTransferController(Controller):
         except Exception:
             _logger.exception(
                 "bf_securetransfer: presign GET failed for %s", transfer.name)
-            response = request.render("bf_securetransfer.page_unavailable", {
+            visuals = _v()
+            response = _render_page("bf_securetransfer.page_unavailable", {
                 "brand": brand, "visuals": visuals, "locale": locale,
                 "message": _("Le téléchargement est temporairement indisponible. "
                              "Réessayez plus tard."),
@@ -768,6 +827,19 @@ class SecureTransferController(Controller):
             return _apply_security_headers(response, img_host=visuals.get("logo_host"))
         # _register_download logs the download event itself (choke-point).
         transfer._register_download(rec_file, ip, ua)
+        # Watermarked brands: Odoo fetches the object and serves the stamped
+        # bytes itself. Everything else keeps the direct-to-S3 redirect, so the
+        # bytes never touch Odoo. Returns None whenever stamping does not apply
+        # or fails — the download still goes through, unstamped.
+        stamped = transfer._stamped_download_bytes(rec_file, ip)
+        if stamped is not None:
+            return request.make_response(stamped, headers=[
+                ("Content-Type", "application/pdf"),
+                ("Content-Disposition", _content_disposition(rec_file.filename)),
+                ("Content-Length", str(len(stamped))),
+                ("Cache-Control", "no-store"),
+                ("X-Content-Type-Options", "nosniff"),
+            ])
         return request.redirect(url, code=302, local=False)
 
     # ── Abuse report ──────────────────────────────────────────────────────────

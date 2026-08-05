@@ -121,6 +121,36 @@ def key_prefix(env):
     return raw.strip("/") or "transfers"
 
 
+def _orphan_expiry_days(env):
+    """How long the provider-side net waits before deleting anything still
+    sitting under our prefix.
+
+    It is a LAST RESORT behind ``_cron_purge_expired``, so it must stay above
+    the longest legitimate retention — otherwise the net races the module's own
+    purge and deletes a transfer that is still alive. (IZOData ships a 45-day
+    policy; a flat 45-day rule here would expire those files on their last
+    day.) Hence: the longest retention any brand can grant, plus two weeks of
+    slack, and never under 60 days.
+    """
+    longest = 0
+    # active_test=False on purpose: archiving a brand does NOT expire the
+    # transfers it already granted. Reading only active brands would shrink
+    # the net back to 60 days while a 105-day transfer is still alive under
+    # the prefix — the provider would then delete it before its promised date,
+    # which is the exact failure this function exists to prevent.
+    brands = env["secure.transfer.brand"].sudo().with_context(
+        active_test=False).search([])
+    if brands:
+        longest = max(brands.mapped("max_retention_days") or [0])
+    for key in ("default_free_max_retention_days",
+                "default_paid_max_retention_days"):
+        try:
+            longest = max(longest, int(param(env, key, 0) or 0))
+        except (TypeError, ValueError):
+            pass
+    return max(60, longest + 15)
+
+
 def params(env):
     """Resolved connection parameters. Raises UserError on any missing piece
     (endpoint, bucket, credentials) with a message safe to surface."""
@@ -540,27 +570,35 @@ def setup_bucket(env):
             return False, "aucune origine (param cors_origins vide et aucun domaine de marque) — CORS non appliqué"
         return True, "CORS appliqué (PUT seulement, ExposeHeaders ETag), origins fusionnées : %s" % ", ".join(merged)
 
-    # -- lifecycle safety net behind the purge cron; E2 support unconfirmed.
+    # -- lifecycle safety net behind the purge cron.
     # Shared-bucket aware: rule IDs carry the tenant prefix and rules from
     # OTHER prefixes are preserved (PutBucketLifecycleConfiguration replaces
     # the whole config, so this is a read-merge-write).
+    #
+    # IDrive E2 rejects AbortIncompleteMultipartUpload (InvalidRequest — it does
+    # not validate that element) but accepts Expiration. Because both rules used
+    # to travel in ONE call, the whole configuration was refused and NO lifecycle
+    # was ever applied, on any tenant. They are now sent separately, so the abort
+    # rule degrades to a reported warning instead of taking the expiry rule down
+    # with it. What is lost is only the provider-side belt: stale multipart
+    # uploads are already swept application-side by ``_cron_gc_drafts`` (see
+    # ``list_stale_mpus``), which runs daily.
     def probe_lifecycle():
         prefix = key_prefix(env)
-        ours = [
-            {
-                "ID": "st-abort-incomplete-mpu-%s" % prefix,
-                "Status": "Enabled",
-                "Filter": {"Prefix": prefix + "/"},
-                "AbortIncompleteMultipartUpload": {"DaysAfterInitiation": 2},
-            },
-            {
-                "ID": "st-expire-orphans-%s" % prefix,
-                "Status": "Enabled",
-                "Filter": {"Prefix": prefix + "/"},
-                "Expiration": {"Days": 45},
-            },
-        ]
-        our_ids = {r["ID"] for r in ours}
+        expire_days = _orphan_expiry_days(env)
+        abort_rule = {
+            "ID": "st-abort-incomplete-mpu-%s" % prefix,
+            "Status": "Enabled",
+            "Filter": {"Prefix": prefix + "/"},
+            "AbortIncompleteMultipartUpload": {"DaysAfterInitiation": 2},
+        }
+        expire_rule = {
+            "ID": "st-expire-orphans-%s" % prefix,
+            "Status": "Enabled",
+            "Filter": {"Prefix": prefix + "/"},
+            "Expiration": {"Days": expire_days},
+        }
+        our_ids = {abort_rule["ID"], expire_rule["ID"]}
         foreign = []
         try:
             conf = c.get_bucket_lifecycle_configuration(Bucket=p["bucket"])
@@ -571,13 +609,30 @@ def setup_bucket(env):
             code = e.response.get("Error", {}).get("Code") or ""
             if code not in ("NoSuchLifecycleConfiguration", "404", "NotFound"):
                 raise
-        c.put_bucket_lifecycle_configuration(
-            Bucket=p["bucket"],
-            LifecycleConfiguration={"Rules": foreign + ours},
-        )
+
+        def put(rules):
+            c.put_bucket_lifecycle_configuration(
+                Bucket=p["bucket"], LifecycleConfiguration={"Rules": rules},
+            )
+
+        try:
+            put(foreign + [abort_rule, expire_rule])
+        except ClientError as e:
+            if (e.response.get("Error", {}).get("Code") or "") != "InvalidRequest":
+                raise
+            # The provider choked on the abort rule: keep the one that matters.
+            put(foreign + [expire_rule])
+            return True, (
+                "expiration des orphelins posée sur %s/ à %d j ; abandon des "
+                "multipart incomplets REFUSÉ par le fournisseur (non supporté) "
+                "— sans effet ici, le module n'ouvre jamais de multipart. "
+                "%d règle(s) étrangère(s) préservée(s)"
+                % (prefix, expire_days, len(foreign))
+            )
         return True, (
-            "lifecycle appliqué sur %s/ (abort MPU 2 j + expiration 45 j), "
-            "%d règle(s) étrangère(s) préservée(s)" % (prefix, len(foreign))
+            "lifecycle appliqué sur %s/ (abort MPU 2 j + expiration %d j), "
+            "%d règle(s) étrangère(s) préservée(s)"
+            % (prefix, expire_days, len(foreign))
         )
 
     # -- full presigned round-trip: PUT → HEAD → GET → DELETE

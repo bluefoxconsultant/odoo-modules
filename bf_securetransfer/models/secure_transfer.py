@@ -18,15 +18,16 @@ import json
 import logging
 import secrets
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 from passlib.context import CryptContext
 from werkzeug.utils import secure_filename
 
 from odoo import _, api, fields, models
-from odoo.exceptions import UserError
+from odoo.exceptions import UserError, ValidationError
 from odoo.tools import email_normalize, email_split, html_escape
 
+from . import pdf_watermark
 from . import s3
 from . import sms
 from .secure_transfer_file import DENY_EXTENSIONS
@@ -39,8 +40,15 @@ _pwd_ctx = CryptContext(schemes=["pbkdf2_sha512"])
 MAX_RECIPIENTS = 10
 MAX_MESSAGE_LEN = 2000
 MAX_NAME_LEN = 128
+# Public form ceiling for the download budget (0 = unlimited stays possible).
+MAX_DOWNLOAD_BUDGET = 100
 # Bucket sweep grace: an MPU younger than this may belong to a live upload.
 MPU_SWEEP_GRACE_HOURS = 48
+# What replaces the token in the bodies the record retains. Deliberately a
+# readable, obviously-dead placeholder rather than a blank: the reader sees
+# THAT a link was sent and that it was masked, and clicking it lands on the
+# neutral "no longer available" page instead of the files.
+SHARE_TOKEN_MASK = "jeton-masque"
 
 
 class SecureTransfer(models.Model):
@@ -131,7 +139,10 @@ class SecureTransfer(models.Model):
         default="fr_CA",
         required=True,
     )
-    retention_days = fields.Integer(string="Rétention (jours)", default=7)
+    retention_days = fields.Integer(
+        string="Rétention (jours)",
+        default=lambda self: self._default_retention_days(),
+    )
     expiry_date = fields.Datetime(string="Expire le", copy=False)
     password_hash = fields.Char(
         string="Empreinte du mot de passe",
@@ -177,6 +188,19 @@ class SecureTransfer(models.Model):
              "message et les fichiers s'affichent — le contenu reste retenu "
              "jusqu'à cette preuve d'identité.",
     )
+    # What the operator actually needs to read off the form: the EFFECTIVE
+    # gate. force_recipient_otp alone is misleading — an instance that requires
+    # the code for every transfer leaves that box unticked, so a gated transfer
+    # looks wide open (and its retained link looks like a leak when it is not).
+    recipient_otp_status = fields.Selection(
+        selection=[
+            ("off", "Aucun — le lien seul ouvre le contenu"),
+            ("transfer", "Exigé pour ce transfert"),
+            ("instance", "Exigé par le réglage d'instance"),
+        ],
+        string="Code du destinataire",
+        compute="_compute_recipient_otp_status",
+    )
     recipient_otp_channel = fields.Selection(
         selection=[("email", "Courriel"), ("sms", "SMS")],
         string="Canal du code destinataire",
@@ -217,6 +241,64 @@ class SecureTransfer(models.Model):
          "Ce jeton de téléversement existe déjà."),
     ]
 
+    # ------------------------------------------------------------------ retention guard
+    @api.model
+    def _default_retention_days(self):
+        """Défaut aligné sur ce que la marque offre RÉELLEMENT.
+
+        ⚠ Le défaut était `7` en dur. Une marque dont `max_retention_days` tombe
+        entre 1 et 6 ne propose que `[1]` : le défaut violait alors à lui seul la
+        contrainte ci-dessous, sur un champ que l'appelant n'avait même pas
+        renseigné.
+
+        ⚠ On garde 7 quand 7 est offert. Prendre systématiquement `choices[0]`
+        aurait fait tomber le défaut de 7 à 1 jour sur TOUS les locataires — un
+        raccourcissement silencieux de la durée de vie des liens d'envoi interne,
+        que personne n'a demandé. Le repli va vers la durée la plus COURTE offerte,
+        jamais la plus longue : sur un produit de confidentialité, se tromper de
+        défaut doit se tromper du côté prudent.
+        """
+        brand = self.env["secure.transfer.brand"].browse(
+            self.env.context.get("default_brand_id")
+        )
+        if not brand.exists():
+            brand = self.env["secure.transfer.brand"].search([], limit=1)
+        if not brand:
+            return 7
+        choices = brand._effective_limits()["expiry_choices"]
+        if not choices:
+            return 7
+        return 7 if 7 in choices else choices[0]
+
+    @api.constrains("retention_days", "brand_id")
+    def _check_retention_offered(self):
+        """La durée de rétention doit être une de celles que la marque offre.
+
+        ⚠ Ce contrôle n'existait QUE dans `api_create()`, c'est-à-dire sur le seul
+        chemin public. L'assistant d'envoi interne, le `write` de finalisation de
+        `upload_api` et tout appel ORM/XML-RPC pouvaient poser n'importe quelle
+        durée. Or la règle de cycle de vie du seau S3 est écrite d'après la plus
+        longue rétention qu'une marque peut accorder : une durée hors grille
+        promet au client une date que le fournisseur de stockage ne tiendra pas.
+
+        Posé en `@api.constrains` plutôt que dans `create()` : il couvre ainsi
+        create ET write d'un seul geste, et Odoo 18 injecte les défauts avant
+        validation, donc il mord même quand l'appelant omet le champ.
+        """
+        for rec in self:
+            if not rec.brand_id:
+                continue
+            choices = rec.brand_id._effective_limits()["expiry_choices"]
+            if rec.retention_days not in choices:
+                raise ValidationError(_(
+                    "Durée de rétention non offerte pour « %(brand)s » : "
+                    "%(asked)s jour(s) demandé(s), alors que ce service offre "
+                    "%(choices)s.",
+                    brand=rec.brand_id.display_name,
+                    asked=rec.retention_days,
+                    choices=", ".join(str(c) for c in choices),
+                ))
+
     # ------------------------------------------------------------------ computes / CRUD
     @api.depends("file_ids.size")
     def _compute_total_size(self):
@@ -227,6 +309,18 @@ class SecureTransfer(models.Model):
     def _compute_file_count(self):
         for rec in self:
             rec.file_count = len(rec.file_ids)
+
+    @api.depends("force_recipient_otp")
+    def _compute_recipient_otp_status(self):
+        # The instance setting is read once per batch: it is the same answer
+        # for every record and it costs a config-parameter query.
+        instance = self._needs_recipient_otp_param()
+        for rec in self:
+            rec.recipient_otp_status = (
+                "transfer" if rec.force_recipient_otp
+                else "instance" if instance
+                else "off"
+            )
 
     @api.depends("password_hash")
     def _compute_has_password(self):
@@ -366,9 +460,17 @@ class SecureTransfer(models.Model):
         except (TypeError, ValueError):
             retention = 0
         if not retention:
+            # ⚠ Le repli allait vers `choices[-1]`, c'est-à-dire la durée la plus
+            # LONGUE offerte. Sur un produit de confidentialité, un défaut absent
+            # ne doit pas se résoudre en « garde le fichier le plus longtemps
+            # possible ». Repli vers la plus courte, 7 restant privilégié quand il
+            # est offert — mêmes règles que `_default_retention_days`.
             choices = limits["expiry_choices"]
-            retention = 7 if 7 in choices else choices[-1]
+            retention = (7 if 7 in choices else choices[0]) if choices else 7
         if retention not in limits["expiry_choices"]:
+            # Message d'usage sur le chemin public ; la ceinture est le
+            # `@api.constrains` `_check_retention_offered`, qui couvre les
+            # chemins internes.
             raise UserError(_("Durée de rétention non offerte pour ce service."))
 
         try:
@@ -460,9 +562,8 @@ class SecureTransfer(models.Model):
         limits = self.brand_id._effective_limits()
 
         # -- name sanitation (bf_survey_upload pattern): secure_filename
-        # strips Unicode so it only derives a safe extension; the stored
-        # display name keeps Unicode but drops path components, control
-        # chars and CR-LF, capped at 255.
+        # sanitises; the stored display name keeps Unicode but drops path
+        # components, control chars and CR-LF, capped at 255.
         stripped = secure_filename(filename or "") or ""
         raw_name = (filename or "").replace("\\", "/").rsplit("/", 1)[-1]
         # The extension comes from the RAW name, never from secure_filename's
@@ -686,13 +787,19 @@ class SecureTransfer(models.Model):
         via ``self.with_context(lang=…)._otp_email(...)`` for the contact's
         language. ``kind`` is 'sender' or 'recipient'."""
         self.ensure_one()
+        # Resolve the brand visuals ONCE. Each call walks up to four binary
+        # fields, and for every one of them reads the filestore just to test
+        # presence and then searches ir.attachment — so calling it three times
+        # to build a single e-mail meant a dozen attachment searches per code
+        # sent.
+        visuals = self.brand_id._visuals()
         if kind == "sender":
             intro = _("Bonjour %s, confirmez votre envoi avec ce code :") \
                 % (self.sender_name or "")
         else:
             intro = _("Un expéditeur vous a partagé des fichiers via %s. "
                       "Saisissez ce code pour y accéder :") \
-                % self.brand_id._visuals()["name"]
+                % visuals["name"]
         inner = (
             '<p>%s</p>'
             '<p style="text-align:center;margin:24px 0;">'
@@ -700,7 +807,7 @@ class SecureTransfer(models.Model):
             'letter-spacing:8px;background:#f4f6f8;border-radius:8px;padding:14px 24px;'
             'color:%s;">%s</span></p>'
             '<p style="color:#777;font-size:12px;">%s</p>'
-            % (html_escape(intro), html_escape(self.brand_id._visuals()["dark"]), code,
+            % (html_escape(intro), html_escape(visuals["dark"]), code,
                html_escape(_("Ce code expire dans 15 minutes. Si vous n'êtes pas "
                              "à l'origine de cette demande, ignorez ce courriel."))))
         self.env["mail.mail"].sudo().create({
@@ -873,11 +980,17 @@ class SecureTransfer(models.Model):
             return "sms"
         return "email"
 
-    def send_recipient_otp(self, email, ip=None, ua=None):
+    def _send_recipient_otp(self, email, ip=None, ua=None):
         """Send a fresh code to a declared recipient over the elected channel
         (SMS when available, else e-mail). Returns ``(hash, expiry_datetime)``
         for the controller to stash in the session, or (None, None) when the
-        email is not one of the recipients."""
+        email is not one of the recipients.
+
+        Private on purpose: it returns an OTP-derived hash and triggers an
+        outbound email/SMS, so it must not be reachable over RPC (a read-only
+        ``group_securetransfer_user`` could otherwise recover the 6-digit code
+        offline and spam the recipient). Only the public /otp-request controller
+        calls it, on a token-resolved transfer, behind a send rate limit."""
         self.ensure_one()
         if not self._is_recipient_email(email):
             return None, None
@@ -973,7 +1086,8 @@ class SecureTransfer(models.Model):
         # transfer, not on the first file. A browser fetches one file per
         # request, so burning on the first download strands every remaining
         # attachment — the recipient is left with file 1 of N and a dead link,
-        # which is exactly what the public label promises not to do.
+        # which is exactly what the public label promises not to do
+        # ("dès qu'un destinataire a téléchargé les fichiers", plural).
         # Files that were never downloadable (upload error, scanner hit) are
         # excluded, otherwise they would hold the burn open forever.
         # The presigned GET already issued (short TTL) finishes the in-flight
@@ -989,6 +1103,51 @@ class SecureTransfer(models.Model):
         elif self.max_downloads and self.download_count >= self.max_downloads:
             self.state = "expired"
             self._log("expired", note=_("Budget de téléchargements épuisé"))
+
+    # ── Watermarked delivery ──────────────────────────────────────────────────
+    # Above this size Odoo declines to stamp and hands out the plain presigned
+    # redirect instead: stamping loads the whole PDF in memory, and no document
+    # is worth an OOM on a shared worker.
+    _WATERMARK_MAX_BYTES = 30 * 1024 * 1024
+
+    def _watermark_lines(self, file, ip=None):
+        """The three lines stamped on the page: who, when, whose brand.
+
+        "Who" is the recipient when the transfer names exactly one — with
+        several, no single name is true, so the requesting IP is stamped
+        instead. It is the only identifying trace we hold at download time.
+        """
+        self.ensure_one()
+        recipients = self._recipient_list()
+        who = recipients[0] if len(recipients) == 1 else (
+            ("IP " + ip) if ip else _("destinataire"))
+        return [
+            _("Téléchargé par %s") % who,
+            datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+            _("%s — confidentiel") % (self.brand_id.name or ""),
+        ]
+
+    def _stamped_download_bytes(self, file, ip=None):
+        """Stamped PDF bytes for this download, or None to serve the plain S3
+        redirect (watermark off for the brand, not a PDF, too large, or the
+        stamping failed). A stamping failure must never cost the recipient the
+        download — it degrades to the unstamped file, it does not 500."""
+        self.ensure_one()
+        if not self.brand_id.watermark_downloads or not file._is_pdf():
+            return None
+        size = file.size_confirmed or file.size or 0
+        if size and size > self._WATERMARK_MAX_BYTES:
+            return None
+        try:
+            src = s3.client(self.env).get_object(
+                Bucket=s3.params(self.env)["bucket"], Key=file.s3_key,
+            )["Body"].read()
+            return pdf_watermark.stamp_pdf_bytes(src, self._watermark_lines(file, ip))
+        except Exception:  # noqa: BLE001 — S3/PDF: log and fall back, never fail
+            _logger.exception(
+                "bf_securetransfer: watermarking failed for %s / file #%s; "
+                "serving the plain redirect", self.name, file.id)
+            return None
 
     def _notify_download(self):
         """Queue the 'your transfer was downloaded' notice to the sender."""
@@ -1011,6 +1170,84 @@ class SecureTransfer(models.Model):
         return "%s/s/%s" % (
             self.brand_id._share_base_url(), self.sudo().token,
         )
+
+    # ------------------------------------------------------- chatter hygiene
+    # The e-mails carrying the share link are stored ON the transfer
+    # (mail.mail _inherits mail.message), so their rendered body lands in the
+    # record's chatter and stays there for good. That copy went around both
+    # guards the module puts on the capability: the ``token`` field is
+    # manager-only, and every backend look is supposed to go through the
+    # journaled reveal wizard. Anyone allowed to READ a transfer could read a
+    # live link out of the chatter instead, and nothing recorded that they did.
+    #
+    # When a recipient code holds the content, the link alone opens nothing, so
+    # the copy is harmless and is left in place. Without that code, the link IS
+    # the credential — it gets blotted out of everything the record retains.
+    def _keeps_share_link(self):
+        """Whether this transfer may retain its raw link in the chatter."""
+        self.ensure_one()
+        return self._recipient_otp_required()
+
+    def _redact_chatter_links(self, force=False):
+        """Mask the share token in every message body retained on these
+        transfers. Returns the number of bodies rewritten.
+
+        Re-evaluated on every pass rather than decided once at send time: a
+        transfer protected only by the instance-wide setting must have its old
+        messages blotted too the day that setting is turned back off.
+        """
+        Message = self.env["mail.message"].sudo()
+        Mail = self.env["mail.mail"].sudo()
+        rewritten = 0
+        for rec in self.sudo():
+            token = rec.token
+            if not token or (not force and rec._keeps_share_link()):
+                continue
+            hit = False
+            for msg in Message.search([("model", "=", rec._name),
+                                       ("res_id", "=", rec.id)]):
+                body = msg.body or ""
+                if token not in body:
+                    continue
+                # A queued e-mail still needs its real link to reach the
+                # recipient: leave it alone and let the sweep take it once the
+                # queue reports it sent (or gave up).
+                mail = Mail.search([("mail_message_id", "=", msg.id)], limit=1)
+                if mail and mail.state in ("outgoing", "exception"):
+                    continue
+                msg.write({"body": body.replace(token, SHARE_TOKEN_MASK)})
+                if mail and token in (mail.body_html or ""):
+                    mail.write({
+                        "body_html": mail.body_html.replace(
+                            token, SHARE_TOKEN_MASK),
+                    })
+                hit = True
+                rewritten += 1
+            if hit:
+                rec._log(
+                    "link_redacted", actor="system",
+                    note=_("Lien de partage masqué dans le suivi du transfert "
+                           "(aucun code destinataire n'en garde l'accès)."),
+                )
+        return rewritten
+
+    @api.model
+    def _cron_redact_chatter_links(self, limit=2000):
+        """Safety net behind the post-send hook: catches the messages it could
+        not touch (mail still queued, send retried, instance setting flipped
+        off after the fact) and anything imported outside the send path."""
+        Message = self.env["mail.message"].sudo()
+        messages = Message.search(
+            [("model", "=", self._name), ("body", "ilike", "%/s/%")],
+            order="id desc", limit=limit,
+        )
+        transfers = self.browse(sorted(set(messages.mapped("res_id")))).exists()
+        rewritten = transfers._redact_chatter_links()
+        if rewritten:
+            _logger.info(
+                "bf_securetransfer: %s message body(ies) redacted "
+                "(share link no longer retained in the chatter)", rewritten)
+        return rewritten
 
     # ------------------------------------------------------------------ emails
     def _lang_for_email(self, email):
@@ -1037,7 +1274,13 @@ class SecureTransfer(models.Model):
         )
         # Two situations must NOT carry the message body in the notification —
         # in clear, it would sit in the recipient's inbox and defeat the point:
-        #   • the content is held behind a recipient code (force_recipient_otp);
+        #   • the content is held behind a recipient code — which is the
+        #     per-transfer force flag OR the instance-wide setting, i.e.
+        #     _recipient_otp_required(), the SAME predicate the download
+        #     controller gates on. Testing only the per-transfer flag here
+        #     silently defeated the instance-wide setting: the gate held the
+        #     files, but the notification still carried the message body and
+        #     the filename/size listing into the recipient's inbox;
         #   • the transfer is message-only (no files — the message ITSELF is the
         #     payload, e.g. a secure note or a password typed in « Message seul »).
         # Both use the link-only "secure message awaits you" template, whose body
@@ -1053,12 +1296,6 @@ class SecureTransfer(models.Model):
         for rec in self:
             recipients = rec._recipient_list()
             message_only = not rec.file_ids and bool((rec.message or "").strip())
-            # The gate is the per-transfer force flag OR the instance-wide
-            # setting, i.e. _recipient_otp_required() — the SAME predicate the
-            # download controller gates on. Testing only the per-transfer flag
-            # silently defeated the instance-wide setting: the gate held the
-            # files, but the notification still carried the message body and
-            # the filename/size listing into the recipient's inbox.
             tmpl = (secure_tmpl
                     if (rec._recipient_otp_required() or message_only)
                     and secure_tmpl
@@ -1177,6 +1414,54 @@ class SecureTransfer(models.Model):
             "context": {"default_transfer_id": self.id},
         }
 
+    def action_require_recipient_otp(self):
+        """Arm the recipient code on a transfer that was already sent.
+
+        The link itself does not change: the next visitor has to prove they
+        hold one of the recipient addresses before the message or the files
+        are rendered. What already left is NOT recalled — an e-mail sent
+        before the gate was armed keeps whatever it carried, which is exactly
+        why the option belongs on the public form too.
+
+        ⚠ A method without a leading underscore is an RPC surface: the button's
+        ``groups=`` attribute only guards the UI. The securetransfer USER group
+        is read-only on secure.transfer (ir.model.access.csv), so writing the
+        flag in sudo would have let a read-only account change a transfer over
+        XML-RPC. The check below plus the plain (non-sudo) write put the ACL
+        back in charge — same posture as the reveal wizard.
+        """
+        if not self.env.user.has_group(
+                "bf_securetransfer.group_securetransfer_manager"):
+            raise UserError(_(
+                "Action réservée aux gestionnaires du transfert sécurisé."
+            ))
+        for rec in self:
+            if rec.state not in ("active", "expired", "suspended"):
+                raise UserError(_(
+                    "Seul un transfert actif, expiré ou suspendu peut se voir "
+                    "exiger un code."
+                ))
+            if rec.force_recipient_otp:
+                continue
+            if not rec._recipient_list():
+                raise UserError(_(
+                    "Ce transfert n'a aucun destinataire enregistré (mode "
+                    "« lien seul ») : personne ne pourrait recevoir le code. "
+                    "Expirez-le plutôt."
+                ))
+            rec.force_recipient_otp = True
+            rec._log(
+                "otp_forced", actor=self.env.user.login,
+                note=_("Code destinataire exigé après coup ; les courriels "
+                       "déjà partis ne sont pas rappelés."),
+            )
+            rec.message_post(body=_(
+                "Code destinataire exigé après coup : le lien ne s'ouvre plus "
+                "sans un code envoyé à l'une des adresses destinataires. Les "
+                "courriels déjà partis ne sont pas rappelés."
+            ))
+        return True
+
     def action_resend_emails(self):
         """Resend the link/receipt emails for an active transfer."""
         for rec in self:
@@ -1247,6 +1532,65 @@ class SecureTransfer(models.Model):
                 "sticky": not ok,
             },
         }
+
+    # ----------------------------------------------------- access certificate
+    def _certificate_context(self):
+        """Everything the access certificate prints, resolved server-side.
+
+        The CSV export answers « give me the rows »; this answers « prove to a
+        third party what happened ». Same trail, but self-attesting: the chain
+        verdict, its two endpoints, and the exact recipe to recompute it are
+        printed alongside the entries, so the client does not have to take our
+        word for the hashes.
+        """
+        self.ensure_one()
+        entries = self.access_log_ids.sorted("id")
+        Log = self.env["secure.transfer.access.log"]
+        labels = dict(
+            Log._fields["action"]._description_selection(self.env)
+        )
+        rows = [{
+            "seq": i,
+            "timestamp": e.timestamp_utc or "",
+            "action": labels.get(e.action, e.action or ""),
+            "actor": e.actor or "",
+            "ip": e.ip or "",
+            "user_agent": (e.user_agent or "")[:60],
+            "file": e.file_id.filename if e.file_id else "",
+            "note": e.note or "",
+            "hash": e.entry_hash or "",
+        } for i, e in enumerate(entries, start=1)]
+        # Les horodatages sont rendus ici, en UTC explicite, et pas par t-field :
+        # le journal est déjà en UTC, et une date sans fuseau (« 07/13/2026 »)
+        # ne prouve rien sur une pièce qu'on oppose à quelqu'un.
+        def utc(dt):
+            return dt.strftime("%Y-%m-%d %H:%M:%S UTC") if dt else "—"
+
+        return {
+            "rows": rows,
+            "intact": entries[:1].verify_chain() if entries else True,
+            "first_hash": entries[:1].entry_hash or "" if entries else "",
+            "last_hash": entries[-1:].entry_hash or "" if entries else "",
+            "created_at": utc(self.create_date),
+            "expiry_at": utc(self.expiry_date),
+            "generated_at": datetime.now(timezone.utc).strftime(
+                "%Y-%m-%d %H:%M:%S UTC"),
+            "generated_by": self.env.user.name,
+        }
+
+    def action_print_certificate(self):
+        """Operator button: the branded, opposable access certificate (PDF).
+
+        ``config=False`` on purpose: for an admin whose company has no document
+        layout configured, ``report_action`` hijacks the print and returns the
+        « configure your layout » wizard instead of the PDF. This certificate
+        never uses the company layout — it wears the CLIENT's brand — so that
+        check is beside the point here, and it would simply block the button.
+        """
+        self.ensure_one()
+        return self.env.ref(
+            "bf_securetransfer.action_report_access_certificate"
+        ).report_action(self, config=False)
 
     # ------------------------------------------------------------------ purge
     def _purge_s3(self, actor=None):

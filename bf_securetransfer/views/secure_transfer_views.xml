@@ -42,6 +42,11 @@
                     <button name="action_reveal_link" type="object" string="Révéler le lien"
                             groups="bf_securetransfer.group_securetransfer_manager"
                             invisible="state != 'active'"/>
+                    <button name="action_require_recipient_otp" type="object"
+                            string="Exiger un code du destinataire"
+                            groups="bf_securetransfer.group_securetransfer_manager"
+                            invisible="force_recipient_otp or state not in ('active', 'expired', 'suspended')"
+                            confirm="Le lien ne s'ouvrira plus sans un code envoyé à l'une des adresses destinataires. Les courriels déjà partis ne sont pas rappelés. Continuer ?"/>
                     <button name="action_resend_emails" type="object" string="Renvoyer les courriels"
                             groups="bf_securetransfer.group_securetransfer_manager"
                             invisible="state != 'active'"
@@ -62,6 +67,8 @@
                             groups="bf_securetransfer.group_securetransfer_manager"
                             invisible="state not in ('expired', 'suspended')"
                             confirm="Les objets seront supprimés définitivement du stockage S3. Les métadonnées et le journal d'accès sont conservés. Continuer ?"/>
+                    <button name="action_print_certificate" type="object" string="Certificat d'accès (PDF)"
+                            groups="bf_securetransfer.group_securetransfer_user"/>
                     <button name="action_export_log" type="object" string="Exporter le journal (CSV)"
                             groups="bf_securetransfer.group_securetransfer_manager"/>
                     <button name="action_verify_log_chain" type="object" string="Vérifier l'intégrité"
@@ -83,9 +90,16 @@
                             <field name="brand_id" readonly="1"/>
                             <field name="locale" readonly="1"/>
                             <field name="has_password" readonly="1"/>
-                            <field name="force_recipient_otp" readonly="1"/>
+                            <!-- The EFFECTIVE gate, not the per-transfer flag:
+                                 an instance that requires the code for every
+                                 transfer leaves force_recipient_otp unticked,
+                                 which made a gated transfer read as open. The
+                                 flag stays in the view (invisible) because the
+                                 header button keys off it. -->
+                            <field name="recipient_otp_status" readonly="1"/>
+                            <field name="force_recipient_otp" invisible="1"/>
                             <field name="recipient_otp_channel" readonly="1"
-                                   invisible="not force_recipient_otp"/>
+                                   invisible="recipient_otp_status == 'off'"/>
                             <field name="notify_on_download" readonly="1"/>
                             <field name="burn_after_download" readonly="1"/>
                             <field name="expiry_date"

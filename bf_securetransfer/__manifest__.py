@@ -1,6 +1,6 @@
 {
     'name': 'Transfert sécurisé (Secure Transfer)',
-    'version': '18.0.1.6.4',
+    'version': '18.0.1.16.1',
     'category': 'Website',
     'summary': "Transfert de fichiers sécurisé : téléversement direct navigateur → S3, "
                "liens tokenisés avec expiration et mot de passe, journal d'accès "
@@ -26,6 +26,12 @@ Transfert de fichiers « WeTransfer maison » propulsé par Odoo :
   les métadonnées et le journal sont conservés (rétention paramétrable).
 * **Multi-marques** : la page publique et les courriels sont habillés selon
   le domaine d'arrivée (Host), avec repli sur la marque par défaut.
+* **Filigrane au téléchargement** (option par marque) : chaque PDF est estampé
+  au nom du destinataire et à l'horodatage du téléchargement. Odoo sert alors
+  les octets lui-même ; les autres fichiers gardent la redirection directe.
+* **Certificat d'accès (PDF)** : le journal chaîné rendu opposable — verdict
+  d'intégrité recalculé à l'impression, tailles confirmées par le serveur,
+  horodatages UTC explicites et la recette pour recalculer la chaîne soi-même.
 
 Les clés d'accès S3 vivent dans ``odoo.conf`` (ou l'environnement), jamais
 en base de données.
@@ -42,8 +48,11 @@ en base de données.
     # Declared here so Odoo blocks install on an image that lacks them (the
     # check runs BEFORE load, so this is a hard gate, not the s3.py lazy-import
     # UserError — that only covers a boto3 that breaks at runtime).
+    # reportlab draws the download watermark overlay; the PDF merge itself goes
+    # through odoo.tools.pdf, which is core. All four tenant images carry
+    # reportlab (4.1.0), so this gate costs nothing and catches an image without.
     'external_dependencies': {
-        'python': ['boto3'],
+        'python': ['boto3', 'reportlab'],
     },
     'data': [
         'security/secure_transfer_security.xml',
@@ -61,6 +70,7 @@ en base de données.
         'views/reveal_link_wizard_views.xml',
         'views/secure_send_wizard_views.xml',
         'views/menu_views.xml',
+        'report/secure_transfer_certificate.xml',
     ],
     'installable': True,
     'application': True,

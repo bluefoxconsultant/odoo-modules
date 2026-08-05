@@ -57,6 +57,8 @@ class SecureTransferAccessLog(models.Model):
             ("integrity_mismatch", "Intégrité compromise (ETag)"),
             ("abuse_report", "Signalement d'abus"),
             ("link_revealed", "Lien révélé (gestionnaire)"),
+            ("link_redacted", "Lien masqué dans le suivi"),
+            ("otp_forced", "Code destinataire exigé après coup"),
             ("expired", "Expiré"),
             ("purged", "Objets purgés du stockage"),
             ("suspended", "Suspendu"),
@@ -89,23 +91,24 @@ class SecureTransferAccessLog(models.Model):
         burn/notify — plug in here)."""
         Log = self.sudo()
         # Serialize the read-tail-then-append per transfer. Two concurrent
-        # events (two parallel GETs on /s/<token> — link scanners on a mailing
-        # list do exactly that) must not both chain onto the same tail:
-        # verify_chain would report the trail as BROKEN on the "Vérifier"
-        # button and in the CSV export, and since write/unlink are blocked
-        # here the chain could never be repaired. A concurrent read must not
-        # look like tampering.
+        # events (two parallel GETs on /s/<token> — Defender Safe Links does
+        # exactly that on an Exchange recipient list) must not both chain onto
+        # the same tail: verify_chain would report the trail as BROKEN on the
+        # "Vérifier" button, the CSV export AND the access certificate, and
+        # since write/unlink are blocked here the chain could never be
+        # repaired. A concurrent read must not look like tampering.
         #
         # ⚠️ An advisory lock is NOT enough, and that is the whole subtlety:
-        # Odoo runs every cursor in REPEATABLE READ, so a transaction's
-        # snapshot is frozen at its FIRST statement — long before this code
-        # runs. Waiters would serialize correctly and still each read the same
-        # stale tail. (Measured: 12 collisions out of 12.)
+        # Odoo runs every cursor in REPEATABLE READ (sql_db.py), so a
+        # transaction's snapshot is frozen at its FIRST statement — long
+        # before this code runs. Waiters would serialize correctly and still
+        # each read the same stale tail. (Measured: 12/12 collisions.)
         #
-        # What works is taking the parent row FOR UPDATE and *touching* it: a
-        # concurrent committed touch makes PostgreSQL raise SerializationFailure
-        # here, which odoo.service.model.retrying replays (up to 5 times) on a
-        # FRESH snapshot — the only way to see the neighbour's entry.
+        # What works is the idiom the rest of the module already uses: take
+        # the parent row FOR UPDATE and *touch* it. A concurrent committed
+        # touch makes PostgreSQL raise SerializationFailure here, which
+        # odoo.service.model.retrying replays (up to 5 times) on a FRESH
+        # snapshot — the only way to see the neighbour's entry.
         transfer._lock_row()
         self.env.cr.execute(
             "UPDATE secure_transfer SET id = id WHERE id = %s", (transfer.id,))

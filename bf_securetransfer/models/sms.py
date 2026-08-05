@@ -30,8 +30,16 @@ _logger = logging.getLogger(__name__)
 _API_URL = "https://voip.ms/api/v1/rest.php"
 _TIMEOUT = 20  # seconds — an OTP must not hang a request thread
 _TRUE_VALUES = ("1", "true", "yes", "on")
-# VoIP.ms caps a single SMS at 160 chars; keep OTP texts well under it.
-_MAX_SMS_LEN = 160
+# VoIP.ms caps a single SMS at 160 UTF-8 BYTES, not 160 characters: 160 is
+# accepted, 161 is refused with ``sms_toolong``. Every accented character costs
+# two bytes in UTF-8, so a French body can be well under 160 characters and
+# still be refused — which is how the ``sms_toolong`` failures in the send log
+# happened. Measure bytes, never len().
+_MAX_SMS_BYTES = 160
+# The VoIP.ms REST endpoint sits behind a WAF that answers 403 to urllib's
+# default User-Agent ("Python-urllib/x.y"). Any other UA is accepted; without
+# one, every call fails and send() silently falls back to e-mail.
+_USER_AGENT = "bf_securetransfer/1.0 (+https://bluefoxconsultant.com)"
 
 
 def _param(env, key, default=None):
@@ -73,6 +81,21 @@ def configured(env):
     return enabled(env) and has_credentials() and bool(did(env))
 
 
+def truncate_utf8(text, max_bytes=_MAX_SMS_BYTES):
+    """``text`` cut to at most ``max_bytes`` UTF-8 bytes, never mid-character.
+
+    VoIP.ms measures the body in bytes, so slicing on characters (``text[:160]``)
+    lets an accented French body through at up to 320 bytes and the API answers
+    ``sms_toolong``. Cutting on a raw byte slice would be worse still: it can
+    split a multi-byte character and produce a body that no longer decodes, so
+    the tail byte is dropped rather than mangled.
+    """
+    raw = (text or "").encode("utf-8")
+    if len(raw) <= max_bytes:
+        return text or ""
+    return raw[:max_bytes].decode("utf-8", "ignore")
+
+
 def normalize_na(number):
     """A bare 10-digit NANP number, or None. Accepts the usual human formats
     (+1 (514) 555-1234, 1-514-555-1234, 5145551234). A leading country code 1
@@ -100,17 +123,27 @@ def send(env, dst, message):
         _logger.warning("bf_securetransfer SMS: numéro destinataire invalide.")
         return False
     user, password = _credentials()
+    body = truncate_utf8(message)
+    if body != (message or ""):
+        # Truncation is never harmless: an OTP or a link cut in half reaches the
+        # recipient as noise. Log the sizes (no PII) so it is visible.
+        _logger.warning(
+            "bf_securetransfer SMS: corps tronqué à %s octets (était %s) — "
+            "le message a été raccourci avant l'envoi.",
+            _MAX_SMS_BYTES, len((message or "").encode("utf-8")),
+        )
     params = {
         "api_username": user,
         "api_password": password,
         "method": "sendSMS",
         "did": from_did,
         "dst": to,
-        "message": (message or "")[:_MAX_SMS_LEN],
+        "message": body,
     }
     url = _API_URL + "?" + urllib.parse.urlencode(params)
+    request = urllib.request.Request(url, headers={"User-Agent": _USER_AGENT})
     try:
-        with urllib.request.urlopen(url, timeout=_TIMEOUT) as resp:
+        with urllib.request.urlopen(request, timeout=_TIMEOUT) as resp:
             body = resp.read().decode("utf-8", "replace")
     except Exception as exc:  # noqa: BLE001 — network/HTTP: log type, fall back
         _logger.warning("bf_securetransfer SMS: échec réseau VoIP.ms (%s).",

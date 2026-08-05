@@ -29,6 +29,11 @@ _logger = logging.getLogger(__name__)
 # Retention choices offered on the public form, capped per brand.
 EXPIRY_CHOICES = (1, 7, 30)
 
+# What a Host header may contain before it is used to look up a brand.
+# Deliberately narrow: letters, digits, dot, hyphen. Notably excludes the SQL
+# LIKE metacharacters % and _, which "=ilike" would otherwise honour.
+_HOSTNAME_RE = re.compile(r"^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$")
+
 
 class SecureTransferBrand(models.Model):
     _name = "secure.transfer.brand"
@@ -69,16 +74,16 @@ class SecureTransferBrand(models.Model):
         required=True,
     )
 
-    # -- billing (paid tier). The recurring invoice is issued by the
-    #    operator's own subscription module; these fields track the
+    # -- billing (paid tier). The recurring invoice is issued by Blue Fox
+    #    (bf_subscription lives on the BF tenant); these fields track the
     #    arrangement on the brand record that serves the product.
     billing_active = fields.Boolean(
         string="Abonnement actif",
         help="La marque payante est couverte par un abonnement récurrent.",
     )
     billing_ref = fields.Char(
-        string="Réf. abonnement",
-        help="Référence de l'abonnement récurrent émis "
+        string="Réf. abonnement (BF)",
+        help="Référence de l'abonnement bf_subscription émis par Blue Fox "
              "pour ce client.",
     )
     price_year = fields.Float(
@@ -203,6 +208,22 @@ class SecureTransferBrand(models.Model):
     allow_password = fields.Boolean(
         string="Mot de passe autorisé", default=True,
     )
+    allow_recipient_otp = fields.Boolean(
+        string="Code destinataire offert", default=True,
+        help="Laisse l'expéditeur exiger, depuis la page publique, un code à "
+             "usage unique du destinataire avant l'affichage du contenu. Sans "
+             "effet quand le réglage d'instance l'exige déjà pour tous les "
+             "envois : la case est alors montrée cochée et verrouillée.",
+    )
+
+    watermark_downloads = fields.Boolean(
+        string="Filigrane au téléchargement",
+        default=False,
+        help="Estampe un filigrane d'identification (destinataire, horodatage, "
+             "marque) sur chaque PDF téléchargé via cette marque. Odoo sert "
+             "alors les octets lui-même au lieu de rediriger vers le stockage. "
+             "Sans effet sur les fichiers non-PDF.",
+    )
 
     # -- Phase 2 placeholders (schema ready, no breaking migration later)
     notify_on_download = fields.Boolean(
@@ -307,12 +328,16 @@ class SecureTransferBrand(models.Model):
         h = host.split(",")[0].split(":")[0].strip().lower()
         if not h:
             return self.browse()
-        # Escape LIKE metacharacters in the (attacker-controllable) Host so a
-        # crafted value like "%.example.test" cannot wildcard-match a brand;
-        # a legitimate domain never contains % or _, so exact matches are
-        # unaffected. =ilike with the escaped value = exact ci match.
-        h_esc = h.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        return self.sudo().search([("domain", "=ilike", h_esc)], limit=1)
+        # A Host header is entirely attacker-controlled, and "=ilike" passes
+        # its value through as a LIKE PATTERN — it does NOT escape % and _.
+        # An unescaped "Host: %" therefore matched the first brand holding a
+        # domain, handing over its skin, its limits and its email_from.
+        # Reject anything that is not a plain hostname rather than escaping:
+        # no legitimate domain contains a LIKE metacharacter, so this is a
+        # tighter guarantee than quoting them.
+        if not _HOSTNAME_RE.match(h):
+            return self.browse()
+        return self.sudo().search([("domain", "=ilike", h)], limit=1)
 
     @api.model
     def _resolve_for_slug(self, slug):
@@ -363,6 +388,9 @@ class SecureTransferBrand(models.Model):
         """Limits applied to this brand: explicit values, else the tier
         defaults from ir.config_parameter."""
         self.ensure_one()
+        # Local import: the brand module is loaded BEFORE secure_transfer (see
+        # models/__init__), and the ceiling belongs where it is enforced.
+        from .secure_transfer import MAX_DOWNLOAD_BUDGET
         env = self.env
         paid = self.tier == "paid"
         default_mb = s3._int_param(
@@ -385,6 +413,13 @@ class SecureTransferBrand(models.Model):
             "max_retention_days": int(max_days),
             "allow_password": bool(self.allow_password),
             "allow_burn": bool(self.allow_burn),
+            "allow_recipient_otp": bool(self.allow_recipient_otp),
+            # The instance-wide setting already holds EVERY transfer behind a
+            # recipient code: the public form then shows the option ticked and
+            # locked rather than letting a sender believe they can opt out.
+            "recipient_otp_forced": bool(
+                env["secure.transfer"].sudo()._needs_recipient_otp_param()),
+            "max_download_budget": MAX_DOWNLOAD_BUDGET,
             "expiry_choices": choices,
         }
 
@@ -430,7 +465,7 @@ class SecureTransferBrand(models.Model):
         return {
             "name": self.name or company.name,
             # PUBLIC branding first (appointment_brand_*, the same fields the
-            # bf_appointment public pages use — e.g. a tenant navy #1186c0),
+            # bf_appointment public pages use — e.g. a client's navy #1186c0),
             # then the backend report_brand_* (bf_onboarding_base), then a
             # hardcoded default. getattr keeps every source dependency-free.
             "primary": self.color_primary
@@ -447,7 +482,7 @@ class SecureTransferBrand(models.Model):
             "powered_by": bool(self.powered_by),
             # « Propulsé par » must credit the hosting OPERATOR, never the
             # served brand. Prefer the company's PUBLIC brand name
-            # (appointment_brand_name — e.g. the operator's brand name) over
+            # (appointment_brand_name — the public brand) over
             # res.company.name, which is often the legal entity.
             "powered_by_name": cfield("appointment_brand_name")
             or company.name or self.name,
