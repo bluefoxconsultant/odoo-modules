@@ -96,11 +96,10 @@
         <field name="arch" type="xml">
             <form>
                 <header>
-                    <button name="action_refine_meeting" type="object"
-                            string="Raffiner avec Claude"
+                    <button name="action_open_refine_wizard" type="object"
+                            string="Raffiner avec TentaClaude"
                             class="btn-primary"
-                            groups="bf_meeting.group_meeting_manager"
-                            confirm="Lancer le skill /refine-meeting sur ce compte rendu ? L'opération prend quelques minutes."/>
+                            groups="bf_meeting.group_meeting_manager"/>
                     <button name="action_set_reviewed" type="object"
                             string="Marquer révisé"
                             class="btn-primary"
@@ -247,7 +246,21 @@
                             </field>
                         </page>
                         <page string="Matrice" name="knowledge">
-                            <field name="knowledge_item_ids" widget="many2many_tags"/>
+                            <p class="text-muted">
+                                Éléments de la matrice de connaissances touchés par cette rencontre.
+                                Le raffinage les rattache <em>et</em> les enrichit (notes, état,
+                                décision) ; le code et l'intitulé permettent de contester un
+                                rattachement sans ouvrir la matrice.
+                            </p>
+                            <field name="knowledge_item_ids" nolabel="1">
+                                <list>
+                                    <field name="decision_id" string="Code"/>
+                                    <field name="name"/>
+                                    <field name="section_id" optional="show"/>
+                                    <field name="state" widget="badge"/>
+                                    <field name="deadline" optional="hide"/>
+                                </list>
+                            </field>
                         </page>
                         <page string="Verbatim" name="verbatim">
                             <field name="verbatim_html" nolabel="1"/>

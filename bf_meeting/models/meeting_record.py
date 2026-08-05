@@ -12,6 +12,12 @@ _logger = logging.getLogger(__name__)
 
 _DEFAULT_BRIDGE_SOCKET = "/run/claude-bridge/bridge.sock"
 
+# Ceiling on the free-text instructions collected by meeting.refine.wizard.
+# They are pasted into the `claude -p` prompt, so an unbounded field would
+# crowd out the skill body itself.
+_MAX_REFINE_INSTRUCTIONS = 4000
+
+
 def _format_meeting_date_display(record):
     """Format record.date with the client's tz first and the originator's tz
     second, rendered in smaller muted characters, when they differ. Returns
@@ -630,21 +636,73 @@ class MeetingRecord(models.Model):
         })
         return True
 
-    def action_refine_meeting(self):
-        """Lancer le skill /refine-meeting via le bridge Claude.
+    def action_open_refine_wizard(self):
+        """Ouvrir l'assistant de raffinage (champ libre de consignes).
 
-        Le bridge est appelé en arrière-plan (thread) parce que /refine-meeting
-        peut prendre plusieurs minutes ; le résultat est posté au chatter.
+        Remplace l'ancien dialogue `confirm=` du bouton : au lieu d'un simple
+        oui/non, le gestionnaire peut signaler ce que la passe automatique
+        a raté (un sigle massacré par la transcription, un prénom douteux,
+        un client mal routé). La revue reste complète — les consignes s'y
+        ajoutent.
+        """
+        self.ensure_one()
+        self._check_refine_access()
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Raffiner avec TentaClaude",
+            "res_model": "meeting.refine.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"default_meeting_id": self.id},
+        }
+
+    def _check_refine_access(self):
+        """Garde-fou commun à l'assistant et au lancement.
 
         Réservé aux gestionnaires (`bf_meeting.group_meeting_manager`) car le
         bridge spawn `claude -p --dangerously-skip-permissions`, qui contourne
         toute vérification de permissions côté Claude.
         """
-        self.ensure_one()
         if not self.env.user.has_group("bf_meeting.group_meeting_manager"):
             raise UserError(
                 "Le raffinement automatique est réservé aux gestionnaires "
                 "(groupe « Rencontres / Gestionnaire »)."
+            )
+
+    def action_refine_meeting(self, instructions=None):
+        """Lancer le skill /refine-meeting via le bridge Claude.
+
+        Le bridge est appelé en arrière-plan (thread) parce que /refine-meeting
+        peut prendre plusieurs minutes ; le résultat est posté au chatter.
+
+        `instructions` : texte libre saisi dans `meeting.refine.wizard`. Il est
+        posté au chatter en note interne (trace durable, et second canal de
+        lecture pour le skill) puis transmis au bridge, qui le colle dans le
+        prompt entre les marqueurs `<<<CONSIGNES` / `CONSIGNES>>>`.
+        """
+        self.ensure_one()
+        self._check_refine_access()
+
+        instructions = (instructions or "").strip()[:_MAX_REFINE_INSTRUCTIONS]
+        if instructions:
+            # mt_note : note interne, aucun courriel aux abonnés. Postée avant
+            # le lancement pour que le skill la retrouve même si le prompt a
+            # été tronqué côté bridge.
+            self.message_post(
+                body=Markup(
+                    # <div> et non <blockquote> : le sanitizer d'Odoo
+                    # marque toute blockquote comme citation de courriel
+                    # (data-o-mail-quote) et le chatter la replie derrière
+                    # un « … » — les consignes deviendraient invisibles.
+                    "<p><b>Consignes de raffinage</b> — transmises à "
+                    "TentaClaude par %s :</p>"
+                    "<div style=\"border-left:3px solid #29ABE1;"
+                    "padding-left:.75em;margin:.25em 0;color:#444;\">%s</div>"
+                ) % (
+                    self.env.user.name,
+                    escape(instructions).replace("\n", Markup("<br/>")),
+                ),
+                subtype_xmlid="mail.mt_note",
             )
 
         import os as _os
@@ -673,6 +731,7 @@ class MeetingRecord(models.Model):
                         "meeting_id": record_id,
                         "tenant": "bf",
                         "triggered_by": triggered_by,
+                        "user_notes": instructions,
                     },
                     timeout,
                 )
@@ -702,8 +761,10 @@ class MeetingRecord(models.Model):
                 "type": "info",
                 "title": "Raffinement lancé",
                 "message": (
-                    "Le skill /refine-meeting est en cours d'exécution. "
-                    "Le résultat apparaîtra au chatter dans quelques minutes."
+                    "Le skill /refine-meeting est en cours d'exécution"
+                    + (" avec vos consignes" if instructions else "")
+                    + ". Le résultat apparaîtra au chatter dans quelques "
+                    "minutes."
                 ),
                 "sticky": False,
             },

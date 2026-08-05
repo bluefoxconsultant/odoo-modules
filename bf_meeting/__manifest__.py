@@ -1,6 +1,6 @@
 {
     'name': 'Rencontres',
-    'version': '18.0.3.43.1',
+    'version': '18.0.3.44.0',
     'category': 'Services/Meetings',
     'summary': 'Gestion des rencontres, ordres du jour et comptes rendus',
     'description': """
@@ -68,6 +68,7 @@ compte rendu.
         'views/meeting_decision_views.xml',
         'views/meeting_topic_views.xml',
         'views/meeting_record_views.xml',
+        'views/meeting_refine_wizard_views.xml',
         'views/meeting_agenda_views.xml',
         'views/agenda_contrib_templates.xml',
         'views/meeting_attendance_views.xml',
