@@ -18,3 +18,12 @@ from . import corporate_officer
 from . import corporate_compliance
 from . import raci_stakeholder
 from . import project_task
+
+# Corps documentaire (sections rédigées dans Odoo)
+from . import res_company_brand
+from . import document_section_type
+from . import document_type_section
+from . import document_section
+from . import document_version_section
+from . import project_document_body
+from . import document_version_body

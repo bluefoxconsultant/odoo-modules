@@ -650,28 +650,34 @@ class ProjectDocument(models.Model):
         ])
 
         # Content quality
+        # NE PAS filtrer sur `version_count` : c'est un calculé NON STOCKÉ, et
+        # Odoo 18 écarte le critère en silence au lieu de lever -> le compteur
+        # rendait le nombre de documents actifs (191) au lieu des documents
+        # sans version (13). Le one2many, lui, est cherchable.
         docs_without_versions = Document.search_count([
             ('state', '=', 'active'),
-            ('version_count', '=', 0),
+            ('version_ids', '=', False),
         ])
 
         # Decision tracking metrics
+        # Only count decisions living in active (non-archived) matrices, so that
+        # archiving a strategic matrix removes its decisions from the dashboard.
         Item = self.env['project.knowledge.item']
-        decisions_total = Item.search_count([('item_type', '=', 'decision')])
-        decisions_accepted = Item.search_count([
+        decision_base = [
             ('item_type', '=', 'decision'),
+            ('matrix_id.active', '=', True),
+        ]
+        decisions_total = Item.search_count(decision_base)
+        decisions_accepted = Item.search_count(decision_base + [
             ('state', '=', 'accepted'),
         ])
-        decisions_proposed = Item.search_count([
-            ('item_type', '=', 'decision'),
+        decisions_proposed = Item.search_count(decision_base + [
             ('state', '=', 'proposed'),
         ])
-        decisions_rejected = Item.search_count([
-            ('item_type', '=', 'decision'),
+        decisions_rejected = Item.search_count(decision_base + [
             ('state', '=', 'rejected'),
         ])
-        decisions_high_impact = Item.search_count([
-            ('item_type', '=', 'decision'),
+        decisions_high_impact = Item.search_count(decision_base + [
             ('impact_level', '=', 'high'),
             ('state', 'in', ['pending', 'proposed']),
         ])
@@ -713,6 +719,7 @@ class ProjectDocument(models.Model):
         dashboard_url = f"{base_url}/web#action=project_knowledge_matrix.action_knowledge_dashboard"
 
         return {
+            'links': self._get_report_links(base_url, dashboard_url),
             'report_date': today.strftime('%d/%m/%Y'),
             'total_documents': total_documents,
             'active_documents': active_documents,
@@ -760,6 +767,82 @@ class ProjectDocument(models.Model):
             'documents_by_type': documents_by_type[:10],
             'dashboard_url': dashboard_url,
         }
+
+    # Chaque clé est un compteur de `_get_dashboard_report_data`; la valeur est
+    # l'action dont le domaine reproduit ce compteur. Ajouter un chiffre au
+    # courriel = ajouter son entrée ici ET son action dans
+    # views/report_drilldown_actions.xml, sinon le lien retombe muettement sur
+    # le tableau de bord.
+    _REPORT_LINK_ACTIONS = {
+        # Aperçu
+        'active_documents': 'report_action_docs_active',
+        'internal_documents': 'report_action_docs_internal',
+        'client_documents': 'report_action_docs_client',
+        'archived_documents': 'report_action_docs_archived',
+        'documents_by_type': 'report_action_docs_by_type',
+        # Attention requise
+        'expired_documents': 'report_action_docs_expired',
+        'overdue_review': 'report_action_docs_overdue_review',
+        'expiring_30d': 'report_action_docs_expiring_30d',
+        # Calendrier des révisions
+        'review_0_30': 'report_action_docs_review_0_30',
+        'review_30_60': 'report_action_docs_review_30_60',
+        'review_60_90': 'report_action_docs_review_60_90',
+        # Qualité
+        'docs_without_versions': 'report_action_docs_without_version',
+        # Documentation clients
+        'client_distributions': 'report_action_dist_client',
+        'client_ack_rate': 'report_action_dist_client_ack',
+        'client_pending': 'report_action_dist_client_pending',
+        'client_outdated': 'report_action_dist_client_outdated',
+        # Conformité interne
+        'internal_distributions': 'report_action_dist_internal',
+        'internal_compliance_rate': 'report_action_dist_internal_ack',
+        'internal_pending': 'report_action_dist_internal_pending',
+        'overdue_acknowledgments': 'report_action_dist_overdue_ack',
+        # Activité
+        'distributions_this_month': 'report_action_dist_this_month',
+        'distributions_last_month': 'report_action_dist_last_month',
+        # Identifiants
+        'credentials_total': 'report_action_cred_active',
+        'credentials_expiring': 'report_action_cred_expiring',
+        'credentials_expired': 'report_action_cred_expired',
+        # Décisions
+        'decisions_total': 'report_action_decisions_all',
+        'decisions_accepted': 'report_action_decisions_accepted',
+        'decisions_proposed': 'report_action_decisions_proposed',
+        'decisions_rejected': 'report_action_decisions_rejected',
+        'decisions_high_impact': 'report_action_decisions_high_impact',
+        # Gouvernance corporative
+        'corp_active_directors': 'report_action_corp_directors',
+        'corp_active_officers': 'report_action_corp_officers',
+        'corp_adopted_resolutions': 'report_action_corp_resolutions_adopted',
+        'corp_overdue_compliance': 'report_action_corp_compliance_overdue',
+        'corp_due_soon_compliance': 'report_action_corp_compliance_due_soon',
+    }
+
+    @api.model
+    def _get_report_links(self, base_url, fallback_url):
+        """Construire un lien de forage par chiffre du rapport.
+
+        On résout l'action en ID NUMÉRIQUE plutôt que de poser son xmlid dans
+        l'URL : `/odoo/action-<id>` est la forme vérifiée du routeur Odoo 18.
+
+        Le routeur étant côté client, une URL fautive ne rend pas de 404 — la
+        page charge puis échoue en silence. D'où le repli sur le tableau de
+        bord quand une action manque (module partiellement mis à jour) plutôt
+        qu'un '#' qui ne mène nulle part.
+        """
+        links = {}
+        for key, action_xmlid in self._REPORT_LINK_ACTIONS.items():
+            action = self.env.ref(
+                f'project_knowledge_matrix.{action_xmlid}',
+                raise_if_not_found=False,
+            )
+            links[key] = (
+                f"{base_url}/odoo/action-{action.id}" if action else fallback_url
+            )
+        return links
 
     @api.model
     def _cron_send_dashboard_report(self):

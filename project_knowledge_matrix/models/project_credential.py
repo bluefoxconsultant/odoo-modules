@@ -2,7 +2,7 @@ import logging
 from datetime import timedelta
 
 from odoo import api, fields, models, _
-from odoo.exceptions import UserError
+from odoo.exceptions import AccessError, UserError
 
 _logger = logging.getLogger(__name__)
 
@@ -270,6 +270,32 @@ class ProjectCredential(models.Model):
         for record in self:
             if record.api_key and record.api_key != '********':
                 record.api_key_encrypted = record._encrypt_value(record.api_key)
+
+    # -------------------------------------------------------------------------
+    # Contrôle d'accès — verrou « Restreint »
+    # -------------------------------------------------------------------------
+
+    def _is_credential_manager(self):
+        return self.env.su or self.env.user.has_group(
+            'project_knowledge_matrix.group_credential_manager'
+        )
+
+    def write(self, vals):
+        # Le drapeau « Restreint » décide si un non-gestionnaire voit le secret
+        # déchiffré (_compute_password/_compute_api_key). Sans ce verrou, un
+        # simple `write({'restricted': False})` par un utilisateur d'identifiants
+        # (droit d'écriture via la règle « membres du projet ») dévoilerait un
+        # secret qu'un gestionnaire avait volontairement masqué. On bloque donc
+        # tout CHANGEMENT réel de `restricted` par un non-gestionnaire (une
+        # ré-écriture à l'identique — sauvegarde de formulaire — reste permise).
+        if 'restricted' in vals and not self._is_credential_manager():
+            new_value = bool(vals['restricted'])
+            if any(bool(rec.restricted) != new_value for rec in self):
+                raise AccessError(_(
+                    "Seul un gestionnaire d'identifiants peut modifier l'état "
+                    "« Restreint » d'un identifiant."
+                ))
+        return super().write(vals)
 
     # -------------------------------------------------------------------------
     # Statut d'expiration

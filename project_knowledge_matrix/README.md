@@ -607,6 +607,16 @@ This module follows Odoo 18 best practices:
 
 ## Changelog
 
+### 18.0.10.3.0
+
+Catch-up release covering everything since 18.0.9.12.3. The intermediate states were never pushed, so this is a single commit; see git history for the per-file breakdown.
+
+- **Clickable dashboard report**: every figure in the documentation report email now links to the Odoo list that produced it. Each of the 35 drill-down actions carries a domain that mirrors its counter exactly, so the list can never contradict the number you clicked.
+- **Fixed a silently wrong metric**: "documents without a version" filtered on `version_count`, a non-stored computed field. Odoo 18 drops such a leaf from the domain **without raising**, so the counter returned the active-document count instead. It now filters on `version_ids`.
+- **Fixed the 60-90 day review tile**: it carried `t-att-t-attf-style`, which is not a QWeb directive, so the figure rendered with no styling at all; `{{ }}` also does not interpolate inside a `t-att-` expression.
+- **Document bodies** (18.0.10.0.0): author document content directly in Odoo — typed sections per document type, publish/unpublish tracking, content hashing that survives a no-op editor round-trip, per-version frozen section snapshots, and a branded PDF.
+- **Dependency change**: `bluefox_branding` → `bf_onboarding_base`. The brand fields (`report_brand_*`) live on `res.company` in the latter; the white-label panel is optional, and without it documents simply use the instance's default colours.
+
 ### 18.0.9.12.3
 
 - Documentation and metadata sync (license/LICENSE; README dependency list and branding reference corrected). See git history for intermediate changes.
