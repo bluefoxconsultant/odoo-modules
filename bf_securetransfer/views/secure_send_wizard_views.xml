@@ -29,6 +29,9 @@
                         <field name="password" password="True"/>
                     </group>
                 </group>
+                <group>
+                    <field name="subject" placeholder="P. ex. Accès au portail — identifiants"/>
+                </group>
                 <field name="message" placeholder="Votre message sécurisé…"
                        nolabel="1"/>
                 <group string="Expéditeur" col="2">

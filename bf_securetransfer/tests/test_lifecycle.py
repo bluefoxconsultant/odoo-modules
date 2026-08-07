@@ -644,13 +644,13 @@ class TestSecureTransferLifecycle(TransactionCase):
     def test_abuse_report_suspends_and_notifies(self):
         t = self._active_with_file()
         self.assertTrue(t._is_available()[0])
+        # Le bureau d'abus est un réglage du locataire : on le pose ici plutôt
+        # que d'attendre une adresse en dur (il n'y en a plus depuis 1.17.2).
+        icp = self.env["ir.config_parameter"].sudo()
+        icp.set_param("bf_securetransfer.abuse_email", "abuse@example.com")
+        self.addCleanup(icp.set_param, "bf_securetransfer.abuse_email", "")
         Mail = self.env["mail.mail"].sudo()
         before = Mail.search_count([])
-        # The desk address is a tenant parameter (it falls back to the
-        # company e-mail): pin it so the assertion below is about routing,
-        # not about whichever default the instance happens to carry.
-        self.env["ir.config_parameter"].sudo().set_param(
-            "bf_securetransfer.abuse_email", "abuse@example.com")
         t._suspend_for_abuse(ip="203.0.113.1")
         # Stub send() so the auto_delete mails persist for counting.
         with patch("odoo.addons.mail.models.mail_mail.MailMail.send",

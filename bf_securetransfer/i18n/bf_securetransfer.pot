@@ -4264,3 +4264,319 @@ msgstr ""
 #: model_terms:ir.ui.view,arch_db:bf_securetransfer.report_access_certificate_document
 msgid "— Propulsé par"
 msgstr ""
+
+#. module: bf_securetransfer
+#. odoo-python
+#: code:addons/_qa/bf_securetransfer/models/secure_transfer.py:0
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid " (transfert rouvert)"
+msgstr ""
+
+#. module: bf_securetransfer
+#. odoo-python
+#: code:addons/_qa/bf_securetransfer/models/secure_transfer.py:0
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid "%(subject)s — %(sender)s vous a envoyé un message sécurisé (%(ref)s)"
+msgstr ""
+
+#. module: bf_securetransfer
+#. odoo-python
+#: code:addons/_qa/bf_securetransfer/models/secure_transfer.py:0
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid "%(subject)s — %(sender)s vous a transmis des fichiers (%(ref)s)"
+msgstr ""
+
+#. module: bf_securetransfer
+#. odoo-python
+#: code:addons/_qa/bf_securetransfer/wizards/extend_expiry_wizard.py:0
+#: code:addons/bf_securetransfer/wizards/extend_expiry_wizard.py:0
+msgid "%s jours"
+msgstr ""
+
+#. module: bf_securetransfer
+#. odoo-python
+#: code:addons/_qa/bf_securetransfer/wizards/extend_expiry_wizard.py:0
+#: code:addons/bf_securetransfer/wizards/extend_expiry_wizard.py:0
+msgid "1 jour"
+msgstr ""
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,help:bf_securetransfer.field_res_config_settings__st_abuse_email
+msgid ""
+"Adresse alertée (avec détails) lors d'un signalement d'abus. Le transfert "
+"est suspendu automatiquement et un avis neutre part aussi aux destinataires."
+" Laissé vide : le courriel de la société prend le relais."
+msgstr ""
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.res_config_settings_view_form
+msgid ""
+"Adresse alertée lors d'un signalement d'abus. Le transfert est alors "
+"suspendu automatiquement et les destinataires reçoivent un avis neutre. "
+"Laissée vide, c'est le courriel de la société qui reçoit l'avis — jamais une"
+" adresse extérieure."
+msgstr ""
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_upload
+msgid ""
+"Ce que le destinataire verra\n"
+"                                        dans l'objet du courriel et en titre de la page.\n"
+"                                        Il voyage en clair : n'y mettez rien de confidentiel."
+msgstr ""
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.extend_expiry_wizard_view_form
+msgid ""
+"Ce transfert est <strong>expiré</strong>. Le prolonger le\n"
+"                    rouvrira : le lien déjà transmis recommencera à fonctionner,\n"
+"                    sans qu'aucun courriel ne reparte. La prolongation est\n"
+"                    inscrite au journal d'accès."
+msgstr ""
+
+#. module: bf_securetransfer
+#. odoo-python
+#: code:addons/_qa/bf_securetransfer/wizards/extend_expiry_wizard.py:0
+#: code:addons/bf_securetransfer/wizards/extend_expiry_wizard.py:0
+msgid ""
+"Ce transfert est déjà à la durée maximale offerte par « %(brand)s » "
+"(%(days)s jours). Créez un nouvel envoi si le destinataire a besoin de plus "
+"de temps."
+msgstr ""
+
+#. module: bf_securetransfer
+#. odoo-python
+#: code:addons/_qa/bf_securetransfer/models/secure_transfer.py:0
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid ""
+"Ce transfert n'a aucun destinataire enregistré (mode « lien seul ») : il n'y"
+" a personne à qui renvoyer le lien. Utilisez « Révéler le lien » et "
+"transmettez-le vous-même."
+msgstr ""
+
+#. module: bf_securetransfer
+#. odoo-python
+#: code:addons/_qa/bf_securetransfer/models/secure_transfer.py:0
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid ""
+"Ce transfert était en « destruction après lecture » et a été lu : le "
+"prolonger rouvrirait un contenu que l'expéditeur a demandé de détruire. "
+"Créez plutôt un nouvel envoi."
+msgstr ""
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,help:bf_securetransfer.field_secure_transfer__subject
+msgid ""
+"Court intitulé qui dit au destinataire de quoi il s'agit (p. ex. « Baux 2026"
+" »). Il apparaît dans l'objet du courriel et en titre de la page : rien de "
+"confidentiel n'y a sa place."
+msgstr ""
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,help:bf_securetransfer.field_secure_transfer_send_wizard__subject
+msgid ""
+"Court intitulé visible dans l'objet du courriel : c'est tout ce que le "
+"destinataire saura avant de saisir son code. Il voyage en clair — rien de "
+"confidentiel n'y a sa place."
+msgstr ""
+
+#. module: bf_securetransfer
+#. odoo-python
+#: code:addons/_qa/bf_securetransfer/models/secure_transfer.py:0
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid "Durée de prolongation invalide."
+msgstr ""
+
+#. module: bf_securetransfer
+#. odoo-python
+#: code:addons/_qa/bf_securetransfer/models/secure_transfer.py:0
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid ""
+"Durée non offerte pour « %(brand)s », ou plus courte que la durée actuelle "
+"(%(current)s jour(s)). Choix possibles : %(choices)s."
+msgstr ""
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,help:bf_securetransfer.field_secure_transfer_extend_wizard__days
+msgid "Durée totale de disponibilité, comptée depuis l'envoi."
+msgstr ""
+
+#. module: bf_securetransfer
+#. odoo-python
+#: code:addons/_qa/bf_securetransfer/controllers/upload_api.py:0
+#: code:addons/bf_securetransfer/controllers/upload_api.py:0
+msgid "L'objet dépasse %s caractères."
+msgstr ""
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.extend_expiry_wizard_view_form
+msgid ""
+"La durée se compte depuis l'envoi, et se choisit parmi celles\n"
+"                    que le service offre : c'est cette même grille qui fixe le\n"
+"                    filet de cycle de vie du stockage. La prolongation est\n"
+"                    inscrite au journal d'accès."
+msgstr ""
+
+#. module: bf_securetransfer
+#. odoo-python
+#: code:addons/_qa/bf_securetransfer/models/secure_transfer.py:0
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid ""
+"Le budget de téléchargements de ce transfert est épuisé (%(done)s / "
+"%(budget)s) : une date plus lointaine ne le rouvrirait pas. Relevez d'abord "
+"« Téléchargements max. »."
+msgstr ""
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.secure_transfer_view_form
+msgid ""
+"Le courriel de lien repart à chaque destinataire, dans sa langue. L'accusé "
+"n'est pas renvoyé à l'expéditeur. Continuer ?"
+msgstr ""
+
+#. module: bf_securetransfer
+#. odoo-python
+#: code:addons/_qa/bf_securetransfer/models/secure_transfer.py:0
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid ""
+"Les fichiers de ce transfert ont déjà été purgés du stockage : prolonger "
+"l'échéance ne les ramènerait pas."
+msgstr ""
+
+#. module: bf_securetransfer
+#. odoo-python
+#: code:addons/_qa/bf_securetransfer/models/secure_transfer.py:0
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid ""
+"Même prolongé à %(days)s jour(s), ce transfert reste échu (envoyé le "
+"%(sent)s). Créez plutôt un nouvel envoi."
+msgstr ""
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_extend_wizard__days
+msgid "Nouvelle durée"
+msgstr ""
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_extend_wizard__new_expiry
+msgid "Nouvelle échéance"
+msgstr ""
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer__subject
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_send_wizard__subject
+msgid "Objet"
+msgstr ""
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_upload
+msgid "Objet (optionnel)"
+msgstr ""
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.secure_transfer_view_form
+msgid "Objet et message"
+msgstr ""
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.secure_send_wizard_view_form
+msgid "P. ex. Accès au portail — identifiants"
+msgstr ""
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_upload
+msgid "P. ex. Baux 2026"
+msgstr ""
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.extend_expiry_wizard_view_form
+msgid "Prolonger"
+msgstr ""
+
+#. module: bf_securetransfer
+#. odoo-python
+#: code:addons/_qa/bf_securetransfer/models/secure_transfer.py:0
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.extend_expiry_wizard_view_form
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.secure_transfer_view_form
+msgid "Prolonger l'échéance"
+msgstr ""
+
+#. module: bf_securetransfer
+#: model:ir.model,name:bf_securetransfer.model_secure_transfer_extend_wizard
+msgid "Prolonger l'échéance d'un transfert"
+msgstr ""
+
+#. module: bf_securetransfer
+#. odoo-python
+#: code:addons/_qa/bf_securetransfer/models/secure_transfer.py:0
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid "Renvoi manuel du lien à : %s"
+msgstr ""
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.secure_transfer_view_form
+msgid "Renvoyer le lien aux destinataires"
+msgstr ""
+
+#. module: bf_securetransfer
+#: model_terms:ir.ui.view,arch_db:bf_securetransfer.page_download
+msgid ""
+"Saisissez-le dans\n"
+"                                    <strong>ce navigateur</strong> : le code ne vaut que pour\n"
+"                                    la demande faite ici. Si vous ouvrez le lien ailleurs,\n"
+"                                    demandez-en simplement un nouveau."
+msgstr ""
+
+#. module: bf_securetransfer
+#. odoo-python
+#: code:addons/_qa/bf_securetransfer/models/secure_transfer.py:0
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid "Seul un transfert actif ou expiré peut être prolongé."
+msgstr ""
+
+#. module: bf_securetransfer
+#. odoo-python
+#: code:addons/_qa/bf_securetransfer/models/secure_transfer.py:0
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid "Vos fichiers ont été téléchargés — %(subject)s (%(ref)s)"
+msgstr ""
+
+#. module: bf_securetransfer
+#. odoo-python
+#: code:addons/_qa/bf_securetransfer/models/secure_transfer.py:0
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid "Votre transfert est en ligne — %(subject)s (%(ref)s)"
+msgstr ""
+
+#. module: bf_securetransfer
+#. odoo-python
+#: code:addons/_qa/bf_securetransfer/models/secure_transfer.py:0
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid ""
+"aucun — le transfert est déjà à la durée maximale offerte par ce service"
+msgstr ""
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_extend_wizard__current_expiry
+msgid "Échéance actuelle"
+msgstr ""
+
+#. module: bf_securetransfer
+#. odoo-python
+#: code:addons/_qa/bf_securetransfer/models/secure_transfer.py:0
+#: code:addons/bf_securetransfer/models/secure_transfer.py:0
+msgid ""
+"Échéance portée à %(days)s jour(s) — nouvelle expiration le "
+"%(date)s%(reopened)s"
+msgstr ""
+
+#. module: bf_securetransfer
+#: model:ir.model.fields.selection,name:bf_securetransfer.selection__secure_transfer_access_log__action__extended
+msgid "Échéance prolongée"
+msgstr ""
+
+#. module: bf_securetransfer
+#: model:ir.model.fields,field_description:bf_securetransfer.field_secure_transfer_extend_wizard__transfer_state
+msgid "État actuel"
+msgstr ""

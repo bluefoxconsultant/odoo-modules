@@ -96,12 +96,19 @@ class ResConfigSettings(models.TransientModel):
              "dépôt personnelle /to/<slug> (renommage, courriel, archivage "
              "suivis). Décoché = pages créées manuellement seulement.",
     )
+    # ⚠ Pas de `default=` : c'était une adresse de Blue Fox, et elle
+    # s'installait telle quelle chez chaque locataire. L'avis d'abus porte
+    # l'expéditeur, la LISTE COMPLÈTE des destinataires, le motif et l'IP du
+    # signalant — il n'a rien à faire dans la boîte d'une autre organisation.
+    # Laissé vide, il tombe sur le courriel de la société du locataire
+    # (voir secure.transfer._abuse_desk_email).
     st_abuse_email = fields.Char(
         string="Courriel du bureau d'abus",
         config_parameter="bf_securetransfer.abuse_email",
         help="Adresse alertée (avec détails) lors d'un signalement d'abus. "
              "Le transfert est suspendu automatiquement et un avis neutre part "
-             "aussi aux destinataires.",
+             "aussi aux destinataires. Laissé vide : le courriel de la société "
+             "prend le relais.",
     )
     st_require_sender_otp = fields.Boolean(
         string="Confirmation de l'expéditeur par code (OTP)",

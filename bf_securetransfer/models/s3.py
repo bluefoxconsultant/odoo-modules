@@ -127,8 +127,8 @@ def _orphan_expiry_days(env):
 
     It is a LAST RESORT behind ``_cron_purge_expired``, so it must stay above
     the longest legitimate retention — otherwise the net races the module's own
-    purge and deletes a transfer that is still alive. (IZOData ships a 45-day
-    policy; a flat 45-day rule here would expire those files on their last
+    purge and deletes a transfer that is still alive. (A tenant on a 45-day
+    policy would see a flat 45-day rule here expire its files on their last
     day.) Hence: the longest retention any brand can grant, plus two weeks of
     slack, and never under 60 days.
     """

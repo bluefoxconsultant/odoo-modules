@@ -122,6 +122,17 @@ a {
     margin: 0 0 1.25rem;
 }
 
+/* Small label above the title on the download page: keeps « shared files »
+   vs « secure message » legible once the sender's own subject takes the h1. */
+.st-eyebrow {
+    color: var(--st-muted);
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin: 0 0 0.2rem;
+}
+
 /* ── Dropzone ──────────────────────────────────────────────────────────────── */
 
 .st-dropzone {

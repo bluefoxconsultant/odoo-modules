@@ -1,8 +1,8 @@
 """Rebâtir la traduction en_CA des gabarits `noupdate` après la réunion des deux lignées.
 
-Idempotent, et nécessaire sur les quatre locataires pour deux raisons distinctes :
+Idempotent, et nécessaire sur toute installation antérieure, pour deux raisons distinctes :
 
-* CQ / IZOData tournaient avec le hook d'avant 1.6.1 (`en_body = src`), où
+* Certains locataires tournaient avec le hook d'avant 1.6.1 (`en_body = src`), où
   `Markup.replace()` échappait ses arguments : tout terme contenant du balisage
   (« <strong>…</strong> ») ne matchait jamais et restait en français, sans
   erreur. Leur créneau en_CA est donc à moitié traduit — il faut le refaire.

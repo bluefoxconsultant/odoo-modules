@@ -174,17 +174,22 @@ class TestOperatorActions(TransactionCase):
     def test_resend_only_for_active(self):
         """Resending on an expired transfer would mail a link that is already
         dead — a support call waiting to happen."""
+        self.env.user.groups_id = [(4, self.manager_group.id)]
         t = self._active()
         t.state = "expired"
         with self.assertRaises(UserError):
             t.action_resend_emails()
 
     def test_resend_requeues_the_emails(self):
-        """The nominal 'the client says they never got it' path."""
+        """The nominal 'the client says they never got it' path. Recipients
+        only: the sender already holds their receipt, and re-mailing it would
+        post the share link a second time into a mailbox that has it."""
+        self.env.user.groups_id = [(4, self.manager_group.id)]
         t = self._active()
         with patch.object(type(t), "_send_link_emails") as send:
             t.action_resend_emails()
         send.assert_called_once()
+        self.assertEqual(send.call_args.kwargs.get("recipients_only"), True)
 
     # ------------------------------------------------------------------ expire now
     def test_expire_now_handles_a_multi_record_set(self):

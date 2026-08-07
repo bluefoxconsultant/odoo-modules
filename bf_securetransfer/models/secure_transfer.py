@@ -25,7 +25,7 @@ from werkzeug.utils import secure_filename
 
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
-from odoo.tools import email_normalize, email_split, html_escape
+from odoo.tools import email_normalize, email_split, formataddr, html_escape
 
 from . import pdf_watermark
 from . import s3
@@ -40,6 +40,10 @@ _pwd_ctx = CryptContext(schemes=["pbkdf2_sha512"])
 MAX_RECIPIENTS = 10
 MAX_MESSAGE_LEN = 2000
 MAX_NAME_LEN = 128
+# The subject rides in a mail header, so it is a single line and it is short:
+# past ~120 characters every mail client truncates it anyway, and the field
+# exists to be READ in an inbox list.
+MAX_SUBJECT_LEN = 120
 # Public form ceiling for the download budget (0 = unlimited stays possible).
 MAX_DOWNLOAD_BUDGET = 100
 # Bucket sweep grace: an MPU younger than this may belong to a live upload.
@@ -127,6 +131,17 @@ class SecureTransfer(models.Model):
         string="Destinataires",
         help="Adresses des destinataires, séparées par des virgules "
              "(maximum %s)." % MAX_RECIPIENTS,
+    )
+    # The one line that tells the recipient WHAT this is before they open
+    # anything. Deliberately outside every gate: it travels in clear in the
+    # mail header (the password and the recipient code hold the CONTENT, not
+    # this). The public form says so under the field, and _clean_line strips
+    # CR/LF — a header field must never carry a line break (injection).
+    subject = fields.Char(
+        string="Objet",
+        help="Court intitulé qui dit au destinataire de quoi il s'agit "
+             "(p. ex. « Baux 2026 »). Il apparaît dans l'objet du courriel et "
+             "en titre de la page : rien de confidentiel n'y a sa place.",
     )
     message = fields.Text(
         string="Message",
@@ -328,15 +343,46 @@ class SecureTransfer(models.Model):
             # sudo: password_hash is group-restricted; only its presence leaks.
             rec.has_password = bool(rec.sudo().password_hash)
 
+    # Fields whose value ends up in a mail HEADER. Odoo hands them to Python's
+    # email stack, which REFUSES a value carrying CR/LF (ValueError, raised in
+    # Header()). So a stray line break does not inject a header — it kills the
+    # delivery: mail.mail lands in `exception`, and the sender was already told
+    # « transfert prêt ». Nobody finds out.
+    #
+    # ⚠ Cleaning in the controllers was not enough, and the gap was real:
+    # upload_api's finalize route wrote `sender_name` through its own helper
+    # (strip + truncate, no CR/LF filter), and any ORM/XML-RPC write bypassed
+    # the controllers entirely. create/write is the single place every entry
+    # point has to go through.
+    _HEADER_FIELDS = {
+        "sender_name": MAX_NAME_LEN,
+        "subject": MAX_SUBJECT_LEN,
+        # Comma-joined list, capped well above MAX_RECIPIENTS × address length.
+        "recipient_emails": MAX_RECIPIENTS * 256,
+    }
+
+    @api.model
+    def _normalize_header_fields(self, vals):
+        """Strip CR/LF and control characters, cap the length, in place.
+        Falsy values are left alone so clearing a field stays possible."""
+        for fname, maxlen in self._HEADER_FIELDS.items():
+            if vals.get(fname):
+                vals[fname] = self._clean_line(vals[fname], maxlen)
+
     @api.model_create_multi
     def create(self, vals_list):
         for vals in vals_list:
+            self._normalize_header_fields(vals)
             if not vals.get("name") or vals["name"] == _("Nouveau"):
                 vals["name"] = (
                     self.env["ir.sequence"].next_by_code("secure.transfer")
                     or _("Nouveau")
                 )
         return super().create(vals_list)
+
+    def write(self, vals):
+        self._normalize_header_fields(vals)
+        return super().write(vals)
 
     def unlink(self):
         # Metadata + access trail survive the S3 purge by design (Loi 25).
@@ -454,6 +500,9 @@ class SecureTransfer(models.Model):
             raise UserError(_(
                 "Le message est limité à %s caractères.", MAX_MESSAGE_LEN,
             ))
+        # _clean_line, not a bare strip: the subject ends up in a mail header,
+        # where a CR/LF would let a sender inject headers of their own.
+        subject = self._clean_line(vals.get("subject"), MAX_SUBJECT_LEN)
 
         try:
             retention = int(vals.get("retention_days") or 0)
@@ -504,6 +553,7 @@ class SecureTransfer(models.Model):
             "sender_name": sender_name,
             "sender_email": sender_email,
             "recipient_emails": ", ".join(recipients),
+            "subject": subject,
             "message": message,
             "retention_days": retention,
             "max_downloads": max_downloads,
@@ -829,13 +879,36 @@ class SecureTransfer(models.Model):
         }
         return sms.send(self.env, phone, text)
 
+    def _abuse_desk_email(self):
+        """Where an abuse report is escalated, resolved from THIS tenant.
+
+        ⚠ The address used to be hardcoded to a Blue Fox mailbox in three
+        places: the tenant setting's ``default=``, the Settings placeholder and
+        the fallback here. On a white-label tenant that meant a client's abuse
+        notice — which carries the sender, the FULL recipient list, the
+        reporter's reason and their IP — was addressed to another company's
+        mailbox unless someone thought to change it. Nothing in this module
+        should name an operator: the address now comes from the tenant's own
+        records.
+
+        Order: the explicit tenant setting, then the company that owns the
+        brand, then the address the brand already sends from (so the notice
+        lands in the operator's own mailbox rather than nowhere — an empty
+        ``email_to`` fails silently in the mail queue).
+        """
+        self.ensure_one()
+        explicit = (s3.param(self.env, "abuse_email", "") or "").strip()
+        if explicit:
+            return explicit
+        company = self.company_id or self.env.company
+        return (company.email or "").strip() or self._brand_email_from()
+
     def _send_abuse_notice(self, reason=None, ip=None):
         """On an abuse report: alert the abuse desk (full detail) and warn the
-        transfer's recipients (neutral). The desk address is a tenant param,
-        falling back to the company e-mail."""
+        transfer's recipients (neutral). The desk address resolves per tenant
+        — see ``_abuse_desk_email``."""
         self.ensure_one()
-        abuse_email = (s3.param(self.env, "abuse_email", "")
-                       or (self.env.company.email or "")).strip()
+        abuse_email = self._abuse_desk_email()
         from_addr = self._brand_email_from()
         # 1) Abuse desk — full detail for the reviewer.
         detail = (
@@ -1158,9 +1231,11 @@ class SecureTransfer(models.Model):
         )
         if not tmpl:
             return
-        tmpl.sudo().with_context(
-            lang=self._lang_for_email(self.sender_email)).send_mail(
+        lang = self._lang_for_email(self.sender_email)
+        subject = self.with_context(lang=lang)._email_subject_line("notice")
+        tmpl.sudo().with_context(lang=lang).send_mail(
             self.id, force_send=False,
+            email_values={"subject": subject} if subject else None,
         )
         self._log("notified", actor="system",
                   note=_("Avis de téléchargement envoyé à l'expéditeur"))
@@ -1263,11 +1338,91 @@ class SecureTransfer(models.Model):
                 return partner.lang
         return self.locale or "fr_CA"
 
-    def _send_link_emails(self):
+    def _email_subject_line(self, kind):
+        """The subject line to force on an outgoing mail, or None.
+
+        None when the sender wrote no subject: the template's own subject then
+        stands untouched, so a transfer that carries none behaves exactly as
+        before. When they did write one it LEADS — an inbox list shows the
+        first few dozen characters, and « TRF-2026-00123 » told the recipient
+        nothing about what was sent.
+
+        Called on a record whose context already carries the destination
+        language (``_lang_for_email``), which is what makes ``_()`` resolve
+        per recipient rather than per server locale.
+        """
+        self.ensure_one()
+        subject = (self.subject or "").strip()
+        if not subject:
+            return None
+        who = self.sender_name or self.sender_email or ""
+        ref = self.name
+        if kind == "link":
+            return _("%(subject)s — %(sender)s vous a transmis des fichiers (%(ref)s)",
+                     subject=subject, sender=who, ref=ref)
+        if kind == "secure":
+            return _("%(subject)s — %(sender)s vous a envoyé un message sécurisé (%(ref)s)",
+                     subject=subject, sender=who, ref=ref)
+        if kind == "receipt":
+            return _("Votre transfert est en ligne — %(subject)s (%(ref)s)",
+                     subject=subject, ref=ref)
+        if kind == "notice":
+            return _("Vos fichiers ont été téléchargés — %(subject)s (%(ref)s)",
+                     subject=subject, ref=ref)
+        return None
+
+    def _reply_to_allowed(self):
+        """Whether this transfer's sender may be put behind the recipient's
+        « Reply » button.
+
+        ⚠ On a brand that accepts ANY sender — the open public tier, which is
+        what an open public tier actually is — the form already lets a
+        stranger have a branded, DKIM-signed mail delivered to ten addresses of
+        their choosing. Adding their address as Reply-To would finish the job:
+        the answer would reach them instead of coming back to the brand
+        mailbox, which is today the only place that abuse surfaces. The header
+        is therefore set only where the destination is not the sender's to
+        choose:
+
+          • a drop page (``fixed_recipient``) — the mail can only ever reach
+            the page owner, who asked for the deposit. This is the case the
+            header exists for: replying to whoever dropped you a file;
+          • a brand (or instance) that RESTRICTS senders — an allowlist is the
+            operator saying, in so many words, that they vouch for whoever
+            passes it;
+          • a send originated in the backend by an internal user.
+        """
+        self.ensure_one()
+        brand = self.brand_id
+        if brand.fixed_recipient:
+            return True
+        if (self.ip_created or "") == "backend":
+            return True
+        return bool((brand._effective_sender_allowlist() or "").strip())
+
+    def _reply_to_sender(self):
+        """Reply-To pointing at the human who sent the transfer, when the
+        instance vouches for them (see ``_reply_to_allowed``).
+
+        Without it, hitting « Reply » on a notification answers the brand
+        mailbox (``email_from`` — a catch-all on most tenants), so the reply
+        lands nowhere near the person who shared the files. The From stays the
+        brand address, so SPF/DKIM/DMARC are untouched: only the courtesy
+        header moves.
+        """
+        self.ensure_one()
+        if not self.sender_email or not self._reply_to_allowed():
+            return False
+        return formataddr((self.sender_name or "", self.sender_email))
+
+    def _send_link_emails(self, recipients_only=False):
         """Queue the branded emails: the download link to EACH recipient (in
         that recipient's contact language when known) and the receipt to the
         sender (in the sender's language). The password is NEVER included; the
-        share link always rides the brand domain, never web.base.url."""
+        share link always rides the brand domain, never web.base.url.
+
+        ``recipients_only`` skips the sender receipt — a manual re-send exists
+        because a RECIPIENT lost the mail; the sender already has theirs."""
         link_tmpl = self.env.ref(
             "bf_securetransfer.mail_template_transfer_link",
             raise_if_not_found=False,
@@ -1296,25 +1451,37 @@ class SecureTransfer(models.Model):
         for rec in self:
             recipients = rec._recipient_list()
             message_only = not rec.file_ids and bool((rec.message or "").strip())
-            tmpl = (secure_tmpl
-                    if (rec._recipient_otp_required() or message_only)
-                    and secure_tmpl
-                    else link_tmpl)
+            use_secure = (rec._recipient_otp_required() or message_only) and secure_tmpl
+            tmpl = secure_tmpl if use_secure else link_tmpl
+            reply_to = rec._reply_to_sender()
             if tmpl:
                 # One email per recipient so each renders in their own language.
                 for r in recipients:
-                    tmpl.sudo().with_context(
-                        lang=rec._lang_for_email(r)).send_mail(
-                        rec.id, force_send=False, email_values={"email_to": r})
-            if receipt_tmpl:
-                receipt_tmpl.sudo().with_context(
-                    lang=rec._lang_for_email(rec.sender_email)).send_mail(
-                    rec.id, force_send=False)
+                    lang = rec._lang_for_email(r)
+                    values = {"email_to": r}
+                    if reply_to:
+                        values["reply_to"] = reply_to
+                    subject = rec.with_context(lang=lang)._email_subject_line(
+                        "secure" if use_secure else "link")
+                    if subject:
+                        values["subject"] = subject
+                    tmpl.sudo().with_context(lang=lang).send_mail(
+                        rec.id, force_send=False, email_values=values)
+            if receipt_tmpl and not recipients_only:
+                lang = rec._lang_for_email(rec.sender_email)
+                subject = rec.with_context(lang=lang)._email_subject_line("receipt")
+                receipt_tmpl.sudo().with_context(lang=lang).send_mail(
+                    rec.id, force_send=False,
+                    email_values={"subject": subject} if subject else None)
+            actor = rec.env.context.get("st_resend_actor")
             rec._log(
                 "emailed",
-                note=_("Lien envoyé à : %s ; accusé à : %s")
-                % (rec.recipient_emails or _("(aucun — mode lien seul)"),
-                   rec.sender_email),
+                actor=actor,
+                note=(_("Renvoi manuel du lien à : %s")
+                      % (rec.recipient_emails or "")) if actor else
+                (_("Lien envoyé à : %s ; accusé à : %s")
+                 % (rec.recipient_emails or _("(aucun — mode lien seul)"),
+                    rec.sender_email)),
             )
 
     # ------------------------------------------------------------------ operator buttons
@@ -1463,15 +1630,162 @@ class SecureTransfer(models.Model):
         return True
 
     def action_resend_emails(self):
-        """Resend the link/receipt emails for an active transfer."""
+        """Re-send the link e-mail to the recipients of an active transfer.
+
+        The case this exists for is « the recipient never got it / deleted it »
+        — so the sender receipt is NOT re-sent: it would be noise, and it
+        carries the share link a second time into a mailbox that already has
+        it. Journaled like the first send (same ``emailed`` event), with the
+        operator recorded as the actor.
+
+        ⚠ A method without a leading underscore is an RPC surface: the button's
+        ``groups=`` only guards the UI. The securetransfer USER group is
+        read-only on secure.transfer, so without this check a read-only account
+        could make the server mail the share link over XML-RPC.
+        """
+        if not self.env.user.has_group(
+                "bf_securetransfer.group_securetransfer_manager"):
+            raise UserError(_(
+                "Action réservée aux gestionnaires du transfert sécurisé."
+            ))
         for rec in self:
             if rec.state != "active":
                 raise UserError(_(
                     "Les courriels ne peuvent être renvoyés que pour un "
                     "transfert actif."
                 ))
-            rec._send_link_emails()
+            if not rec._recipient_list():
+                raise UserError(_(
+                    "Ce transfert n'a aucun destinataire enregistré (mode "
+                    "« lien seul ») : il n'y a personne à qui renvoyer le "
+                    "lien. Utilisez « Révéler le lien » et transmettez-le "
+                    "vous-même."
+                ))
+            rec.with_context(
+                st_resend_actor=self.env.user.login,
+            )._send_link_emails(recipients_only=True)
         return True
+
+    # ------------------------------------------------------------------ expiry extension
+    def _extension_choices(self):
+        """The retention durations this transfer could still be moved to:
+        what the brand offers, strictly longer than what it already has.
+        Empty when it already sits on the longest tier the brand grants."""
+        self.ensure_one()
+        if not self.brand_id:
+            return []
+        offered = self.brand_id._effective_limits()["expiry_choices"]
+        return [d for d in offered if d > (self.retention_days or 0)]
+
+    def extend_expiry(self, days):
+        """Move the deadline out to another retention tier the brand offers.
+
+        Why a tier and not a free date: the S3 lifecycle net posted on the
+        bucket is computed from the LONGEST retention any brand may grant
+        (``_orphan_expiry_days``). A hand-picked date beyond that grid promises
+        the client a day the storage provider will not honour — the files would
+        be gone while the link still said « disponible jusqu'au ». Staying on
+        the grid keeps the promise inside the net.
+
+        Reopens an expired transfer when its objects are still there. Refuses
+        the two cases where a later date would change nothing: a burn already
+        consumed, and a download budget already spent.
+        """
+        if not self.env.user.has_group(
+                "bf_securetransfer.group_securetransfer_manager"):
+            raise UserError(_(
+                "Action réservée aux gestionnaires du transfert sécurisé."
+            ))
+        try:
+            days = int(days)
+        except (TypeError, ValueError):
+            raise UserError(_("Durée de prolongation invalide."))
+        for rec in self:
+            if rec.state not in ("active", "expired"):
+                raise UserError(_(
+                    "Seul un transfert actif ou expiré peut être prolongé."
+                ))
+            if rec.purged_at:
+                raise UserError(_(
+                    "Les fichiers de ce transfert ont déjà été purgés du "
+                    "stockage : prolonger l'échéance ne les ramènerait pas."
+                ))
+            if days not in rec._extension_choices():
+                raise UserError(_(
+                    "Durée non offerte pour « %(brand)s », ou plus courte que "
+                    "la durée actuelle (%(current)s jour(s)). Choix "
+                    "possibles : %(choices)s.",
+                    brand=rec.brand_id.display_name,
+                    current=rec.retention_days,
+                    choices=", ".join(str(d) for d in rec._extension_choices())
+                    or _("aucun — le transfert est déjà à la durée maximale "
+                         "offerte par ce service"),
+                ))
+            if rec.burn_after_download and rec.state == "expired":
+                raise UserError(_(
+                    "Ce transfert était en « destruction après lecture » et a "
+                    "été lu : le prolonger rouvrirait un contenu que "
+                    "l'expéditeur a demandé de détruire. Créez plutôt un "
+                    "nouvel envoi."
+                ))
+            if rec.max_downloads and rec.download_count >= rec.max_downloads:
+                raise UserError(_(
+                    "Le budget de téléchargements de ce transfert est épuisé "
+                    "(%(done)s / %(budget)s) : une date plus lointaine ne le "
+                    "rouvrirait pas. Relevez d'abord « Téléchargements max. ».",
+                    done=rec.download_count, budget=rec.max_downloads,
+                ))
+            # Anchored on the finalize date, not on today: the retention a
+            # transfer carries has to keep meaning « N days of availability
+            # from the send », which is what the lifecycle net assumes.
+            base = rec.finalized_at or rec.create_date or fields.Datetime.now()
+            new_expiry = base + timedelta(days=days)
+            if new_expiry <= fields.Datetime.now():
+                raise UserError(_(
+                    "Même prolongé à %(days)s jour(s), ce transfert reste "
+                    "échu (envoyé le %(sent)s). Créez plutôt un nouvel envoi.",
+                    days=days,
+                    sent=fields.Datetime.to_string(base),
+                ))
+            was_expired = rec.state == "expired"
+            vals = {"retention_days": days, "expiry_date": new_expiry}
+            if was_expired:
+                vals["state"] = "active"
+            rec.write(vals)
+            rec._log(
+                "extended", actor=self.env.user.login,
+                note=_(
+                    "Échéance portée à %(days)s jour(s) — nouvelle expiration "
+                    "le %(date)s%(reopened)s",
+                    days=days,
+                    date=fields.Datetime.to_string(new_expiry),
+                    reopened=_(" (transfert rouvert)") if was_expired else "",
+                ),
+            )
+        return True
+
+    def action_extend_expiry(self):
+        """Open the extension wizard (the sanctioned, journaled path — the
+        expiry date itself is read-only on the form).
+
+        The guard is redundant twice over (the wizard's ACL is manager-only and
+        ``extend_expiry`` re-checks), but this method is an RPC surface like
+        the others on this model, and « refuses at the last moment » is a worse
+        posture than « refuses at the door »."""
+        self.ensure_one()
+        if not self.env.user.has_group(
+                "bf_securetransfer.group_securetransfer_manager"):
+            raise UserError(_(
+                "Action réservée aux gestionnaires du transfert sécurisé."
+            ))
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Prolonger l'échéance"),
+            "res_model": "secure.transfer.extend.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"default_transfer_id": self.id},
+        }
 
     def action_export_log(self):
         """Export this transfer's Loi 25 access trail as a downloadable CSV.

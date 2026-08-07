@@ -11,6 +11,7 @@
                   decoration-danger="state == 'suspended'"
                   create="false">
                 <field name="name"/>
+                <field name="subject" optional="show"/>
                 <field name="brand_id" optional="show"/>
                 <field name="sender_email"/>
                 <field name="recipient_emails" optional="hide"/>
@@ -47,10 +48,14 @@
                             groups="bf_securetransfer.group_securetransfer_manager"
                             invisible="force_recipient_otp or state not in ('active', 'expired', 'suspended')"
                             confirm="Le lien ne s'ouvrira plus sans un code envoyé à l'une des adresses destinataires. Les courriels déjà partis ne sont pas rappelés. Continuer ?"/>
-                    <button name="action_resend_emails" type="object" string="Renvoyer les courriels"
+                    <button name="action_resend_emails" type="object"
+                            string="Renvoyer le lien aux destinataires"
                             groups="bf_securetransfer.group_securetransfer_manager"
                             invisible="state != 'active'"
-                            confirm="Renvoyer le lien aux destinataires et l'accusé à l'expéditeur ?"/>
+                            confirm="Le courriel de lien repart à chaque destinataire, dans sa langue. L'accusé n'est pas renvoyé à l'expéditeur. Continuer ?"/>
+                    <button name="action_extend_expiry" type="object" string="Prolonger l'échéance"
+                            groups="bf_securetransfer.group_securetransfer_manager"
+                            invisible="state not in ('active', 'expired')"/>
                     <button name="action_expire_now" type="object" string="Expirer maintenant"
                             groups="bf_securetransfer.group_securetransfer_manager"
                             invisible="state != 'active'"
@@ -102,17 +107,28 @@
                                    invisible="recipient_otp_status == 'off'"/>
                             <field name="notify_on_download" readonly="1"/>
                             <field name="burn_after_download" readonly="1"/>
-                            <field name="expiry_date"
-                                   readonly="state not in ('draft', 'active')"/>
+                            <!-- Read-only on purpose: « Prolonger l'échéance »
+                                 is the sanctioned path. It stays on the
+                                 durations the brand offers (the grid the S3
+                                 lifecycle net is posted from) and it lands in
+                                 the access trail — a hand-typed date did
+                                 neither. -->
+                            <field name="expiry_date" readonly="1"/>
+                            <!-- Editable while expired too: raising the budget
+                                 is the prerequisite to reopening a transfert
+                                 that ran out of downloads rather than time. -->
                             <field name="max_downloads"
-                                   readonly="state not in ('draft', 'active')"/>
+                                   readonly="state not in ('draft', 'active', 'expired')"/>
                             <field name="download_count" readonly="1"/>
                             <field name="total_size" string="Taille totale (octets)" readonly="1"/>
                             <field name="company_id" groups="base.group_multi_company" readonly="1"/>
                         </group>
                     </group>
-                    <group string="Message" invisible="not message">
-                        <field name="message" nolabel="1" readonly="1"/>
+                    <group string="Objet et message"
+                           invisible="not subject and not message">
+                        <field name="subject" readonly="1" invisible="not subject"/>
+                        <field name="message" nolabel="1" readonly="1"
+                               invisible="not message"/>
                     </group>
                     <notebook>
                         <page string="Fichiers" name="page_files">
@@ -178,7 +194,7 @@
         <field name="arch" type="xml">
             <search>
                 <field name="name" string="Transfert"
-                       filter_domain="['|', '|', ('name', 'ilike', self), ('sender_email', 'ilike', self), ('recipient_emails', 'ilike', self)]"/>
+                       filter_domain="['|', '|', '|', ('name', 'ilike', self), ('subject', 'ilike', self), ('sender_email', 'ilike', self), ('recipient_emails', 'ilike', self)]"/>
                 <field name="sender_email"/>
                 <field name="brand_id"/>
                 <filter name="f_draft" string="Brouillons" domain="[('state', '=', 'draft')]"/>

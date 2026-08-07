@@ -41,6 +41,7 @@ _logger = logging.getLogger(__name__)
 MAX_RECIPIENTS = 10
 MAX_MESSAGE_CHARS = 2000
 MAX_SENDER_NAME_CHARS = 128
+MAX_SUBJECT_CHARS = 120
 
 _SPLIT_RE = re.compile(r"[,;\s]+")
 
@@ -107,6 +108,20 @@ def _clean_recipients(value):
         if normalized not in cleaned:
             cleaned.append(normalized)
     return ", ".join(cleaned), None
+
+
+def _clean_subject(value):
+    """Returns (subject_str, error_dict_or_None).
+
+    Length only — the model's ``_clean_line`` does the header-safety work
+    (CR/LF and control characters out) on both the create and the finalize
+    path, so a client cannot smuggle a second header through this field.
+    """
+    subject = (value or "").strip() if isinstance(value, str) else ""
+    if len(subject) > MAX_SUBJECT_CHARS:
+        return None, _err("subject_too_long",
+                          _("L'objet dépasse %s caractères.", MAX_SUBJECT_CHARS))
+    return subject, None
 
 
 def _clean_message(value):
@@ -232,10 +247,14 @@ class SecureTransferUploadApi(Controller):
         message, error = _clean_message(params.get("message"))
         if error:
             message = ""
+        subject, error = _clean_subject(params.get("subject"))
+        if error:
+            subject = ""
         vals = {
             "sender_name": _clean_sender_name(params.get("sender_name")),
             "sender_email": sender_email,
             "recipient_emails": recipients,
+            "subject": subject,
             "message": message,
             "retention_days": _clean_retention(params.get("retention_days"), limits),
             "max_downloads": 0,
@@ -469,6 +488,15 @@ class SecureTransferUploadApi(Controller):
                     "Ce service n'autorise l'envoi qu'à certaines adresses : %s")
                     % ", ".join(bad))
             updates["recipient_emails"] = recipients
+        if "subject" in params:
+            subject, error = _clean_subject(params.get("subject"))
+            if error:
+                return error
+            # _clean_line: the value ends up in a mail header, so strip CR/LF
+            # and control characters here too — finalize is a separate entry
+            # point and must not be laxer than create.
+            updates["subject"] = env["secure.transfer"]._clean_line(
+                subject, MAX_SUBJECT_CHARS)
         if "message" in params:
             message, error = _clean_message(params.get("message"))
             if error:

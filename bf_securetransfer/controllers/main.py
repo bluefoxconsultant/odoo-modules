@@ -376,6 +376,7 @@ _UI_STRINGS = {
         "recipients_invalid": "Adresse de destinataire invalide : %(email)s",
         "recipients_too_many": "Maximum %(max)s destinataires.",
         "message_too_long": "Le message dépasse %(max)s caractères.",
+        "subject_too_long": "L'objet dépasse %(max)s caractères.",
         "status_blocked": "En attente de votre courriel…",
         "status_waiting": "En attente…",
         "status_uploading": "Téléversement…",
@@ -422,6 +423,7 @@ _UI_STRINGS = {
         "recipients_invalid": "Invalid recipient address: %(email)s",
         "recipients_too_many": "Maximum %(max)s recipients.",
         "message_too_long": "The message exceeds %(max)s characters.",
+        "subject_too_long": "The subject exceeds %(max)s characters.",
         "status_blocked": "Waiting for your email…",
         "status_waiting": "Waiting…",
         "status_uploading": "Uploading…",
@@ -477,6 +479,7 @@ def _st_config(env, limits, locale):
         "deny_extensions": _deny_extensions(),
         "max_recipients": 10,
         "max_message_chars": 2000,
+        "max_subject_chars": 120,
         "honeypot_field": HONEYPOT_FIELD,
         "strings": _UI_STRINGS.get(locale, _UI_STRINGS[_DEFAULT_LANG]),
     }

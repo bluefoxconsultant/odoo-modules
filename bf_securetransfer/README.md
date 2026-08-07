@@ -8,7 +8,7 @@ artefact), **automatic purging**, **multi-brand** resolution by hostname,
 **personal drop pages** (`/to/<slug>`), **anti-piggyback allowlists** and
 **automatic suspension on abuse reports**.
 
-- **Version**: `18.0.1.16.1`.
+- **Version**: `18.0.1.17.3`.
 - **Licence**: **BUSL-1.1** — production use allowed for your own internal business operations; providing the module as a product or service to third parties (hosted, managed or resold) requires a written agreement. Converts to **LGPL-3.0-or-later** on **2029-07-20**. See [`LICENSE`](LICENSE).
 - **Threat model & non-guarantees**: see [`SECURITY.md`](SECURITY.md).
 - **Multiple tiers**: the multi-brand system supports a limited free tier
@@ -37,6 +37,23 @@ artefact), **automatic purging**, **multi-brand** resolution by hostname,
   only** mode the content **never appears in clear text in the email**: the
   notification carries only the link, and the message can be read only on the
   secure page (time-limited, logged).
+- **Subject** (optional, 120 characters): the one line that tells the recipient
+  what this is. It **leads** the mail subject ("2026 leases — Jane Doe shared
+  files with you (TRF-2026-00123)"), heads the mail body and becomes the title
+  of the download page. It travels **in the clear** in the header by design: the
+  gates (password, recipient code) hold the **content**, never this line — which
+  is what lets it inform someone before they open anything. It deliberately
+  stays **out of the tab title**, which the gate pages share with the content
+  page, so a forwarded link does not spill it before the gate. Normalised in the
+  model's `create()`/`write()` along with the other header-bound fields (CR/LF
+  and control characters removed, length capped) — a controller alone would be
+  bypassed by any ORM write.
+- **Conditional `Reply-To`**: "Reply" reaches the person rather than the brand
+  mailbox — but only where the destination is not the sender's to choose (a drop
+  page, a brand with a sender allow-list, or a back-office send). On a brand open
+  to any sender the header is not set: the reply must come back to the brand
+  mailbox, the only place abuse surfaces. The `From` stays the brand, so
+  SPF/DKIM/DMARC are untouched. See [`SECURITY.md`](SECURITY.md).
 - **Code-protected secure message (recipient OTP)**: from the backend, a send
   can **hold the content behind a one-time code** delivered by email or SMS —
   the message is shown only after the recipient proves their identity. Sender-
@@ -409,6 +426,7 @@ defensible; "beyond the reach of any foreign access" is not, until Phase 3
 
 | Version | Highlights |
 |---|---|
+| `18.0.1.17.x` | **A transfer can finally say what it is.** New **`subject`** field, offered on the public form, the drop pages, the back-office send wizard and the record: it leads the mail subject, heads the body and titles the download page. Deliberately outside every gate — a header line travels in the clear, and that is the condition on which it can inform someone before they open anything — but kept out of the tab title, which the gate pages share with the content page. **Conditional `Reply-To`** so a reply reaches the human sender, except on a brand that accepts any sender, where removing that header would take away the only place abuse becomes visible. **Header hygiene**: `sender_name`, `subject` and `recipient_emails` are normalised in `create()`/`write()`. A CR/LF there is not header injection — Python's `email` stack refuses the value — it is a **silent delivery failure**: `mail.mail` lands in `exception` while the sender has read "transfer ready". **Two operator buttons**: re-send the link to the recipients (manager-only, no duplicate receipt), and extend the deadline — which reopens an expired transfer whose objects are still there, staying on the brand's retention grid because that grid is what the bucket lifecycle net is posted from. **Abuse desk resolved per tenant** (setting → company e-mail → the brand's sending address); no operator address is hardcoded anywhere any more. **The recipient code is bound to the session**, which the page and `SECURITY.md` now say out loud. 441 tests. |
 | `18.0.1.16.x` | **The public pages became translatable — they never had been.** Odoo skips translation for an *entire* view whose arch starts with a doctype (`tools/translate.py`, `avoid_pattern`), so the three standalone pages exported **zero** translatable terms and an English visitor got a fully French page whatever the `.po` said, silently. The doctype is now injected at render time. Catalogue regenerated from a fresh export (694 terms). Also: the retroactive recipient-code action is now **manager-gated in Python** — a method without a leading underscore is an RPC surface, and the user group is read-only on `secure.transfer`. |
 | `18.0.1.15.0` | **The share link no longer survives in the transfer's log.** The token is masked in the retained message bodies once the queue has delivered the mail, unless a recipient code guards the content; hourly sweep plus a post-send hook, and a migration that catches up on history. **Recipient code armable after the fact** from the backend (refused in link-only mode — nobody could receive the code), journaled. **Public form completed**: require-a-code, download budget and download notice existed only in the backend; the form now shows the instance-wide requirement as ticked and locked instead of absent. |
 | `18.0.1.12.0`–`1.14.0` | **Coverage campaign — from 90 to ~400 tests**, with fixes the tests themselves surfaced: log-integrity appends now serialise through a `FOR UPDATE` on the parent row (an advisory lock could not work — Odoo runs in `REPEATABLE READ`, so every concurrent append read the same stale tail); `mpu_sign` accepted a string and iterated it character by character; orphan retention ignored archived brands, which could let the provider delete an object before its promised date. Retention guard extended to every ORM path, not just the public one. _(Catch-up release: intermediate versions grouped.)_ |

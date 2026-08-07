@@ -16,6 +16,7 @@
  *   #st-error         alert region for validation/upload errors
  *   #st-sender-name   #st-sender-email          sender identity fields
  *   #st-recipients    #st-message               recipients (separated) + note
+ *   #st-subject       one-line subject shown to the recipient (mail header)
  *   #st-expiry        <select> (options injected from limits.expiry_choices)
  *   #st-password      optional password field
  *   #st-password-row  wrapper hidden when the brand disallows passwords
@@ -242,6 +243,17 @@
         return message;
     }
 
+    // Returns the subject, or null after showing an error. The server
+    // re-validates and strips CR/LF (the value ends up in a mail header).
+    function subjectValue() {
+        var subject = fieldValue("st-subject");
+        if (subject.length > (cfg.max_subject_chars || 120)) {
+            showError(fmt(S.subject_too_long, { max: cfg.max_subject_chars || 120 }));
+            return null;
+        }
+        return subject;
+    }
+
     // ── Transfer creation ─────────────────────────────────────────────────────
 
     function ensureTransfer() {
@@ -257,6 +269,7 @@
             sender_name: fieldValue("st-sender-name"),
             sender_email: fieldValue("st-sender-email"),
             recipient_emails: fieldValue("st-recipients"),
+            subject: fieldValue("st-subject"),
             message: fieldValue("st-message"),
             retention_days: expiryValue(),
         };
@@ -1013,6 +1026,10 @@
         if (recipients === null) {
             return;
         }
+        var subject = subjectValue();
+        if (subject === null) {
+            return;
+        }
         // Message-only mode never dropped a file, so the draft may not exist
         // yet — create it now (idempotent in files mode).
         try {
@@ -1025,6 +1042,7 @@
             sender_email: senderEmail,
             sender_name: fieldValue("st-sender-name"),
             recipient_emails: recipients,
+            subject: subject,
             message: message,
             retention_days: expiryValue(),
         };

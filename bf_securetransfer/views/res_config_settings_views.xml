@@ -78,7 +78,7 @@
                                    placeholder="https://secret.example.com"/>
                         </setting>
                         <setting string="Bureau d'abus"
-                                 help="Adresse alertée lors d'un signalement d'abus. Le transfert est alors suspendu automatiquement et les destinataires reçoivent un avis neutre.">
+                                 help="Adresse alertée lors d'un signalement d'abus. Le transfert est alors suspendu automatiquement et les destinataires reçoivent un avis neutre. Laissée vide, c'est le courriel de la société qui reçoit l'avis — jamais une adresse extérieure.">
                             <field name="st_abuse_email"
                                    placeholder="abuse@example.com"/>
                         </setting>

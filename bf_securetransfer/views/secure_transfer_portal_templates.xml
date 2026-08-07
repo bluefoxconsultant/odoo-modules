@@ -140,6 +140,18 @@
                             </div>
 
                             <div class="st-options">
+                                <!-- The one line that tells the recipient what
+                                     this is before they open anything. It rides
+                                     the mail header, so the hint says plainly
+                                     that it is not covered by the gates. -->
+                                <div class="st-field">
+                                    <label for="st-subject">Objet (optionnel)</label>
+                                    <input type="text" id="st-subject" maxlength="120"
+                                           placeholder="P. ex. Baux 2026"/>
+                                    <div class="st-field-hint">Ce que le destinataire verra
+                                        dans l'objet du courriel et en titre de la page.
+                                        Il voyage en clair : n'y mettez rien de confidentiel.</div>
+                                </div>
                                 <div class="st-field">
                                     <label for="st-message" id="st-message-label">Message (optionnel)</label>
                                     <textarea id="st-message" maxlength="2000" rows="3"></textarea>
@@ -311,6 +323,12 @@
                 <meta charset="utf-8"/>
                 <meta name="viewport" content="width=device-width, initial-scale=1"/>
                 <meta name="robots" content="noindex, nofollow"/>
+                <!-- The subject deliberately stays OUT of the tab title: this
+                     same <head> is rendered by the password and code gates,
+                     and a forwarded link should not spill the sender's subject
+                     to whoever holds it before the gate is passed. It is shown
+                     in the card below, which only renders once the gates are
+                     through. -->
                 <title><t t-esc="transfer.file_count and 'Fichiers partagés' or 'Message sécurisé'"/> — <t t-esc="visuals['name']"/></title>
                 <link t-if="visuals['favicon_url']" rel="icon" t-att-href="visuals['favicon_url']"/>
                 <link rel="stylesheet" href="/bf_securetransfer/static/src/css/st_public.css"/>
@@ -359,6 +377,16 @@
                             <t t-if="otp_stage == 'verify'">
                                 <p>Un code à 6 chiffres vient de vous être envoyé.
                                     Saisissez-le pour accéder à ce contenu.</p>
+                                <!-- Le défi vit dans la session (st_otp_chal_*),
+                                     pas sur le transfert : un code demandé ici
+                                     ne s'ouvre qu'ici. Sans cette phrase, le
+                                     destinataire qui ouvre le lien sur son
+                                     téléphone et lit le code sur son ordinateur
+                                     se heurte à un refus incompréhensible. -->
+                                <p class="st-field-hint">Saisissez-le dans
+                                    <strong>ce navigateur</strong> : le code ne vaut que pour
+                                    la demande faite ici. Si vous ouvrez le lien ailleurs,
+                                    demandez-en simplement un nouveau.</p>
                                 <form method="post" t-attf-action="/s/#{token}/otp-verify">
                                     <input type="text" id="st-otp-input" name="code"
                                            inputmode="numeric" pattern="[0-9]*" maxlength="6"
@@ -390,7 +418,18 @@
                     <!-- Files (or message-only) -->
                     <t t-else="">
                         <section class="st-card">
-                            <h1 class="st-title" t-esc="files and 'Fichiers partagés' or 'Message sécurisé'"/>
+                            <!-- The sender's subject becomes the page title
+                                 when they wrote one: it is the whole point of
+                                 the field. The generic label stays above it,
+                                 so « files » vs « secure message » is still
+                                 legible at a glance. -->
+                            <t t-if="transfer.subject">
+                                <p class="st-eyebrow"
+                                   t-esc="files and 'Fichiers partagés' or 'Message sécurisé'"/>
+                                <h1 class="st-title" t-esc="transfer.subject"/>
+                            </t>
+                            <h1 t-else="" class="st-title"
+                                t-esc="files and 'Fichiers partagés' or 'Message sécurisé'"/>
                             <p class="st-download-meta">
                                 De la part de
                                 <strong t-esc="transfer.sender_name or transfer.sender_email"/>

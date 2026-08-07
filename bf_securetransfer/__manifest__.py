@@ -1,6 +1,6 @@
 {
     'name': 'Transfert sécurisé (Secure Transfer)',
-    'version': '18.0.1.16.1',
+    'version': '18.0.1.17.3',
     'category': 'Website',
     'summary': "Transfert de fichiers sécurisé : téléversement direct navigateur → S3, "
                "liens tokenisés avec expiration et mot de passe, journal d'accès "
@@ -69,6 +69,7 @@ en base de données.
         'views/secure_transfer_portal_templates.xml',
         'views/reveal_link_wizard_views.xml',
         'views/secure_send_wizard_views.xml',
+        'views/extend_expiry_wizard_views.xml',
         'views/menu_views.xml',
         'report/secure_transfer_certificate.xml',
     ],

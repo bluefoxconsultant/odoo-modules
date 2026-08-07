@@ -19,6 +19,7 @@ from odoo.exceptions import UserError
 from odoo.tools import email_normalize
 
 from ..models import sms
+from ..models.secure_transfer import MAX_SUBJECT_LEN
 
 MAX_RECIPIENTS = 10
 
@@ -44,6 +45,12 @@ class SecureSendWizard(models.TransientModel):
         string="Autres courriels",
         help="Adresses hors carnet, séparées par des virgules. Elles reçoivent "
              "toujours leur code par courriel (aucun numéro connu).",
+    )
+    subject = fields.Char(
+        string="Objet",
+        help="Court intitulé visible dans l'objet du courriel : c'est tout ce "
+             "que le destinataire saura avant de saisir son code. Il voyage en "
+             "clair — rien de confidentiel n'y a sa place.",
     )
     message = fields.Text(
         string="Message sécurisé", required=True,
@@ -157,6 +164,7 @@ class SecureSendWizard(models.TransientModel):
             "sender_email": email_normalize(self.sender_email or "")
             or (self.sender_email or "").strip(),
             "recipient_emails": ", ".join(emails),
+            "subject": Transfer._clean_line(self.subject, MAX_SUBJECT_LEN),
             "message": (self.message or "").strip(),
             "retention_days": self.retention_days or 7,
             "force_recipient_otp": True,

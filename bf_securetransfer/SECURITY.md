@@ -26,12 +26,27 @@ the S3 bucket (presigned URLs) and come back through a 302 redirect.
 - **Two distinct tokens** per transfer (defence in depth): `upload_token` (draft
   phase only, **revoked at finalisation**) and `token` (the `/s/` link,
   **inert before activation**). UUID v4, compared in **constant time**
-  (`hmac.compare_digest`), with **uniform** 404s (an unknown, expired or draft
-  token returns the same neutral page, with no metadata).
+  (`hmac.compare_digest`).
 - Tokens are stored in clear but **restricted to managers** (`groups=manager`);
   revealing a link goes through a dedicated wizard and is **written to the log**.
 - **ACLs**: the public has **no** model access — everything goes through
   `sudo()` behind the token check in the controllers.
+
+- **A token that opens nothing gets one of two answers, not one.** Neither
+  discloses metadata, but they are distinguishable from each other:
+  - **unknown, malformed, draft or harvested** token → **404**
+    (`request.not_found()`);
+  - **expired, purged, suspended or out of download budget** → a **neutral page
+    with a 200** ("this transfer is no longer available").
+
+  ⚠️ This document long claimed "uniform 404s" for both cases. That was wrong,
+  and it is corrected here rather than in the code. The gap is an **existence
+  oracle**: whoever holds a token can learn that it was once valid, even after
+  it expired. The reach is small — a UUID v4 cannot be guessed, so only someone
+  who *already* holds the link can ask the question, and they learn nothing they
+  did not already know. Making it uniform remains possible (serve the neutral
+  page instead of the 404), at the cost of a `/s/` route answering 200 to any
+  string.
 
 ### Direct S3 upload
 
@@ -78,6 +93,42 @@ the S3 bucket (presigned URLs) and come back through a 302 redirect.
   ≤ 255); the mimetype is determined **server-side**.
 - **Kill switches**: `public_upload_enabled` (the send page) and the
   `suspended` state per transfer (abuse reported).
+- **Conditional `Reply-To`.** The header points at the human sender — but
+  **only** where the destination is not theirs to choose: a drop page
+  (`fixed_recipient`, so the mail can only ever reach the page owner), a brand
+  or instance whose **sender allow-list is set**, or a send originated in the
+  back office. On a brand that accepts any sender it is **not** set: the reply
+  must come back to the brand mailbox, which is the only place such abuse shows
+  up. The `From` always stays the brand — SPF/DKIM/DMARC untouched.
+
+### Fields that end up in a mail header
+
+`sender_name`, `subject` and `recipient_emails` are normalised in the model's
+`create()`/`write()` (`_clean_line`: CR/LF and control characters removed,
+including `U+2028`/`U+2029`, length capped). **The cleaning lives at the ORM
+level, not in the controllers**: the finalise route wrote `sender_name` through
+its own sanitiser (trimming only), and any ORM/XML-RPC write bypassed the
+controllers entirely.
+
+⚠️ What a CR/LF produces there is **not** header injection: Python's `email`
+stack **refuses** the value (`ValueError: Header values may not contain linefeed
+or carriage return characters`). The real effect is a **silent delivery
+failure** — `mail.mail` lands in `exception` while the sender has already read
+"transfer ready". That failure is what the guard prevents.
+
+### Abuse desk — the notice stays with the tenant
+
+The abuse notice is the most talkative message this module produces: reference,
+brand, **sender**, **full recipient list**, the reason given and the **reporter's
+IP**. Its destination is therefore resolved from tenant data only
+(`secure.transfer._abuse_desk_email`), in this order:
+
+1. the `abuse_email` setting (Settings → Secure Transfer);
+2. failing that, the **e-mail of the company** that owns the brand;
+3. as a last resort, the address the brand already sends from — so an empty
+   `email_to` does not fail silently in the queue.
+
+No operator address is hardcoded anywhere in the module.
 
 ### Password
 
@@ -86,6 +137,26 @@ the S3 bucket (presigned URLs) and come back through a 302 redirect.
   a separate channel is assumed.
 - A server-side gate (session); failures are logged (`password_fail`) and
   capped.
+
+### Recipient code — bound to the SESSION, not to the transfer
+
+The challenge is kept in the **visitor's session** (`st_otp_chal_<id>`: the hash
+of the code plus its expiry), never on the record. Consequences:
+
+- **Intercepting the code is not enough.** Someone reading the recipient's mail
+  without the browser that made the request opens nothing: they would need that
+  session too. The code alone is inert.
+- **A new request replaces the previous challenge**: the earlier code stops
+  working as soon as another is asked for. That is deliberate (one live code at
+  a time), but it is a trap in automated testing — requesting in one process and
+  verifying in another cannot work.
+- ⚠️ **A usability corollary worth knowing**: if the recipient opens the link on
+  their phone and reads the code on their desktop, entering it on the desktop
+  fails — that session never asked for anything. It heals itself (they request a
+  new code from the browser they are in), and the page now says so, but without
+  that sentence the refusal looks inexplicable.
+- Success is a session flag too (`st_otp_ok_<id>`): it follows neither the
+  device nor the link, only the browser that passed the gate.
 
 ### Access log (Law 25)
 

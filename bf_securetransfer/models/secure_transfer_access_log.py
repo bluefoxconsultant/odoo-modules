@@ -59,6 +59,7 @@ class SecureTransferAccessLog(models.Model):
             ("link_revealed", "Lien révélé (gestionnaire)"),
             ("link_redacted", "Lien masqué dans le suivi"),
             ("otp_forced", "Code destinataire exigé après coup"),
+            ("extended", "Échéance prolongée"),
             ("expired", "Expiré"),
             ("purged", "Objets purgés du stockage"),
             ("suspended", "Suspendu"),

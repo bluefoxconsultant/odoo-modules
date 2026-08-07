@@ -14,3 +14,4 @@ from . import test_emails_i18n
 from . import test_wizards
 from . import test_sms
 from . import test_chatter_link_retention
+from . import test_subject_reply_extend
