@@ -31,6 +31,10 @@
                             type="object"
                             string="Convertir en tâche"
                             class="btn-secondary"/>
+                    <button name="action_open_reroute_wizard"
+                            type="object"
+                            string="Re-router…"
+                            class="btn-secondary"/>
                     <button name="action_toggle_pinned"
                             type="object"
                             string="Épingler"
@@ -113,14 +117,14 @@
                             <field name="link_ids">
                                 <list editable="bottom">
                                     <field name="sequence" widget="handle"/>
-                                    <field name="res_model" string="Modèle"/>
-                                    <field name="res_id" string="ID"/>
+                                    <field name="target_ref" string="Fiche"/>
                                     <field name="res_name" string="Nom"/>
                                     <button name="action_open" type="object" icon="fa-external-link" string="Ouvrir"/>
                                 </list>
                             </field>
                             <p class="text-muted small">
-                                Astuce : utilise plutôt « Lien primaire » ci-dessous pour ajouter rapidement une fiche.
+                                Astuce : « Re-router… » dans l'entête déplace la note vers une autre fiche
+                                (ou l'ajoute à une seconde) à partir d'une URL, d'un numéro ou d'une référence.
                             </p>
                             <group>
                                 <field name="res_ref" string="Ajouter un lien primaire"/>

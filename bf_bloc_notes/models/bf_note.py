@@ -4,7 +4,9 @@ from datetime import timedelta
 from odoo import api, fields, models
 from odoo.exceptions import AccessError
 
-DEFAULT_REFERENCE_MODELS = (
+# Modèles remontés en tête du sélecteur : ce sont ceux qu'on route au
+# quotidien. Le reste de la liste suit par ordre alphabétique.
+PRIORITY_REFERENCE_MODELS = (
     "res.partner",
     "project.project",
     "project.task",
@@ -101,15 +103,33 @@ class BfNote(models.Model):
 
     @api.model
     def _selection_target_model(self):
+        """Modèles auxquels une note peut être rattachée.
+
+        Même règle de compatibilité que le re-routage de `bf_email_management` :
+        toute fiche non transiente porteuse d'un chatter (`mail.thread`) est une
+        cible valide. `bf_bloc_notes.reference_models` reste disponible comme
+        liste blanche facultative — la renseigner restreint le sélecteur, la
+        laisser vide expose l'ensemble.
+        """
         param = self.env["ir.config_parameter"].sudo().get_param(
-            "bf_bloc_notes.reference_models", ",".join(DEFAULT_REFERENCE_MODELS)
+            "bf_bloc_notes.reference_models", ""
         )
         wanted = [m.strip() for m in (param or "").split(",") if m.strip()]
-        models_ = self.env["ir.model"].sudo().search([
-            ("model", "in", wanted),
-            ("transient", "=", False),
-        ])
-        return [(m.model, m.name) for m in models_]
+        if wanted:
+            domain = [("model", "in", wanted), ("transient", "=", False)]
+        else:
+            domain = [("is_mail_thread", "=", True), ("transient", "=", False)]
+        models_ = self.env["ir.model"].sudo().search(domain)
+        # `ir.model` garde des lignes pour des modèles absents du registre
+        # (module désinstallé) : les proposer donnerait un Reference cassé.
+        items = [(m.model, m.name) for m in models_ if m.model in self.env]
+        items.sort(key=lambda item: (
+            PRIORITY_REFERENCE_MODELS.index(item[0])
+            if item[0] in PRIORITY_REFERENCE_MODELS
+            else len(PRIORITY_REFERENCE_MODELS),
+            item[1] or item[0],
+        ))
+        return items
 
     @api.depends("link_ids", "link_ids.res_model", "link_ids.res_id")
     def _compute_res_ref(self):
@@ -261,6 +281,17 @@ class BfNote(models.Model):
             "context": {"default_note_id": self.id},
         }
 
+    def action_open_reroute_wizard(self):
+        """Ouvre le wizard de re-routage (une note ou une sélection)."""
+        return {
+            "type": "ir.actions.act_window",
+            "name": "Re-router la note" if len(self) == 1 else "Re-router les notes",
+            "res_model": "bf.note.reroute",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"default_note_ids": [(6, 0, self.ids)]},
+        }
+
     def action_open_tasks(self):
         self.ensure_one()
         return {
@@ -286,10 +317,25 @@ class BfNote(models.Model):
             activity_type = self.env.ref("mail.mail_activity_data_todo", raise_if_not_found=False)
             activity_type_id = activity_type.id if activity_type else False
 
+        candidates = [
+            (link.res_model, link.res_id)
+            for link in self.link_ids
+            if link.res_model and link.res_id and link.res_model in self.env
+        ]
+        # Une activité posée sur un modèle sans `mail.activity.mixin`
+        # (calendar.event, discuss.channel, blog.post…) existe en base mais ne
+        # s'affiche nulle part : on la renvoie sur la note elle-même. Le test
+        # passe par `is_mail_activity` — la présence d'un champ `activity_ids`
+        # ne prouve rien (calendar.event en a un, sans porter la mixin).
         targets = []
-        for link in self.link_ids:
-            if link.res_model and link.res_id and link.res_model in self.env:
-                targets.append((link.res_model, link.res_id))
+        if candidates:
+            activity_models = set(IrModel.search([
+                ("model", "in", list({model for model, _rid in candidates})),
+                ("is_mail_activity", "=", True),
+            ]).mapped("model"))
+            targets = [
+                (model, rid) for model, rid in candidates if model in activity_models
+            ]
 
         if not targets and link_target_ref:
             try:
