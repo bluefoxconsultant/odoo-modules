@@ -23,7 +23,7 @@ except ImportError:
 class HourBankClient(models.Model):
     _name = 'hour.bank.client'
     _description = "Configuration de banque d'heures client"
-    _inherit = ['mail.thread']
+    _inherit = ['mail.thread', 'mail.activity.mixin']
     _order = 'name'
 
     name = fields.Char(

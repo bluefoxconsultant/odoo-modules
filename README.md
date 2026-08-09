@@ -41,7 +41,7 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 |---|---|---|---|---|
 | `audit_ti` | Audit TI - Loi 25 | 18.0.1.17.1 | LGPL-3 | IT security audit management for Quebec's Loi 25 compliance |
 | `bf_appointment` | Blue Fox Appointment | 18.0.2.33.0 | LGPL-3 | Self-service public booking pages (extends `resource_booking`) |
-| `bf_bloc_notes` | BF Bloc-notes | 18.0.2.7.1 | LGPL-3 | Rich quick notes with multi-record links, one-click activity conversion, keyboard shortcuts, and systray icon (Alt+N) |
+| `bf_bloc_notes` | BF Bloc-notes | 18.0.2.8.0 | LGPL-3 | Rich quick notes with multi-record links, one-click activity conversion, keyboard shortcuts, and systray icon (Alt+N) |
 | `bf_bureau` | BF Bureau — vues multi-panneaux | 18.0.3.1.0 | LGPL-3 | User-configurable dashboards ("desks") with multi-pane Odoo actions, six layouts, keyboard shortcuts, time slots, and a sidebar |
 | `bf_calendar_nc_talk` | BF Calendar — Nextcloud Talk button | 18.0.1.0.0 | LGPL-3 | Adds a '+ Nextcloud Talk' button next to '+ Odoo meeting' on calendar events. Creates a public Talk conversation via the Spreed OCS API and writes the room URL into videocall_location. |
 | `bf_chatter_chronological` | BF Chatter Chronological View | 18.0.4.0.0 | LGPL-3 | Sort the chatter feed by the email's original Date header instead of insertion id (Python `_order` + `_message_fetch` + JS `Thread.fetch*` patch); cogwheel action to re-parse lost Date headers from quoted body content |
@@ -78,7 +78,7 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | `bf_fundraising_web` | Levée de fonds — Web & Portail donateur | 18.0.1.0.2 | AGPL-3 | Public website donation form + donor portal (giving history and official receipt download) |
 | `bf_gamification` | Fox Quest | 18.0.2.3.0 | LGPL-3 | Gamification system with XP, levels, badges, and rewards |
 | `bf_helpdesk` | Blue Fox — Helpdesk | 18.0.4.3.0 | LGPL-3 | Branded helpdesk extension: per-team public form, hour-bank ribbon, waiting states, ntfy critical hook, persona panel, knowledge-matrix link, ticket→meeting, IA triage via Claude, CSAT on close, branded portal, dashboard tile, IMAP gateway hardening, SLA + macros + auto-tag + auto-ack, ticket timesheets (hour-bank deduction), branded client updates |
-| `bf_hour_bank` | Banque d'heures | 18.0.1.14.1 | LGPL-3 | Automated tracking of client hour banks with threshold-based proactive notifications (unbilled hours, % of allocated budget, balance floor) |
+| `bf_hour_bank` | Banque d'heures | 18.0.1.14.2 | LGPL-3 | Automated tracking of client hour banks with threshold-based proactive notifications (unbilled hours, % of allocated budget, balance floor) |
 | `bf_invoice_ocr` | Blue Fox — Invoice OCR Scanner | 18.0.1.0.0 | LGPL-3 | Extract vendor bill data from PDF attachments via the bf_llm gateway |
 | `bf_letter_writer` | Letter Writer | 18.0.2.0.0 | LGPL-3 | Branded official-letter editor: 5 letterhead modes, field merge (`{{ }}`), reusable templates and quick-text blocks, email + PDF send |
 | `bf_lexend` | Lexend Typeface | 18.0.3.0.0 | LGPL-3 | Adds Lexend across UI/PDF reports and per-company brand color settings (`report_brand_primary`, `report_brand_dark`) |
