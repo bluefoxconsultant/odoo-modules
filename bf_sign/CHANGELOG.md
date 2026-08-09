@@ -2,6 +2,39 @@
 
 Versioning follows the Odoo `18.0.MAJOR.MINOR.PATCH` convention.
 
+## 18.0.3.17.0 — Public verification, QR on the document, RFC 3161
+
+### A page anyone holding the document can reach
+- New public route `/sign/verify/<id>/<token>`. Until now every route was tied
+  to a signer token, so there was no way for a third party — a bank, a
+  registrar, a buyer — to check that a signed PDF really came from here.
+- The page states what a holder can already see (reference, title, signing date,
+  signer **names**) plus what they cannot check on their own: the integrity
+  proofs, **recomputed at each visit** rather than read from a stored verdict.
+- It discloses **no email address** and **never serves the document**. The
+  SHA-256 imprint is displayed so a holder can compute their own copy's digest
+  and compare — nothing is uploaded, nothing is stored.
+- `verify_token` is minted at finalize for **every** signed request, QR or not,
+  so the link can simply be shared. It is deliberately not a signer token: it
+  opens a read-only page and can never sign anything. Unknown tokens fall on a
+  neutral page and count against the existing per-IP rate limit.
+
+### QR on the document itself
+- Optional `verify_qr`, off by default, with a choice of corner and of pages
+  (last / first / all). ⚠️ It is stamped **over** the content: an opaque backing
+  keeps it scannable, but the corner has to be chosen on a real document.
+- Drawn as **vector geometry**, not a rasterised image: a QR printed from a PNG
+  at PDF scale blurs at the module edges, which is what makes a scanner give up
+  on paper.
+- Stamped by the same pass as the pads, so a request with no pad at all still
+  gets its QR.
+
+### RFC 3161
+- The setting existed but was undocumented and off; it now states the trade-off
+  plainly — what it buys (the signing date stops resting on our own clock) and
+  what it costs (an outbound call at finalize, logged and non-blocking on
+  failure) — and the TSA URL is editable beside it.
+
 ## 18.0.3.16.0 — Reminders
 
 A signature request had no follow-up of any kind: one cron (expiry), three

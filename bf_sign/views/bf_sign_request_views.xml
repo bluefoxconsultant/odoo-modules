@@ -42,6 +42,11 @@
                             <field name="require_signer_otp" readonly="state != 'draft'"/>
                             <field name="append_certificate" readonly="state != 'draft'"/>
                             <field name="reminder_enabled"/>
+                            <field name="verify_qr" readonly="state != 'draft'"/>
+                            <field name="verify_qr_position" readonly="state != 'draft'"
+                                   invisible="not verify_qr"/>
+                            <field name="verify_qr_pages" readonly="state != 'draft'"
+                                   invisible="not verify_qr"/>
                             <field name="expiry_date" readonly="state == 'signed'"/>
                             <field name="company_id" groups="base.group_multi_company"
                                    readonly="state != 'draft'"/>
@@ -100,6 +105,8 @@
                                     <field name="certificate_attachment_id" readonly="1"/>
                                 </group>
                                 <group>
+                                    <field name="verify_url" widget="url" readonly="1"
+                                           invisible="not verify_url"/>
                                     <field name="hash_original" readonly="1"/>
                                     <field name="hash_signed" readonly="1"/>
                                     <field name="hash_stamped" readonly="1" invisible="not hash_stamped"/>

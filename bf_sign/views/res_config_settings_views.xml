@@ -42,6 +42,10 @@
                                 </div>
                             </div>
                         </setting>
+                        <setting string="Code QR de vérification"
+                                 help="Appose sur le document signé un code QR menant à une page publique qui atteste de son origine et rejoue les contrôles d'intégrité. Le code est imprimé par-dessus le contenu : choisissez un coin libre sur la demande.">
+                            <field name="bf_sign_verify_qr"/>
+                        </setting>
                         <setting string="Certificat joint au document"
                                  help="Relier le certificat de signature à la fin du document signé. Décoché, le document est livré seul et le certificat reste une pièce distincte, produite et scellée de la même façon. Réglable par demande.">
                             <field name="bf_sign_append_certificate"/>

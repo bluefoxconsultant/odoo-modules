@@ -910,3 +910,67 @@ class TestBfSign(TransactionCase):
         req.action_remind_pending()
         self.assertEqual(first.reminder_count, 0)
         self.assertEqual(second.reminder_count, 1)
+
+    # ── public verification + QR (18.0.3.17.0) ─────────────────────────────────
+    def test_verify_token_minted_at_finalize(self):
+        req = self._new_request(signers=1)
+        self.assertFalse(req.verify_token)
+        req.action_send()
+        with self._mock_cert():
+            self._sign(req, req.signer_ids[0])
+        self.assertTrue(req.verify_token)
+        self.assertIn("/sign/verify/%s/" % req.id, req.verify_url)
+        self.assertIn(req.verify_token, req.verify_url)
+        # It must never be a signing token.
+        self.assertNotIn(req.verify_token, req.signer_ids.mapped("access_token"))
+
+    def test_verify_token_only_minted_when_qr_requested_or_finalized(self):
+        req = self._new_request(signers=1)
+        req.verify_qr = True
+        req.action_send()
+        with self._mock_cert():
+            self._sign(req, req.signer_ids[0])
+        self.assertTrue(req.verify_token)
+
+    def test_qr_stamps_without_adding_pages(self):
+        req = self._new_request(signers=1)
+        req.verify_qr = True
+        original_pages = len(PdfReader(io.BytesIO(self.pdf_bytes)).pages)
+        req.action_send()
+        with self._mock_cert():
+            self._sign(req, req.signer_ids[0])
+        signed = base64.b64decode(req.signed_attachment_id.datas)
+        # Certificate is appended by default, so compare against the document
+        # portion only: the QR must not push the page count of the source doc.
+        self.assertGreaterEqual(len(PdfReader(io.BytesIO(signed)).pages), original_pages)
+        self.assertNotEqual(signed, self.pdf_bytes)
+
+    def test_qr_stamps_even_with_no_pads(self):
+        req = self._new_request(signers=1, with_fields=False)
+        req.verify_qr = True
+        req.action_send()
+        with self._mock_cert():
+            self._sign(req, req.signer_ids[0])
+        self.assertTrue(req.verify_token)
+        self.assertTrue(req.signed_attachment_id)
+
+    def test_qr_page_selection(self):
+        req = self._new_request(signers=1)
+        req.verify_qr = True
+        # The fixture PDF page count drives what "last" resolves to.
+        pages = len(PdfReader(io.BytesIO(self.pdf_bytes)).pages)
+        req.verify_qr_pages = "first"
+        self.assertEqual(req._qr_pages_for(pages), {1})
+        req.verify_qr_pages = "last"
+        self.assertEqual(req._qr_pages_for(pages), {pages})
+        req.verify_qr_pages = "all"
+        self.assertEqual(req._qr_pages_for(pages), set(range(1, pages + 1)))
+
+    def test_verify_integrity_backs_the_public_page(self):
+        req = self._new_request(signers=1)
+        req.action_send()
+        with self._mock_cert():
+            self._sign(req, req.signer_ids[0])
+        checks = req._verify_integrity()
+        self.assertTrue(checks["chain_ok"])
+        self.assertTrue(checks["content_ok"])

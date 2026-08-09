@@ -40,13 +40,20 @@ class ResConfigSettings(models.TransientModel):
     bf_sign_rfc3161_enabled = fields.Boolean(
         string="Horodatage RFC 3161",
         config_parameter="bf_sign.rfc3161_enabled",
-        help="Demander un jeton d'horodatage de confiance (TSA) sur chaque "
-             "document signé. Preuve indépendante de la plateforme.",
+        default=False,
+        help="Demander un jeton d'horodatage à une autorité externe au moment "
+             "de sceller. Ce que ça apporte : la date de signature cesse de "
+             "reposer sur notre seule horloge. Ce que ça coûte : un appel "
+             "réseau sortant à la finalisation. Un échec est journalisé et "
+             "n'empêche pas la signature.",
     )
     bf_sign_tsa_url = fields.Char(
         string="URL de l'autorité d'horodatage (TSA)",
         config_parameter="bf_sign.tsa_url",
         default="https://freetsa.org/tsr",
+        help="Par défaut freetsa.org, gratuite et sans engagement de service. "
+             "Pour un usage où la date compte vraiment, visez une autorité "
+             "commerciale.",
     )
     bf_sign_default_expiry_days = fields.Integer(
         string="Échéance par défaut (jours)",
@@ -72,6 +79,14 @@ class ResConfigSettings(models.TransientModel):
         help="Activer par défaut, sur chaque nouvelle demande, la vérification "
              "par code envoyé au courriel du signataire avant la signature. "
              "Réglable demande par demande.",
+    )
+    bf_sign_verify_qr = fields.Boolean(
+        string="Code QR de vérification par défaut",
+        config_parameter="bf_sign.verify_qr",
+        default=False,
+        help="Apposer par défaut, sur les nouvelles demandes, un code QR menant "
+             "à la page publique de vérification. ⚠️ Il est imprimé PAR-DESSUS "
+             "le contenu du document. Réglable demande par demande.",
     )
     bf_sign_reminder_enabled = fields.Boolean(
         string="Relances automatiques",

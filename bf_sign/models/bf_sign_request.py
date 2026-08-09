@@ -5,6 +5,7 @@ import io
 import logging
 import os
 import re
+import uuid
 from datetime import timedelta, timezone
 
 from odoo import api, fields, models, _
@@ -152,6 +153,53 @@ class BfSignRequest(models.Model):
 
     res_model = fields.Char(string="Modèle source")
     res_id = fields.Integer(string="ID source")
+
+    # ── Public verification ─────────────────────────────────────────────────
+    # Deliberately NOT a signer token: it opens a read-only proof page and can
+    # never sign anything. It is printed on the document when the QR is on, so
+    # anyone holding the PDF holds the token — which is the point, and why the
+    # page discloses no email address and never serves the document itself.
+    verify_token = fields.Char(readonly=True, copy=False, index=True)
+    verify_url = fields.Char(compute="_compute_verify_url", string="Lien de vérification")
+    verify_qr = fields.Boolean(
+        string="Code QR de vérification sur le document",
+        default=lambda self: self._default_verify_qr(),
+        help="Appose un code QR menant à une page publique attestant que ce "
+             "document a bien été signé ici. ⚠️ Il est imprimé PAR-DESSUS le "
+             "contenu : choisissez un coin libre.")
+    verify_qr_position = fields.Selection(
+        selection=[
+            ("bl", "Bas gauche"), ("br", "Bas droite"),
+            ("tl", "Haut gauche"), ("tr", "Haut droite"),
+        ],
+        string="Position du code QR", default="br", required=True)
+    verify_qr_pages = fields.Selection(
+        selection=[
+            ("last", "Dernière page"), ("first", "Première page"), ("all", "Toutes les pages"),
+        ],
+        string="Pages du code QR", default="last", required=True)
+
+    @api.depends("verify_token")
+    def _compute_verify_url(self):
+        for rec in self:
+            rec.verify_url = rec._verify_url() if rec.verify_token else False
+
+    @api.model
+    def _default_verify_qr(self):
+        return self.env["ir.config_parameter"].sudo().get_param(
+            "bf_sign.verify_qr", "False") in ("1", "True", "true")
+
+    def _ensure_verify_token(self):
+        """Mint the verification token once, at finalize time."""
+        self.ensure_one()
+        if not self.verify_token:
+            self.sudo().verify_token = str(uuid.uuid4())
+        return self.verify_token
+
+    def _verify_url(self):
+        self.ensure_one()
+        return "%s/sign/verify/%s/%s" % (
+            self._get_base_url(), self.id, self.verify_token or "")
 
     require_signer_otp = fields.Boolean(
         string="Vérification par code (OTP)",
@@ -851,7 +899,15 @@ class BfSignRequest(models.Model):
         original_bytes = base64.b64decode(self.document_file)
         self.invalidate_recordset(["signer_ids", "field_ids", "log_ids"])
 
-        stamped_bytes = self._stamp_document(original_bytes) if self.field_ids else original_bytes
+        # Every signed document gets a verification link, whether or not a QR is
+        # printed on it: the preparer can share the URL, and the Proof tab shows
+        # it. The QR only makes the same link scannable off paper.
+        self._ensure_verify_token()
+        # The QR is stamped by the same pass, so a request with no pad at all
+        # still goes through it when the QR is on.
+        stamped_bytes = (
+            self._stamp_document(original_bytes)
+            if (self.field_ids or self.verify_qr) else original_bytes)
         hash_stamped = self._sha256_hex(stamped_bytes)
 
         # Trusted timestamp BEFORE rendering the certificate, so the certificate
@@ -979,19 +1035,27 @@ class BfSignRequest(models.Model):
         for f in self.field_ids:
             fields_by_page.setdefault(f.page, []).append(f)
 
+        qr_pages = set()
+        if self.verify_qr:
+            self._ensure_verify_token()
+            qr_pages = self._qr_pages_for(len(reader.pages))
+
         for idx, page in enumerate(reader.pages, start=1):
             page_fields = fields_by_page.get(idx)
-            if page_fields:
+            wants_qr = idx in qr_pages
+            if page_fields or wants_qr:
                 pw = float(page.mediabox.width)
                 ph = float(page.mediabox.height)
                 buf = io.BytesIO()
                 c = canvas.Canvas(buf, pagesize=(pw, ph))
-                for f in page_fields:
+                for f in page_fields or ():
                     x = f.pos_x * pw
                     w = max(f.width * pw, 1.0)
                     h = max(f.height * ph, 1.0)
                     y = ph - (f.pos_y * ph) - h  # top-origin → bottom-origin
                     self._draw_field(c, f, x, y, w, h, ImageReader)
+                if wants_qr:
+                    self._draw_verify_qr(c, pw, ph)
                 c.save()
                 buf.seek(0)
                 page.merge_page(PdfReader(buf).pages[0])
@@ -1045,6 +1109,60 @@ class BfSignRequest(models.Model):
         while value and c.stringWidth(value + ell, self._TEXT_FONT, size) > avail_w:
             value = value[:-1]
         return value + ell if value else ell
+
+    # ── Verification QR stamped on the document itself ────────────────────────
+    # Drawn as vector geometry, not a rasterised image: a QR printed from a PNG
+    # at PDF scale blurs at the module edges, which is exactly what makes a
+    # scanner give up on a printed page.
+    _QR_SIZE_PT = 52.0      # ≈18 mm, comfortably scannable on paper
+    _QR_MARGIN_PT = 18.0
+    _QR_CAPTION_PT = 5.5
+
+    def _qr_pages_for(self, page_count):
+        self.ensure_one()
+        if self.verify_qr_pages == "all":
+            return set(range(1, page_count + 1))
+        if self.verify_qr_pages == "first":
+            return {1}
+        return {page_count}
+
+    def _draw_verify_qr(self, c, page_w, page_h):
+        """Stamp the verification QR in the configured corner of one page."""
+        self.ensure_one()
+        from reportlab.graphics import renderPDF
+        from reportlab.graphics.barcode import qr
+        from reportlab.graphics.shapes import Drawing
+
+        url = self._verify_url()
+        size = self._QR_SIZE_PT
+        margin = self._QR_MARGIN_PT
+        caption_h = self._QR_CAPTION_PT + 3.0
+        left = self.verify_qr_position in ("bl", "tl")
+        bottom = self.verify_qr_position in ("bl", "br")
+        x = margin if left else page_w - margin - size
+        y = (margin + caption_h) if bottom else page_h - margin - size
+
+        # An opaque backing so the code stays scannable over existing content.
+        pad = 3.0
+        c.saveState()
+        c.setFillColorRGB(1, 1, 1)
+        c.setStrokeColorRGB(0.85, 0.86, 0.87)
+        c.setLineWidth(0.5)
+        c.rect(x - pad, y - caption_h, size + 2 * pad, size + caption_h + pad,
+               stroke=1, fill=1)
+
+        widget = qr.QrCodeWidget(url)
+        bounds = widget.getBounds()
+        w = bounds[2] - bounds[0]
+        h = bounds[3] - bounds[1]
+        drawing = Drawing(size, size, transform=[size / w, 0, 0, size / h, 0, 0])
+        drawing.add(widget)
+        renderPDF.draw(drawing, c, x, y)
+
+        c.setFillColorRGB(0.35, 0.37, 0.38)
+        c.setFont("Helvetica", self._QR_CAPTION_PT)
+        c.drawCentredString(x + size / 2.0, y - caption_h + 2.0, "Vérifier l'authenticité")
+        c.restoreState()
 
     def _draw_checkbox(self, c, field, x, y, w, h):
         """A square box, sized to the pad, ticked when the pad reads as checked."""

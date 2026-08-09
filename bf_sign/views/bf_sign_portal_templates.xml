@@ -909,4 +909,161 @@
         </html>
     </template>
 
+
+    <!-- ============================================================= -->
+    <!-- Public verification page (target of the QR on the document)    -->
+    <!-- ============================================================= -->
+    <template id="verify_page" name="BF Sign — Vérification publique">
+        <t t-set="primary" t-value="req.company_id.report_brand_primary or '#29ABE1'"/>
+        <t t-set="dark" t-value="req.company_id.report_brand_dark or '#2D3031'"/>
+        &lt;!DOCTYPE html&gt;
+        <html lang="fr">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <meta name="robots" content="noindex, nofollow"/>
+                <title>Vérification — <t t-esc="req.name"/></title>
+                <style>
+                    body { margin:0; font-family: Lexend,system-ui,sans-serif; background:#f4f6f8;
+                           color:#2D3031; font-size:15px; line-height:1.55; }
+                    .bf-wrap { max-width:640px; margin:0 auto; padding:24px 16px 64px; }
+                    .bf-card { background:#fff; border:1px solid #e3e7eb; border-radius:10px;
+                               padding:24px; margin-bottom:16px; }
+                    .bf-verdict { border-radius:10px; padding:20px 24px; margin-bottom:16px; color:#fff; }
+                    .bf-ok { background:#1e7a4d; }
+                    .bf-ko { background:#a3341f; }
+                    .bf-pending { background:#7a6a1e; }
+                    .bf-verdict h1 { font-size:19px; margin:0 0 6px; }
+                    .bf-verdict p { margin:0; opacity:.92; font-size:14px; }
+                    dl { display:grid; grid-template-columns:auto 1fr; gap:8px 16px; margin:0; }
+                    dt { color:#6b7379; font-size:13px; }
+                    dd { margin:0; }
+                    code { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px;
+                           word-break:break-all; background:#f4f6f8; padding:2px 5px; border-radius:4px; }
+                    h2 { font-size:15px; margin:0 0 12px; }
+                    ul.bf-checks { list-style:none; padding:0; margin:0; }
+                    ul.bf-checks li { padding:5px 0; font-size:14px; }
+                    .bf-note { color:#6b7379; font-size:13px; }
+                </style>
+            </head>
+            <body>
+                <div class="bf-wrap">
+                    <div style="text-align:center; padding:18px 0 12px;">
+                        <img t-attf-src="/web/image/res.company/#{req.company_id.id}/#{req.company_id.report_brand_logo and 'report_brand_logo' or 'logo'}"
+                             t-att-alt="req.company_id.name" style="height:34px;"/>
+                    </div>
+
+                    <t t-if="req.state != 'signed'">
+                        <div class="bf-verdict bf-pending">
+                            <h1>Ce document n'est pas encore signé</h1>
+                            <p>La demande <t t-esc="req.name"/> existe bien, mais son parcours de
+                                signature n'est pas terminé. Un document portant ce code alors qu'il
+                                se présente comme signé mérite une question à l'expéditeur.</p>
+                        </div>
+                    </t>
+                    <t t-elif="genuine">
+                        <div class="bf-verdict bf-ok">
+                            <h1>Document authentique</h1>
+                            <p>Ce document a bien été signé via <t t-esc="req.company_id.name"/>, et
+                                l'exemplaire conservé ici n'a pas été modifié depuis.</p>
+                        </div>
+                    </t>
+                    <t t-else="">
+                        <div class="bf-verdict bf-ko">
+                            <h1>Vérification en échec</h1>
+                            <p>Au moins un contrôle d'intégrité ne passe pas sur l'exemplaire
+                                conservé. Contactez l'expéditeur avant de vous fier à ce document.</p>
+                        </div>
+                    </t>
+
+                    <div class="bf-card">
+                        <h2>Ce que nous pouvons attester</h2>
+                        <dl>
+                            <dt>Référence</dt><dd><t t-esc="req.name"/></dd>
+                            <dt t-if="req.title">Titre</dt>
+                            <dd t-if="req.title"><t t-esc="req.title"/></dd>
+                            <dt t-if="req.signed_on">Signé le</dt>
+                            <dd t-if="req.signed_on">
+                                <t t-esc="signed_on_label"/>
+                            </dd>
+                            <dt>Signataires</dt>
+                            <dd>
+                                <t t-foreach="req.signer_ids" t-as="s">
+                                    <div><t t-esc="s.name"/>
+                                        <span class="bf-note" t-if="s.state == 'signed'"> — signé</span>
+                                        <span class="bf-note" t-else=""> — en attente</span>
+                                    </div>
+                                </t>
+                            </dd>
+                            <dt t-if="req.hash_signed">Empreinte SHA-256</dt>
+                            <dd t-if="req.hash_signed"><code t-esc="req.hash_signed"/></dd>
+                        </dl>
+                        <p class="bf-note" style="margin-top:16px;">
+                            Vous pouvez calculer vous-même l'empreinte de votre exemplaire et la
+                            comparer à celle ci-dessus. Aucun fichier n'est téléversé sur cette page,
+                            et le document n'y est jamais servi.
+                        </p>
+                    </div>
+
+                    <div class="bf-card" t-if="checks">
+                        <h2>Contrôles rejoués à l'instant</h2>
+                        <ul class="bf-checks">
+                            <li>
+                                <t t-if="checks.get('content_ok')">✅</t><t t-else="">❌</t>
+                                Le document conservé correspond à son empreinte
+                            </li>
+                            <li>
+                                <t t-if="checks.get('chain_ok')">✅</t><t t-else="">❌</t>
+                                La piste de vérification est intacte (chaînage SHA-256)
+                            </li>
+                            <li t-if="checks.get('seal_ok') is not None">
+                                <t t-if="checks.get('seal_ok')">✅</t><t t-else="">❌</t>
+                                Le sceau numérique (PAdES) est valide
+                            </li>
+                            <li t-if="checks.get('tsa_ok') is not None">
+                                <t t-if="checks.get('tsa_ok')">✅</t><t t-else="">❌</t>
+                                L'horodatage d'autorité tierce (RFC 3161) concorde
+                            </li>
+                        </ul>
+                        <p class="bf-note" style="margin-top:14px;">
+                            Ces contrôles portent sur l'exemplaire conservé par
+                            <t t-esc="req.company_id.name"/>. Ils ne disent rien d'un fichier que
+                            vous auriez reçu par ailleurs : c'est l'empreinte, ci-dessus, qui permet
+                            de les rapprocher.
+                        </p>
+                    </div>
+
+                    <div style="text-align:center; color:#9aa4ad; font-size:12px; padding:8px;">
+                        <t t-esc="req.company_id.name"/>
+                    </div>
+                </div>
+            </body>
+        </html>
+    </template>
+
+    <template id="verify_unknown" name="BF Sign — Vérification inconnue">
+        &lt;!DOCTYPE html&gt;
+        <html lang="fr">
+            <head>
+                <meta charset="utf-8"/>
+                <meta name="viewport" content="width=device-width, initial-scale=1"/>
+                <meta name="robots" content="noindex, nofollow"/>
+                <title>Vérification impossible</title>
+                <style>
+                    body { margin:0; font-family: system-ui,sans-serif; background:#f4f6f8; color:#2D3031;
+                           display:flex; align-items:center; justify-content:center; min-height:100vh; }
+                    .bf-card { background:#fff; border:1px solid #e3e7eb; border-radius:10px;
+                               padding:32px; max-width:480px; text-align:center; }
+                </style>
+            </head>
+            <body>
+                <div class="bf-card">
+                    <h1 style="font-size:18px;">Aucun document ne correspond à ce code</h1>
+                    <p style="color:#555;">Le code est peut-être mal lu, ou le document ne provient
+                        pas d'ici. Si vous l'avez reçu comme un document signé, méfiez-vous.</p>
+                </div>
+            </body>
+        </html>
+    </template>
+
 </odoo>

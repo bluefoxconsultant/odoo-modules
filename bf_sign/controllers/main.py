@@ -109,6 +109,41 @@ class BfSignController(Controller):
         match = match[0]
         return match.request_id, match
 
+    # ── Public verification (QR target) ───────────────────────────────────────
+    @route("/sign/verify/<int:request_id>/<verify_token>", type="http", auth="public",
+           methods=["GET"], csrf=False)
+    def verify_page(self, request_id, verify_token, **kw):
+        """Read-only proof page: does this document really come from here?
+
+        Reachable by anyone holding the signed PDF, since the token is printed
+        on it. It therefore states what a holder can already see (reference,
+        date, signer NAMES) plus what they cannot check on their own (the
+        recomputed integrity results), and nothing else — no email address, and
+        never the document itself.
+        """
+        if not _check_token_rate_limit():
+            return request.render("bf_sign.verify_unknown", {})
+        match = request.env["bf.sign.request"].sudo().search([
+            ("id", "=", request_id),
+            ("verify_token", "=", verify_token),
+        ], limit=1)
+        if not match or not verify_token:
+            _record_token_failure()
+            return request.render("bf_sign.verify_unknown", {})
+        checks = match._verify_integrity() if match.state == "signed" else {}
+        # Formatted here rather than in QWeb: no other template in this module
+        # relies on `format_datetime` being in the render context, and a public
+        # page is a poor place to discover that it is not.
+        signed_on_label = (
+            match.signed_on.strftime("%Y-%m-%d %H:%M UTC") if match.signed_on else "")
+        return request.render("bf_sign.verify_page", {
+            "req": match,
+            "checks": checks,
+            "signed_on_label": signed_on_label,
+            "genuine": bool(checks) and checks.get("chain_ok") and checks.get("content_ok")
+            and checks.get("seal_ok") is not False and checks.get("tsa_ok") is not False,
+        })
+
     # ── Sign page ─────────────────────────────────────────────────────────────
     @route("/sign/<int:request_id>/<access_token>", type="http", auth="public",
            methods=["GET"], csrf=False)
