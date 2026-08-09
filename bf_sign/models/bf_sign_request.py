@@ -331,6 +331,18 @@ class BfSignRequest(models.Model):
             "res_id": record.id,
         }
         if signers:
+            missing = [s.get("name") or _("(sans nom)")
+                       for s in signers if not (s.get("email") or "").strip()]
+            if missing:
+                if len(missing) == 1:
+                    raise UserError(_(
+                        "Le signataire « %s » n'a pas de courriel. Ajoutez un "
+                        "courriel à sa fiche contact avant de lancer la "
+                        "signature.") % missing[0])
+                raise UserError(_(
+                    "Les signataires suivants n'ont pas de courriel : %s. "
+                    "Ajoutez un courriel à leur fiche contact avant de lancer "
+                    "la signature.") % ", ".join(missing))
             create_vals["signer_ids"] = [(0, 0, s) for s in signers]
         if vals:
             create_vals.update(vals)
@@ -868,6 +880,7 @@ class BfSignRequest(models.Model):
         template = self.env.ref("bf_sign.mail_template_sign_refused", raise_if_not_found=False)
         if template:
             template.send_mail(self.id, force_send=True)
+        self._sign_call_source_hook("_sign_on_refused", signer, reason)
         return True
 
     def _post_sign_progress(self):
@@ -978,23 +991,15 @@ class BfSignRequest(models.Model):
     def _notify_source_signed(self):
         """Post the signed document back to the source record (res_model/res_id),
         when the request was created from one. Attaches the signed PDF +
-        certificate and a chatter note; never changes the source's state. Failures
-        are logged, never raised (must not break finalization)."""
+        certificate and a chatter note, then calls the model's ``_sign_on_signed``
+        hook (a no-op unless the model opts in). Failures are logged, never raised
+        (must not break finalization)."""
         self.ensure_one()
         if not (self.res_model and self.res_id and self.signed_attachment_id):
             return
-        if self.res_model not in self.env:
-            return
         try:
-            record = self.env[self.res_model].sudo().browse(self.res_id).exists()
+            record = self._sign_source_record()
             if not record or not hasattr(record, "message_post"):
-                return
-            # res_model/res_id are user-settable via RPC; only post back to a
-            # source the request creator could actually write — never let the
-            # sudo finalize attach the signed PDF to an arbitrary record.
-            try:
-                record.with_user(self.create_uid).check_access("write")
-            except Exception:  # noqa: BLE001 — fail closed on any access error
                 return
             new_atts = self.env["ir.attachment"].sudo()
             for att in (self.signed_attachment_id, self.certificate_attachment_id):
@@ -1006,10 +1011,153 @@ class BfSignRequest(models.Model):
                        "empreinte SHA-256 : %(h)s",
                        n=len(self.signer_ids), h=self.hash_signed or ""),
                 attachment_ids=new_atts.ids)
+            self._sign_call_source_hook("_sign_on_signed")
         except Exception as exc:  # noqa: BLE001
             _logger.warning(
                 "bf_sign: source notify failed for %s (%s,%s): %s",
                 self.name, self.res_model, self.res_id, exc)
+
+    def _sign_source_record(self):
+        """Resolve the source record (res_model/res_id) this request was created
+        from, or ``None``. res_model/res_id are user-settable via RPC, so the
+        record is only returned when the request creator could actually write it
+        — never let a sudo finalize touch an arbitrary record."""
+        self.ensure_one()
+        if not (self.res_model and self.res_id) or self.res_model not in self.env:
+            return None
+        record = self.env[self.res_model].sudo().browse(self.res_id).exists()
+        if not record:
+            return None
+        try:
+            record.with_user(self.create_uid).check_access("write")
+        except Exception:  # noqa: BLE001 — fail closed on any access error
+            return None
+        return record
+
+    def _sign_call_source_hook(self, hook, *args):
+        """Call a ``bf.sign.mixin`` lifecycle hook on the source record.
+
+        Wrapped in a savepoint: these hooks run inside the signature transaction
+        (``_finalize`` holds a row lock), so an override raising a database error
+        would otherwise poison the cursor and roll back the sealed document
+        itself. A failure is reported in the source's chatter, not just the log —
+        a quotation silently left in draft after a valid signature is exactly the
+        failure nobody notices."""
+        self.ensure_one()
+        record = self._sign_source_record()
+        if not record or not hasattr(record, hook):
+            return
+        try:
+            with self.env.cr.savepoint():
+                getattr(record, hook)(self, *args)
+        except Exception as exc:  # noqa: BLE001
+            _logger.warning(
+                "bf_sign: source hook %s failed for %s (%s,%s): %s",
+                hook, self.name, self.res_model, self.res_id, exc)
+            try:
+                with self.env.cr.savepoint():
+                    record.message_post(body=_(
+                        "Signature %(ref)s : le suivi automatique de ce document a "
+                        "échoué (%(hook)s). La signature elle-même est valide et "
+                        "conservée ; l'état de ce document n'a pas été mis à jour et "
+                        "demande une intervention manuelle. Détail : %(err)s",
+                        ref=self.name, hook=hook, err=exc))
+            except Exception:  # noqa: BLE001
+                pass
+
+    def _notify_source_signed(self):
+        """Post the signed document back to the source record (res_model/res_id),
+        when the request was created from one. Attaches the signed PDF +
+        certificate and a chatter note, then calls the model's ``_sign_on_signed``
+        hook (a no-op unless the model opts in). Failures are logged, never raised
+        (must not break finalization)."""
+        self.ensure_one()
+        if not (self.res_model and self.res_id and self.signed_attachment_id):
+            return
+        try:
+            record = self._sign_source_record()
+            if not record or not hasattr(record, "message_post"):
+                return
+            new_atts = self.env["ir.attachment"].sudo()
+            for att in (self.signed_attachment_id, self.certificate_attachment_id):
+                if att:
+                    new_atts |= att.sudo().copy({
+                        "res_model": record._name, "res_id": record.id})
+            record.message_post(
+                body=_("Document signé électroniquement (%(n)s signataire(s)) — "
+                       "empreinte SHA-256 : %(h)s",
+                       n=len(self.signer_ids), h=self.hash_signed or ""),
+                attachment_ids=new_atts.ids)
+            self._sign_call_source_hook("_sign_on_signed")
+        except Exception as exc:  # noqa: BLE001
+            _logger.warning(
+                "bf_sign: source notify failed for %s (%s,%s): %s",
+                self.name, self.res_model, self.res_id, exc)
+
+    def _signed_filename(self):
+        base = (self.document_filename or self.name or "document")
+        if base.lower().endswith(".pdf"):
+            base = base[:-4]
+        return "%s - signé.pdf" % base
+
+    # ── Stamping engine ──────────────────────────────────────────────────────
+    def _stamp_document(self, original_bytes):
+        """Overlay each placed field onto the document at its page/coordinates.
+
+        Coordinates are fractions of the page from the top-left; we convert to
+        PDF's bottom-left origin per page using each page's media box.
+        """
+        self.ensure_one()
+        from PyPDF2 import PdfReader, PdfWriter
+        from reportlab.pdfgen import canvas
+        from reportlab.lib.utils import ImageReader
+
+        reader = PdfReader(io.BytesIO(original_bytes))
+        writer = PdfWriter()
+        fields_by_page = {}
+        for f in self.field_ids:
+            fields_by_page.setdefault(f.page, []).append(f)
+
+        for idx, page in enumerate(reader.pages, start=1):
+            page_fields = fields_by_page.get(idx)
+            if page_fields:
+                pw = float(page.mediabox.width)
+                ph = float(page.mediabox.height)
+                buf = io.BytesIO()
+                c = canvas.Canvas(buf, pagesize=(pw, ph))
+                for f in page_fields:
+                    x = f.pos_x * pw
+                    w = max(f.width * pw, 1.0)
+                    h = max(f.height * ph, 1.0)
+                    y = ph - (f.pos_y * ph) - h  # top-origin → bottom-origin
+                    self._draw_field(c, f, x, y, w, h, ImageReader)
+                c.save()
+                buf.seek(0)
+                page.merge_page(PdfReader(buf).pages[0])
+            writer.add_page(page)
+
+        out = io.BytesIO()
+        writer.write(out)
+        return out.getvalue()
+
+    def _draw_field(self, c, field, x, y, w, h, ImageReader):
+        signer = field.signer_id
+        if field.field_type in ("signature", "initials"):
+            data = signer.signature_image
+            if field.field_type == "initials":
+                data = signer.initials_image or signer.signature_image
+            if data:
+                img = ImageReader(io.BytesIO(base64.b64decode(data)))
+                c.drawImage(img, x, y, width=w, height=h, mask="auto",
+                            preserveAspectRatio=True, anchor="sw")
+        elif field.field_type == "date":
+            val = field.filled_value or field.value_text or (
+                signer.signed_on and fields.Date.to_string(signer.signed_on.date())) or ""
+            c.setFont("Helvetica", 9)
+            c.drawString(x, y + 2, val)
+        elif field.field_type == "text":
+            c.setFont("Helvetica", 9)
+            c.drawString(x, y + 2, field.filled_value or field.value_text or "")
 
     def _signed_filename(self):
         base = (self.document_filename or self.name or "document")

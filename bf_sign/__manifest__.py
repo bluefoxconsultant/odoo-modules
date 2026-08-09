@@ -1,6 +1,6 @@
 {
     'name': 'Blue Fox — Signature électronique',
-    'version': '18.0.3.17.1',
+    'version': '18.0.3.17.2',
     'category': 'Productivity/Sign',
     'summary': "Signature électronique native (SES) : demande, signature par lien public, "
                "certificat de complétion et piste de vérification inaltérable",

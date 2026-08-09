@@ -45,6 +45,19 @@ class BfSignMixin(models.AbstractModel):
         self.ensure_one()
         return "%s.pdf" % (self.display_name or self._name).replace("/", "-")
 
+    # ── Lifecycle hooks (override in concrete models) ────────────────────────
+    # No-ops by default: signing a document must not move the source record's
+    # state unless that model explicitly opts in. Called by
+    # ``bf.sign.request._sign_call_source_hook`` inside a savepoint, so an
+    # override that raises can never roll back the sealed signature.
+    def _sign_on_signed(self, request):
+        """Called after the signed PDF is posted back to this record."""
+        return
+
+    def _sign_on_refused(self, request, signer, reason=None):
+        """Called when a signer declines, after the request is marked refused."""
+        return
+
     # ── Actions ──────────────────────────────────────────────────────────────
     def action_send_for_signature(self):
         """Create a draft signature request from this record and open it so the

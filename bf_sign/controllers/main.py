@@ -21,12 +21,14 @@ _TOKEN_FAIL_WINDOW = 300  # seconds
 
 
 def _client_ip():
+    """Best-effort client IP for rate limiting — socket peer only.
+
+    proxy_mode = True is set in this deployment, so ProxyFix has already put the
+    real client in ``remote_addr``. Parsing X-Forwarded-For / X-Real-IP ourselves
+    would trust an attacker-controlled header and let a client rotate its
+    rate-limit bucket per request. Mirrors bf_meeting.
+    """
     try:
-        env = request.httprequest.environ
-        for key in ("HTTP_X_REAL_IP", "HTTP_X_FORWARDED_FOR"):
-            value = env.get(key, "")
-            if value:
-                return value.split(",")[0].strip()
         return request.httprequest.remote_addr or "unknown"
     except Exception:
         return "unknown"
