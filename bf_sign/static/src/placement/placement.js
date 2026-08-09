@@ -65,12 +65,18 @@ export class BfSignPlacement extends Component {
             armedType: null,
             templates: [],
             selectedTemplate: "",
-            // Placement aids
-            gridOn: true,
+            // Placement aids. Snapping and *showing* the grid are separate:
+            // the ruled overlay is visually loud, and most of the time you want
+            // the magnetism without seeing it.
+            snapOn: true,
+            gridVisible: false,
             gridStep: DEFAULT_GRID,
             keepArmed: true,
             selectedId: null,
             guides: [],
+            // {fieldId: 1-based rank} — served by the model so the numbers a
+            // preparer sees are the numbers the signer will see.
+            order: {},
         });
         this._drag = null;
         // signerId → signer, rebuilt on each data load (cheap O(1) lookups).
@@ -157,12 +163,31 @@ export class BfSignPlacement extends Component {
         const raw = await this.orm.searchRead(
             "bf.sign.field", [["request_id", "=", id]],
             ["signer_id", "field_type", "page", "pos_x", "pos_y", "width", "height",
-             "fill_mode", "value_text", "required"]
+             "fill_mode", "value_text", "required", "sequence"]
         );
         this.state.fields = raw.map((f) => ({
             ...f,
             signerId: Array.isArray(f.signer_id) ? f.signer_id[0] : f.signer_id,
         }));
+        await this._loadOrder();
+    }
+
+    // Presentation order is the model's call (bf.sign.signer._overlay_fields),
+    // so the editor asks for it instead of re-implementing the sort.
+    async _loadOrder() {
+        if (!this.resId) {
+            this.state.order = {};
+            return;
+        }
+        const perSigner = await this.orm.call(
+            "bf.sign.request", "get_field_order", [this.resId]);
+        const order = {};
+        for (const ids of Object.values(perSigner || {})) {
+            ids.forEach((id, i) => {
+                order[id] = i + 1;
+            });
+        }
+        this.state.order = order;
     }
 
     async _renderPdfIfNeeded() {
@@ -288,8 +313,11 @@ export class BfSignPlacement extends Component {
         this.state.armedType = this.state.armedType === type ? null : type;
     }
 
-    toggleGrid() {
-        this.state.gridOn = !this.state.gridOn;
+    toggleSnap() {
+        this.state.snapOn = !this.state.snapOn;
+    }
+    toggleGridVisible() {
+        this.state.gridVisible = !this.state.gridVisible;
     }
     onGridStepChange(ev) {
         this.state.gridStep = parseInt(ev.target.value, 10) || DEFAULT_GRID;
@@ -436,6 +464,44 @@ export class BfSignPlacement extends Component {
         const caption = f.fill_mode !== "fixed" && f.value_text ? f.value_text : type;
         return `${caption} · ${this.signerName(f.signerId)}`;
     }
+    orderIndexFor(f) {
+        return this.state.order[f.id] || "";
+    }
+
+    // ── Duplicate / reorder ────────────────────────────────────────────────────
+    async duplicateField(f) {
+        if (this.isLocked || !f || !f.id || f.id < 0) {
+            return;
+        }
+        let newId;
+        try {
+            newId = await this.orm.call("bf.sign.field", "action_duplicate", [f.id]);
+        } catch (e) {
+            this.notification.add("Échec de la duplication du pavé.", { type: "danger" });
+            return;
+        }
+        await this.reload();
+        this.state.selectedId = newId;
+    }
+
+    async moveField(f, direction) {
+        if (this.isLocked || !f || !f.id || f.id < 0) {
+            return;
+        }
+        const method = direction < 0 ? "action_move_up" : "action_move_down";
+        try {
+            const moved = await this.orm.call("bf.sign.field", method, [f.id]);
+            if (!moved) {
+                return; // already at the end of its signer's run
+            }
+        } catch (e) {
+            this.notification.add("Échec du changement d'ordre.", { type: "danger" });
+            return;
+        }
+        const keep = f.id;
+        await this.reload();
+        this.state.selectedId = keep;
+    }
 
     // ── Rendering helpers ──────────────────────────────────────────────────────
     fieldsForPage(num) {
@@ -480,7 +546,7 @@ export class BfSignPlacement extends Component {
 
     // ── Snapping ───────────────────────────────────────────────────────────────
     _snap(frac, sizePx) {
-        if (!this.state.gridOn) {
+        if (!this.state.snapOn) {
             return frac;
         }
         const step = this.state.gridStep / sizePx;
@@ -495,7 +561,7 @@ export class BfSignPlacement extends Component {
      */
     _alignToNeighbours(f, pg) {
         const guides = [];
-        if (!this.state.gridOn) {
+        if (!this.state.snapOn) {
             return guides;
         }
         const tolX = ALIGN_TOLERANCE / pg.w;
@@ -661,6 +727,11 @@ export class BfSignPlacement extends Component {
             this.removeField(f);
             return;
         }
+        if ((ev.ctrlKey || ev.metaKey) && (ev.key === "d" || ev.key === "D")) {
+            ev.preventDefault();
+            this.duplicateField(f);
+            return;
+        }
         const deltas = {
             ArrowLeft: [-1, 0], ArrowRight: [1, 0],
             ArrowUp: [0, -1], ArrowDown: [0, 1],
@@ -675,7 +746,7 @@ export class BfSignPlacement extends Component {
         }
         ev.preventDefault();
         const stepPx = ev.shiftKey ? FINE_NUDGE
-            : (this.state.gridOn ? this.state.gridStep : FINE_NUDGE);
+            : (this.state.snapOn ? this.state.gridStep : FINE_NUDGE);
         f.pos_x = Math.min(Math.max(f.pos_x + (d[0] * stepPx) / pg.w, 0), 1 - f.width);
         f.pos_y = Math.min(Math.max(f.pos_y + (d[1] * stepPx) / pg.h, 0), 1 - f.height);
         this._queueGeometryWrite(f);

@@ -161,6 +161,38 @@ class BfSignSigner(models.Model):
         base = self.request_id._get_base_url()
         return "%s/sign/%s/%s" % (base, self.request_id.id, self.access_token)
 
+    def action_resend_invitation(self):
+        """Re-send the signing invitation to THIS signer only.
+
+        Re-running ``action_send`` on the whole request was the only way to get
+        an invitation out again, which re-mails everyone — including people who
+        have already signed.
+
+        Gated on ``_signer_can_sign`` so a sequential request never invites
+        someone out of turn: receiving a link they cannot use reads as a broken
+        system, and it discloses the request to a party whose turn has not come.
+        """
+        self.ensure_one()
+        request = self.request_id
+        if self.state == "signed":
+            raise UserError(_("%s a déjà signé.") % self.name)
+        if self.state == "refused":
+            raise UserError(_("%s a refusé de signer.") % self.name)
+        if not request._signer_can_sign(self):
+            if request.signing_order == "sequential":
+                raise UserError(_(
+                    "La signature est séquentielle et ce n'est pas au tour de "
+                    "%s. Relancez plutôt le signataire courant.") % self.name)
+            raise UserError(_(
+                "La demande doit être envoyée et encore ouverte pour relancer "
+                "un signataire."))
+        request._email_signer(self)
+        self.env["bf.sign.log"]._append(
+            request, "sent", actor=self.env.user.name,
+            identity_method="internal_user",
+            note=_("Invitation renvoyée à %s (%s)") % (self.name, self.email))
+        return True
+
     def action_reveal_signing_link(self):
         """Manager-only break-glass: open the reveal wizard, which first warns
         and only reveals + logs on explicit confirmation (so the manager can
@@ -180,15 +212,21 @@ class BfSignSigner(models.Model):
         }
 
     def _overlay_fields(self):
-        """This signer's placed pads in reading order (page, then top, then left).
+        """This signer's placed pads, in the order they are presented to them.
 
         Drives the numbered placement markers drawn on the public signing page:
         the index in this ordering is the human-facing identifier (1, 2, 3…)
         shown both on the document overlay and next to the matching input.
+
+        ``sequence`` comes first so the preparer can impose an order that the
+        geometry does not give — two pads side by side, or a signature that
+        must be reached last. It defaults to the same value on every pad, so
+        untouched requests keep falling back to reading order (page, top, left)
+        exactly as before.
         """
         self.ensure_one()
         return self.field_ids.sorted(
-            key=lambda f: (f.page, round(f.pos_y, 4), round(f.pos_x, 4), f.id))
+            key=lambda f: (f.page, f.sequence, round(f.pos_y, 4), round(f.pos_x, 4), f.id))
 
     def _default_initials(self):
         """Initials derived from the signer's name, used to pre-fill the typed

@@ -84,6 +84,12 @@
         .bf-props-value {
             min-width: 220px;
         }
+
+        .bf-props-order {
+            font-size: 13px;
+            color: #555;
+            white-space: nowrap;
+        }
     }
 
     .bf-color-dot {
@@ -162,6 +168,24 @@
         overflow: visible;
         z-index: 3;
         transition: box-shadow 120ms ease, opacity 120ms ease;
+
+        // The rank the signer will see for this pad, mirrored from the server.
+        .bf-box-order {
+            position: absolute;
+            top: -9px;
+            left: -9px;
+            min-width: 17px;
+            height: 17px;
+            line-height: 15px;
+            padding: 0 3px;
+            text-align: center;
+            background: #2D3031;
+            color: #fff;
+            border-radius: 9px;
+            font-size: 11px;
+            font-weight: 600;
+            pointer-events: none;
+        }
 
         .bf-box-label {
             pointer-events: none;

@@ -277,6 +277,7 @@
                                             <input t-attf-id="field_#{ff.id}" t-attf-name="field_#{ff.id}"
                                                    t-att-type="ff.field_type == 'date' and 'date' or (ff.field_type == 'email' and 'email' or (ff.field_type == 'number' and 'number' or 'text'))"
                                                    t-att-step="ff.field_type == 'number' and 'any' or None"
+                                                   t-att-maxlength="ff.field_type != 'number' and max_field_chars or None"
                                                    t-att-required="ff.required and 'required' or None"
                                                    style="width:100%; padding:10px; border:1px solid #cfd6dc; border-radius:8px; font:inherit;"/>
                                         </t>

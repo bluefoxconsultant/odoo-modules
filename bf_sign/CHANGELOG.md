@@ -2,6 +2,40 @@
 
 Versioning follows the Odoo `18.0.MAJOR.MINOR.PATCH` convention.
 
+## 18.0.3.15.0 — Editor comfort, presentation order, working duplication
+
+### Placement editor
+- **Snapping and the grid overlay are now two separate settings.** The ruled
+  overlay is visually loud and most of the time you want the magnetism without
+  seeing it, so the grid is **off by default** while snapping stays on. Alt
+  still suspends the magnetism entirely.
+- **Duplicate a pad** — a button on the properties bar, or Ctrl+D. The copy is
+  offset below the original and clamped inside the page.
+- **Reorder the fields as the signer sees them.** Each pad carries the rank the
+  signer will be shown, and the properties bar moves it up or down.
+  `_overlay_fields()` now sorts on `sequence` first and falls back to reading
+  order (page, top, left), so untouched requests are ordered exactly as before.
+  The editor asks the model for that order (`get_field_order`) instead of
+  re-deriving the sort in JavaScript, so the numbers shown while placing cannot
+  drift from the numbers printed on the signing page.
+
+### Preparer comfort
+- **Resend the invitation to a single signer** (`action_resend_invitation`),
+  instead of re-running the whole send and mailing everyone again — people who
+  had already signed included. Gated on `_signer_can_sign`, so a sequential
+  request never invites someone out of turn, and the resend is journalled.
+- Fillable inputs carry `maxlength` from `bf_sign.max_field_chars`. The server
+  already rejected anything longer, but only at submit — after the signer had
+  drawn their signature and pressed Sign.
+
+### Fixes
+- **Duplicating a signature request no longer fails.** `field_ids` and
+  `signer_ids` are both copyable, but a pad references its signer by id: copying
+  the two lists side by side left every new pad attached to the ORIGINAL
+  signers, which `_check_signer_request` rejects. Duplicate — the standard Odoo
+  action included — raised a validation error. `copy()` now rebuilds the pads
+  against the new signers. Signing tokens are still never inherited.
+
 ## 18.0.3.14.0 — Snap-to-grid placement, new pad types, preset values
 
 ### Placement editor

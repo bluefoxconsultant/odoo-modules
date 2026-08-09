@@ -65,6 +65,9 @@
                                     <field name="view_count" string="Ouvertures" optional="hide"/>
                                     <field name="last_viewed_on" optional="hide"/>
                                     <field name="signed_on"/>
+                                    <button name="action_resend_invitation" type="object"
+                                            string="Renvoyer l'invitation" icon="fa-paper-plane"
+                                            invisible="parent.state not in ('sent','in_progress') or state in ('signed','refused')"/>
                                     <button name="action_reveal_signing_link" type="object"
                                             string="Copier le lien" icon="fa-link"
                                             groups="bf_sign.group_sign_manager"

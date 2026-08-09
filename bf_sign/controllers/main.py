@@ -83,6 +83,11 @@ class BfSignController(Controller):
             # Kept in sync with the model so a new pad type does not need a
             # matching edit in the QWeb template.
             "value_types": tuple(sorted(VALUE_TYPES)),
+            # Surfaced as maxlength: the server rejects anything longer, and
+            # today it does so only at submit — after the signer has drawn
+            # their signature and pressed Sign.
+            "max_field_chars": int(request.env["ir.config_parameter"].sudo().get_param(
+                "bf_sign.max_field_chars", "200") or 200),
         }
         ctx.update(extra)
         return ctx

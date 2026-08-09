@@ -481,6 +481,49 @@ class BfSignRequest(models.Model):
             signer.partner_id = partner.id
 
     # ── Field-layout templates (called from the placement widget) ────────────
+    def copy(self, default=None):
+        """Duplicate a request, rebuilding the pads against the NEW signers.
+
+        ``field_ids`` and ``signer_ids`` are both copyable, but a pad points at
+        a signer by id: copying the two lists side by side leaves every new pad
+        attached to the ORIGINAL signers, which ``_check_signer_request``
+        rejects outright. Duplicating a request therefore failed with a
+        validation error — the standard Duplicate action included.
+
+        So: copy the signers, then re-create the pads against their
+        counterparts, paired by position (``copy`` preserves o2m order).
+        """
+        default = dict(default or {})
+        default.setdefault("field_ids", [])
+        copies = super().copy(default)
+        Field = self.env["bf.sign.field"]
+        for source, dup in zip(self, copies):
+            if len(source.signer_ids) != len(dup.signer_ids):
+                # Defensive: a caller overrode signer_ids in `default`, so the
+                # pads have no counterpart to attach to. Better no pad than a
+                # pad on the wrong person.
+                continue
+            by_signer = {
+                old.id: new.id for old, new in zip(source.signer_ids, dup.signer_ids)}
+            vals_list = []
+            for field in source.field_ids:
+                vals = field.copy_data()[0]
+                vals.update(request_id=dup.id, signer_id=by_signer[field.signer_id.id])
+                vals_list.append(vals)
+            if vals_list:
+                Field.create(vals_list)
+        return copies
+
+    def get_field_order(self):
+        """Pad ids per signer, in the order that signer will be shown them.
+
+        The placement editor numbers its pads from this, instead of re-deriving
+        the sort in JavaScript: the numbers a preparer sees while placing then
+        cannot drift from the numbers printed on the signing page.
+        """
+        self.ensure_one()
+        return {str(s.id): s._overlay_fields().ids for s in self.signer_ids}
+
     def save_field_template(self, name):
         """Save the current pad layout as a reusable template. Returns the id."""
         self.ensure_one()

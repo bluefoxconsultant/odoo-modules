@@ -155,6 +155,44 @@ class BfSignField(models.Model):
             return bool(self.value_text)
         return (self.filled_value or "").strip().lower() in ("1", "on", "true", "oui", "yes")
 
+    # ── Presentation order & duplication ───────────────────────────────────────
+    # The order the signer sees is decided by bf.sign.signer._overlay_fields().
+    # Both helpers below go through it rather than re-deriving a sort, so the
+    # numbers shown in the placement editor cannot drift from the numbers
+    # printed on the signing page.
+    def _move(self, delta):
+        self.ensure_one()
+        ordered = list(self.signer_id._overlay_fields())
+        try:
+            idx = ordered.index(self)
+        except ValueError:
+            return False
+        target = idx + delta
+        if target < 0 or target >= len(ordered):
+            return False
+        ordered[idx], ordered[target] = ordered[target], ordered[idx]
+        # Renumber the whole run: sequences all start equal, so swapping two
+        # values alone would leave ties and the geometry would decide again.
+        for position, field in enumerate(ordered):
+            field.sequence = (position + 1) * 10
+        return True
+
+    def action_move_up(self):
+        return self._move(-1)
+
+    def action_move_down(self):
+        return self._move(1)
+
+    def action_duplicate(self):
+        """Copy the pad just below itself, kept inside the page."""
+        self.ensure_one()
+        offset = min(self.height * 1.2, max(0.0, 1.0 - self.height - self.pos_y))
+        copy = self.copy({
+            "pos_y": min(self.pos_y + offset, 1.0 - self.height),
+            "sequence": self.sequence,
+        })
+        return copy.id
+
     # ── Structural lock: pads are frozen once the request leaves draft ──────────
     @staticmethod
     def _assert_draft(requests):

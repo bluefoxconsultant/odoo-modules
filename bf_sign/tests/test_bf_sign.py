@@ -701,3 +701,84 @@ class TestBfSign(TransactionCase):
         self.assertFalse(self.Request._default_append_certificate())
         ICP.set_param("bf_sign.append_certificate", "True")
         self.assertTrue(self.Request._default_append_certificate())
+
+    # ── presentation order, duplication, resend (18.0.3.15.0) ───────────────────
+    def test_overlay_order_falls_back_to_geometry(self):
+        req = self._new_request(signers=1, with_fields=False)
+        s = req.signer_ids[0]
+        low = self._field(req, s, "text", y=0.8)
+        high = self._field(req, s, "text", y=0.2)
+        # Same sequence everywhere → reading order (top of the page first).
+        self.assertEqual(list(s._overlay_fields()), [high, low])
+
+    def test_sequence_overrides_geometry(self):
+        req = self._new_request(signers=1, with_fields=False)
+        s = req.signer_ids[0]
+        low = self._field(req, s, "text", y=0.8)
+        high = self._field(req, s, "text", y=0.2)
+        self.assertTrue(low.action_move_up())
+        self.assertEqual(list(s._overlay_fields()), [low, high])
+        # And back.
+        self.assertTrue(low.action_move_down())
+        self.assertEqual(list(s._overlay_fields()), [high, low])
+
+    def test_move_at_the_edge_is_a_no_op(self):
+        req = self._new_request(signers=1, with_fields=False)
+        s = req.signer_ids[0]
+        only = self._field(req, s, "text", y=0.2)
+        self.assertFalse(only.action_move_up())
+        self.assertFalse(only.action_move_down())
+
+    def test_get_field_order_matches_the_signing_page(self):
+        req = self._new_request(signers=2, with_fields=False)
+        a, b = req.signer_ids[0], req.signer_ids[1]
+        self._field(req, a, "signature", y=0.7)
+        self._field(req, a, "text", y=0.3)
+        self._field(req, b, "signature", y=0.5)
+        order = req.get_field_order()
+        for signer in (a, b):
+            self.assertEqual(order[str(signer.id)], signer._overlay_fields().ids)
+
+    def test_duplicate_pad_stays_on_the_page(self):
+        req = self._new_request(signers=1, with_fields=False)
+        s = req.signer_ids[0]
+        src = self._field(req, s, "signature", y=0.95)
+        new_id = src.action_duplicate()
+        dup = self.Field.browse(new_id)
+        self.assertEqual(dup.signer_id, s)
+        self.assertEqual(dup.field_type, "signature")
+        self.assertLessEqual(dup.pos_y + dup.height, 1.0)
+
+    def test_duplicate_request_rebuilds_pads_against_new_signers(self):
+        """The standard Duplicate action used to raise: the copied pads kept
+        pointing at the ORIGINAL signers, which the constraint rejects."""
+        req = self._new_request(signers=2)
+        dup = req.copy()
+        self.assertEqual(len(dup.signer_ids), 2)
+        self.assertEqual(len(dup.field_ids), len(req.field_ids))
+        self.assertFalse(dup.field_ids.filtered(lambda f: f.signer_id.request_id != dup))
+        self.assertEqual(dup.state, "draft")
+        self.assertNotEqual(dup.name, req.name)
+        # A duplicate must never inherit signing tokens.
+        self.assertFalse(set(dup.signer_ids.mapped("access_token")) &
+                         set(req.signer_ids.mapped("access_token")))
+
+    def test_resend_invitation_guards(self):
+        req = self._new_request(signers=1)
+        s = req.signer_ids[0]
+        with self.assertRaises(UserError):
+            s.action_resend_invitation()  # not sent yet
+        req.action_send()
+        self.assertTrue(s.action_resend_invitation())
+        with self._mock_cert():
+            self._sign(req, s)
+        with self.assertRaises(UserError):
+            s.action_resend_invitation()  # already signed
+
+    def test_resend_refuses_out_of_turn_signer(self):
+        req = self._new_request(signers=2, order="sequential")
+        first, second = req.signer_ids[0], req.signer_ids[1]
+        req.action_send()
+        self.assertTrue(first.action_resend_invitation())
+        with self.assertRaises(UserError):
+            second.action_resend_invitation()  # not their turn
