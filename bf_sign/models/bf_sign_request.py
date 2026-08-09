@@ -4,11 +4,14 @@ import hashlib
 import io
 import logging
 import os
+import re
 from datetime import timedelta, timezone
 
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 from odoo.tools.pdf import merge_pdf
+
+from .bf_sign_field import VALUE_TYPES
 
 _logger = logging.getLogger(__name__)
 
@@ -16,6 +19,13 @@ CERTIFICATE_REPORT = "bf_sign.action_report_sign_certificate"
 
 # Magic header of a PNG file — the only image format the signing canvas produces.
 _PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
+
+# Deliberately permissive: this guards against typos on the signing page, it is
+# not an address-validity oracle.
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+# Whitespace a signer may paste inside a number (thin, non-breaking, regular).
+_NUM_SPACES = (" ", " ", " ", " ")
 
 
 class BfSignRequest(models.Model):
@@ -347,6 +357,16 @@ class BfSignRequest(models.Model):
                 raise UserError(_("Ajoutez au moins un signataire."))
             if not all(s.email for s in rec.signer_ids):
                 raise UserError(_("Chaque signataire doit avoir un courriel."))
+            # A request with no pad at all is legitimate (seal-only). But once
+            # pads exist, a signer without one would receive a signing page with
+            # nothing to sign and leave no visible mark on the document.
+            if rec.field_ids:
+                orphans = rec.signer_ids.filtered(lambda s: not s.field_ids)
+                if orphans:
+                    raise UserError(_(
+                        "Ces signataires n'ont aucun pavé sur le document : %s. "
+                        "Placez-leur au moins un pavé, ou retirez-les de la demande."
+                    ) % ", ".join(orphans.mapped("name")))
             rec._ensure_signer_partners()
             rec.hash_original = rec._sha256_hex(doc_bytes)
             if not rec.expiry_date:
@@ -585,11 +605,19 @@ class BfSignRequest(models.Model):
         max_len = int(self.env["ir.config_parameter"].sudo().get_param(
             "bf_sign.max_field_chars", "200") or 200)
         for f in signer.field_ids.filtered(
-                lambda x: x.field_type in ("text", "date") and x.fill_mode == "signer"):
+                lambda x: x.field_type in VALUE_TYPES and x.fill_mode == "signer"):
             raw = (field_values.get(str(f.id)) or "").strip()
+            if f.field_type == "checkbox":
+                # An unchecked box posts nothing at all, so absence is the value.
+                checked = raw.lower() in ("1", "on", "true", "oui", "yes")
+                if f.required and not checked:
+                    raise UserError(_("Veuillez cocher toutes les cases obligatoires."))
+                f.filled_value = "on" if checked else ""
+                continue
             if not raw:
                 if f.required:
                     raise UserError(_("Veuillez remplir tous les champs obligatoires."))
+                f.filled_value = ""
                 continue
             if len(raw) > max_len:
                 raise UserError(_("Une valeur saisie dépasse la longueur maximale."))
@@ -598,6 +626,16 @@ class BfSignRequest(models.Model):
                     fields.Date.to_date(raw)
                 except (ValueError, TypeError):
                     raise UserError(_("Format de date invalide (attendu AAAA-MM-JJ)."))
+            elif f.field_type == "number":
+                cleaned = raw.replace(",", ".")
+                for space in _NUM_SPACES:
+                    cleaned = cleaned.replace(space, "")
+                try:
+                    float(cleaned)
+                except (ValueError, TypeError):
+                    raise UserError(_("Valeur numérique invalide : %s") % raw)
+            elif f.field_type == "email" and not EMAIL_RE.match(raw):
+                raise UserError(_("Adresse courriel invalide : %s") % raw)
             f.filled_value = raw
 
     def register_signer_signature(self, signer, signature_b64, initials_b64,
@@ -851,14 +889,54 @@ class BfSignRequest(models.Model):
                 img = ImageReader(io.BytesIO(base64.b64decode(data)))
                 c.drawImage(img, x, y, width=w, height=h, mask="auto",
                             preserveAspectRatio=True, anchor="sw")
-        elif field.field_type == "date":
-            val = field.filled_value or field.value_text or (
-                signer.signed_on and fields.Date.to_string(signer.signed_on.date())) or ""
-            c.setFont("Helvetica", 9)
-            c.drawString(x, y + 2, val)
-        elif field.field_type == "text":
-            c.setFont("Helvetica", 9)
-            c.drawString(x, y + 2, field.filled_value or field.value_text or "")
+        elif field.field_type == "checkbox":
+            self._draw_checkbox(c, field, x, y, w, h)
+        elif field.field_type in VALUE_TYPES:
+            val = field._display_value()
+            if val:
+                self._draw_text(c, val, x, y, w, h)
+
+    # Text is fitted to the pad instead of being drawn at a fixed 9 pt: a pad
+    # resized in the placement editor now actually changes the stamped size, and
+    # a value too long for its box is shortened rather than bleeding across the
+    # page.
+    _TEXT_FONT = "Helvetica"
+    _TEXT_MIN_SIZE = 5.0
+    _TEXT_MAX_SIZE = 14.0
+
+    def _draw_text(self, c, value, x, y, w, h, padding=2.0):
+        avail_w = max(w - 2 * padding, 1.0)
+        size = min(max(h * 0.62, self._TEXT_MIN_SIZE), self._TEXT_MAX_SIZE)
+        while size > self._TEXT_MIN_SIZE and \
+                c.stringWidth(value, self._TEXT_FONT, size) > avail_w:
+            size -= 0.5
+        if c.stringWidth(value, self._TEXT_FONT, size) > avail_w:
+            value = self._ellipsize(c, value, avail_w, size)
+        c.setFont(self._TEXT_FONT, size)
+        # Vertically centred on the pad, on the text baseline.
+        c.drawString(x + padding, y + (h - size * 0.72) / 2.0, value)
+
+    def _ellipsize(self, c, value, avail_w, size):
+        ell = "…"
+        if c.stringWidth(ell, self._TEXT_FONT, size) > avail_w:
+            return ""
+        while value and c.stringWidth(value + ell, self._TEXT_FONT, size) > avail_w:
+            value = value[:-1]
+        return value + ell if value else ell
+
+    def _draw_checkbox(self, c, field, x, y, w, h):
+        """A square box, sized to the pad, ticked when the pad reads as checked."""
+        side = max(min(w, h) * 0.8, 4.0)
+        bx = x + (w - side) / 2.0
+        by = y + (h - side) / 2.0
+        c.setLineWidth(max(side * 0.06, 0.6))
+        c.rect(bx, by, side, side, stroke=1, fill=0)
+        if field._is_checked():
+            c.setLineWidth(max(side * 0.12, 0.8))
+            c.line(bx + side * 0.20, by + side * 0.52,
+                   bx + side * 0.42, by + side * 0.24)
+            c.line(bx + side * 0.42, by + side * 0.24,
+                   bx + side * 0.80, by + side * 0.76)
 
     # ── RFC 3161 trusted timestamp (optional, defensive) ─────────────────────
     def _request_tsa_timestamp(self, data_bytes):

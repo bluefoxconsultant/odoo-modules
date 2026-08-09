@@ -9,6 +9,8 @@ from odoo import _, http
 from odoo.exceptions import UserError
 from odoo.http import Controller, request, route
 
+from ..models.bf_sign_field import VALUE_TYPES
+
 _logger = logging.getLogger(__name__)
 
 # Anti-brute-force on token validation (per client IP), mirrors bf_appointment.
@@ -78,6 +80,9 @@ class BfSignController(Controller):
             "overlay_fields": overlay_fields, "field_numbers": field_numbers,
             "sig_nums": sig_nums, "ini_nums": ini_nums,
             "default_initials": signer._default_initials(),
+            # Kept in sync with the model so a new pad type does not need a
+            # matching edit in the QWeb template.
+            "value_types": tuple(sorted(VALUE_TYPES)),
         }
         ctx.update(extra)
         return ctx

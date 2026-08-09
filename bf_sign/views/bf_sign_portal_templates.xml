@@ -152,9 +152,10 @@
                         <div id="bf_markers" style="display:none;">
                             <t t-foreach="overlay_fields" t-as="of">
                                 <t t-set="n" t-value="field_numbers[of.id]"/>
+                                <t t-set="is_fill" t-value="of.field_type in value_types"/>
                                 <t t-set="is_input"
-                                   t-value="of.field_type in ('text', 'date') and of.fill_mode == 'signer'"/>
-                                <div t-attf-class="bf-marker#{of.field_type in ('text','date') and ' bf-marker-fill' or ''}"
+                                   t-value="is_fill and of.fill_mode == 'signer'"/>
+                                <div t-attf-class="bf-marker#{is_fill and ' bf-marker-fill' or ''}"
                                      t-att-data-page="of.page"
                                      t-att-data-x="of.pos_x" t-att-data-y="of.pos_y"
                                      t-att-data-w="of.width" t-att-data-h="of.height"
@@ -162,15 +163,11 @@
                                      t-att-data-input="is_input and ('field_%s' % of.id) or ''">
                                     <span class="bf-marker-badge"><t t-esc="n"/></span>
                                     <span class="bf-marker-label">
-                                        <t t-if="of.field_type == 'signature'">Signature</t>
-                                        <t t-elif="of.field_type == 'initials'">Paraphe</t>
-                                        <t t-elif="of.field_type == 'date'">
-                                            <t t-esc="of.value_text or 'Date'"/></t>
-                                        <t t-else=""><t t-esc="of.value_text or 'Texte'"/></t>
+                                        <t t-esc="of._marker_label()"/>
                                     </span>
                                     <span class="bf-marker-value">
                                         <t t-if="of.fill_mode == 'fixed'"><t t-esc="of.value_text or ''"/></t>
-                                        <t t-elif="of.fill_mode == 'auto' and of.field_type == 'date'">date de signature</t>
+                                        <t t-elif="of.fill_mode == 'auto'"><t t-esc="of._auto_placeholder()"/></t>
                                     </span>
                                 </div>
                             </t>
@@ -248,23 +245,41 @@
                             </div>
                         </t>
 
-                        <t t-set="fill_fields" t-value="signer.field_ids.filtered(lambda f: f.field_type in ('text', 'date') and f.fill_mode == 'signer')"/>
+                        <!-- Reading order, so the numbers next to the inputs ascend the
+                             same way as the badges drawn on the document. -->
+                        <t t-set="fill_fields" t-value="overlay_fields.filtered(lambda f: f.field_type in value_types and f.fill_mode == 'signer')"/>
                         <t t-if="fill_fields">
                             <div class="bf-card" id="bf_card_fill">
                                 <h2>Informations à remplir</h2>
                                 <t t-foreach="fill_fields" t-as="ff">
                                     <div style="margin-bottom:14px;">
-                                        <label t-attf-for="field_#{ff.id}" style="display:flex; align-items:center; gap:8px; font-size:14px; margin-bottom:4px; color:#444;">
-                                            <span class="bf-num"><t t-esc="field_numbers[ff.id]"/></span>
-                                            <span>
-                                                <t t-esc="ff.value_text or (ff.field_type == 'date' and 'Date' or 'Texte')"/>
-                                                <span t-if="ff.required" style="color:#b3261e;"> *</span>
-                                            </span>
-                                        </label>
-                                        <input t-attf-id="field_#{ff.id}" t-attf-name="field_#{ff.id}"
-                                               t-att-type="ff.field_type == 'date' and 'date' or 'text'"
-                                               t-att-required="ff.required and 'required' or None"
-                                               style="width:100%; padding:10px; border:1px solid #cfd6dc; border-radius:8px; font:inherit;"/>
+                                        <t t-if="ff.field_type == 'checkbox'">
+                                            <label t-attf-for="field_#{ff.id}" style="display:flex; align-items:center; gap:8px; font-size:14px; color:#444;">
+                                                <span class="bf-num"><t t-esc="field_numbers[ff.id]"/></span>
+                                                <input type="checkbox" value="on"
+                                                       t-attf-id="field_#{ff.id}" t-attf-name="field_#{ff.id}"
+                                                       t-att-required="ff.required and 'required' or None"
+                                                       style="width:18px; height:18px; flex:none;"/>
+                                                <span>
+                                                    <t t-esc="ff._marker_label()"/>
+                                                    <span t-if="ff.required" style="color:#b3261e;"> *</span>
+                                                </span>
+                                            </label>
+                                        </t>
+                                        <t t-else="">
+                                            <label t-attf-for="field_#{ff.id}" style="display:flex; align-items:center; gap:8px; font-size:14px; margin-bottom:4px; color:#444;">
+                                                <span class="bf-num"><t t-esc="field_numbers[ff.id]"/></span>
+                                                <span>
+                                                    <t t-esc="ff._marker_label()"/>
+                                                    <span t-if="ff.required" style="color:#b3261e;"> *</span>
+                                                </span>
+                                            </label>
+                                            <input t-attf-id="field_#{ff.id}" t-attf-name="field_#{ff.id}"
+                                                   t-att-type="ff.field_type == 'date' and 'date' or (ff.field_type == 'email' and 'email' or (ff.field_type == 'number' and 'number' or 'text'))"
+                                                   t-att-step="ff.field_type == 'number' and 'any' or None"
+                                                   t-att-required="ff.required and 'required' or None"
+                                                   style="width:100%; padding:10px; border:1px solid #cfd6dc; border-radius:8px; font:inherit;"/>
+                                        </t>
                                     </div>
                                 </t>
                             </div>

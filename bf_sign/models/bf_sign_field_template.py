@@ -47,6 +47,10 @@ class BfSignFieldTemplateLine(models.Model):
             ("initials", "Paraphe"),
             ("date", "Date"),
             ("text", "Texte"),
+            ("name", "Nom"),
+            ("email", "Courriel"),
+            ("number", "Nombre"),
+            ("checkbox", "Case à cocher"),
         ],
         string="Type", default="signature", required=True)
     page = fields.Integer(string="Page", default=1, required=True)
@@ -56,11 +60,11 @@ class BfSignFieldTemplateLine(models.Model):
     height = fields.Float(default=0.08)
     fill_mode = fields.Selection(
         selection=[
-            ("auto", "Automatique (date de signature)"),
+            ("auto", "Automatique (signataire / date de signature)"),
             ("fixed", "Valeur fixe (préparateur)"),
             ("signer", "Rempli par le signataire"),
         ],
         string="Mode de remplissage", default="signer", required=True)
     required = fields.Boolean(string="Obligatoire", default=True)
-    value_text = fields.Char(string="Valeur fixe")
+    value_text = fields.Char(string="Valeur fixe / étiquette")
     sequence = fields.Integer(default=10)

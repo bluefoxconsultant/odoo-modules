@@ -1,20 +1,47 @@
 /** @odoo-module **/
 
-import { Component, onWillStart, useRef, useState } from "@odoo/owl";
+import { Component, onWillStart, onWillUnmount, useRef, useState } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 
 const DISPLAY_W = 680; // page render width in px
 const COLORS = ["#29ABE1", "#E67E22", "#27AE60", "#8E44AD", "#E74C3C", "#16A085"];
-const TYPE_LABELS = { signature: "Signature", initials: "Paraphe", date: "Date", text: "Texte" };
+const TYPE_LABELS = {
+    signature: "Signature",
+    initials: "Paraphe",
+    date: "Date",
+    text: "Texte",
+    name: "Nom",
+    email: "Courriel",
+    number: "Nombre",
+    checkbox: "Case",
+};
 const DEFAULT_SIZE = {
     signature: { width: 0.28, height: 0.07 },
     initials: { width: 0.12, height: 0.06 },
     date: { width: 0.18, height: 0.04 },
     text: { width: 0.18, height: 0.04 },
+    name: { width: 0.24, height: 0.04 },
+    email: { width: 0.26, height: 0.04 },
+    number: { width: 0.12, height: 0.04 },
+    checkbox: { width: 0.03, height: 0.025 },
 };
-// Default fill mode per type when a pad is placed.
-const FILL_DEFAULT = { date: "auto", text: "signer" };
+// Default fill mode per type when a pad is placed. Types the server can resolve
+// on its own start on "auto" so the preparer has nothing to do in the common case.
+const FILL_DEFAULT = {
+    date: "auto", name: "auto", email: "auto",
+    text: "signer", number: "signer", checkbox: "signer",
+};
+// Mirrors VALUE_TYPES / AUTO_TYPES in models/bf_sign_field.py.
+const VALUE_TYPES = new Set(["date", "text", "name", "email", "number", "checkbox"]);
+const AUTO_TYPES = new Set(["date", "name", "email"]);
+
+const GRID_STEPS = [4, 8, 12, 16, 24]; // px, at the DISPLAY_W render scale
+const DEFAULT_GRID = 8;
+// How close (px) two pad edges must be before they snap together.
+const ALIGN_TOLERANCE = 5;
+// Keyboard nudge: one grid step, or one pixel with Shift held.
+const FINE_NUDGE = 1;
 
 /**
  * Backend drag-and-drop widget to place signature pads on a PDF.
@@ -38,6 +65,12 @@ export class BfSignPlacement extends Component {
             armedType: null,
             templates: [],
             selectedTemplate: "",
+            // Placement aids
+            gridOn: true,
+            gridStep: DEFAULT_GRID,
+            keepArmed: true,
+            selectedId: null,
+            guides: [],
         });
         this._drag = null;
         // signerId → signer, rebuilt on each data load (cheap O(1) lookups).
@@ -46,6 +79,15 @@ export class BfSignPlacement extends Component {
         // data reload (arm / save / apply template) does not re-render the PDF.
         this._renderedKey = null;
         this._docSig = 0;
+        // Client-side ids for pads shown before the server has confirmed them.
+        this._tempSeq = 0;
+
+        this._onKeyDown = (ev) => this.onKeyDown(ev);
+        window.addEventListener("keydown", this._onKeyDown);
+        onWillUnmount(() => {
+            window.removeEventListener("keydown", this._onKeyDown);
+            this._unbindDragEvents();
+        });
 
         onWillStart(async () => {
             try {
@@ -114,7 +156,8 @@ export class BfSignPlacement extends Component {
 
         const raw = await this.orm.searchRead(
             "bf.sign.field", [["request_id", "=", id]],
-            ["signer_id", "field_type", "page", "pos_x", "pos_y", "width", "height", "fill_mode"]
+            ["signer_id", "field_type", "page", "pos_x", "pos_y", "width", "height",
+             "fill_mode", "value_text", "required"]
         );
         this.state.fields = raw.map((f) => ({
             ...f,
@@ -245,6 +288,19 @@ export class BfSignPlacement extends Component {
         this.state.armedType = this.state.armedType === type ? null : type;
     }
 
+    toggleGrid() {
+        this.state.gridOn = !this.state.gridOn;
+    }
+    onGridStepChange(ev) {
+        this.state.gridStep = parseInt(ev.target.value, 10) || DEFAULT_GRID;
+    }
+    toggleKeepArmed() {
+        this.state.keepArmed = !this.state.keepArmed;
+    }
+    get gridSteps() {
+        return GRID_STEPS;
+    }
+
     // ── Field-layout templates ───────────────────────────────────────────────
     onTemplateChange(ev) {
         this.state.selectedTemplate = ev.target.value;
@@ -290,17 +346,77 @@ export class BfSignPlacement extends Component {
         this.notification.add("Modèle enregistré.", { type: "success" });
     }
 
-    async setFillMode(f, mode) {
-        const prev = f.fill_mode;
-        f.fill_mode = mode;
+    // ── Pad properties ───────────────────────────────────────────────────────
+    // One shared write path: optimistic in the UI, reverted on failure so what
+    // is on screen always matches what is in the database.
+    async _writeField(f, vals) {
+        if (this.isLocked || !f.id) {
+            return false;
+        }
+        const before = {};
+        for (const k of Object.keys(vals)) {
+            before[k] = f[k];
+        }
+        Object.assign(f, vals);
         try {
-            await this.orm.write("bf.sign.field", [f.id], { fill_mode: mode });
+            await this.orm.write("bf.sign.field", [f.id], vals);
+            return true;
         } catch (e) {
-            f.fill_mode = prev;
-            this.notification.add(
-                "Échec de l'enregistrement du mode de remplissage.", { type: "danger" });
+            Object.assign(f, before);
+            this.notification.add("Échec de l'enregistrement du pavé.", { type: "danger" });
+            return false;
         }
     }
+
+    get selectedField() {
+        return this.state.fields.find((f) => f.id === this.state.selectedId) || null;
+    }
+    selectField(f) {
+        this.state.selectedId = f.id;
+    }
+    clearSelection() {
+        this.state.selectedId = null;
+    }
+    isValueType(f) {
+        return VALUE_TYPES.has(f.field_type);
+    }
+    allowsAuto(f) {
+        return AUTO_TYPES.has(f.field_type);
+    }
+    // The same char field is the fixed value or the caption, depending on mode.
+    valueLabelFor(f) {
+        return f.fill_mode === "fixed" ? "Valeur" : "Étiquette";
+    }
+    valuePlaceholderFor(f) {
+        return f.fill_mode === "fixed"
+            ? "Valeur imprimée sur le document"
+            : "Nom du champ vu par le signataire";
+    }
+
+    async setFillMode(f, mode) {
+        await this._writeField(f, { fill_mode: mode });
+    }
+    async setFieldSigner(f, signerId) {
+        const id = parseInt(signerId, 10);
+        if (!id || id === f.signerId) {
+            return;
+        }
+        const before = f.signerId;
+        f.signerId = id;
+        try {
+            await this.orm.write("bf.sign.field", [f.id], { signer_id: id });
+        } catch (e) {
+            f.signerId = before;
+            this.notification.add("Échec du changement de signataire.", { type: "danger" });
+        }
+    }
+    async setValueText(f, value) {
+        await this._writeField(f, { value_text: value || false });
+    }
+    async setRequired(f, value) {
+        await this._writeField(f, { required: Boolean(value) });
+    }
+
     onSignerChange(ev) {
         this.state.activeSignerId = parseInt(ev.target.value, 10);
     }
@@ -316,7 +432,9 @@ export class BfSignPlacement extends Component {
         return s ? s.name : "";
     }
     labelFor(f) {
-        return `${TYPE_LABELS[f.field_type] || f.field_type} · ${this.signerName(f.signerId)}`;
+        const type = TYPE_LABELS[f.field_type] || f.field_type;
+        const caption = f.fill_mode !== "fixed" && f.value_text ? f.value_text : type;
+        return `${caption} · ${this.signerName(f.signerId)}`;
     }
 
     // ── Rendering helpers ──────────────────────────────────────────────────────
@@ -331,10 +449,102 @@ export class BfSignPlacement extends Component {
             `border-color:${color};background:${color}22;`
         );
     }
+    boxClass(f) {
+        let cls = "bf-box";
+        if (f.id === this.state.selectedId) {
+            cls += " bf-box-selected";
+        }
+        if (f._pending) {
+            cls += " bf-box-pending";
+        }
+        return cls;
+    }
+    // The grid is painted with a CSS gradient rather than DOM nodes: it costs
+    // nothing to repaint and never interferes with hit-testing.
+    gridStyle() {
+        const s = this.state.gridStep;
+        return (
+            `background-image:` +
+            `repeating-linear-gradient(to right, rgba(41,171,225,.28) 0 1px, transparent 1px ${s}px),` +
+            `repeating-linear-gradient(to bottom, rgba(41,171,225,.28) 0 1px, transparent 1px ${s}px);`
+        );
+    }
+    guidesForPage(num) {
+        return this.state.guides.filter((g) => g.page === num);
+    }
+    guideStyle(g, pg) {
+        return g.axis === "v"
+            ? `left:${g.at}px;top:0;width:1px;height:${pg.h}px;`
+            : `top:${g.at}px;left:0;height:1px;width:${pg.w}px;`;
+    }
+
+    // ── Snapping ───────────────────────────────────────────────────────────────
+    _snap(frac, sizePx) {
+        if (!this.state.gridOn) {
+            return frac;
+        }
+        const step = this.state.gridStep / sizePx;
+        return Math.round(frac / step) * step;
+    }
+
+    /**
+     * Pull the moving pad's edges onto a neighbour's edges when they are within
+     * ALIGN_TOLERANCE. Runs after the grid snap and wins over it, because
+     * lining up with an existing pad is what the eye is actually after.
+     * Returns the guide lines to draw.
+     */
+    _alignToNeighbours(f, pg) {
+        const guides = [];
+        if (!this.state.gridOn) {
+            return guides;
+        }
+        const tolX = ALIGN_TOLERANCE / pg.w;
+        const tolY = ALIGN_TOLERANCE / pg.h;
+        const others = this.state.fields.filter(
+            (o) => o.page === f.page && o !== f);
+        let bestX = null;
+        let bestY = null;
+        for (const o of others) {
+            for (const [mine, theirs] of [
+                [f.pos_x, o.pos_x],
+                [f.pos_x + f.width, o.pos_x + o.width],
+                [f.pos_x, o.pos_x + o.width],
+                [f.pos_x + f.width, o.pos_x],
+            ]) {
+                const d = Math.abs(mine - theirs);
+                if (d <= tolX && (bestX === null || d < bestX.d)) {
+                    bestX = { d, shift: theirs - mine, at: theirs * pg.w };
+                }
+            }
+            for (const [mine, theirs] of [
+                [f.pos_y, o.pos_y],
+                [f.pos_y + f.height, o.pos_y + o.height],
+                [f.pos_y, o.pos_y + o.height],
+                [f.pos_y + f.height, o.pos_y],
+            ]) {
+                const d = Math.abs(mine - theirs);
+                if (d <= tolY && (bestY === null || d < bestY.d)) {
+                    bestY = { d, shift: theirs - mine, at: theirs * pg.h };
+                }
+            }
+        }
+        if (bestX) {
+            f.pos_x += bestX.shift;
+            guides.push({ page: f.page, axis: "v", at: bestX.at });
+        }
+        if (bestY) {
+            f.pos_y += bestY.shift;
+            guides.push({ page: f.page, axis: "h", at: bestY.at });
+        }
+        return guides;
+    }
 
     // ── Placement ──────────────────────────────────────────────────────────────
+    // The pad is drawn immediately and the server id patched in when it lands.
+    // Placing several pads in a row no longer waits on a round trip each time.
     async onPageClick(ev, pg) {
         if (this.isLocked || !this.state.armedType || !this.state.activeSignerId) {
+            this.clearSelection();
             return;
         }
         if (ev.target.closest && ev.target.closest(".bf-box")) {
@@ -343,14 +553,17 @@ export class BfSignPlacement extends Component {
         const rect = ev.currentTarget.getBoundingClientRect();
         const fracX = (ev.clientX - rect.left) / rect.width;
         const fracY = (ev.clientY - rect.top) / rect.height;
-        const size = DEFAULT_SIZE[this.state.armedType];
-        const posX = Math.min(Math.max(fracX - size.width / 2, 0), 1 - size.width);
-        const posY = Math.min(Math.max(fracY - size.height / 2, 0), 1 - size.height);
-        const fillMode = FILL_DEFAULT[this.state.armedType] || "signer";
+        const type = this.state.armedType;
+        const size = DEFAULT_SIZE[type];
+        let posX = Math.min(Math.max(fracX - size.width / 2, 0), 1 - size.width);
+        let posY = Math.min(Math.max(fracY - size.height / 2, 0), 1 - size.height);
+        posX = Math.min(Math.max(this._snap(posX, pg.w), 0), 1 - size.width);
+        posY = Math.min(Math.max(this._snap(posY, pg.h), 0), 1 - size.height);
+        const fillMode = FILL_DEFAULT[type] || "signer";
         const vals = {
             request_id: this.resId,
             signer_id: this.state.activeSignerId,
-            field_type: this.state.armedType,
+            field_type: type,
             page: pg.num,
             pos_x: posX,
             pos_y: posY,
@@ -358,45 +571,129 @@ export class BfSignPlacement extends Component {
             height: size.height,
             fill_mode: fillMode,
         };
-        let id;
-        try {
-            [id] = await this.orm.create("bf.sign.field", [vals]);
-        } catch (e) {
-            this.notification.add("Échec de la création du pavé.", { type: "danger" });
-            return;
-        }
-        this.state.fields.push({
-            id,
-            field_type: vals.field_type,
+
+        // Optimistic pad: visible on the page before the server answers.
+        this._tempSeq += 1;
+        const optimistic = {
+            id: -this._tempSeq,
+            _pending: true,
+            field_type: type,
             page: pg.num,
             pos_x: posX,
             pos_y: posY,
             width: size.width,
             height: size.height,
             fill_mode: fillMode,
+            value_text: false,
+            required: true,
             signerId: this.state.activeSignerId,
-        });
-        this.state.armedType = null;
+        };
+        this.state.fields.push(optimistic);
+        if (!this.state.keepArmed) {
+            this.state.armedType = null;
+        }
+
+        let id;
+        try {
+            [id] = await this.orm.create("bf.sign.field", [vals]);
+        } catch (e) {
+            const idx = this.state.fields.indexOf(optimistic);
+            if (idx >= 0) {
+                this.state.fields.splice(idx, 1);
+            }
+            this.notification.add("Échec de la création du pavé.", { type: "danger" });
+            return;
+        }
+        // The pad may have been dragged while the create was in flight; keep the
+        // on-screen geometry and push it back with the real id.
+        const moved = optimistic.pos_x !== posX || optimistic.pos_y !== posY ||
+            optimistic.width !== size.width || optimistic.height !== size.height;
+        optimistic.id = id;
+        optimistic._pending = false;
+        if (moved) {
+            await this._writeField(optimistic, {
+                pos_x: optimistic.pos_x, pos_y: optimistic.pos_y,
+                width: optimistic.width, height: optimistic.height,
+            });
+        }
     }
 
     async removeField(f) {
         if (this.isLocked) {
             return;
         }
-        try {
-            await this.orm.unlink("bf.sign.field", [f.id]);
-        } catch (e) {
-            this.notification.add("Échec de la suppression du pavé.", { type: "danger" });
-            return;
+        if (f.id > 0) {
+            try {
+                await this.orm.unlink("bf.sign.field", [f.id]);
+            } catch (e) {
+                this.notification.add("Échec de la suppression du pavé.", { type: "danger" });
+                return;
+            }
         }
         const idx = this.state.fields.indexOf(f);
         if (idx >= 0) {
             this.state.fields.splice(idx, 1);
         }
+        if (this.state.selectedId === f.id) {
+            this.clearSelection();
+        }
+    }
+
+    // ── Keyboard ───────────────────────────────────────────────────────────────
+    // Arrows nudge the selected pad by one grid step (one pixel with Shift),
+    // Delete removes it, Escape disarms. Ignored while typing in a field.
+    onKeyDown(ev) {
+        const f = this.selectedField;
+        const tag = (ev.target && ev.target.tagName) || "";
+        if (["INPUT", "TEXTAREA", "SELECT"].includes(tag) || ev.target.isContentEditable) {
+            return;
+        }
+        if (ev.key === "Escape") {
+            this.state.armedType = null;
+            this.clearSelection();
+            return;
+        }
+        if (!f || this.isLocked) {
+            return;
+        }
+        if (ev.key === "Delete" || ev.key === "Backspace") {
+            ev.preventDefault();
+            this.removeField(f);
+            return;
+        }
+        const deltas = {
+            ArrowLeft: [-1, 0], ArrowRight: [1, 0],
+            ArrowUp: [0, -1], ArrowDown: [0, 1],
+        };
+        const d = deltas[ev.key];
+        if (!d) {
+            return;
+        }
+        const pg = this.state.pages.find((p) => p.num === f.page);
+        if (!pg) {
+            return;
+        }
+        ev.preventDefault();
+        const stepPx = ev.shiftKey ? FINE_NUDGE
+            : (this.state.gridOn ? this.state.gridStep : FINE_NUDGE);
+        f.pos_x = Math.min(Math.max(f.pos_x + (d[0] * stepPx) / pg.w, 0), 1 - f.width);
+        f.pos_y = Math.min(Math.max(f.pos_y + (d[1] * stepPx) / pg.h, 0), 1 - f.height);
+        this._queueGeometryWrite(f);
+    }
+
+    // Arrow keys fire fast; coalesce the writes instead of one per keystroke.
+    _queueGeometryWrite(f) {
+        clearTimeout(this._geoTimer);
+        this._geoTimer = setTimeout(() => {
+            this._writeField(f, {
+                pos_x: f.pos_x, pos_y: f.pos_y, width: f.width, height: f.height,
+            });
+        }, 250);
     }
 
     // ── Drag & resize ──────────────────────────────────────────────────────────
     startDrag(ev, f, pg) {
+        this.selectField(f);
         if (this.isLocked) {
             return;
         }
@@ -409,6 +706,7 @@ export class BfSignPlacement extends Component {
         this._bindDragEvents();
     }
     startResize(ev, f, pg) {
+        this.selectField(f);
         if (this.isLocked) {
             return;
         }
@@ -428,6 +726,14 @@ export class BfSignPlacement extends Component {
         window.addEventListener("pointermove", this._onMove);
         window.addEventListener("pointerup", this._onUp);
     }
+    _unbindDragEvents() {
+        if (this._onMove) {
+            window.removeEventListener("pointermove", this._onMove);
+        }
+        if (this._onUp) {
+            window.removeEventListener("pointerup", this._onUp);
+        }
+    }
     _onDragMove(e) {
         if (!this._drag) {
             return;
@@ -435,23 +741,42 @@ export class BfSignPlacement extends Component {
         const { f, pg, mode } = this._drag;
         const dx = (e.clientX - this._drag.startX) / pg.w;
         const dy = (e.clientY - this._drag.startY) / pg.h;
+        // Holding Alt suspends every aid, for the odd pad that has to sit
+        // somewhere the grid does not reach.
+        const free = e.altKey;
         if (mode === "move") {
-            f.pos_x = Math.min(Math.max(this._drag.origX + dx, 0), 1 - f.width);
-            f.pos_y = Math.min(Math.max(this._drag.origY + dy, 0), 1 - f.height);
+            let nx = this._drag.origX + dx;
+            let ny = this._drag.origY + dy;
+            if (!free) {
+                nx = this._snap(nx, pg.w);
+                ny = this._snap(ny, pg.h);
+            }
+            f.pos_x = Math.min(Math.max(nx, 0), 1 - f.width);
+            f.pos_y = Math.min(Math.max(ny, 0), 1 - f.height);
         } else {
-            f.width = Math.min(Math.max(this._drag.origW + dx, 0.04), 1 - f.pos_x);
-            f.height = Math.min(Math.max(this._drag.origH + dy, 0.02), 1 - f.pos_y);
+            let nw = this._drag.origW + dx;
+            let nh = this._drag.origH + dy;
+            if (!free) {
+                nw = this._snap(this._drag.origX + nw, pg.w) - this._drag.origX;
+                nh = this._snap(this._drag.origY + nh, pg.h) - this._drag.origY;
+            }
+            f.width = Math.min(Math.max(nw, 0.04), 1 - f.pos_x);
+            f.height = Math.min(Math.max(nh, 0.02), 1 - f.pos_y);
         }
+        this.state.guides = free ? [] : this._alignToNeighbours(f, pg);
     }
     async _onDragUp() {
-        window.removeEventListener("pointermove", this._onMove);
-        window.removeEventListener("pointerup", this._onUp);
+        this._unbindDragEvents();
         const drag = this._drag;
         this._drag = null;
+        this.state.guides = [];
         if (!drag) {
             return;
         }
         const f = drag.f;
+        if (!f.id || f.id < 0) {
+            return; // still being created; onPageClick pushes the final geometry
+        }
         try {
             await this.orm.write("bf.sign.field", [f.id], {
                 pos_x: f.pos_x, pos_y: f.pos_y, width: f.width, height: f.height,

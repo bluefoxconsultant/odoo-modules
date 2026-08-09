@@ -8,7 +8,7 @@ from unittest.mock import patch
 _FIXTURES = os.path.join(os.path.dirname(__file__), "fixtures")
 
 from odoo import fields
-from odoo.exceptions import UserError
+from odoo.exceptions import UserError, ValidationError
 from odoo.tests import TransactionCase, tagged
 
 _PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
@@ -522,3 +522,106 @@ class TestBfSign(TransactionCase):
         req = self._new_request(signers=1)
         with self.assertRaises(ValueError):
             req.signature_method = "libresign_aes"
+
+    # ── pad types beyond signature/text/date (18.0.3.14.0) ──────────────────────
+    def test_checkbox_required_blocks_then_passes(self):
+        req = self._new_request(signers=1)
+        s = req.signer_ids[0]
+        cb = self._add_fill_field(req, s, "checkbox", required=True)
+        req.action_send()
+        with self.assertRaises(UserError):
+            self._sign(req, s, field_values={})  # unchecked box posts nothing
+        self.assertNotEqual(s.state, "signed")
+        with self._mock_cert():
+            self._sign(req, s, field_values={str(cb.id): "on"})
+        self.assertEqual(cb.filled_value, "on")
+        self.assertTrue(cb._is_checked())
+
+    def test_optional_checkbox_left_unchecked(self):
+        req = self._new_request(signers=1)
+        s = req.signer_ids[0]
+        cb = self._add_fill_field(req, s, "checkbox", required=False)
+        req.action_send()
+        with self._mock_cert():
+            self._sign(req, s, field_values={})
+        self.assertEqual(req.state, "signed")
+        self.assertFalse(cb._is_checked())
+
+    def test_number_and_email_validation(self):
+        req = self._new_request(signers=1)
+        s = req.signer_ids[0]
+        nf = self._add_fill_field(req, s, "number")
+        ef = self._add_fill_field(req, s, "email")
+        req.action_send()
+        with self.assertRaises(UserError):
+            self._sign(req, s, field_values={str(nf.id): "douze",
+                                             str(ef.id): "a@b.ca"})
+        with self.assertRaises(UserError):
+            self._sign(req, s, field_values={str(nf.id): "12",
+                                             str(ef.id): "pas-un-courriel"})
+        with self._mock_cert():
+            self._sign(req, s, field_values={str(nf.id): "1 234,50",
+                                             str(ef.id): "a@b.ca"})
+        self.assertEqual(nf.filled_value, "1 234,50")
+        self.assertEqual(ef.filled_value, "a@b.ca")
+
+    def test_auto_pads_resolve_from_signer(self):
+        req = self._new_request(signers=1)
+        s = req.signer_ids[0]
+        nf = self._add_fill_field(req, s, "name", fill_mode="auto")
+        ef = self._add_fill_field(req, s, "email", fill_mode="auto")
+        df = self._add_fill_field(req, s, "date", fill_mode="auto")
+        self.assertEqual(nf._display_value(), s.name)
+        self.assertEqual(ef._display_value(), s.email)
+        # The signing date does not exist before the signature.
+        self.assertEqual(df._display_value(), "")
+        req.action_send()
+        with self._mock_cert():
+            self._sign(req, s)
+        self.assertEqual(df._display_value(),
+                         fields.Date.to_string(s.signed_on.date()))
+
+    def test_auto_mode_rejected_on_free_text(self):
+        req = self._new_request(signers=1)
+        s = req.signer_ids[0]
+        with self.assertRaises(ValidationError):
+            self._add_fill_field(req, s, "text", fill_mode="auto")
+
+    def test_blank_optional_field_does_not_stamp_its_label(self):
+        """``value_text`` is the caption in signer mode — never the stamped value.
+
+        Left blank, the pad must print nothing: printing the caption would put
+        « Numéro d'employé » on the signed document instead of a number.
+        """
+        req = self._new_request(signers=1)
+        s = req.signer_ids[0]
+        tf = self._add_fill_field(req, s, "text", required=False)
+        tf.value_text = "Numéro d'employé"
+        req.action_send()
+        with self._mock_cert():
+            self._sign(req, s, field_values={})
+        self.assertEqual(tf.filled_value, "")
+        self.assertEqual(tf._display_value(), "")
+
+    def test_fixed_value_is_stamped(self):
+        req = self._new_request(signers=1)
+        s = req.signer_ids[0]
+        tf = self._add_fill_field(req, s, "text", fill_mode="fixed")
+        tf.value_text = "Directeur général"
+        self.assertEqual(tf._display_value(), "Directeur général")
+
+    def test_send_blocks_signer_without_any_pad(self):
+        req = self._new_request(signers=2, with_fields=False)
+        first, second = req.signer_ids[0], req.signer_ids[1]
+        self._field(req, first, "signature")
+        with self.assertRaises(UserError):
+            req.action_send()  # `second` would have nothing to sign
+        self._field(req, second, "signature", y=0.6)
+        req.action_send()
+        self.assertEqual(req.state, "sent")
+
+    def test_send_still_allowed_with_no_pad_at_all(self):
+        # Seal-only requests stay legitimate: the guard only fires once pads exist.
+        req = self._new_request(signers=1, with_fields=False)
+        req.action_send()
+        self.assertEqual(req.state, "sent")

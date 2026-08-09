@@ -5,6 +5,11 @@ from odoo.exceptions import UserError, ValidationError
 # Everything else (placement, type, signer, fill rules) is frozen after sending.
 _PROCESS_FIELDS = frozenset({"filled_value"})
 
+# Pad types that carry a textual value (as opposed to a drawn signature image).
+VALUE_TYPES = frozenset({"date", "text", "number", "email", "name", "checkbox"})
+# Pad types the system can resolve on its own when ``fill_mode='auto'``.
+AUTO_TYPES = frozenset({"date", "name", "email"})
+
 
 class BfSignField(models.Model):
     """A signature pad placed on the document.
@@ -31,6 +36,10 @@ class BfSignField(models.Model):
             ("initials", "Paraphe"),
             ("date", "Date"),
             ("text", "Texte"),
+            ("name", "Nom"),
+            ("email", "Courriel"),
+            ("number", "Nombre"),
+            ("checkbox", "Case à cocher"),
         ],
         string="Type", default="signature", required=True,
     )
@@ -39,14 +48,17 @@ class BfSignField(models.Model):
     pos_y = fields.Float(string="Y (fraction)", default=0.80)
     width = fields.Float(string="Largeur (fraction)", default=0.25)
     height = fields.Float(string="Hauteur (fraction)", default=0.08)
-    value_text = fields.Char(string="Valeur fixe (texte/date)")
-    # How a date/text pad gets its value:
-    #   auto   — date pad filled with the signer's signing date
+    # Double duty, by design and unchanged: the fixed value when
+    # ``fill_mode='fixed'``, and the label shown to the signer otherwise.
+    value_text = fields.Char(string="Valeur fixe / étiquette")
+    # How a value-bearing pad gets its value:
+    #   auto   — resolved by the system from the signer or the signing act
+    #            (date → signing date, name → signer name, email → signer email)
     #   fixed  — value set here by the preparer (``value_text``)
     #   signer — the signer types it on the signing page (stored in ``filled_value``)
     fill_mode = fields.Selection(
         selection=[
-            ("auto", "Automatique (date de signature)"),
+            ("auto", "Automatique (signataire / date de signature)"),
             ("fixed", "Valeur fixe (préparateur)"),
             ("signer", "Rempli par le signataire"),
         ],
@@ -65,6 +77,83 @@ class BfSignField(models.Model):
                 raise ValidationError(
                     _("Le signataire d'un pavé doit appartenir à la même demande.")
                 )
+
+    @api.constrains("field_type", "fill_mode")
+    def _check_fill_mode(self):
+        for rec in self:
+            if rec.fill_mode == "auto" and rec.field_type not in AUTO_TYPES:
+                raise ValidationError(_(
+                    "Le mode automatique n'existe que pour les pavés Date, Nom et "
+                    "Courriel. Choisissez « Valeur fixe » ou « Rempli par le "
+                    "signataire »."))
+
+    # ── Value resolution ───────────────────────────────────────────────────────
+    def _auto_value(self):
+        """Value the system resolves on its own for an ``auto`` pad.
+
+        Empty until the signer has actually signed, for ``date``: the pad is
+        meant to carry the signing date, not the preparation date.
+        """
+        self.ensure_one()
+        signer = self.signer_id
+        if self.field_type == "date":
+            return (signer.signed_on and fields.Date.to_string(signer.signed_on.date())) or ""
+        if self.field_type == "name":
+            return signer.name or ""
+        if self.field_type == "email":
+            return signer.email or ""
+        return ""
+
+    def _display_value(self):
+        """Final text to stamp on the PDF for a value-bearing pad.
+
+        Resolution is driven by ``fill_mode`` alone. In particular a pad left
+        blank by its signer stamps nothing: ``value_text`` is the *label* in
+        that mode, and printing it on the document would be wrong.
+        """
+        self.ensure_one()
+        if self.field_type not in VALUE_TYPES:
+            return ""
+        if self.fill_mode == "auto":
+            return self._auto_value()
+        if self.fill_mode == "fixed":
+            return self.value_text or ""
+        return self.filled_value or ""
+
+    def _type_label(self):
+        """Human label of the pad type, from the selection itself (translatable)."""
+        self.ensure_one()
+        labels = dict(self._fields["field_type"]._description_selection(self.env))
+        return labels.get(self.field_type, self.field_type)
+
+    def _marker_label(self):
+        """Label shown next to the pad on the signing page.
+
+        ``value_text`` doubles as the caption whenever it is not the fixed
+        value, so a preparer can name a pad « Numéro d'employé » instead of
+        leaving the generic type name.
+        """
+        self.ensure_one()
+        if self.fill_mode != "fixed" and self.value_text:
+            return self.value_text
+        return self._type_label()
+
+    def _auto_placeholder(self):
+        """What an ``auto`` pad will carry, phrased for a signer who has not
+        signed yet (the signing date does not exist at that point)."""
+        self.ensure_one()
+        if self.field_type == "date":
+            return _("date de signature")
+        return self._auto_value()
+
+    def _is_checked(self):
+        """Whether a checkbox pad reads as ticked."""
+        self.ensure_one()
+        if self.field_type != "checkbox":
+            return False
+        if self.fill_mode == "fixed":
+            return bool(self.value_text)
+        return (self.filled_value or "").strip().lower() in ("1", "on", "true", "oui", "yes")
 
     # ── Structural lock: pads are frozen once the request leaves draft ──────────
     @staticmethod

@@ -2,6 +2,53 @@
 
 Versioning follows the Odoo `18.0.MAJOR.MINOR.PATCH` convention.
 
+## 18.0.3.14.0 — Snap-to-grid placement, new pad types, preset values
+
+### Placement editor
+- **Magnetic grid**: an optional grid overlay (4/8/12/16/24 px) that pads snap to
+  when placed, dragged or resized. **Alignment guides** additionally pull a pad
+  onto a neighbour's edge when it comes within a few pixels. Hold **Alt** to
+  suspend every aid for a pad that has to sit off-grid.
+- **Continuous placement**: the toolbar stays armed after a pad is dropped, so a
+  row of pads no longer costs one toolbar round trip each.
+- **Optimistic placement**: a pad is drawn as soon as it is clicked instead of
+  after the server confirms it, and is rolled back if the write fails.
+- **Keyboard**: arrows nudge the selected pad by one grid step, Shift+arrows by
+  one pixel, Delete removes it, Escape disarms.
+- **Pad properties bar**: the selected pad's signer, fill mode, value/label and
+  required flag are editable in place. The signer is therefore assignable
+  **after** the pad is dropped, instead of having to be chosen beforehand.
+
+### New pad types
+- `name`, `email`, `number` and `checkbox` join `signature`, `initials`, `date`
+  and `text`, on the placement editor, the signing page and the stamping engine.
+- `fill_mode='auto'` is **generalised**: it resolved the signing date only, it
+  now also resolves the signer's name and email. A constraint rejects `auto` on
+  a type the system cannot resolve.
+- Signer input is validated per type: numeric for `number` (thin, narrow and
+  non-breaking spaces tolerated), shape check for `email`, and a required
+  checkbox must actually be ticked.
+
+### Preset values
+- `value_text` (the fixed value set by the preparer) had **no input anywhere in
+  the placement editor**: choosing "fixed" produced a pad that stamped nothing.
+  It is now editable on the selected pad, as is `required`.
+
+### Fixes
+- **A pad left blank by its signer no longer stamps its own label.** `value_text`
+  doubles as the caption in signer mode, and the stamping engine fell back to it
+  when `filled_value` was empty — printing "Employee number" on the signed
+  document instead of a number. Value resolution is now driven by `fill_mode`
+  alone.
+- **Sending is blocked when a signer has no pad** while other pads exist: they
+  would have received a signing page with nothing to sign, and left no visible
+  mark on the document. A request with no pad at all (seal only) stays valid.
+- Stamped text is **fitted to its pad** instead of a fixed 9 pt, and shortened
+  with an ellipsis rather than bleeding across the page. Resizing a pad in the
+  editor now actually changes the stamped size.
+- The fields to fill on the signing page follow **reading order**, so their
+  numbers ascend the same way as the badges drawn on the document.
+
 ## 18.0.3.13.2 — Removing the "advanced signature (AES)" option
 
 - **The "LibreSign — advanced signature (AES)" choice is removed** from
