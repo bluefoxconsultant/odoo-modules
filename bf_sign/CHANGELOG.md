@@ -34,6 +34,30 @@ Versioning follows the Odoo `18.0.MAJOR.MINOR.PATCH` convention.
   the placement editor**: choosing "fixed" produced a pad that stamped nothing.
   It is now editable on the selected pad, as is `required`.
 
+### Document opening, visible from the list
+- A signer's openings are recorded on the signer itself — `first_viewed_on`,
+  `last_viewed_on`, `view_count` — instead of only in the audit trail. Answering
+  "has this person even looked at it" no longer means reading the journal.
+- The request carries the rollup: `viewed_count`, `last_viewed_on` and a
+  `view_status` badge (not yet opened / partly opened / opened by all), shown as
+  columns on the request list.
+- The rollup counts `first_viewed_on`, **not** the signer `state`: a signer who
+  has signed left the `viewed` state behind and would otherwise read as never
+  having opened the document.
+- **Migration** `18.0.3.14.0/post-migrate.py` backfills the timestamps from the
+  `viewed` entries of the append-only journal, matching on request + signer
+  email, so requests predating the upgrade do not all read as "never opened".
+  A signer whose state proves an opening but whose journal line cannot be
+  matched is flagged without a date being invented.
+
+### Signed document without the certificate
+- New `append_certificate` option on the request, with a matching default in
+  Settings. Unchecked, the signed document is delivered on its own instead of
+  having the certificate bound to its last pages.
+- **Evidence is unchanged either way**: the certificate is still rendered,
+  attached, emailed and covered by the same PAdES seal — it simply stays a
+  separate file. `hash_signed` covers whatever the signed attachment contains.
+
 ### Fixes
 - **A pad left blank by its signer no longer stamps its own label.** `value_text`
   doubles as the caption in signer mode, and the stamping engine fell back to it

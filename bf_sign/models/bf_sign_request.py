@@ -102,6 +102,19 @@ class BfSignRequest(models.Model):
     signer_count = fields.Integer(compute="_compute_progress")
     signed_count = fields.Integer(compute="_compute_progress")
     progress = fields.Float(compute="_compute_progress", string="Progression (%)")
+    viewed_count = fields.Integer(
+        compute="_compute_viewed", string="Ouvert par", store=True)
+    last_viewed_on = fields.Datetime(
+        compute="_compute_viewed", string="Dernière ouverture", store=True)
+    view_status = fields.Selection(
+        selection=[
+            ("none", "Pas encore ouvert"),
+            ("partial", "Ouvert en partie"),
+            ("all", "Ouvert par tous"),
+        ],
+        compute="_compute_viewed", string="Consultation", store=True,
+        help="Qui a ouvert le document, sans avoir à parcourir la piste de "
+             "vérification. Un signataire ayant signé compte comme ayant ouvert.")
 
     # ── Consent ─────────────────────────────────────────────────────────────
     consent_text = fields.Text(
@@ -145,6 +158,13 @@ class BfSignRequest(models.Model):
         default=lambda self: self._default_require_otp(), copy=False,
         help="Le signataire doit saisir un code envoyé à son courriel avant de "
              "pouvoir consulter et signer le document.")
+    append_certificate = fields.Boolean(
+        string="Joindre le certificat au document",
+        default=lambda self: self._default_append_certificate(),
+        help="Décoché : le document signé reste seul (scellé de la même façon) "
+             "et le certificat de signature demeure disponible en pièce "
+             "distincte. La valeur probante est inchangée : le certificat est "
+             "produit et conservé dans les deux cas.")
 
     log_ids = fields.One2many("bf.sign.log", "request_id", string="Piste de vérification")
     log_count = fields.Integer(compute="_compute_log_count")
@@ -154,6 +174,15 @@ class BfSignRequest(models.Model):
     def _default_require_otp(self):
         return (self.env["ir.config_parameter"].sudo().get_param(
             "bf_sign.require_signer_otp") or "") in ("1", "True", "true")
+
+    @api.model
+    def _default_append_certificate(self):
+        # Defaults to True — including when the parameter was never set, which
+        # is why the fallback is passed to get_param: it returns False, not
+        # None, for a missing key, and reading that as "do not append" would
+        # silently change what every existing deployment's documents contain.
+        return self.env["ir.config_parameter"].sudo().get_param(
+            "bf_sign.append_certificate", "True") in ("1", "True", "true")
 
     @api.model
     def _default_consent_text(self):
@@ -176,6 +205,28 @@ class BfSignRequest(models.Model):
             rec.signer_count = total
             rec.signed_count = signed
             rec.progress = (signed / total * 100.0) if total else 0.0
+
+    @api.depends("signer_ids.has_viewed", "signer_ids.last_viewed_on")
+    def _compute_viewed(self):
+        """Roll the per-signer opening up to the request.
+
+        Counted on ``first_viewed_on``, not on ``state``: a signer who has
+        signed left the ``viewed`` state behind, and would otherwise read as
+        never having opened the document.
+        """
+        for rec in self:
+            viewed = rec.signer_ids.filtered("has_viewed")
+            rec.viewed_count = len(viewed)
+            dates = viewed.mapped("last_viewed_on")
+            rec.last_viewed_on = max(dates) if dates else False
+            if not rec.signer_ids:
+                rec.view_status = "none"
+            elif not viewed:
+                rec.view_status = "none"
+            elif len(viewed) < len(rec.signer_ids):
+                rec.view_status = "partial"
+            else:
+                rec.view_status = "all"
 
     # ── Creation ─────────────────────────────────────────────────────────────
     @api.model_create_multi
@@ -589,8 +640,13 @@ class BfSignRequest(models.Model):
     # ── Signing flow (called from the public controller, per signer) ─────────
     def register_signer_view(self, signer, ip=None, user_agent=None):
         self.ensure_one()
+        now = fields.Datetime.now()
+        vals = {"last_viewed_on": now, "view_count": (signer.view_count or 0) + 1}
+        if not signer.first_viewed_on:
+            vals["first_viewed_on"] = now
         if signer.state == "pending":
-            signer.sudo().state = "viewed"
+            vals["state"] = "viewed"
+        signer.sudo().write(vals)
         self.env["bf.sign.log"].sudo()._append(
             self, "viewed", actor=signer.email, ip_address=ip, user_agent=user_agent,
             identity_method=signer._identity_method(), note=_("Signataire : %s") % signer.name)
@@ -745,9 +801,13 @@ class BfSignRequest(models.Model):
         if self._tsa_enabled():
             self._request_tsa_timestamp(stamped_bytes)
 
+        # The certificate is always produced and kept as its own attachment.
+        # ``append_certificate`` only decides whether it is also bound into the
+        # signed document, so turning it off costs nothing in evidence.
         cert_pdf, _ext = self.env["ir.actions.report"]._render_qweb_pdf(
             CERTIFICATE_REPORT, self.ids)
-        signed_pdf = merge_pdf([stamped_bytes, cert_pdf])
+        signed_pdf = merge_pdf([stamped_bytes, cert_pdf]) \
+            if self.append_certificate else stamped_bytes
 
         # Digital seal (PAdES/PKCS#7) — DocuSeal-style tamper-proof signature.
         # Done last so it covers the whole sealed bundle; the TSA timestamp (if

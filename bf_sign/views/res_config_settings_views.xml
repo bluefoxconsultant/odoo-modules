@@ -20,6 +20,10 @@
                                  help="Exiger par défaut qu'un signataire saisisse un code envoyé à son courriel avant de consulter et signer. Activable/désactivable par demande.">
                             <field name="bf_sign_require_signer_otp"/>
                         </setting>
+                        <setting string="Certificat joint au document"
+                                 help="Relier le certificat de signature à la fin du document signé. Décoché, le document est livré seul et le certificat reste une pièce distincte, produite et scellée de la même façon. Réglable par demande.">
+                            <field name="bf_sign_append_certificate"/>
+                        </setting>
                         <setting string="Limites de taille"
                                  help="Plafonds de sécurité sur les images de signature et le document téléversé.">
                             <div class="content-group">

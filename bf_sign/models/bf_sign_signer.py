@@ -11,6 +11,8 @@ from odoo.exceptions import UserError
 # Identity fields (name, email, partner_id, sequence) are frozen after sending.
 _PROCESS_FIELDS = frozenset({
     "state", "signed_on", "signer_ip", "signer_user_agent",
+    # Opening the document happens after sending, by definition.
+    "first_viewed_on", "last_viewed_on", "view_count", "has_viewed",
     "consent_given", "consent_timestamp", "signature_image", "initials_image",
     "otp_hash", "otp_sent_at", "otp_verified", "otp_attempts", "otp_send_count",
 })
@@ -61,6 +63,18 @@ class BfSignSigner(models.Model):
         string="État", default="pending", copy=False,
     )
     signed_on = fields.Datetime(readonly=True, copy=False)
+    # Opening the document is tracked on the record itself, not only in the
+    # audit trail: "has this person even looked at it yet" is a follow-up
+    # question, and it should not require reading the journal to answer.
+    # ``state`` alone cannot answer it either — it moves on to "signed".
+    first_viewed_on = fields.Datetime(
+        string="Ouvert le", readonly=True, copy=False,
+        help="Première ouverture du document par ce signataire.")
+    last_viewed_on = fields.Datetime(
+        string="Dernière ouverture", readonly=True, copy=False)
+    view_count = fields.Integer(string="Ouvertures", readonly=True, copy=False, default=0)
+    has_viewed = fields.Boolean(
+        string="A ouvert", compute="_compute_has_viewed", store=True)
     signer_ip = fields.Char(string="Adresse IP", readonly=True, copy=False)
     signer_user_agent = fields.Char(string="Agent utilisateur", readonly=True, copy=False)
     consent_given = fields.Boolean(readonly=True, copy=False)
@@ -96,6 +110,11 @@ class BfSignSigner(models.Model):
     def _compute_field_count(self):
         for rec in self:
             rec.field_count = len(rec.field_ids)
+
+    @api.depends("first_viewed_on")
+    def _compute_has_viewed(self):
+        for rec in self:
+            rec.has_viewed = bool(rec.first_viewed_on)
 
     @api.depends("field_ids.field_type")
     def _compute_field_kinds(self):

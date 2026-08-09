@@ -40,6 +40,7 @@
                             <field name="signature_method" readonly="1"/>
                             <field name="signing_order" readonly="state != 'draft'"/>
                             <field name="require_signer_otp" readonly="state != 'draft'"/>
+                            <field name="append_certificate" readonly="state != 'draft'"/>
                             <field name="expiry_date" readonly="state == 'signed'"/>
                             <field name="company_id" groups="base.group_multi_company"
                                    readonly="state != 'draft'"/>
@@ -60,6 +61,9 @@
                                     <field name="partner_id"/>
                                     <field name="field_count" string="Pavés"/>
                                     <field name="state"/>
+                                    <field name="first_viewed_on" string="Ouvert le"/>
+                                    <field name="view_count" string="Ouvertures" optional="hide"/>
+                                    <field name="last_viewed_on" optional="hide"/>
                                     <field name="signed_on"/>
                                     <button name="action_reveal_signing_link" type="object"
                                             string="Copier le lien" icon="fa-link"
@@ -127,7 +131,15 @@
                 <field name="name"/>
                 <field name="title" string="Titre" optional="show"/>
                 <field name="signer_count" string="Signataires"/>
+                <field name="viewed_count" string="Ouvert par" optional="show"/>
                 <field name="signed_count" string="Signés"/>
+                <field name="view_status" widget="badge" string="Consultation"
+                       optional="show"
+                       decoration-success="view_status == 'all'"
+                       decoration-warning="view_status == 'partial'"
+                       decoration-muted="view_status == 'none'"
+                       invisible="state == 'draft'"/>
+                <field name="last_viewed_on" string="Dernière ouverture" optional="hide"/>
                 <field name="state" widget="badge"
                        decoration-success="state == 'signed'"
                        decoration-info="state in ('sent','in_progress')"/>

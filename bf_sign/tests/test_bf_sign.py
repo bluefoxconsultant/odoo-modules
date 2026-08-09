@@ -10,6 +10,7 @@ _FIXTURES = os.path.join(os.path.dirname(__file__), "fixtures")
 from odoo import fields
 from odoo.exceptions import UserError, ValidationError
 from odoo.tests import TransactionCase, tagged
+from odoo.tools.pdf import PdfReader
 
 _PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 
@@ -625,3 +626,78 @@ class TestBfSign(TransactionCase):
         req = self._new_request(signers=1, with_fields=False)
         req.action_send()
         self.assertEqual(req.state, "sent")
+
+    # ── opening tracked on the record, not only in the journal ──────────────────
+    def test_view_status_rolls_up_without_reading_the_journal(self):
+        req = self._new_request(signers=2)
+        first, second = req.signer_ids[0], req.signer_ids[1]
+        req.action_send()
+        self.assertEqual(req.view_status, "none")
+        self.assertEqual(req.viewed_count, 0)
+        self.assertFalse(first.first_viewed_on)
+
+        req.register_signer_view(first, ip="1.2.3.4", user_agent="pytest")
+        self.assertTrue(first.has_viewed)
+        self.assertTrue(first.first_viewed_on)
+        self.assertEqual(first.view_count, 1)
+        self.assertEqual(req.view_status, "partial")
+        self.assertEqual(req.viewed_count, 1)
+
+        # A second opening moves last_viewed_on, never first_viewed_on.
+        opened_at = first.first_viewed_on
+        req.register_signer_view(first)
+        self.assertEqual(first.first_viewed_on, opened_at)
+        self.assertEqual(first.view_count, 2)
+
+        req.register_signer_view(second)
+        self.assertEqual(req.view_status, "all")
+        self.assertEqual(req.viewed_count, 2)
+
+    def test_signed_signer_still_counts_as_having_opened(self):
+        # `state` leaves 'viewed' behind once signed — the rollup must not.
+        req = self._new_request(signers=1)
+        s = req.signer_ids[0]
+        req.action_send()
+        req.register_signer_view(s)
+        with self._mock_cert():
+            self._sign(req, s)
+        self.assertEqual(s.state, "signed")
+        self.assertTrue(s.has_viewed)
+        self.assertEqual(req.view_status, "all")
+        self.assertEqual(req.viewed_count, 1)
+
+    # ── signed document with or without the certificate bound in ────────────────
+    def _pdf_pages(self, b64):
+        return len(PdfReader(io.BytesIO(base64.b64decode(b64))).pages)
+
+    def test_certificate_appended_by_default(self):
+        req = self._new_request(signers=1)
+        self.assertTrue(req.append_certificate)
+        req.action_send()
+        with self._mock_cert():
+            self._sign(req, req.signer_ids[0])
+        doc = self._pdf_pages(req.signed_attachment_id.datas)
+        cert = self._pdf_pages(req.certificate_attachment_id.datas)
+        self.assertGreater(doc, cert)  # document + certificate bound together
+
+    def test_certificate_kept_separate_when_disabled(self):
+        req = self._new_request(signers=1)
+        req.append_certificate = False
+        req.action_send()
+        with self._mock_cert():
+            self._sign(req, req.signer_ids[0])
+        # The certificate is still produced, sealed and attached — just not bound
+        # into the signed document.
+        self.assertTrue(req.certificate_attachment_id)
+        self.assertTrue(req.hash_signed)
+        with_cert = self._pdf_pages(req.certificate_attachment_id.datas)
+        alone = self._pdf_pages(req.signed_attachment_id.datas)
+        self.assertEqual(alone, len(PdfReader(io.BytesIO(self.pdf_bytes)).pages))
+        self.assertGreaterEqual(with_cert, 1)
+
+    def test_append_certificate_default_follows_setting(self):
+        ICP = self.env["ir.config_parameter"].sudo()
+        ICP.set_param("bf_sign.append_certificate", "False")
+        self.assertFalse(self.Request._default_append_certificate())
+        ICP.set_param("bf_sign.append_certificate", "True")
+        self.assertTrue(self.Request._default_append_certificate())

@@ -73,6 +73,15 @@ class ResConfigSettings(models.TransientModel):
              "par code envoyé au courriel du signataire avant la signature. "
              "Réglable demande par demande.",
     )
+    bf_sign_append_certificate = fields.Boolean(
+        string="Joindre le certificat au document signé",
+        config_parameter="bf_sign.append_certificate",
+        default=True,
+        help="Par défaut, le certificat de signature est relié à la fin du "
+             "document signé. Désactiver pour livrer le document seul : le "
+             "certificat reste produit, scellé et conservé en pièce distincte. "
+             "Réglable demande par demande.",
+    )
     bf_sign_pdf_seal_enabled = fields.Boolean(
         string="Sceau numérique du document (PAdES)",
         config_parameter="bf_sign.pdf_seal_enabled",
