@@ -13,6 +13,8 @@ _PROCESS_FIELDS = frozenset({
     "state", "signed_on", "signer_ip", "signer_user_agent",
     # Opening the document happens after sending, by definition.
     "first_viewed_on", "last_viewed_on", "view_count", "has_viewed",
+    # So does being invited and chased.
+    "invited_on", "reminder_count", "last_reminder_on", "unopened_alerted",
     "consent_given", "consent_timestamp", "signature_image", "initials_image",
     "otp_hash", "otp_sent_at", "otp_verified", "otp_attempts", "otp_send_count",
 })
@@ -75,6 +77,13 @@ class BfSignSigner(models.Model):
     view_count = fields.Integer(string="Ouvertures", readonly=True, copy=False, default=0)
     has_viewed = fields.Boolean(
         string="A ouvert", compute="_compute_has_viewed", store=True)
+    # Reminders are counted from the moment THIS signer was invited, not from
+    # the send: in a sequential request the second signer is invited days later,
+    # and chasing them on the first signer's clock would be nonsense.
+    invited_on = fields.Datetime(string="Invité le", readonly=True, copy=False)
+    reminder_count = fields.Integer(string="Relances", readonly=True, copy=False, default=0)
+    last_reminder_on = fields.Datetime(string="Dernière relance", readonly=True, copy=False)
+    unopened_alerted = fields.Boolean(readonly=True, copy=False)
     signer_ip = fields.Char(string="Adresse IP", readonly=True, copy=False)
     signer_user_agent = fields.Char(string="Agent utilisateur", readonly=True, copy=False)
     consent_given = fields.Boolean(readonly=True, copy=False)

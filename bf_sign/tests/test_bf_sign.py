@@ -782,3 +782,131 @@ class TestBfSign(TransactionCase):
         self.assertTrue(first.action_resend_invitation())
         with self.assertRaises(UserError):
             second.action_resend_invitation()  # not their turn
+
+    # ── reminders (18.0.3.16.0) ────────────────────────────────────────────────
+    def _sent_request(self, signers=1, order="parallel"):
+        req = self._new_request(signers=signers, order=order)
+        req.action_send()
+        return req
+
+    def _reminders_sent_to(self, signer):
+        return self.env["bf.sign.log"].search_count([
+            ("request_id", "=", signer.request_id.id),
+            ("event", "=", "sent"),
+            ("note", "ilike", "Relance"),
+            ("note", "ilike", signer.email),
+        ])
+
+    def test_no_reminder_before_the_first_offset(self):
+        req = self._sent_request()
+        s = req.signer_ids[0]
+        self.assertTrue(s.invited_on)
+        self.env["bf.sign.request"]._cron_send_reminders()
+        self.assertEqual(s.reminder_count, 0)
+
+    def test_reminder_fires_at_each_offset_once(self):
+        req = self._sent_request()
+        s = req.signer_ids[0]
+        # Pretend the invitation went out 4 days ago → J+3 is due, J+7 is not.
+        s.sudo().invited_on = fields.Datetime.now() - timedelta(days=4)
+        self.env["bf.sign.request"]._cron_send_reminders()
+        self.assertEqual(s.reminder_count, 1)
+        self.assertEqual(self._reminders_sent_to(s), 1)
+        # Same day, nothing more, whatever the schedule says.
+        self.env["bf.sign.request"]._cron_send_reminders()
+        self.assertEqual(s.reminder_count, 1)
+        # Eight days in, and a day since the last one → J+7 is due.
+        s.sudo().invited_on = fields.Datetime.now() - timedelta(days=8)
+        s.sudo().last_reminder_on = fields.Datetime.now() - timedelta(days=2)
+        self.env["bf.sign.request"]._cron_send_reminders()
+        self.assertEqual(s.reminder_count, 2)
+
+    def test_reminder_cap_holds(self):
+        self.env["ir.config_parameter"].sudo().set_param("bf_sign.reminder_max", "1")
+        req = self._sent_request()
+        s = req.signer_ids[0]
+        s.sudo().invited_on = fields.Datetime.now() - timedelta(days=30)
+        self.env["bf.sign.request"]._cron_send_reminders()
+        self.assertEqual(s.reminder_count, 1)
+        s.sudo().last_reminder_on = fields.Datetime.now() - timedelta(days=5)
+        self.env["bf.sign.request"]._cron_send_reminders()
+        self.assertEqual(s.reminder_count, 1)
+
+    def test_reminder_skips_signed_and_disabled(self):
+        req = self._sent_request()
+        s = req.signer_ids[0]
+        s.sudo().invited_on = fields.Datetime.now() - timedelta(days=10)
+        req.reminder_enabled = False
+        self.env["bf.sign.request"]._cron_send_reminders()
+        self.assertEqual(s.reminder_count, 0)
+        req.reminder_enabled = True
+        with self._mock_cert():
+            self._sign(req, s)
+        self.env["bf.sign.request"]._cron_send_reminders()
+        self.assertEqual(s.reminder_count, 0)
+
+    def test_reminder_never_chases_out_of_turn_signer(self):
+        req = self._sent_request(signers=2, order="sequential")
+        first, second = req.signer_ids[0], req.signer_ids[1]
+        first.sudo().invited_on = fields.Datetime.now() - timedelta(days=10)
+        second.sudo().invited_on = fields.Datetime.now() - timedelta(days=10)
+        self.env["bf.sign.request"]._cron_send_reminders()
+        self.assertEqual(first.reminder_count, 1)
+        self.assertEqual(second.reminder_count, 0)
+
+    def test_reminder_does_not_restart_the_signer_clock(self):
+        req = self._sent_request()
+        s = req.signer_ids[0]
+        invited = fields.Datetime.now() - timedelta(days=4)
+        s.sudo().invited_on = invited
+        self.env["bf.sign.request"]._cron_send_reminders()
+        self.assertEqual(s.invited_on, invited)
+
+    def test_expired_request_is_not_chased(self):
+        req = self._sent_request()
+        s = req.signer_ids[0]
+        s.sudo().invited_on = fields.Datetime.now() - timedelta(days=10)
+        req.expiry_date = fields.Datetime.now() - timedelta(hours=1)
+        self.env["bf.sign.request"]._cron_send_reminders()
+        self.assertEqual(s.reminder_count, 0)
+
+    def test_last_call_before_expiry(self):
+        self.env["ir.config_parameter"].sudo().set_param("bf_sign.reminder_days", "")
+        req = self._sent_request()
+        s = req.signer_ids[0]
+        s.sudo().invited_on = fields.Datetime.now() - timedelta(days=1)
+        req.expiry_date = fields.Datetime.now() + timedelta(days=5)
+        self.env["bf.sign.request"]._cron_send_reminders()
+        self.assertEqual(s.reminder_count, 0)  # no offsets, expiry still far
+        req.expiry_date = fields.Datetime.now() + timedelta(hours=10)
+        self.env["bf.sign.request"]._cron_send_reminders()
+        self.assertEqual(s.reminder_count, 1)
+
+    def test_unopened_alert_posted_once(self):
+        req = self._sent_request()
+        s = req.signer_ids[0]
+        s.sudo().invited_on = fields.Datetime.now() - timedelta(days=6)
+        before = len(req.message_ids)
+        self.env["bf.sign.request"]._cron_send_reminders()
+        self.assertTrue(s.unopened_alerted)
+        after = len(req.message_ids)
+        self.assertGreater(after, before)
+        self.env["bf.sign.request"]._cron_send_reminders()
+        self.assertEqual(len(req.message_ids), after)  # said once, not every day
+
+    def test_no_unopened_alert_once_opened(self):
+        req = self._sent_request()
+        s = req.signer_ids[0]
+        s.sudo().invited_on = fields.Datetime.now() - timedelta(days=6)
+        req.register_signer_view(s)
+        self.env["bf.sign.request"]._cron_send_reminders()
+        self.assertFalse(s.unopened_alerted)
+
+    def test_manual_remind_pending_skips_signed(self):
+        req = self._sent_request(signers=2)
+        first, second = req.signer_ids[0], req.signer_ids[1]
+        with self._mock_cert():
+            self._sign(req, first)
+        req.action_remind_pending()
+        self.assertEqual(first.reminder_count, 0)
+        self.assertEqual(second.reminder_count, 1)

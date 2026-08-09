@@ -2,6 +2,43 @@
 
 Versioning follows the Odoo `18.0.MAJOR.MINOR.PATCH` convention.
 
+## 18.0.3.16.0 — Reminders
+
+A signature request had no follow-up of any kind: one cron (expiry), three
+templates (invitation, completed, refused). A signer who ignored the first
+email was never chased again.
+
+### Schedule
+- A daily cron reminds signers who have not signed, **counting from the moment
+  that signer was invited** — not from the send. In a sequential request the
+  second signer is invited days later, and chasing them on the first signer's
+  clock would be nonsense. `invited_on` is stamped when the invitation actually
+  goes out.
+- Defaults: **J+3, J+7, then a last call 48 h before the link expires**, capped
+  at **3 reminders per signer**. All four values are settings, and the whole
+  thing is switchable per request (`reminder_enabled`).
+
+### Guards — a request that nags is worse than one that is forgotten
+- One reminder per signer per day maximum, whatever the schedule says.
+- Never a signer who has signed, refused, or whose turn has not come in a
+  sequential request: a link they cannot use reads as a broken system, and it
+  discloses the request to a party out of turn.
+- Never an expired or disabled request. Every reminder is journalled.
+- A reminder does **not** restart the signer's clock, only a genuine invitation
+  does (`_email_signer(mark_invited=…)`).
+
+### Never-opened alert
+- When a signer has not **opened** the document after 5 days (a setting), a note
+  is posted once on the request. A signer who opened and did not sign is
+  hesitating; one who never opened usually means the mail is not arriving, which
+  needs a human, not another automated copy of the same message.
+
+### Manual
+- "Relancer les signataires" **replaces "Renvoyer les liens"** in the header.
+  The old button re-ran the whole send, which re-mailed everyone — people who
+  had already signed included. The new one targets only signers who may sign
+  right now.
+
 ## 18.0.3.15.0 — Editor comfort, presentation order, working duplication
 
 ### Placement editor

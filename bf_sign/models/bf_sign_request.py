@@ -158,6 +158,12 @@ class BfSignRequest(models.Model):
         default=lambda self: self._default_require_otp(), copy=False,
         help="Le signataire doit saisir un code envoyé à son courriel avant de "
              "pouvoir consulter et signer le document.")
+    reminder_enabled = fields.Boolean(
+        string="Relances automatiques",
+        default=lambda self: self._default_reminder_enabled(),
+        help="Relancer par courriel les signataires qui n'ont pas signé, selon "
+             "la cadence réglée dans les Paramètres. Le signataire courant "
+             "seulement en signature séquentielle.")
     append_certificate = fields.Boolean(
         string="Joindre le certificat au document",
         default=lambda self: self._default_append_certificate(),
@@ -174,6 +180,11 @@ class BfSignRequest(models.Model):
     def _default_require_otp(self):
         return (self.env["ir.config_parameter"].sudo().get_param(
             "bf_sign.require_signer_otp") or "") in ("1", "True", "true")
+
+    @api.model
+    def _default_reminder_enabled(self):
+        return self.env["ir.config_parameter"].sudo().get_param(
+            "bf_sign.reminder_enabled", "True") in ("1", "True", "true")
 
     @api.model
     def _default_append_certificate(self):
@@ -439,8 +450,13 @@ class BfSignRequest(models.Model):
                     rec._email_signer(signer)
         return True
 
-    def _email_signer(self, signer):
-        template = self.env.ref("bf_sign.mail_template_sign_request", raise_if_not_found=False)
+    def _email_signer(self, signer, template_xmlid="bf_sign.mail_template_sign_request",
+                      mark_invited=True):
+        """Mail one signer. ``mark_invited`` restarts their reminder clock, so
+        it is True for a genuine invitation and False for a chase: a reminder
+        that reset the clock would keep pushing every later deadline out of
+        reach, the unopened alert included."""
+        template = self.env.ref(template_xmlid, raise_if_not_found=False)
         if not template:
             return
         # SECURITY: send the invitation as a bare mail.mail (no model/res_id,
@@ -460,6 +476,9 @@ class BfSignRequest(models.Model):
             "body_html": body,
             "auto_delete": True,
         }).send()
+        # The reminder clock starts when the invitation actually goes out.
+        if mark_invited:
+            signer.sudo().invited_on = fields.Datetime.now()
 
     def _ensure_signer_partners(self):
         """Link each signer to a contact, creating one from name+email if needed."""
@@ -1124,6 +1143,153 @@ class BfSignRequest(models.Model):
         for rec in stale:
             rec.state = "expired"
             self.env["bf.sign.log"]._append(rec, "expired", actor="system")
+        return True
+
+    # ── Reminders ─────────────────────────────────────────────────────────────
+    @api.model
+    def _reminder_settings(self):
+        ICP = self.env["ir.config_parameter"].sudo()
+
+        def _int(key, fallback):
+            try:
+                return int(ICP.get_param(key, fallback) or fallback)
+            except (TypeError, ValueError):
+                return int(fallback)
+
+        raw = ICP.get_param("bf_sign.reminder_days", "3,7") or "3,7"
+        days = []
+        for chunk in str(raw).replace(";", ",").split(","):
+            chunk = chunk.strip()
+            if chunk.isdigit() and int(chunk) > 0:
+                days.append(int(chunk))
+        return {
+            "days": sorted(set(days)),
+            "before_expiry_hours": _int("bf_sign.reminder_before_expiry_hours", 48),
+            "max": _int("bf_sign.reminder_max", 3),
+            "unopened_alert_days": _int("bf_sign.unopened_alert_days", 5),
+        }
+
+    def _reminder_due(self, signer, now, cfg):
+        """Whether this signer is due for a reminder right now, and why.
+
+        Returns a short reason string (used in the journal) or False. The rules
+        are deliberately conservative: a signature request that nags is worse
+        than one that is forgotten.
+        """
+        if not signer.invited_on:
+            return False
+        if signer.reminder_count >= cfg["max"]:
+            return False
+        # At most one reminder per signer per day, whatever the schedule says.
+        if signer.last_reminder_on and (now - signer.last_reminder_on) < timedelta(hours=20):
+            return False
+        # Last call before the link dies takes precedence over the day offsets.
+        if self.expiry_date and cfg["before_expiry_hours"]:
+            window_opens = self.expiry_date - timedelta(hours=cfg["before_expiry_hours"])
+            if window_opens <= now < self.expiry_date:
+                if not signer.last_reminder_on or signer.last_reminder_on < window_opens:
+                    return "avant échéance"
+        elapsed_days = (now - signer.invited_on).total_seconds() / 86400.0
+        for offset in cfg["days"]:
+            if elapsed_days < offset:
+                continue
+            # Only fire an offset that has not already been covered.
+            due_at = signer.invited_on + timedelta(days=offset)
+            if not signer.last_reminder_on or signer.last_reminder_on < due_at:
+                return "J+%s" % offset
+        return False
+
+    @api.model
+    def _cron_send_reminders(self):
+        """Chase signers who have not signed, and flag the ones who never opened.
+
+        Runs after the expiry cron in the same day, so an expired request is
+        never chased.
+        """
+        now = fields.Datetime.now()
+        cfg = self._reminder_settings()
+        open_requests = self.search([
+            ("state", "in", ("sent", "in_progress")),
+            ("reminder_enabled", "=", True),
+        ])
+        sent = 0
+        for rec in open_requests:
+            if rec.expiry_date and rec.expiry_date <= now:
+                continue  # the expiry cron will close it
+            for signer in rec.signer_ids:
+                if signer.state in ("signed", "refused"):
+                    continue
+                # Turn gating: a sequential signer whose turn has not come has
+                # not been invited, so there is nothing to remind them about.
+                if not rec._signer_can_sign(signer):
+                    continue
+                reason = rec._reminder_due(signer, now, cfg)
+                if not reason:
+                    continue
+                rec._email_signer(signer, "bf_sign.mail_template_sign_reminder",
+                                  mark_invited=False)
+                signer.sudo().write({
+                    "reminder_count": signer.reminder_count + 1,
+                    "last_reminder_on": now,
+                })
+                self.env["bf.sign.log"]._append(
+                    rec, "sent", actor="system", identity_method="cron",
+                    note=_("Relance %s envoyée à %s (%s)") % (
+                        reason, signer.name, signer.email))
+                sent += 1
+            rec._alert_unopened(now, cfg)
+        if sent:
+            _logger.info("bf_sign: %s relance(s) envoyée(s).", sent)
+        return True
+
+    def _alert_unopened(self, now, cfg):
+        """Tell the preparer, once, about a signer who has never even opened.
+
+        A signer who opened and did not sign is hesitating. One who never opened
+        usually means the mail did not arrive — a different problem, needing a
+        human, not another automated copy of the same message.
+        """
+        self.ensure_one()
+        days = cfg["unopened_alert_days"]
+        if not days:
+            return
+        silent = self.signer_ids.filtered(
+            lambda s: not s.has_viewed
+            and not s.unopened_alerted
+            and s.state not in ("signed", "refused")
+            and s.invited_on
+            and (now - s.invited_on) >= timedelta(days=days))
+        if not silent:
+            return
+        self.message_post(body=_(
+            "Sans nouvelle depuis %(days)s jours : %(names)s n'ont pas encore ouvert le "
+            "document. Vérifiez l'adresse courriel ou joignez-les autrement — une "
+            "relance de plus ne réglera pas un courriel qui n'arrive pas.",
+            days=days,
+            names=", ".join("%s (%s)" % (s.name, s.email) for s in silent),
+        ))
+        silent.sudo().unopened_alerted = True
+
+    def action_remind_pending(self):
+        """Manual catch-all: remind every signer who may sign right now."""
+        self.ensure_one()
+        if self.state not in ("sent", "in_progress"):
+            raise UserError(_("La demande doit être envoyée et encore ouverte."))
+        targets = self.signer_ids.filtered(
+            lambda s: s.state not in ("signed", "refused") and self._signer_can_sign(s))
+        if not targets:
+            raise UserError(_("Aucun signataire à relancer."))
+        now = fields.Datetime.now()
+        for signer in targets:
+            self._email_signer(signer, "bf_sign.mail_template_sign_reminder",
+                               mark_invited=not signer.invited_on)
+            signer.sudo().write({
+                "reminder_count": signer.reminder_count + 1,
+                "last_reminder_on": now,
+            })
+            self.env["bf.sign.log"]._append(
+                self, "sent", actor=self.env.user.name, identity_method="internal_user",
+                note=_("Relance manuelle envoyée à %s (%s)") % (signer.name, signer.email))
         return True
 
     # ── Guards ────────────────────────────────────────────────────────────────

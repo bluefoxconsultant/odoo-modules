@@ -73,6 +73,42 @@ class ResConfigSettings(models.TransientModel):
              "par code envoyé au courriel du signataire avant la signature. "
              "Réglable demande par demande.",
     )
+    bf_sign_reminder_enabled = fields.Boolean(
+        string="Relances automatiques",
+        config_parameter="bf_sign.reminder_enabled",
+        default=True,
+        help="Activer par défaut, sur chaque nouvelle demande, la relance des "
+             "signataires qui n'ont pas signé. Réglable demande par demande.",
+    )
+    bf_sign_reminder_days = fields.Char(
+        string="Relancer après (jours)",
+        config_parameter="bf_sign.reminder_days",
+        default="3,7",
+        help="Jours écoulés depuis l'invitation de CE signataire. Séparés par "
+             "des virgules. Vide = aucune relance planifiée.",
+    )
+    bf_sign_reminder_before_expiry_hours = fields.Integer(
+        string="Dernier rappel avant l'échéance (heures)",
+        config_parameter="bf_sign.reminder_before_expiry_hours",
+        default=48,
+        help="Un dernier rappel avant que le lien cesse de fonctionner. 0 pour "
+             "le désactiver.",
+    )
+    bf_sign_reminder_max = fields.Integer(
+        string="Relances maximum par signataire",
+        config_parameter="bf_sign.reminder_max",
+        default=3,
+        help="Plafond absolu, toutes causes confondues. Une demande qui harcèle "
+             "est pire qu'une demande oubliée.",
+    )
+    bf_sign_unopened_alert_days = fields.Integer(
+        string="Alerter si non ouvert après (jours)",
+        config_parameter="bf_sign.unopened_alert_days",
+        default=5,
+        help="Note au fil de la demande quand un signataire n'a jamais ouvert "
+             "le document. C'est en général un courriel qui n'arrive pas, et "
+             "une relance de plus n'y changera rien. 0 pour désactiver.",
+    )
     bf_sign_append_certificate = fields.Boolean(
         string="Joindre le certificat au document signé",
         config_parameter="bf_sign.append_certificate",

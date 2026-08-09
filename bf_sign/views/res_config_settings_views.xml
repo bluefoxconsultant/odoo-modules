@@ -20,6 +20,28 @@
                                  help="Exiger par défaut qu'un signataire saisisse un code envoyé à son courriel avant de consulter et signer. Activable/désactivable par demande.">
                             <field name="bf_sign_require_signer_otp"/>
                         </setting>
+                        <setting string="Relances automatiques"
+                                 help="Relancer les signataires qui n'ont pas signé, en comptant depuis l'invitation de chacun. Activable/désactivable par demande.">
+                            <field name="bf_sign_reminder_enabled"/>
+                            <div class="content-group" invisible="not bf_sign_reminder_enabled">
+                                <div class="mt-2">
+                                    <field name="bf_sign_reminder_days" class="o_light_label" style="width:90px;"/>
+                                    <span class="ms-1">jours après l'invitation</span>
+                                </div>
+                                <div class="mt-2">
+                                    <field name="bf_sign_reminder_before_expiry_hours" class="o_light_label"/>
+                                    <span class="ms-1">h avant l'échéance (dernier rappel)</span>
+                                </div>
+                                <div class="mt-2">
+                                    <field name="bf_sign_reminder_max" class="o_light_label"/>
+                                    <span class="ms-1">relances maximum par signataire</span>
+                                </div>
+                                <div class="mt-2">
+                                    <field name="bf_sign_unopened_alert_days" class="o_light_label"/>
+                                    <span class="ms-1">jours avant d'alerter sur un document jamais ouvert</span>
+                                </div>
+                            </div>
+                        </setting>
                         <setting string="Certificat joint au document"
                                  help="Relier le certificat de signature à la fin du document signé. Décoché, le document est livré seul et le certificat reste une pièce distincte, produite et scellée de la même façon. Réglable par demande.">
                             <field name="bf_sign_append_certificate"/>

@@ -10,7 +10,7 @@
                 <header>
                     <button name="action_send" type="object" string="Envoyer pour signature"
                             class="oe_highlight" invisible="state not in ('draft',)"/>
-                    <button name="action_send" type="object" string="Renvoyer les liens"
+                    <button name="action_remind_pending" type="object" string="Relancer les signataires"
                             invisible="state not in ('sent', 'in_progress')"/>
                     <button name="action_download_signed" type="object" string="Télécharger le document signé"
                             class="oe_highlight" invisible="state != 'signed'"/>
@@ -41,6 +41,7 @@
                             <field name="signing_order" readonly="state != 'draft'"/>
                             <field name="require_signer_otp" readonly="state != 'draft'"/>
                             <field name="append_certificate" readonly="state != 'draft'"/>
+                            <field name="reminder_enabled"/>
                             <field name="expiry_date" readonly="state == 'signed'"/>
                             <field name="company_id" groups="base.group_multi_company"
                                    readonly="state != 'draft'"/>
@@ -62,6 +63,8 @@
                                     <field name="field_count" string="Pavés"/>
                                     <field name="state"/>
                                     <field name="first_viewed_on" string="Ouvert le"/>
+                                    <field name="reminder_count" string="Relances" optional="show"/>
+                                    <field name="last_reminder_on" optional="hide"/>
                                     <field name="view_count" string="Ouvertures" optional="hide"/>
                                     <field name="last_viewed_on" optional="hide"/>
                                     <field name="signed_on"/>
