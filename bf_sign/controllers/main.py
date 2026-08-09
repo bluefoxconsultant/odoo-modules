@@ -123,13 +123,14 @@ class BfSignController(Controller):
         """
         if not _check_token_rate_limit():
             return request.render("bf_sign.verify_unknown", {})
-        match = request.env["bf.sign.request"].sudo().search([
-            ("id", "=", request_id),
-            ("verify_token", "=", verify_token),
-        ], limit=1)
-        if not match or not verify_token:
+        candidate = request.env["bf.sign.request"].sudo().browse(request_id).exists()
+        # Constant-time comparison, like _resolve_signer: an equality search on
+        # an indexed token column answers in a time that depends on the value.
+        if (not verify_token or not candidate or not candidate.verify_token
+                or not hmac.compare_digest(candidate.verify_token, verify_token)):
             _record_token_failure()
             return request.render("bf_sign.verify_unknown", {})
+        match = candidate
         checks = match._verify_integrity() if match.state == "signed" else {}
         # Formatted here rather than in QWeb: no other template in this module
         # relies on `format_datetime` being in the render context, and a public

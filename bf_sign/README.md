@@ -58,8 +58,10 @@ signed document is then **posted back into the source record's thread**.
 
 ### Signing
 - **Multiple signers**, in parallel or in sequence (the next one is chased automatically in sequential mode).
-- **Visual field placement** (signature / initials / date / text) by drag and drop on the document (OWL widget + PDF.js), with coordinates in page fractions, independent of resolution.
-- **Signer-fillable fields** (text / date) with a `signer` / `fixed` / `auto` fill mode.
+- **Visual field placement** (signature / initials / date / text / name / email / number / checkbox) by drag and drop on the document (OWL widget + PDF.js), with coordinates in page fractions, independent of resolution.
+- **A magnetic grid** with edge-alignment guides against neighbouring fields, **separate from showing the grid** (the ruling is off by default — Alt suspends the magnetism entirely), continuous placement, keyboard nudge, duplicate, and a properties bar that assigns the signer *after* the field is dropped.
+- **Signer-fillable fields** with a `signer` / `fixed` / `auto` fill mode; `auto` resolves the signing date, the signer's name and their email. Preset values and the required flag are editable on the field itself.
+- **A field order you control**: the sequence the signer is presented with is editable, defaulting to reading order.
 - **Reusable field templates** (`bf.sign.field.template`) storing the layout **per signer rank**.
 - **A branded, responsive public signing page**: a rendered preview of the document with **numbered placement markers** (reading order), a live mirror of the signature and fields, explicit timestamped consent, and the option to **refuse**.
 
@@ -72,15 +74,19 @@ signed document is then **posted back into the source record's thread**.
 - **PAdES digital seal** (pyHanko) *(optional)*: an invisible cryptographic "organisation" signature on the final document, so a PDF reader (Adobe and others) shows "signed / not modified".
 - **SHA-256 hashes** of the original document, the stamped (timestamped) content and the sealed bundle.
 - **A chained append-only audit trail** (hash chain): UTC server timestamp, IP, user agent, identity method (`email_link_token` / `email_otp` / `internal_user`), before/after hashes — `write`/`unlink` blocked at ORM level.
+- **A public verification page** any holder of the document can reach, which **recomputes** the proofs at each visit rather than showing a stored verdict. It discloses no email address and never serves the document; the SHA-256 is displayed so a holder can compare their own copy.
+- **An optional verification QR stamped on the document itself** (choice of corner and pages), drawn as vector geometry so it survives printing.
 - **Structural locking**: recipients and fields frozen once the request is sent (editable only in "draft").
 - **RFC 3161 trusted timestamping** *(optional)*: a TSA token over the signed content, **shown in the certificate**, giving independent proof of date.
 - **One-click integrity verification**: recomputes the log chain, the sealed document's hash, the PAdES seal and the timestamp token.
 
 ### Integration & experience
 - **Sending for signature from other modules** through `bf.sign.mixin` (Sales, Purchasing, … — see "Integration"), with the **signed document posted back** into the source record's thread.
-- **A branded PDF completion certificate** merged into the document.
+- **A branded PDF completion certificate**, merged into the document or **kept as a separate file** (`append_certificate`) — the evidence is identical either way.
+- **Automatic reminders** to signers who have not signed, counted from each signer's own invitation, capped and turn-aware, plus a one-shot alert when a signer has never even **opened** the document.
+- **Opening tracked on the record** (first/last seen, count) and rolled up on the request as a status shown in the list, so "has this person looked at it" does not mean reading the journal.
 - **Branded emails** (invitation, completion with attachments, refusal, OTP code) through `bf_onboarding_base` (company colours/logo) plus `bf_lexend`.
-- **Automatic link expiry** (daily cron) and an **onboarding wizard** (`bf_onboarding_base`).
+- **Automatic link expiry** (daily cron), a **reminder cron**, and an **onboarding wizard** (`bf_onboarding_base`).
 
 ---
 
@@ -90,7 +96,7 @@ signed document is then **posted back into the source record's thread**.
 |---|---|
 | `bf.sign.request` | The signature request: document, settings, signers, fields, hashes, signed artefacts, `res_model`/`res_id` link to the source record. |
 | `bf.sign.signer` | A signer: email, `access_token` (manager-only), state, signature/initials image, OTP fields. |
-| `bf.sign.field` | A placed field (type, page, fractional position, fill mode). |
+| `bf.sign.field` | A placed field (type, page, fractional position, fill mode, preset value, presentation order). |
 | `bf.sign.field.template` (+ `.line`) | A reusable field layout, per signer rank. |
 | `bf.sign.log` | The chained append-only log (immutable). |
 | `bf.sign.seal` (AbstractModel) | The PAdES sealing layer (certificate generation, `seal_pdf`, `verify_pdf`, Fernet key handling). |

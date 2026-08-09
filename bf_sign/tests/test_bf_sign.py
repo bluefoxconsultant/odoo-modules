@@ -974,3 +974,48 @@ class TestBfSign(TransactionCase):
         checks = req._verify_integrity()
         self.assertTrue(checks["chain_ok"])
         self.assertTrue(checks["content_ok"])
+
+    # ── audit hardening (18.0.3.17.1) ─────────────────────────────────────────
+    def test_manual_reminder_is_debounced(self):
+        req = self._new_request(signers=1)
+        req.action_send()
+        s = req.signer_ids[0]
+        req.action_remind_pending()
+        self.assertEqual(s.reminder_count, 1)
+        with self.assertRaises(UserError):
+            req.action_remind_pending()  # same minute → refused
+        with self.assertRaises(UserError):
+            s.action_resend_invitation()
+        # An hour later it is a legitimate human decision again.
+        s.sudo().last_reminder_on = fields.Datetime.now() - timedelta(hours=2)
+        req.action_remind_pending()
+        self.assertEqual(s.reminder_count, 2)
+
+    def test_inflight_requests_keep_their_field_order(self):
+        """Every pad ships with sequence=10, so the sequence-first sort must be
+        a no-op on anything created before it existed."""
+        req = self._new_request(signers=1, with_fields=False)
+        s = req.signer_ids[0]
+        low = self._field(req, s, "text", y=0.8)
+        mid = self._field(req, s, "text", y=0.5)
+        high = self._field(req, s, "text", y=0.2)
+        self.assertEqual({f.sequence for f in (low, mid, high)}, {10})
+        self.assertEqual(list(s._overlay_fields()), [high, mid, low])
+
+    def test_blank_pad_with_no_label_stamps_nothing(self):
+        """In-flight pads carry no value_text, so the label fix cannot change
+        what they stamp — it stays empty either way."""
+        req = self._new_request(signers=1, with_fields=False)
+        s = req.signer_ids[0]
+        pad = self._add_fill_field(req, s, "date", fill_mode="signer", required=False)
+        self.assertFalse(pad.value_text)
+        self.assertEqual(pad._display_value(), "")
+
+    def test_auto_pads_on_existing_data_stay_valid(self):
+        """`auto` was only ever offered on date pads; the new constraint must
+        not reject what is already in the field."""
+        req = self._new_request(signers=1, with_fields=False)
+        s = req.signer_ids[0]
+        pad = self._add_fill_field(req, s, "date", fill_mode="auto")
+        pad.write({"pos_x": 0.4})  # a plain edit must not trip the constraint
+        self.assertEqual(pad.fill_mode, "auto")

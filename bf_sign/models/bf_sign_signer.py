@@ -3,6 +3,7 @@ import hmac
 import re
 import secrets
 import uuid
+from datetime import timedelta
 
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
@@ -195,7 +196,18 @@ class BfSignSigner(models.Model):
             raise UserError(_(
                 "La demande doit être envoyée et encore ouverte pour relancer "
                 "un signataire."))
-        request._email_signer(self)
+        # Same debounce as the request-level reminder: the button is a human
+        # decision, but nothing should let it mail the same person in a loop.
+        if self.last_reminder_on and (
+                fields.Datetime.now() - self.last_reminder_on) < timedelta(hours=1):
+            raise UserError(_(
+                "%s vient d'être relancé. Réessayez dans une heure.") % self.name)
+        request._email_signer(self, "bf_sign.mail_template_sign_reminder",
+                              mark_invited=False)
+        self.sudo().write({
+            "reminder_count": self.reminder_count + 1,
+            "last_reminder_on": fields.Datetime.now(),
+        })
         self.env["bf.sign.log"]._append(
             request, "sent", actor=self.env.user.name,
             identity_method="internal_user",

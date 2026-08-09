@@ -1393,11 +1393,20 @@ class BfSignRequest(models.Model):
         self.ensure_one()
         if self.state not in ("sent", "in_progress"):
             raise UserError(_("La demande doit être envoyée et encore ouverte."))
-        targets = self.signer_ids.filtered(
-            lambda s: s.state not in ("signed", "refused") and self._signer_can_sign(s))
-        if not targets:
-            raise UserError(_("Aucun signataire à relancer."))
         now = fields.Datetime.now()
+        eligible = self.signer_ids.filtered(
+            lambda s: s.state not in ("signed", "refused") and self._signer_can_sign(s))
+        # Debounce: a manual reminder stays a human decision, but a double click
+        # (or a user hammering the button over RPC) must not mail the same
+        # person twice in a row.
+        targets = eligible.filtered(
+            lambda s: not s.last_reminder_on
+            or (now - s.last_reminder_on) >= timedelta(hours=1))
+        if not targets:
+            if eligible:
+                raise UserError(_(
+                    "Ces signataires viennent d'être relancés. Réessayez dans une heure."))
+            raise UserError(_("Aucun signataire à relancer."))
         for signer in targets:
             self._email_signer(signer, "bf_sign.mail_template_sign_reminder",
                                mark_invited=not signer.invited_on)

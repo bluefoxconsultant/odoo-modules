@@ -2,6 +2,36 @@
 
 Versioning follows the Odoo `18.0.MAJOR.MINOR.PATCH` convention.
 
+## 18.0.3.17.1 — Audit: in-flight safety and hardening
+
+### Requests already sent are left alone
+- **Reminders stay OFF on anything already in flight.** `reminder_enabled`
+  defaults to True, so on upgrade every open request would have become eligible
+  and started chasing counterparties because we deployed. A post-migration
+  (`18.0.3.16.0`) disables reminders on requests already `sent`/`in_progress`;
+  the feature applies to new requests, and a preparer can turn it on for a
+  specific old one deliberately.
+- `invited_on` is backfilled from the journal for those requests all the same:
+  the information is true and shows in the Recipients list, and it stays inert
+  while reminders are off.
+- Verified against the two requests actually in flight across the estate: every
+  pad carries `sequence=10` (so the sequence-first ordering is a no-op), no pad
+  carries a `value_text` (so the blank-label fix cannot change what is stamped),
+  every pad is required, and `auto` appears only on date pads (so the new
+  constraint has nothing to reject). Regression tests pin all four.
+
+### Hardening
+- The verification token is compared with `hmac.compare_digest`, like the signer
+  token, instead of an equality search on an indexed column.
+- Manual reminders are **debounced to one per signer per hour**, on both the
+  request-level and per-signer buttons. Both are RPC-reachable by any sign user,
+  and neither was rate-limited: the cap only governed the cron.
+- "Renvoyer l'invitation" becomes "Relancer ce signataire" and now sends the
+  reminder template — matching what a resend on an in-flight request actually is.
+
+### Publishability
+- README brought up to date across the four lots; it described none of them.
+
 ## 18.0.3.17.0 — Public verification, QR on the document, RFC 3161
 
 ### A page anyone holding the document can reach
