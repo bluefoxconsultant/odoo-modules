@@ -8,6 +8,8 @@ import re
 import uuid
 from datetime import timedelta, timezone
 
+from markupsafe import Markup, escape
+
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
 from odoo.tools.pdf import merge_pdf
@@ -200,6 +202,32 @@ class BfSignRequest(models.Model):
         self.ensure_one()
         return "%s/sign/verify/%s/%s" % (
             self._get_base_url(), self.id, self.verify_token or "")
+
+    def verify_qr_data_uri(self, px=132):
+        """The verification URL as an inline PNG QR, for the certificate.
+
+        Public because the certificate is rendered through QWeb; it discloses
+        nothing a user who can read the record cannot already read off
+        ``verify_token``. Returned as a ``data:`` URI rather than a
+        ``/report/barcode`` URL so the render does not depend on wkhtmltopdf
+        being able to call back into the server over HTTP.
+
+        Returns False rather than raising: a certificate is evidence, and a
+        broken QR generator must not be the reason one fails to render.
+        """
+        self.ensure_one()
+        if not self.verify_token:
+            return False
+        try:
+            from reportlab.graphics.barcode import createBarcodeDrawing
+            drawing = createBarcodeDrawing(
+                "QR", value=self._verify_url(), width=px, height=px,
+                humanReadable=False)
+            return "data:image/png;base64,%s" % base64.b64encode(
+                drawing.asString("png")).decode()
+        except Exception as exc:  # noqa: BLE001
+            _logger.warning("bf_sign: certificate QR failed for %s: %s", self.name, exc)
+            return False
 
     require_signer_otp = fields.Boolean(
         string="Vérification par code (OTP)",
@@ -723,6 +751,49 @@ class BfSignRequest(models.Model):
         return {"chain_ok": chain_ok, "content_ok": content_ok,
                 "tsa_ok": tsa_ok, "seal_ok": seal_ok}
 
+    def action_share_verify_link(self):
+        """Open a composer prefilled with the verification link.
+
+        Deliberately does **not** mint a token on the fly. A request finalized
+        before the verification page existed carries none, and creating one here
+        would quietly alter a signed record to make a button work. The document
+        and its proof are unaffected either way — they are verified from the
+        form, through "Vérifier l'intégrité" — so the honest move is to say so.
+        """
+        self.ensure_one()
+        if self.state != "signed":
+            raise UserError(_("La vérification n'est disponible que pour une demande signée."))
+        if not self.verify_token:
+            raise UserError(_(
+                "Ce document a été scellé avant l'existence de la page de "
+                "vérification publique : il ne porte donc pas de lien à partager. "
+                "Sa preuve reste entière et se contrôle ici même, par « Vérifier "
+                "l'intégrité »."))
+        url = self._verify_url()
+        body = Markup(
+            "<p>Bonjour,</p>"
+            "<p>Vous pouvez vérifier vous-même l'origine et l'intégrité du document "
+            "<strong>%(name)s</strong> à l'adresse suivante&nbsp;:</p>"
+            "<p><a href=\"%(url)s\">%(url)s</a></p>"
+            "<p>La page rejoue les contrôles à chaque visite. Vous pouvez aussi y "
+            "déposer votre propre exemplaire pour le comparer&nbsp;: le fichier est "
+            "vérifié dans votre navigateur et n'est ni transmis, ni conservé.</p>"
+        ) % {"name": escape(self.name or ""), "url": escape(url)}
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Partager le lien de vérification"),
+            "res_model": "mail.compose.message",
+            "view_mode": "form",
+            "target": "new",
+            "context": {
+                "default_model": self._name,
+                "default_res_ids": self.ids,
+                "default_composition_mode": "comment",
+                "default_subject": _("Vérification du document %s") % self.name,
+                "default_body": body,
+            },
+        }
+
     def action_verify_integrity(self):
         self.ensure_one()
         if self.state != "signed":
@@ -988,35 +1059,6 @@ class BfSignRequest(models.Model):
                 "attachment_ids": [(6, 0, [att_signed.id, att_cert.id])]})
         self._notify_source_signed()
 
-    def _notify_source_signed(self):
-        """Post the signed document back to the source record (res_model/res_id),
-        when the request was created from one. Attaches the signed PDF +
-        certificate and a chatter note, then calls the model's ``_sign_on_signed``
-        hook (a no-op unless the model opts in). Failures are logged, never raised
-        (must not break finalization)."""
-        self.ensure_one()
-        if not (self.res_model and self.res_id and self.signed_attachment_id):
-            return
-        try:
-            record = self._sign_source_record()
-            if not record or not hasattr(record, "message_post"):
-                return
-            new_atts = self.env["ir.attachment"].sudo()
-            for att in (self.signed_attachment_id, self.certificate_attachment_id):
-                if att:
-                    new_atts |= att.sudo().copy({
-                        "res_model": record._name, "res_id": record.id})
-            record.message_post(
-                body=_("Document signé électroniquement (%(n)s signataire(s)) — "
-                       "empreinte SHA-256 : %(h)s",
-                       n=len(self.signer_ids), h=self.hash_signed or ""),
-                attachment_ids=new_atts.ids)
-            self._sign_call_source_hook("_sign_on_signed")
-        except Exception as exc:  # noqa: BLE001
-            _logger.warning(
-                "bf_sign: source notify failed for %s (%s,%s): %s",
-                self.name, self.res_model, self.res_id, exc)
-
     def _sign_source_record(self):
         """Resolve the source record (res_model/res_id) this request was created
         from, or ``None``. res_model/res_id are user-settable via RPC, so the
@@ -1093,71 +1135,6 @@ class BfSignRequest(models.Model):
             _logger.warning(
                 "bf_sign: source notify failed for %s (%s,%s): %s",
                 self.name, self.res_model, self.res_id, exc)
-
-    def _signed_filename(self):
-        base = (self.document_filename or self.name or "document")
-        if base.lower().endswith(".pdf"):
-            base = base[:-4]
-        return "%s - signé.pdf" % base
-
-    # ── Stamping engine ──────────────────────────────────────────────────────
-    def _stamp_document(self, original_bytes):
-        """Overlay each placed field onto the document at its page/coordinates.
-
-        Coordinates are fractions of the page from the top-left; we convert to
-        PDF's bottom-left origin per page using each page's media box.
-        """
-        self.ensure_one()
-        from PyPDF2 import PdfReader, PdfWriter
-        from reportlab.pdfgen import canvas
-        from reportlab.lib.utils import ImageReader
-
-        reader = PdfReader(io.BytesIO(original_bytes))
-        writer = PdfWriter()
-        fields_by_page = {}
-        for f in self.field_ids:
-            fields_by_page.setdefault(f.page, []).append(f)
-
-        for idx, page in enumerate(reader.pages, start=1):
-            page_fields = fields_by_page.get(idx)
-            if page_fields:
-                pw = float(page.mediabox.width)
-                ph = float(page.mediabox.height)
-                buf = io.BytesIO()
-                c = canvas.Canvas(buf, pagesize=(pw, ph))
-                for f in page_fields:
-                    x = f.pos_x * pw
-                    w = max(f.width * pw, 1.0)
-                    h = max(f.height * ph, 1.0)
-                    y = ph - (f.pos_y * ph) - h  # top-origin → bottom-origin
-                    self._draw_field(c, f, x, y, w, h, ImageReader)
-                c.save()
-                buf.seek(0)
-                page.merge_page(PdfReader(buf).pages[0])
-            writer.add_page(page)
-
-        out = io.BytesIO()
-        writer.write(out)
-        return out.getvalue()
-
-    def _draw_field(self, c, field, x, y, w, h, ImageReader):
-        signer = field.signer_id
-        if field.field_type in ("signature", "initials"):
-            data = signer.signature_image
-            if field.field_type == "initials":
-                data = signer.initials_image or signer.signature_image
-            if data:
-                img = ImageReader(io.BytesIO(base64.b64decode(data)))
-                c.drawImage(img, x, y, width=w, height=h, mask="auto",
-                            preserveAspectRatio=True, anchor="sw")
-        elif field.field_type == "date":
-            val = field.filled_value or field.value_text or (
-                signer.signed_on and fields.Date.to_string(signer.signed_on.date())) or ""
-            c.setFont("Helvetica", 9)
-            c.drawString(x, y + 2, val)
-        elif field.field_type == "text":
-            c.setFont("Helvetica", 9)
-            c.drawString(x, y + 2, field.filled_value or field.value_text or "")
 
     def _signed_filename(self):
         base = (self.document_filename or self.name or "document")
@@ -1310,6 +1287,15 @@ class BfSignRequest(models.Model):
         c.setFillColorRGB(0.35, 0.37, 0.38)
         c.setFont("Helvetica", self._QR_CAPTION_PT)
         c.drawCentredString(x + size / 2.0, y - caption_h + 2.0, "Vérifier l'authenticité")
+
+        # The same target as the QR, as a clickable area covering the whole
+        # card: on screen the document is read far more often than it is
+        # printed, and holding a phone up to a monitor to scan a code you could
+        # have clicked is a poor way to check a signature. reportlab's link
+        # annotation is carried through PyPDF2's ``merge_page`` (verified), so
+        # it needs no reconstruction on the destination page.
+        c.linkURL(url, (x - pad, y - caption_h, x + size + pad, y + size + pad),
+                  relative=0, thickness=0)
         c.restoreState()
 
     def _draw_checkbox(self, c, field, x, y, w, h):

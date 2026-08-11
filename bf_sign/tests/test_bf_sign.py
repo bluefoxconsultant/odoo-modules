@@ -975,6 +975,104 @@ class TestBfSign(TransactionCase):
         self.assertTrue(checks["chain_ok"])
         self.assertTrue(checks["content_ok"])
 
+    # ── the certificate carries the pointer to its own proof (18.0.3.19.0) ────
+    def test_certificate_carries_the_verification_link(self):
+        """The QR on the pages is optional and off by default.
+
+        Without this, a holder can be handed the proof and have no way to find
+        the page that checks it. Rendered as HTML: wkhtmltopdf is not available
+        under --stop-after-init, and the QWeb is what we mean to pin.
+        """
+        req = self._signed_request()
+        html, _t = self.env["ir.actions.report"]._render_qweb_html(
+            "bf_sign.action_report_sign_certificate", req.ids)
+        html = html.decode() if isinstance(html, bytes) else html
+        self.assertIn(req._verify_url(), html)
+        self.assertIn("data:image/png;base64,", html)
+
+    def test_certificate_qr_is_a_real_png(self):
+        req = self._signed_request()
+        uri = req.verify_qr_data_uri()
+        self.assertTrue(uri.startswith("data:image/png;base64,"))
+        self.assertTrue(
+            base64.b64decode(uri.split(",", 1)[1]).startswith(_PNG_MAGIC))
+
+    def test_no_token_no_qr_and_no_share(self):
+        """Signed before the verification page existed: say so, mint nothing.
+
+        Minting on demand would quietly alter a finalized record to make a
+        button work, which is exactly what must not happen to signed evidence.
+        """
+        req = self._signed_request()
+        req.sudo().verify_token = False  # a pre-3.17.0 request, as they exist in prod
+        self.assertFalse(req.verify_qr_data_uri())
+        with self.assertRaises(UserError):
+            req.action_share_verify_link()
+        self.assertFalse(req.verify_token, "the guard must not have minted one")
+        html, _t = self.env["ir.actions.report"]._render_qweb_html(
+            "bf_sign.action_report_sign_certificate", req.ids)
+        html = html.decode() if isinstance(html, bytes) else html
+        self.assertNotIn("Vérifier ce document", html)
+
+    def test_share_verify_link_opens_a_prefilled_composer(self):
+        req = self._signed_request()
+        act = req.action_share_verify_link()
+        self.assertEqual(act["res_model"], "mail.compose.message")
+        self.assertIn(req._verify_url(), act["context"]["default_body"])
+
+    # ── the stamped QR is also a link (18.0.3.19.0) ───────────────────────────
+    @staticmethod
+    def _link_uris(pdf_bytes):
+        uris = []
+        for page in PdfReader(io.BytesIO(pdf_bytes)).pages:
+            for annot in page.get("/Annots") or []:
+                obj = annot.get_object()
+                if obj.get("/Subtype") == "/Link" and obj.get("/A"):
+                    uris.append(str(obj["/A"].get("/URI") or ""))
+        return uris
+
+    def test_verify_qr_is_also_a_clickable_link(self):
+        """On a screen the QR is unscannable; the same target must be clickable.
+
+        Also pins that the annotation survives the merge_page overlay and the
+        certificate merge — it is drawn on a throwaway canvas, not the page.
+        """
+        req = self._new_request(signers=1)
+        req.verify_qr = True
+        req.action_send()
+        with self._mock_cert():
+            self._sign(req, req.signer_ids[0])
+        uris = self._link_uris(base64.b64decode(req.signed_attachment_id.datas))
+        self.assertIn(req._verify_url(), uris)
+
+    def test_verify_qr_link_survives_the_pades_seal(self):
+        """The production path seals; an unsealed-only test proves nothing here.
+
+        pyHanko rewrites the document to embed the signature, so the annotation
+        added upstream by the stamping canvas has to come through that too — and
+        the seal must still verify with the annotation present.
+        """
+        self._fresh_seal_cert()  # a cert existing is what activates sealing
+        req = self._new_request(signers=1)
+        req.verify_qr = True
+        req.action_send()
+        with self._mock_cert():
+            self._sign(req, req.signer_ids[0])
+        self.assertTrue(req.sealed, "the sealed path is what we mean to exercise")
+        signed = base64.b64decode(req.signed_attachment_id.datas)
+        self.assertIn(req._verify_url(), self._link_uris(signed))
+        self.assertTrue(self.env["bf.sign.seal"].verify_pdf(signed))
+
+    def test_no_qr_means_no_link_annotation(self):
+        """The link rides the QR; without one, nothing is added to the page."""
+        req = self._new_request(signers=1)
+        self.assertFalse(req.verify_qr)
+        req.action_send()
+        with self._mock_cert():
+            self._sign(req, req.signer_ids[0])
+        uris = self._link_uris(base64.b64decode(req.signed_attachment_id.datas))
+        self.assertFalse([u for u in uris if "/sign/verify/" in u])
+
     # ── verify page: self-serve copy comparison (18.0.3.18.0) ─────────────────
     def _render_verify(self, req):
         return self.env["ir.qweb"]._render("bf_sign.verify_page", {

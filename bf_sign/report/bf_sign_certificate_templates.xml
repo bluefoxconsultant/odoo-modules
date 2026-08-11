@@ -128,6 +128,40 @@
                                 est consignée dans la piste de vérification. Toute modification ultérieure
                                 change l'empreinte et est donc détectable (C.c.Q. art. 2840 — présomption d'intégrité).
                             </div>
+                            <!-- The pointer travels with the evidence. A QR stamped on
+                                 the document pages is optional and off by default, so
+                                 without this block a holder has the proof in hand and no
+                                 way to find the page that checks it. -->
+                            <t t-if="doc.verify_token">
+                                <div class="cert-h2">Vérifier ce document</div>
+                                <table style="width:100%; border:0;">
+                                    <tr>
+                                        <td style="border:0; padding:0; vertical-align:top;">
+                                            <div style="font-size:10pt;">Toute personne détenant ce
+                                                document peut en confirmer l'origine et l'intégrité,
+                                                sans compte ni logiciel, à l'adresse suivante :</div>
+                                            <div class="hash-box" style="margin-top:4pt;">
+                                                <a t-att-href="doc._verify_url()"
+                                                   t-out="doc._verify_url()"
+                                                   style="color:inherit; text-decoration:none;"/>
+                                            </div>
+                                            <div class="note">
+                                                La page rejoue les contrôles d'intégrité à chaque
+                                                visite et permet d'y déposer son propre exemplaire
+                                                pour le comparer. Le fichier déposé est vérifié dans
+                                                le navigateur : il n'est ni transmis, ni conservé.
+                                            </div>
+                                        </td>
+                                        <td t-if="doc.verify_qr_data_uri()"
+                                            style="border:0; padding:0 0 0 12pt; width:150px;
+                                                   vertical-align:top; text-align:center;">
+                                            <img t-att-src="doc.verify_qr_data_uri()"
+                                                 style="width:132px; height:132px;"/>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </t>
+
                             <t t-if="doc.tsa_url">
                                 <div class="cert-h2">Horodatage de confiance (RFC 3161)</div>
                                 <div style="font-size:10pt;">Le contenu signé (document + signatures) a été horodaté

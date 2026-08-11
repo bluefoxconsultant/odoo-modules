@@ -107,6 +107,19 @@
                                 <group>
                                     <field name="verify_url" widget="url" readonly="1"
                                            invisible="not verify_url"/>
+                                    <div colspan="2" invisible="not verify_url">
+                                        <button name="action_share_verify_link" type="object"
+                                                class="btn-link ps-0" icon="fa-paper-plane"
+                                                string="Partager le lien de vérification"/>
+                                    </div>
+                                    <div colspan="2" class="text-muted"
+                                         invisible="verify_url or state != 'signed'">
+                                        Ce document a été scellé avant l'existence de la page
+                                        de vérification publique&#160;: il n'a pas de lien à
+                                        partager. Sa preuve reste entière et se contrôle par
+                                        «&#160;Vérifier l'intégrité&#160;». Les documents signés
+                                        depuis en portent un.
+                                    </div>
                                     <field name="hash_original" readonly="1"/>
                                     <field name="hash_signed" readonly="1"/>
                                     <field name="hash_stamped" readonly="1" invisible="not hash_stamped"/>

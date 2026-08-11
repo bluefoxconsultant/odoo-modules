@@ -2,6 +2,57 @@
 
 Versioning follows the Odoo `18.0.MAJOR.MINOR.PATCH` convention.
 
+## 18.0.3.19.0 — Reaching the verification page without a QR
+
+### The certificate now carries the pointer to its own proof
+- The QR on the document pages is optional and **off by default**, so a holder
+  could be handed the evidence with no way to find the page that checks it. The
+  **completion certificate** now prints the verification URL and a QR — and the
+  certificate is bound into the signed bundle by default, so the pointer travels
+  with the document either way.
+- The QR is embedded as a `data:` URI rather than a `/report/barcode` URL, so the
+  render does not depend on wkhtmltopdf calling back into the server over HTTP —
+  the part of certificate rendering that is already the most fragile.
+- `verify_qr_data_uri()` returns False instead of raising if the generator
+  fails. A certificate is evidence; a broken QR must not be why one fails to
+  render.
+- **Existing signed documents are untouched.** This changes what future
+  certificates say, nothing that has already been sealed.
+
+### Sharing the link for documents already in the wild
+- **"Partager le lien de vérification"** on the Proof tab opens a composer
+  prefilled with the link and a plain-language explanation.
+- It **refuses to mint a token on the fly**. A request finalized before the
+  verification page existed carries none, and creating one would quietly alter a
+  signed record to make a button work. The form says so instead, and points at
+  "Vérifier l'intégrité", which works regardless. Pinned by a test that asserts
+  no token appears after the guard fires.
+
+### Dead code that was one edit away from a silent no-op
+- Removed **94 lines** duplicating `_notify_source_signed`, `_signed_filename`,
+  `_stamp_document` and `_draw_field`. Python bound the later copy, so behaviour
+  was correct — but the earlier, dead copies were stale ancestors (no QR
+  stamping, no checkbox or extended pad types), and editing one would have had
+  no effect at all. An AST check now confirms zero duplicate definitions.
+
+### The stamped QR is a link too
+
+- **The verification QR is now a clickable area** covering the whole card
+  (code plus caption). Documents are read on a screen far more often than on
+  paper, and holding a phone up to a monitor to scan a code you could have
+  clicked is a poor way to check a signature. The QR itself is unchanged, so
+  the printed path still works exactly as before.
+- Implemented as a reportlab link annotation on the stamping canvas. That
+  annotation **is** carried through PyPDF2's `merge_page` (verified rather than
+  assumed — the overlay is a throwaway canvas merged into the real page, so it
+  was not obvious), which is why no annotation has to be rebuilt on the
+  destination page afterwards.
+- Pinned on the **sealed** path, not just the plain one: pyHanko rewrites the
+  document to embed the PAdES signature, so the test generates a sealing
+  certificate, asserts `sealed`, finds the URI in `/Annots`, and re-verifies the
+  seal with the annotation present. An unsealed-only test would have proved
+  nothing about production, where every tenant seals.
+
 ## 18.0.3.18.0 — Verify page: compare your own copy
 
 ### The fingerprint stops being homework

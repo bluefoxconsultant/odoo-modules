@@ -74,11 +74,13 @@ signed document is then **posted back into the source record's thread**.
 - **PAdES digital seal** (pyHanko) *(optional)*: an invisible cryptographic "organisation" signature on the final document, so a PDF reader (Adobe and others) shows "signed / not modified".
 - **SHA-256 hashes** of the original document, the stamped (timestamped) content and the sealed bundle.
 - **A chained append-only audit trail** (hash chain): UTC server timestamp, IP, user agent, identity method (`email_link_token` / `email_otp` / `internal_user`), before/after hashes — `write`/`unlink` blocked at ORM level.
-- **A public verification page** any holder of the document can reach, which **recomputes** the proofs at each visit rather than showing a stored verdict. It discloses no email address and never serves the document; the SHA-256 is displayed so a holder can compare their own copy.
-- **A drop zone on that page to compare their copy for them**, since expecting a counterparty to run `shasum` is expecting too much. The file is hashed **in the browser** (WebCrypto) and never uploaded, so the page keeps its "nothing is sent here" property and the public route gains no file intake; browsers without WebCrypto get the `shasum` / `Get-FileHash` commands instead.
-- **An optional verification QR stamped on the document itself** (choice of corner and pages), drawn as vector geometry so it survives printing.
+- **A public verification page** any holder of the document can reach, which **recomputes** the proofs at each visit rather than showing a stored verdict. It discloses no email address and never serves the document.
+- **A drop zone on that page that checks the holder's own copy**: they pick or drag their PDF and get a plain verdict, instead of being told to run `shasum` themselves. The file is hashed **in the browser** (WebCrypto `crypto.subtle`) against `hash_signed` and is never uploaded — the page takes in no file, so the public route gains no intake to abuse. A mismatch names the legitimate causes (a PDF re-saved by a viewer, a scan of a printout, the certificate delivered separately) before pointing at tampering. Browsers without WebCrypto get the `shasum` / `Get-FileHash` commands instead of a zone that silently does nothing.
+- **An optional verification QR stamped on the document itself** (choice of corner and pages), drawn as vector geometry so it survives printing, and **clickable** — the whole card is a link annotation, because on screen nobody wants to scan a code they could click.
 - **Structural locking**: recipients and fields frozen once the request is sent (editable only in "draft").
 - **RFC 3161 trusted timestamping** *(optional)*: a TSA token over the signed content, **shown in the certificate**, giving independent proof of date.
+- **The verification link and a QR on the completion certificate**, so the pointer to the proof travels inside the signed bundle even when the QR on the document pages is off (it is, by default). Embedded as a `data:` URI, so rendering never depends on an HTTP callback into the server.
+- **"Share the verification link"** from the Proof tab, which opens a prefilled composer. It refuses to mint a token for a request finalised before the verification page existed, rather than quietly altering a signed record to make a button work.
 - **One-click integrity verification**: recomputes the log chain, the sealed document's hash, the PAdES seal and the timestamp token.
 
 ### Integration & experience
@@ -218,6 +220,10 @@ overriding `_sign_report_ref()` (return the PDF report's xmlid), and adding the
    certificate rendering, merging, the optional **PAdES seal**, hashes, logging,
    a confirmation email (signed document plus certificate), and **posting back**
    to the source record where relevant.
+6. **Verification, later and by anyone**: whoever ends up holding the PDF opens
+   the verification page (from the QR on the document, or from the URL on the
+   request's Proof tab), sees the proofs recomputed live, and can drop their own
+   copy in to confirm it is byte-for-byte the delivered one.
 
 ---
 
@@ -233,6 +239,10 @@ overriding `_sign_report_ref()` (return the PDF report's xmlid), and adding the
   worker — see `SECURITY.md`).
 - **Integrity**: SHA-256 hashes plus a **chained append-only log**; the PAdES
   seal plus **RFC 3161** anchoring (an independent TSA) for off-platform proof.
+- **Verifiable by the other side**: the public page recomputes the proofs on
+  every visit and lets a holder hash their own copy **in their browser**, so
+  the counterparty never has to take our word for it — and never has to hand
+  their file to us to find out.
 - **Tamper evidence**: a signed document cannot be deleted; log entries can
   neither be modified nor removed.
 - **Secrets**: the sealing certificate/key are Fernet-encrypted; the Fernet key
