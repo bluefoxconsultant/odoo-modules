@@ -1,5 +1,6 @@
 from datetime import date, timedelta
 
+from odoo.exceptions import ValidationError
 from odoo.tests import TransactionCase, tagged
 
 
@@ -177,6 +178,46 @@ class TestHourBankThresholds(TransactionCase):
         self.assertFalse(line.last_fired_period_key)
         # Drop balance back below 5 → fire again
         self._add_timesheet(3.0)  # balance 6 - 3 = 3
+        self.assertEqual(bank._check_thresholds(), 1)
+        self.assertEqual(len(bank.threshold_event_ids), 2)
+
+    def test_balance_floor_accepts_negative_value_for_postpaid(self):
+        """Compte postpayé : le palier se pose sous zéro et se lit en dette."""
+        bank = self._new_bank(mode='balance_floor')
+        line = self.env['hour.bank.threshold.line'].create({
+            'bank_id': bank.id, 'value': -12.0,
+        })
+        self.assertEqual(line.name, "Dette de 12.0h")
+
+    def test_balance_floor_rejects_zero_value(self):
+        bank = self._new_bank(mode='balance_floor')
+        with self.assertRaises(ValidationError):
+            self.env['hour.bank.threshold.line'].create({
+                'bank_id': bank.id, 'value': 0.0,
+            })
+
+    def test_balance_floor_negative_fires_and_rearms_on_invoice(self):
+        """Le solde plonge sous -12h, alerte; la facture le remonte, réarmement."""
+        bank = self._new_bank(mode='balance_floor')
+        line = self.env['hour.bank.threshold.line'].create({
+            'bank_id': bank.id, 'value': -12.0,
+        })
+        self._add_timesheet(10.0, days_ago=2)  # solde -10, au-dessus du palier
+        self.assertEqual(bank._check_thresholds(), 0)
+        self._add_timesheet(3.0, days_ago=2)  # solde -13 → déclenche
+        bank.invalidate_recordset(['current_balance'])
+        self.assertEqual(bank._check_thresholds(), 1)
+        event = bank.threshold_event_ids
+        self.assertEqual(event.mode_snapshot, 'balance_floor')
+        self.assertAlmostEqual(event.measured_value, -13.0, places=2)
+        # La facture ramène le solde à -1 (au-dessus de -12 + 0.5) → réarme
+        self._post_invoice(12.0, days_ago=1)
+        bank.invalidate_recordset(['current_balance'])
+        self.assertEqual(bank._check_thresholds(), 0)
+        self.assertFalse(line.last_fired_period_key)
+        # Les heures repartent et repassent sous le palier → alerte de nouveau
+        self._add_timesheet(12.0)
+        bank.invalidate_recordset(['current_balance'])
         self.assertEqual(bank._check_thresholds(), 1)
         self.assertEqual(len(bank.threshold_event_ids), 2)
 

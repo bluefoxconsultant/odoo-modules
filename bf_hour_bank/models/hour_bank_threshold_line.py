@@ -18,7 +18,10 @@ class HourBankThresholdLine(models.Model):
     value = fields.Float(
         required=True, string="Seuil",
         help="Heures pour les modes 'Non facturées' et 'Solde résiduel'. "
-             "Pourcentage (0-100) pour le mode '% du budget'.",
+             "Pourcentage (0-100) pour le mode '% du budget'. "
+             "En 'Solde résiduel', une valeur négative pose le palier sous zéro : "
+             "c'est la forme utile sur un compte postpayé, où les heures "
+             "s'accumulent en dette entre deux factures.",
     )
     name = fields.Char(
         compute='_compute_name', store=True, string="Libellé",
@@ -54,7 +57,12 @@ class HourBankThresholdLine(models.Model):
             elif rec.mode == 'unbilled':
                 rec.name = _("%(value)sh non facturées", value=rec.value)
             elif rec.mode == 'balance_floor':
-                rec.name = _("Solde sous %(value)sh", value=rec.value)
+                if rec.value < 0:
+                    # Compte postpayé : le solde plonge sous zéro, le palier
+                    # se lit comme une dette d'heures et non comme un reste.
+                    rec.name = _("Dette de %(value)sh", value=abs(rec.value))
+                else:
+                    rec.name = _("Solde sous %(value)sh", value=rec.value)
             else:
                 rec.name = _("%(value)s", value=rec.value)
 
@@ -74,6 +82,15 @@ class HourBankThresholdLine(models.Model):
                 if rec.value <= 0 or rec.value > 100:
                     raise ValidationError(_(
                         "Pour le mode '%% du budget', le seuil doit être strictement supérieur à 0 et au plus égal à 100."
+                    ))
+            elif rec.mode == 'balance_floor':
+                # Une valeur négative est légitime sur un compte postpayé, où
+                # les heures s'accumulent en dette avant d'être facturées : le
+                # palier se pose alors sous zéro. Zéro reste refusé, sinon un
+                # palier créé sans valeur alerterait dès le premier solde nul.
+                if rec.value == 0:
+                    raise ValidationError(_(
+                        "Le seuil de solde résiduel ne peut pas être zéro."
                     ))
             else:
                 if rec.value <= 0:

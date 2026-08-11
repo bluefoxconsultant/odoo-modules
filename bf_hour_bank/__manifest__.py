@@ -1,6 +1,6 @@
 {
     'name': 'Banque d\'heures',
-    'version': '18.0.1.14.2',
+    'version': '18.0.1.15.0',
     'category': 'Services/Project',
     'summary': 'Suivi automatisé des banques d\'heures client',
     'description': """

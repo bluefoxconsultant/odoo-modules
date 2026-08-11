@@ -101,7 +101,7 @@ bf_hour_bank/
 │   ├── hour_bank_security.xml         # Access rules (internal + portal)
 │   └── ir.model.access.csv
 ├── tests/
-│   └── test_thresholds.py             # 10 unit tests on the thresholds
+│   └── test_thresholds.py             # 13 unit tests on the thresholds
 └── i18n/
     └── fr_CA.po
 ```
@@ -145,6 +145,17 @@ disabled by default.
 | **Unbilled hours** | Sum of debits since the client's last posted invoice | A new posted invoice |
 | **% of allocated budget** | `unbilled hours / allocated budget × 100` | A change to `Allocated budget (h)` on the bank |
 | **Remaining balance below a floor** | Current cumulative balance | The balance rising back above `floor + 0.5h` (hysteresis) |
+
+The floor may be **negative**, which is the useful form on a postpaid account:
+there the client buys nothing up front, hours pile up as a debt and each invoice
+lifts the balance back towards zero. A floor of `-12` alerts once the debt passes
+twelve hours, and rearms on the next invoice. Prefer it over **Unbilled hours**
+in that setup: unbilled counts from the last credit entry only, so any hours an
+invoice did not cover are dropped from the measure and the alert lands late by
+that residual. Zero is rejected, so that a threshold line saved without a value
+cannot silently alert on the first empty balance. Below zero the line reads
+"Dette de 12.0h" (debt of) rather than "balance below -12.0h", which is also the
+wording the client sees in the alert subject.
 
 ### Configuration
 
