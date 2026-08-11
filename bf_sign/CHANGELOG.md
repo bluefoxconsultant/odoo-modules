@@ -2,6 +2,28 @@
 
 Versioning follows the Odoo `18.0.MAJOR.MINOR.PATCH` convention.
 
+## 18.0.3.18.0 — Verify page: compare your own copy
+
+### The fingerprint stops being homework
+- The public verification page printed the SHA-256 and told the holder they
+  "can compute it themselves". Almost nobody can, so the one check that speaks
+  about *their* file — rather than about the copy we keep — went unused.
+  The page now takes a drop zone: pick or drag the PDF, get a plain verdict.
+- **The file is hashed in the browser** (WebCrypto `crypto.subtle.digest`) and
+  never sent anywhere. That is not a detail: an upload endpoint on a public
+  route would have to be authenticated, rate-limited, size-capped and wiped,
+  and the page would lose the "no file is uploaded here" promise it makes two
+  paragraphs above. Client-side hashing gives the same answer with no intake.
+- A mismatch says what a mismatch actually means. The comparison is
+  byte-for-byte, so a PDF re-saved by a viewer, a scan of a printout, or the
+  certificate delivered as a separate file all differ legitimately — the
+  message names those cases before pointing at tampering.
+- Falls back cleanly: no WebCrypto (plain HTTP, old browser) hides the drop
+  zone rather than swallowing the file in silence, and the `shasum` /
+  `Get-FileHash` commands are spelled out on the page either way.
+- Files over 100 MB are refused without being read — a signed bundle is a few
+  megabytes, and the read would otherwise freeze the tab.
+
 ## 18.0.3.17.1 — Audit: in-flight safety and hardening
 
 ### Requests already sent are left alone

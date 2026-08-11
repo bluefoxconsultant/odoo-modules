@@ -975,6 +975,56 @@ class TestBfSign(TransactionCase):
         self.assertTrue(checks["chain_ok"])
         self.assertTrue(checks["content_ok"])
 
+    # ── verify page: self-serve copy comparison (18.0.3.18.0) ─────────────────
+    def _render_verify(self, req):
+        return self.env["ir.qweb"]._render("bf_sign.verify_page", {
+            "req": req,
+            "checks": req._verify_integrity(),
+            "signed_on_label": "",
+            "genuine": True,
+        })
+
+    def _signed_request(self):
+        req = self._new_request(signers=1)
+        req.action_send()
+        with self._mock_cert():
+            self._sign(req, req.signer_ids[0])
+        return req
+
+    def test_verify_page_lets_the_holder_compare_their_copy(self):
+        """A printed fingerprint only helps someone who can compute one."""
+        req = self._signed_request()
+        html = self._render_verify(req)
+        self.assertIn('id="bf_drop"', html)
+        self.assertIn('data-expected="%s"' % req.hash_signed, html)
+
+    def test_verify_page_compares_against_the_delivered_bundle(self):
+        """The expected hash must be the one a holder's own file can reach.
+
+        ``hash_stamped`` or ``hash_original`` would look just as plausible in the
+        template and would make every honest comparison fail.
+        """
+        req = self._signed_request()
+        delivered = base64.b64decode(req.signed_attachment_id.datas)
+        self.assertEqual(hashlib.sha256(delivered).hexdigest(), req.hash_signed)
+        self.assertIn('data-expected="%s"' % hashlib.sha256(delivered).hexdigest(),
+                      self._render_verify(req))
+
+    def test_verify_page_never_takes_the_holders_file(self):
+        """Hashing stays client-side: a post here would be a new public intake."""
+        html = self._render_verify(self._signed_request())
+        self.assertIn("crypto.subtle", html)
+        self.assertNotIn("<form", html)
+        self.assertNotIn("multipart/form-data", html)
+
+    def test_verify_page_hides_the_drop_zone_before_signature(self):
+        req = self._new_request(signers=1)
+        req.action_send()
+        html = self.env["ir.qweb"]._render("bf_sign.verify_page", {
+            "req": req, "checks": {}, "signed_on_label": "", "genuine": False,
+        })
+        self.assertNotIn('id="bf_drop"', html)
+
     # ── audit hardening (18.0.3.17.1) ─────────────────────────────────────────
     def test_manual_reminder_is_debounced(self):
         req = self._new_request(signers=1)

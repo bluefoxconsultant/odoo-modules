@@ -944,6 +944,23 @@
                     ul.bf-checks { list-style:none; padding:0; margin:0; }
                     ul.bf-checks li { padding:5px 0; font-size:14px; }
                     .bf-note { color:#6b7379; font-size:13px; }
+                    .bf-drop { border:2px dashed #cfd6dc; border-radius:8px; padding:22px 16px;
+                               text-align:center; background:#fafbfc;
+                               transition:border-color .15s ease, background .15s ease; }
+                    .bf-drop.bf-over { border-color:#29ABE1; background:#f0f9fe; }
+                    .bf-drop p { margin:0 0 12px; font-size:14px; color:#6b7379; }
+                    .bf-btn { font:inherit; font-size:14px; border:1px solid #cfd6dc;
+                              background:#fff; color:#2D3031; border-radius:6px;
+                              padding:8px 16px; cursor:pointer; }
+                    .bf-btn:hover { border-color:#9aa4ad; }
+                    .bf-result { margin-top:14px; border-radius:8px; padding:14px 16px;
+                                 font-size:14px; }
+                    .bf-result strong { display:block; margin-bottom:4px; }
+                    .bf-result.bf-r-ok { background:#e8f5ee; border:1px solid #b6dcc6; color:#14603b; }
+                    .bf-result.bf-r-ko { background:#fdeeea; border:1px solid #f0c4b8; color:#8a2b18; }
+                    .bf-result.bf-r-busy { background:#f4f6f8; border:1px solid #e3e7eb; color:#6b7379; }
+                    .bf-cli { margin-top:14px; }
+                    .bf-cli summary { cursor:pointer; color:#6b7379; font-size:13px; }
                 </style>
             </head>
             <body>
@@ -999,10 +1016,44 @@
                             <dd t-if="req.hash_signed"><code t-esc="req.hash_signed"/></dd>
                         </dl>
                         <p class="bf-note" style="margin-top:16px;">
-                            Vous pouvez calculer vous-même l'empreinte de votre exemplaire et la
-                            comparer à celle ci-dessus. Aucun fichier n'est téléversé sur cette page,
-                            et le document n'y est jamais servi.
+                            Cette empreinte est celle de l'exemplaire conservé ici. Aucun fichier
+                            n'est téléversé sur cette page, et le document n'y est jamais servi.
                         </p>
+                    </div>
+
+                    <!-- Byte-for-byte comparison of the holder's own copy. Hashed in the
+                         browser via WebCrypto: nothing is uploaded, so the page keeps the
+                         promise it makes just above, and a public route gains no file
+                         intake to abuse. -->
+                    <div class="bf-card" t-if="req.hash_signed" id="bf_match"
+                         t-att-data-expected="req.hash_signed">
+                        <h2>Comparer votre exemplaire</h2>
+                        <p class="bf-note" style="margin:0 0 14px;">
+                            Déposez le PDF que vous avez reçu. Son empreinte est calculée
+                            <strong>dans votre navigateur</strong> puis comparée à celle
+                            ci-dessus. Le fichier ne quitte pas votre appareil : il n'est ni
+                            envoyé, ni conservé, ici ou ailleurs.
+                        </p>
+                        <div class="bf-drop" id="bf_drop">
+                            <input type="file" id="bf_file" accept="application/pdf,.pdf"
+                                   style="display:none;"/>
+                            <p>Glissez le document ici</p>
+                            <button type="button" class="bf-btn" id="bf_pick">Choisir un fichier</button>
+                        </div>
+                        <div class="bf-result" id="bf_result" style="display:none;"></div>
+                        <p class="bf-note" id="bf_nocrypto" style="display:none; margin:0;">
+                            Votre navigateur ne permet pas de calculer l'empreinte sur place.
+                            Utilisez la commande ci-dessous, puis comparez le résultat à
+                            l'empreinte affichée plus haut.
+                        </p>
+                        <details class="bf-cli">
+                            <summary>Le faire vous-même, en ligne de commande</summary>
+                            <p class="bf-note" style="margin:10px 0 0;">
+                                macOS, Linux : <code>shasum -a 256 document.pdf</code><br/>
+                                Windows (PowerShell) :
+                                <code>Get-FileHash document.pdf -Algorithm SHA256</code>
+                            </p>
+                        </details>
                     </div>
 
                     <div class="bf-card" t-if="checks">
@@ -1037,6 +1088,124 @@
                         <t t-esc="req.company_id.name"/>
                     </div>
                 </div>
+
+                <script type="text/javascript">
+                    <![CDATA[
+                    (function () {
+                        var card = document.getElementById('bf_match');
+                        if (!card) { return; }
+                        var expected = (card.getAttribute('data-expected') || '').toLowerCase();
+                        var drop = document.getElementById('bf_drop');
+                        var input = document.getElementById('bf_file');
+                        var pick = document.getElementById('bf_pick');
+                        var out = document.getElementById('bf_result');
+                        var subtle = window.crypto && window.crypto.subtle;
+                        // WebCrypto only exists in a secure context. On plain HTTP, or in an
+                        // old browser, the drop zone would swallow the file and answer
+                        // nothing — worse than not offering it. Fall back to the command.
+                        if (!expected || !subtle || !window.FileReader) {
+                            drop.style.display = 'none';
+                            document.getElementById('bf_nocrypto').style.display = 'block';
+                            return;
+                        }
+                        // A 100 MB read blocks the tab for seconds; signed bundles are a
+                        // fraction of that, so anything bigger is almost surely the wrong
+                        // file and is better sent to the command line.
+                        var MAX_BYTES = 100 * 1024 * 1024;
+
+                        function show(kind, title, detail) {
+                            out.className = 'bf-result bf-r-' + kind;
+                            out.textContent = '';
+                            var head = document.createElement('strong');
+                            head.textContent = title;
+                            out.appendChild(head);
+                            if (detail) {
+                                // textContent, not innerHTML: `detail` carries a filename
+                                // chosen by whoever prepared the file.
+                                out.appendChild(document.createTextNode(detail));
+                            }
+                            out.style.display = 'block';
+                        }
+
+                        function toHex(buffer) {
+                            var bytes = new Uint8Array(buffer);
+                            var hex = '';
+                            for (var i = 0; i < bytes.length; i++) {
+                                hex += (bytes[i] < 16 ? '0' : '') + bytes[i].toString(16);
+                            }
+                            return hex;
+                        }
+
+                        function check(file) {
+                            if (!file) { return; }
+                            if (file.size > MAX_BYTES) {
+                                show('ko', 'Fichier trop volumineux pour être vérifié ici.',
+                                     'Le document signé fait normalement quelques mégaoctets. ' +
+                                     'Utilisez la commande ci-dessous pour ce fichier.');
+                                return;
+                            }
+                            show('busy', "Calcul de l'empreinte…", file.name);
+                            var reader = new FileReader();
+                            reader.onerror = function () {
+                                show('ko', "Le fichier n'a pas pu être lu.",
+                                     'Réessayez, ou utilisez la commande ci-dessous.');
+                            };
+                            reader.onload = function () {
+                                subtle.digest('SHA-256', reader.result).then(function (digest) {
+                                    var got = toHex(digest);
+                                    if (got === expected) {
+                                        show('ok', "C'est bien ce document.",
+                                             "L'empreinte de « " + file.name + " » correspond " +
+                                             'exactement à celle enregistrée ici.');
+                                    } else {
+                                        show('ko', 'Ce fichier ne correspond pas.',
+                                             'Empreinte calculée : ' + got + '. La comparaison porte ' +
+                                             'sur les octets exacts : un PDF ré-enregistré par un ' +
+                                             'lecteur, une version imprimée puis renumérisée, ou le ' +
+                                             'certificat livré à part donneront eux aussi un écart. ' +
+                                             "Si vous pensez avoir le PDF signé d'origine, " +
+                                             "demandez à l'expéditeur de vous le renvoyer.");
+                                    }
+                                }).catch(function () {
+                                    show('ko', "Le calcul de l'empreinte a échoué.",
+                                         'Utilisez la commande ci-dessous.');
+                                });
+                            };
+                            reader.readAsArrayBuffer(file);
+                        }
+
+                        pick.addEventListener('click', function () { input.click(); });
+                        input.addEventListener('change', function () {
+                            check(input.files && input.files[0]);
+                        });
+                        ['dragenter', 'dragover'].forEach(function (name) {
+                            drop.addEventListener(name, function (e) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                drop.classList.add('bf-over');
+                            });
+                        });
+                        drop.addEventListener('dragleave', function (e) {
+                            // Moving onto a child fires dragleave on the zone itself; without
+                            // this the highlight strobes as the pointer crosses the button.
+                            if (!drop.contains(e.relatedTarget)) {
+                                drop.classList.remove('bf-over');
+                            }
+                        });
+                        drop.addEventListener('drop', function (e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            drop.classList.remove('bf-over');
+                            check(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]);
+                        });
+                        // A file dropped just beside the zone would otherwise make the browser
+                        // navigate to it, which reads as "the page swallowed my document".
+                        ['dragover', 'drop'].forEach(function (name) {
+                            window.addEventListener(name, function (e) { e.preventDefault(); });
+                        });
+                    })();
+                    ]]>
+                </script>
             </body>
         </html>
     </template>

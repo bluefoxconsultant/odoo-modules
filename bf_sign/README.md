@@ -75,6 +75,7 @@ signed document is then **posted back into the source record's thread**.
 - **SHA-256 hashes** of the original document, the stamped (timestamped) content and the sealed bundle.
 - **A chained append-only audit trail** (hash chain): UTC server timestamp, IP, user agent, identity method (`email_link_token` / `email_otp` / `internal_user`), before/after hashes — `write`/`unlink` blocked at ORM level.
 - **A public verification page** any holder of the document can reach, which **recomputes** the proofs at each visit rather than showing a stored verdict. It discloses no email address and never serves the document; the SHA-256 is displayed so a holder can compare their own copy.
+- **A drop zone on that page to compare their copy for them**, since expecting a counterparty to run `shasum` is expecting too much. The file is hashed **in the browser** (WebCrypto) and never uploaded, so the page keeps its "nothing is sent here" property and the public route gains no file intake; browsers without WebCrypto get the `shasum` / `Get-FileHash` commands instead.
 - **An optional verification QR stamped on the document itself** (choice of corner and pages), drawn as vector geometry so it survives printing.
 - **Structural locking**: recipients and fields frozen once the request is sent (editable only in "draft").
 - **RFC 3161 trusted timestamping** *(optional)*: a TSA token over the signed content, **shown in the certificate**, giving independent proof of date.
