@@ -22,12 +22,34 @@ ATTACHMENT_TOTAL_MB_PARAM = "bf_helpdesk.public_form_max_total_attachment_mb"
 
 # Block obvious dangerous extensions (defense in depth — most should be
 # stopped at the proxy too).
+#
+# ⚠ Kept in step with bf_survey_upload.DENY_EXTENSIONS and
+# bf_securetransfer._FALLBACK_DENY_EXTENSIONS. This list used to cover
+# executables and scripts but NOT the browser-renderable formats those two
+# classify first, under "Browser-renderable / XSS vectors" — yet the file lands
+# here from an anonymous POST on /support/<slug>, and ir.attachment derives the
+# mimetype from the name, so an .html arrived as text/html. Any addition below
+# belongs in all three lists.
 BLOCKED_EXTENSIONS = {
+    # Browser-renderable / XSS vectors
+    ".html", ".htm", ".xhtml", ".svg", ".svgz", ".mhtml", ".mht",
+    ".js", ".mjs", ".wasm",
+    # Server-side execution
+    ".php", ".php3", ".php4", ".php5", ".php7", ".phps", ".phtml", ".pht",
+    ".asp", ".aspx", ".ashx", ".cer",
+    ".jsp", ".jspx", ".jsv", ".jspf",
+    ".cgi", ".pl", ".rb", ".lua",
+    ".py", ".pyc", ".pyo",
+    ".swf",
+    ".class", ".jar", ".war", ".ear",
+    # Native executables and scripts
     ".exe", ".bat", ".cmd", ".com", ".scr", ".pif",
-    ".sh", ".msi", ".vbs", ".vbe", ".js", ".jse", ".wsf", ".wsh",
-    ".jar", ".ps1", ".ps1xml", ".dll", ".lnk", ".chm", ".hta",
-    ".php", ".php3", ".php4", ".php5", ".phtml",
-    ".rb", ".py", ".pyc", ".pyo",
+    ".sh", ".bash", ".zsh", ".msi", ".dll",
+    ".vbs", ".vbe", ".jse", ".wsf", ".wsh", ".hta",
+    ".ps1", ".ps1xml", ".psm1",
+    ".lnk", ".reg", ".chm",
+    # Web server config honored if dropped in a served path
+    ".htaccess", ".htpasswd",
 }
 
 

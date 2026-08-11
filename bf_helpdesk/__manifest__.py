@@ -1,7 +1,7 @@
 {
     "name": "Blue Fox — Helpdesk",
     "summary": "Fork OCA helpdesk_mgmt with BF integrations: hour bank, ticket timesheets, waiting states, branded public form, ntfy critical hook",
-    "version": "18.0.4.3.0",
+    "version": "18.0.4.3.1",
     "category": "After-Sales",
     "author": "Blue Fox Inc.",
     "website": "https://bluefoxconsultant.com",

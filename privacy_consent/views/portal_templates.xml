@@ -306,7 +306,11 @@
 
                             <t t-if="consent.purpose_id.plain_language_summary">
                                 <dt class="col-sm-4">Description</dt>
-                                <dd class="col-sm-8"><t t-raw="consent.purpose_id.plain_language_summary"/></dd>
+                                <!-- t-out, pas t-raw (déprécié depuis la 17) : le champ
+                                     est un fields.Html, donc l'ORM le rend en Markup et
+                                     la sortie est identique, mais la règle « échappé sauf
+                                     Markup » redevient vraie sur une page publique. -->
+                                <dd class="col-sm-8"><t t-out="consent.purpose_id.plain_language_summary"/></dd>
                             </t>
 
                             <dt class="col-sm-4">Demandé / Requested</dt>
@@ -343,7 +347,7 @@
                             <hr/>
                             <h6 style="color:var(--brand-primary, #714B67); font-weight:600;">Modèle de consentement / Consent Notice</h6>
                             <div class="p-3 rounded" style="background-color:var(--brand-dark, #212529); color:#ffffff; max-height:400px; overflow-y:auto; border-left:4px solid var(--brand-primary, #714B67);">
-                                <t t-raw="notice_html"/>
+                                <t t-out="notice_html"/>
                             </div>
                         </t>
 

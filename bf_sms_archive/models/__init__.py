@@ -1,3 +1,4 @@
+from . import ir_http
 from . import voipms_transport
 from . import sms_thread
 from . import sms_message

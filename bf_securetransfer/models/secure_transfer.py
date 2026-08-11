@@ -11,7 +11,6 @@ token checks — the public user has NO direct ACL on these models.
 """
 import base64
 import csv
-import hashlib
 import hmac
 import io
 import json
@@ -26,6 +25,7 @@ from werkzeug.utils import secure_filename
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
 from odoo.tools import email_normalize, email_split, formataddr, html_escape
+from odoo.tools import hmac as odoo_hmac  # aliased: `hmac` above is the stdlib one
 
 from . import pdf_watermark
 from . import s3
@@ -770,9 +770,28 @@ class SecureTransfer(models.Model):
         }
 
     # ------------------------------------------------------------------ OTP
-    @staticmethod
-    def _otp_hash(code):
-        return hashlib.sha256(("bf_st_otp:" + (code or "")).encode()).hexdigest()
+    @api.model
+    def _otp_hash(self, code):
+        """Keyed digest of a one-time code.
+
+        ⚠ This was a bare ``sha256("bf_st_otp:" + code)``. The code is six
+        digits and the prefix is a constant, not a salt: the whole 10^6 space
+        pre-computes in well under a second, so the digest protected nothing on
+        its own. The field carries ``groups="base.group_system"`` and the
+        recipient challenge lives in the server-side session, so the value never
+        leaked through the ORM — but anyone reading a database dump or a backup
+        recovered every pending code.
+
+        ``odoo.tools.hmac`` keys the digest on the database secret, which is not
+        in the same dump as the data for most deployment shapes and is not
+        shared between tenants. Same choice as bf_cx's unsubscribe token.
+
+        ⚠ Deploy note: this invalidates codes already in flight. Both consumers
+        are short-lived (a draft awaiting sender confirmation, a session-held
+        recipient challenge) and both offer a resend, so the blast radius is a
+        few minutes of "wrong code" — no migration needed.
+        """
+        return odoo_hmac(self.env(su=True), "bf_st_otp", code or "")
 
     @api.model
     def _needs_sender_otp_param(self):

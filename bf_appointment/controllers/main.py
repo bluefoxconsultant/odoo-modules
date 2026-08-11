@@ -23,23 +23,25 @@ _token_fail_data = defaultdict(list)  # IP -> [timestamps of failed attempts]
 _TOKEN_FAIL_MAX = 10  # max failed attempts
 _TOKEN_FAIL_WINDOW = 300  # per 5 minutes
 
+# Cap distinct tracked IPs so a flood of source IPs cannot grow the per-process
+# limiter dicts without bound (same guard as bf_meeting).
+_MAX_TRACKED_IPS = 10000
+
 
 def _client_ip():
-    """Return the real client IP, honoring X-Forwarded-For when behind a proxy.
+    """Best-effort client IP for rate limiting — socket peer only.
 
-    Odoo's proxy_mode applies ProxyFix at the WSGI layer, which replaces
-    REMOTE_ADDR with the leftmost X-Forwarded-For entry. But that rewrite only
-    fires when the raw REMOTE_ADDR matches a trusted proxy. Reading the header
-    ourselves as a fallback keeps the rate-limit bucket per-client instead of
-    per-proxy, so a single abusive client cannot lock out everyone behind the
-    reverse proxy.
+    ⚠ Do NOT read X-Forwarded-For / X-Real-IP here. This deployment runs Odoo
+    with ``proxy_mode = True``, so werkzeug's ProxyFix has already rewritten
+    ``remote_addr`` to the real client from a *trusted* number of proxy hops.
+    Parsing the headers ourselves trusts a value the caller controls whenever
+    the endpoint is reachable directly, which hands every client a fresh
+    rate-limit bucket on every request and defeats the limiter outright — most
+    visibly on ``/appointment/_consent_check``, whose 30/5 min ceiling is the
+    stated anti-enumeration control. Mirrors bf_meeting / bf_sign /
+    bf_securetransfer, which all refuse the headers for the same reason.
     """
     try:
-        env = request.httprequest.environ
-        for key in ("HTTP_X_REAL_IP", "HTTP_X_FORWARDED_FOR"):
-            value = env.get(key, "")
-            if value:
-                return value.split(",")[0].strip()
         return request.httprequest.remote_addr or "unknown"
     except Exception:
         return "unknown"
@@ -50,10 +52,13 @@ def _check_token_rate_limit():
     ip = _client_ip()
     now = time.monotonic()
     with _token_fail_lock:
-        attempts = _token_fail_data[ip]
         cutoff = now - _TOKEN_FAIL_WINDOW
-        _token_fail_data[ip] = [t for t in attempts if t > cutoff]
-        return len(_token_fail_data[ip]) < _TOKEN_FAIL_MAX
+        kept = [t for t in _token_fail_data[ip] if t > cutoff]
+        if kept:
+            _token_fail_data[ip] = kept
+        else:
+            _token_fail_data.pop(ip, None)  # bound memory: drop idle IPs
+        return len(kept) < _TOKEN_FAIL_MAX
 
 
 def _record_token_failure():
@@ -61,6 +66,8 @@ def _record_token_failure():
     ip = _client_ip()
     now = time.monotonic()
     with _token_fail_lock:
+        if len(_token_fail_data) > _MAX_TRACKED_IPS:
+            _token_fail_data.clear()  # bound memory under a distinct-IP flood
         _token_fail_data[ip].append(now)
 
 
@@ -185,11 +192,41 @@ def _check_consent_lookup_rate_limit():
     ip = _client_ip()
     now = time.monotonic()
     with _consent_lookup_lock:
+        if len(_consent_lookup_data) > _MAX_TRACKED_IPS:
+            _consent_lookup_data.clear()  # bound memory under a distinct-IP flood
         cutoff = now - _CONSENT_LOOKUP_WINDOW
         _consent_lookup_data[ip] = [t for t in _consent_lookup_data[ip] if t > cutoff]
         if len(_consent_lookup_data[ip]) >= _CONSENT_LOOKUP_MAX:
             return False
         _consent_lookup_data[ip].append(now)
+        return True
+
+
+# Booking creation: a POST on /appointment/<slug>/book is anonymous and, beyond
+# the honeypot, was unbounded — it creates a res.partner, a resource.booking,
+# privacy.consent + evidence rows, and (when the type sends one) mails a branded
+# acknowledgement to whatever address the caller typed. That last part is a mail
+# relay: capped here per IP. Mirrors bf_securetransfer's create ceiling.
+_book_lock = threading.Lock()
+_book_data = defaultdict(list)
+_BOOK_MAX = 10
+_BOOK_WINDOW = 3600  # per hour, per IP
+
+
+def _check_book_rate_limit():
+    """Atomic check-and-record on the anonymous booking-creation path."""
+    ip = _client_ip()
+    now = time.monotonic()
+    with _book_lock:
+        if len(_book_data) > _MAX_TRACKED_IPS:
+            _book_data.clear()
+        cutoff = now - _BOOK_WINDOW
+        kept = [t for t in _book_data[ip] if t > cutoff]
+        if len(kept) >= _BOOK_MAX:
+            _book_data[ip] = kept
+            return False
+        kept.append(now)
+        _book_data[ip] = kept
         return True
 
 
@@ -325,6 +362,16 @@ class AppointmentController(Controller):
         if kwargs.get("website_url"):
             _logger.info("Honeypot triggered on appointment form")
             return request.redirect("/appointment")
+        # Anti-abuse: bound the anonymous creation path before it writes a
+        # single row or sends a single mail.
+        if not _check_book_rate_limit():
+            _logger.warning(
+                "Booking rate limit hit for IP %s on /appointment/%s/book",
+                _client_ip(), slug,
+            )
+            return request.redirect(
+                f"/appointment/{slug}?error={quote_plus('Trop de demandes envoyées récemment. Réessayez dans une heure.')}"
+            )
         name = (kwargs.get("name") or "").strip()
         email = (kwargs.get("email") or "").strip()
         phone = (kwargs.get("phone") or "").strip()

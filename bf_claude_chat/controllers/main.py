@@ -259,6 +259,42 @@ def _generate_smart_title(db_name, session_id, fallback, user_msg, asst_resp, ap
         _logger.warning("Smart title generation failed", exc_info=True)
 
 
+def _validated_context_ref(env, context):
+    """(model, res_id) from the client-supplied page context, or (None, None).
+
+    Single choke-point for the access check. It used to live only in the
+    "new session" branch of send_message, while the block that actually ships
+    the value to the bridge re-derived it from the raw payload and gated on
+    nothing but ``model in env`` — so every message on an EXISTING session
+    forwarded whatever model/res_id the caller typed. The bridge resolves that
+    reference with its own credentials, so an unchecked pair is a way to have
+    records summarised that the caller cannot read.
+
+    Enforces the CALLER's access (ACL + record rules + multi-company) before the
+    reference is trusted anywhere. Returns (None, None) on anything unusable.
+    """
+    if not context or not isinstance(context, dict):
+        return None, None
+    model = str(context.get("model", ""))[:64]
+    try:
+        res_id = int(context["res_id"]) if context.get("res_id") else 0
+    except (TypeError, ValueError):
+        return None, None
+    if not model or not res_id or model not in env:
+        return None, None
+    try:
+        record = env[model].browse(res_id)
+        if not record.exists():
+            return None, None
+        record.check_access("read")
+    except Exception:
+        _logger.debug(
+            "claude chat: refused unvalidated context %s/%s", model, res_id,
+        )
+        return None, None
+    return model, res_id
+
+
 def _resolve_persona_summary(env, model, res_id):
     """Look up the persona summary for a record, if bf_persona is installed.
 
@@ -271,12 +307,13 @@ def _resolve_persona_summary(env, model, res_id):
     try:
         # Enforce the CALLER's read access on the record before any sudo, so a
         # crafted context (arbitrary model/res_id) cannot surface a record the
-        # user is not allowed to see (record rules + multi-company).
+        # user is not allowed to see (record rules + multi-company). Callers now
+        # arrive pre-validated via _validated_context_ref; this stays as the
+        # second lock on the sudo() below.
         record = env[model].browse(res_id)
-        record.check_access_rights("read")
-        record.check_access_rule("read")
         if not record.exists():
             return ""
+        record.check_access("read")
         partner_id = None
         if model == "res.partner":
             partner_id = res_id
@@ -317,6 +354,10 @@ class ClaudeChatController(http.Controller):
         Session = request.env["claude.chat.session"]
         Message = request.env["claude.chat.message"]
 
+        # Resolve the page context ONCE, access-checked, for both the session
+        # record and the bridge payload below.
+        ctx_model, ctx_res_id = _validated_context_ref(request.env, context)
+
         # Find or create Odoo session
         if session_id:
             session = Session.browse(int(session_id))
@@ -324,19 +365,9 @@ class ClaudeChatController(http.Controller):
                 return {"error": "Session not found"}
         else:
             vals = {"name": "New Chat", "user_id": user.id}
-            if context and isinstance(context, dict):
-                m = str(context.get("model", ""))[:64]
-                r = int(context["res_id"]) if context.get("res_id") else 0
-                if m and r:
-                    # Validate model exists and user has read access
-                    try:
-                        if m in request.env:
-                            request.env[m].check_access_rights("read")
-                            request.env[m].browse(r).check_access_rule("read")
-                            vals["res_model"] = m
-                            vals["res_id"] = r
-                    except Exception:
-                        pass  # silently skip invalid context
+            if ctx_model and ctx_res_id:
+                vals["res_model"] = ctx_model
+                vals["res_id"] = ctx_res_id
             session = Session.create(vals)
 
         # Save user message
@@ -360,30 +391,23 @@ class ClaudeChatController(http.Controller):
         if settings["api_key"]:
             bridge_payload["api_key"] = settings["api_key"]
 
-        # Pass Odoo page context if provided (only if model was validated above)
+        # Pass Odoo page context if provided. model/res_id travel ONLY when
+        # _validated_context_ref cleared them for this caller; the cosmetic
+        # fields are always safe to forward.
         if context and isinstance(context, dict):
-            ctx_model = str(context.get("model", ""))[:64]
-            ctx_res_id = int(context["res_id"]) if context.get("res_id") else None
-            # Only include model/res_id if they were validated during session creation
-            if ctx_model and ctx_model in request.env:
-                bridge_payload["context"] = {
-                    "model": ctx_model,
-                    "res_id": ctx_res_id,
-                    "display_name": str(context.get("display_name", ""))[:200],
-                    "view_type": str(context.get("view_type", ""))[:20],
-                    "url": str(context.get("url", ""))[:500],
-                }
+            bridge_payload["context"] = {
+                "display_name": str(context.get("display_name", ""))[:200],
+                "view_type": str(context.get("view_type", ""))[:20],
+                "url": str(context.get("url", ""))[:500],
+            }
+            if ctx_model and ctx_res_id:
+                bridge_payload["context"]["model"] = ctx_model
+                bridge_payload["context"]["res_id"] = ctx_res_id
                 persona_summary = _resolve_persona_summary(
                     request.env, ctx_model, ctx_res_id,
                 )
                 if persona_summary:
                     bridge_payload["context"]["persona_summary"] = persona_summary[:2000]
-            else:
-                bridge_payload["context"] = {
-                    "display_name": str(context.get("display_name", ""))[:200],
-                    "view_type": str(context.get("view_type", ""))[:20],
-                    "url": str(context.get("url", ""))[:500],
-                }
 
         # Call bridge service via Unix socket
         try:

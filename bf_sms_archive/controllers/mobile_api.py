@@ -13,7 +13,10 @@ propriétaire des fils s'appliquent telles quelles.
 import functools
 import json
 import logging
+import threading
+import time
 import urllib.parse
+from collections import defaultdict
 
 from werkzeug.utils import redirect as wz_redirect
 
@@ -29,6 +32,50 @@ BASE = "/bf_sms_archive/mobile/v1"
 SMS_USER_GROUP = "bf_sms_archive.group_sms_user"
 REDIRECT_SCHEMES_PARAM = "bf_sms_archive.mobile_redirect_schemes"
 DEFAULT_REDIRECT_SCHEMES = "odoosms://"  # BF ajoute son schéma via l'ICP
+
+# ── Anti-bourrage sur /login ──────────────────────────────────────────────────
+# Cette route valide un mot de passe hors du parcours /web/login. Sans plafond,
+# c'est un banc d'essai d'identifiants pour TOUTE l'instance, sans session ni
+# cookie (save_session=False) donc sans trace côté sessions. Deux compteurs :
+# par IP (une source qui balaie beaucoup de comptes) et par identifiant (un
+# botnet distribué qui vise un seul compte).
+_login_lock = threading.Lock()
+_login_ip_data = defaultdict(list)
+_login_id_data = defaultdict(list)
+_LOGIN_IP_MAX = 20
+_LOGIN_ID_MAX = 8
+_LOGIN_WINDOW = 900  # 15 min
+_MAX_TRACKED_KEYS = 10000
+
+
+def _login_ip():
+    """Socket peer only — jamais X-Forwarded-For (en-tête contrôlé par l'appelant,
+    qui donnerait un compteur neuf à chaque requête)."""
+    try:
+        return request.httprequest.remote_addr or "unknown"
+    except Exception:
+        return "unknown"
+
+
+def _login_rate_ok(login):
+    """Check-and-record atomique sur les deux compteurs."""
+    now = time.monotonic()
+    cutoff = now - _LOGIN_WINDOW
+    ip = _login_ip()
+    key = (login or "").strip().lower()[:128]
+    with _login_lock:
+        for store in (_login_ip_data, _login_id_data):
+            if len(store) > _MAX_TRACKED_KEYS:
+                store.clear()
+        ip_hits = [t for t in _login_ip_data[ip] if t > cutoff]
+        id_hits = [t for t in _login_id_data[key] if t > cutoff]
+        if len(ip_hits) >= _LOGIN_IP_MAX or len(id_hits) >= _LOGIN_ID_MAX:
+            _login_ip_data[ip], _login_id_data[key] = ip_hits, id_hits
+            return False
+        ip_hits.append(now)
+        id_hits.append(now)
+        _login_ip_data[ip], _login_id_data[key] = ip_hits, id_hits
+        return True
 
 
 def _push_config():
@@ -95,11 +142,31 @@ class BfSmsMobileApi(http.Controller):
     @http.route(f"{BASE}/login", type="http", auth="public", methods=["POST"],
                 csrf=False, save_session=False)
     def login(self, **kw):
+        """⚠ Chemin hérité : mot de passe seul, hors du parcours /web/login.
+
+        Préférer ``/auth/start``, qui délègue à /web/login et récupère donc le
+        SSO Authentik ET le second facteur. Ce qui est verrouillé ici :
+
+        - plafond par IP et par identifiant (voir _login_rate_ok) ;
+        - réponse d'échec UNIFORME. Le contrôle de groupe venait après
+          l'authentification avec un code distinct (401 vs 403), ce qui faisait
+          de la route un validateur de couples identifiant/mot de passe pour
+          n'importe quel compte de l'instance, SMS ou non. La vraie raison part
+          au journal serveur, pas au client ;
+        - refus quand le compte porte un TOTP actif : un chemin sans second
+          facteur ne doit pas émettre un jeton porteur durable pour un compte
+          protégé par MFA.
+        """
         data = _body()
         login = (data.get("login") or "").strip()
         password = data.get("password") or ""
         if not login or not password:
             return _json({"error": "missing_credentials"}, 400)
+        if not _login_rate_ok(login):
+            _logger.warning(
+                "Mobile API : plafond de connexion atteint (IP %s, identifiant %s)",
+                _login_ip(), login[:64])
+            return _json({"error": "rate_limited"}, 429)
         credential = {"type": "password", "login": login, "password": password}
         try:
             auth_info = request.env["res.users"].sudo().authenticate(
@@ -108,8 +175,20 @@ class BfSmsMobileApi(http.Controller):
             return _json({"error": "invalid_credentials"}, 401)
         uid = auth_info["uid"] if isinstance(auth_info, dict) else auth_info
         user = request.env["res.users"].sudo().browse(uid)
+        # MFA : auth_totp impose le second facteur dans /web/login, pas dans
+        # authenticate(). Renvoyer l'app vers /auth/start plutôt que de contourner.
+        if "totp_enabled" in user._fields and user.totp_enabled:
+            _logger.info(
+                "Mobile API : connexion par mot de passe refusée pour %s "
+                "(TOTP actif) — utiliser /auth/start", user.login)
+            return _json({"error": "mfa_required",
+                          "auth_start": f"{BASE}/auth/start"}, 403)
         if not user.has_group(SMS_USER_GROUP):
-            return _json({"error": "not_authorized_for_sms"}, 403)
+            # Réponse identique à un mot de passe erroné : pas d'oracle.
+            _logger.info(
+                "Mobile API : identifiants valides mais compte hors du groupe "
+                "SMS (%s) — réponse uniforme", user.login)
+            return _json({"error": "invalid_credentials"}, 401)
         device = request.env["sms.archive.mobile.device"]._issue(
             uid, name=data.get("device_name"), platform=data.get("platform", "android"))
         request.update_env(user=uid)

@@ -29,6 +29,25 @@ def _escape_ics(value):
     return value
 
 
+def _escape_ics_param(value):
+    """Sanitise a string for use inside a QUOTED ICS parameter value (CN="…").
+
+    Different rules from _escape_ics: inside a quoted param, ``;`` and ``,`` are
+    literal, but the double quote terminates the value. Passing a name straight
+    through let a booker whose name contains ``"`` close CN= and append their own
+    parameters (SENT-BY, DIR, a second CN) on the ATTENDEE line — the name comes
+    from the public intake form, where only .strip() is applied. CR/LF are folded
+    to a space so no property can be started either.
+    """
+    if not value:
+        return ""
+    value = value.replace("\r\n", " ").replace("\r", " ").replace("\n", " ")
+    value = "".join(c for c in value if c.isprintable())
+    # RFC 6868 caret escaping is the standards-blessed encoding, but client
+    # support is uneven; dropping the quote is lossless enough for a display name.
+    return value.replace('"', "'")
+
+
 # Minimal VTIMEZONE block for America/Toronto (EST/EDT). Hard-coded because it
 # covers every BF booking today, and including a VTIMEZONE is required by
 # RFC 5545 when TZID references are used in DTSTART/DTEND.
@@ -617,7 +636,7 @@ class ResourceBooking(models.Model):
             self.env.company.email
             or "service@example.com"
         )
-        organizer_name = _escape_ics(
+        organizer_name = _escape_ics_param(
             self.env.company.name or "Blue Fox"
         )
         ics = (
@@ -636,7 +655,7 @@ class ResourceBooking(models.Model):
             f'ORGANIZER;CN="{organizer_name}":mailto:{organizer_email}\r\n'
         )
         if self.partner_id and self.partner_id.email:
-            attendee_name = _escape_ics(self.partner_id.name or "")
+            attendee_name = _escape_ics_param(self.partner_id.name or "")
             ics += (
                 f'ATTENDEE;CN="{attendee_name}";ROLE=REQ-PARTICIPANT;'
                 f"PARTSTAT=NEEDS-ACTION;RSVP=TRUE:"

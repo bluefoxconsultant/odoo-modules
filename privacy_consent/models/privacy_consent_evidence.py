@@ -172,27 +172,22 @@ class PrivacyConsentEvidence(models.Model):
 
     @api.model
     def _get_client_ip(self, httprequest):
-        """Get the real client IP address, handling reverse proxies.
+        """Client IP for the evidence record — socket peer only.
 
-        Checks X-Forwarded-For and X-Real-IP headers commonly set by
-        reverse proxies (nginx, Apache, Cloudflare, etc.)
+        ⚠ This value is not a metric, it is EVIDENCE: it lands in
+        ``privacy.consent.evidence.ip_address``, the record this module exists
+        to produce under art. 14 of Law 25. Reading X-Forwarded-For / X-Real-IP
+        (as this did) means the person consenting chooses the IP written to
+        their own file — the public routes
+        ``/privacy/consent/<id>/<token>/respond|withdraw|renew`` are
+        unauthenticated, so nothing distinguishes a real address from a picked
+        one, and the register loses its probative value.
 
-        Returns the first public IP found, or falls back to remote_addr.
+        Odoo runs behind the proxy with ``proxy_mode = True``, so ProxyFix has
+        already resolved ``remote_addr`` from a *trusted* hop count. If a
+        deployment ever genuinely needs to traverse an extra proxy, do it with a
+        configured trusted-proxy list, never by reading the header directly.
         """
-        # Check X-Forwarded-For header (can contain multiple IPs: client, proxy1, proxy2)
-        xff = httprequest.headers.get("X-Forwarded-For", "")
-        if xff:
-            # Take the first IP (original client)
-            ips = [ip.strip() for ip in xff.split(",")]
-            if ips:
-                return ips[0]
-
-        # Check X-Real-IP header (single IP, set by nginx)
-        xri = httprequest.headers.get("X-Real-IP", "")
-        if xri:
-            return xri.strip()
-
-        # Fallback to remote_addr
         return httprequest.remote_addr
 
     @api.model

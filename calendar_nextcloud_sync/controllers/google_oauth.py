@@ -18,6 +18,7 @@ import os
 from urllib.parse import urlencode
 
 import werkzeug
+from markupsafe import escape
 
 from odoo import _, http
 from odoo.exceptions import UserError
@@ -49,7 +50,17 @@ CALLBACK_PATH = "/bf_calendar/google/oauth/callback"
 
 
 def _render_error(title, message, recoverable=True):
-    """Return a minimal HTML error page."""
+    """Return a minimal HTML error page.
+
+    ⚠ ``message`` carries attacker-controlled text on the callback route: Google
+    hands back ``?error=<code>``, but nothing stops a third party from sending a
+    victim straight to ``/bf_calendar/google/oauth/callback?error=<payload>``.
+    The route is ``auth="public"`` and this response is served as text/html on
+    the Odoo origin, so an unescaped interpolation here is a reflected XSS that
+    can drive ``call_kw`` as whoever is logged in. Both parts are escaped, and a
+    locked-down CSP is attached as a second line of defence.
+    """
+    title, message = escape(title), escape(message)
     html = f"""<!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -74,7 +85,16 @@ def _render_error(title, message, recoverable=True):
 </html>
 """
     return request.make_response(
-        html, headers=[("Content-Type", "text/html; charset=utf-8")]
+        html,
+        headers=[
+            ("Content-Type", "text/html; charset=utf-8"),
+            ("Content-Security-Policy",
+             "default-src 'none'; style-src 'unsafe-inline'; "
+             "frame-ancestors 'none'; base-uri 'none'; form-action 'none'"),
+            ("X-Frame-Options", "DENY"),
+            ("X-Content-Type-Options", "nosniff"),
+            ("Referrer-Policy", "strict-origin-when-cross-origin"),
+        ],
     )
 
 

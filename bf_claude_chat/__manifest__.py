@@ -1,6 +1,6 @@
 {
     "name": "TentaClaude",
-    "version": "18.0.1.5.1",
+    "version": "18.0.1.5.2",
     "category": "Productivity",
     "summary": "Chat with Claude AI directly inside Odoo",
     "author": "Blue Fox Inc.",
