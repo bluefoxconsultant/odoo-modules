@@ -54,7 +54,7 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | `bf_cx_crm` | Expérience client - sondage post-perte CRM | 18.0.1.1.0 | LGPL-3 | Automatic win/loss survey when a CRM opportunity is marked lost |
 | `bf_cx_dashboard` | Expérience client - tuile tableau de bord | 18.0.1.1.0 | LGPL-3 | NPS tile with pending detractors and open complaints on the Blue Fox dashboard |
 | `bf_cx_digest` | Expérience client - digest quotidien | 18.0.1.1.0 | LGPL-3 | Customer-experience section (follow-ups, complaints, NPS) in the daily digest |
-| `bf_cx_fundraising` | Expérience client : sondage donateur | 18.0.1.0.1 | LGPL-3 | Donor experience survey after a donation is confirmed (fundraising suite) |
+| `bf_cx_fundraising` | Expérience client : sondage donateur | 18.0.1.0.1 | AGPL-3 | Donor experience survey after a donation is confirmed (fundraising suite) |
 | `bf_cx_gamification` | Expérience client : XP Fox Quest | 18.0.1.0.0 | LGPL-3 | Fox Quest XP for closed-loop follow-ups and resolved complaints |
 | `bf_cx_helpdesk` | Expérience client - pont Helpdesk | 18.0.1.1.0 | LGPL-3 | Helpdesk tickets from complaints and detractor feedback, with a dedicated Complaints team |
 | `bf_cx_hosting` | Expérience client : CSAT post-maintenance | 18.0.1.1.0 | LGPL-3 | CSAT request after a completed planned maintenance (opt-in) |
@@ -77,7 +77,7 @@ Install one of these meta-modules to pull in a coherent set in a single click:
 | `bf_fundraising_core` | Levée de fonds — Cœur | 18.0.1.0.0 | AGPL-3 | Donor management and fundraising structure (Funds / Campaigns / Appeals / Packages) on top of the Donation module — comparable to Raiser's Edge |
 | `bf_fundraising_web` | Levée de fonds — Web & Portail donateur | 18.0.1.0.2 | AGPL-3 | Public website donation form + donor portal (giving history and official receipt download) |
 | `bf_gamification` | Fox Quest | 18.0.2.3.0 | LGPL-3 | Gamification system with XP, levels, badges, and rewards |
-| `bf_helpdesk` | Blue Fox — Helpdesk | 18.0.4.3.1 | LGPL-3 | Branded helpdesk extension: per-team public form, hour-bank ribbon, waiting states, ntfy critical hook, persona panel, knowledge-matrix link, ticket→meeting, IA triage via Claude, CSAT on close, branded portal, dashboard tile, IMAP gateway hardening, SLA + macros + auto-tag + auto-ack, ticket timesheets (hour-bank deduction), branded client updates |
+| `bf_helpdesk` | Blue Fox — Helpdesk | 18.0.4.3.1 | AGPL-3 | Branded helpdesk extension: per-team public form, hour-bank ribbon, waiting states, ntfy critical hook, persona panel, knowledge-matrix link, ticket→meeting, IA triage via Claude, CSAT on close, branded portal, dashboard tile, IMAP gateway hardening, SLA + macros + auto-tag + auto-ack, ticket timesheets (hour-bank deduction), branded client updates |
 | `bf_hour_bank` | Banque d'heures | 18.0.1.15.0 | LGPL-3 | Automated tracking of client hour banks with threshold-based proactive notifications (unbilled hours, % of allocated budget, balance floor) |
 | `bf_invoice_ocr` | Blue Fox — Invoice OCR Scanner | 18.0.1.0.0 | LGPL-3 | Extract vendor bill data from PDF attachments via the bf_llm gateway |
 | `bf_letter_writer` | Letter Writer | 18.0.2.0.0 | LGPL-3 | Branded official-letter editor: 5 letterhead modes, field merge (`{{ }}`), reusable templates and quick-text blocks, email + PDF send |

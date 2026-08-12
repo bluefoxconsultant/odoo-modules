@@ -5,7 +5,7 @@
     "category": "After-Sales",
     "author": "Blue Fox Inc.",
     "website": "https://bluefoxconsultant.com",
-    'license': 'LGPL-3',
+    'license': 'AGPL-3',
     "depends": [
         "website",
         "helpdesk_mgmt",
