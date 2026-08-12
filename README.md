@@ -1,3 +1,13 @@
+> [!IMPORTANT]
+> **This repository has moved to [Symbifox/odoo-modules](https://github.com/Symbifox/odoo-modules).**
+>
+> The suite is now developed as a product under its own name. This repository is
+> archived and read-only; it remains available as the historical record of the
+> releases made under LGPL-3, which stay LGPL-3 in perpetuity — nothing published
+> here is withdrawn or relicensed retroactively.
+>
+> New development, including the current licensing, happens in the new repository.
+
 # Blue Fox — Odoo 18 CE Modules
 
 Custom Odoo 18 Community Edition modules developed by [Blue Fox Inc.](https://bluefoxconsultant.com)
